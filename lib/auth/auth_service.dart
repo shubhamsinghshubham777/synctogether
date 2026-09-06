@@ -137,9 +137,18 @@ class AuthService {
       ? 'http://localhost:3000/auth/desktop-callback'
       : 'https://synctogether.app/auth/desktop-callback';
 
+  void _ensureConfigured() {
+    if (Env.supabaseUrl.isEmpty) {
+      throw const AuthException(
+        'Backend service URL is not configured. Please build with SUPABASE_URL.',
+      );
+    }
+  }
+
   /// Native Sign in with Apple on macOS and iOS via ASAuthorizationAppleIDButton /
   /// Apple ID Credential sheet.
   Future<void> signInWithApple() async {
+    _ensureConfigured();
     final rawNonce = _client.auth.generateRawNonce();
     final hashedNonce = sha256.convert(utf8.encode(rawNonce)).toString();
 
@@ -177,6 +186,7 @@ class AuthService {
 
   /// Upgrades a guest to an Apple account in place (same user id).
   Future<void> linkAppleIdentity() async {
+    _ensureConfigured();
     final rawNonce = _client.auth.generateRawNonce();
     final hashedNonce = sha256.convert(utf8.encode(rawNonce)).toString();
 
@@ -213,6 +223,7 @@ class AuthService {
 
   /// Sends a 6-digit OTP code to the given email address.
   Future<void> sendEmailOtp(String email, {String? captchaToken}) async {
+    _ensureConfigured();
     await _client.auth.signInWithOtp(
       email: email.trim(),
       emailRedirectTo: _authRedirectUrl,
@@ -222,6 +233,7 @@ class AuthService {
 
   /// Verifies a 6-digit OTP token sent to an email address.
   Future<void> verifyEmailOtp({required String email, required String token}) async {
+    _ensureConfigured();
     await _client.auth.verifyOTP(email: email.trim(), token: token.trim(), type: OtpType.email);
   }
 
@@ -245,6 +257,7 @@ class AuthService {
   );
 
   Future<void> _startOAuth(Future<bool> Function() launch) async {
+    _ensureConfigured();
     _beginOAuthWindow();
     try {
       // launchUrl reports failure by returning false rather than throwing, and
@@ -260,6 +273,7 @@ class AuthService {
   }
 
   Future<void> signInAsGuest({String? captchaToken}) async {
+    _ensureConfigured();
     await _client.auth.signInAnonymously(captchaToken: captchaToken);
   }
 

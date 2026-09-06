@@ -44,6 +44,8 @@ class Env {
   static String? overridePosthogApiKey;
   @visibleForTesting
   static String? overridePosthogHost;
+  @visibleForTesting
+  static bool? overrideReleaseMode;
 
   @visibleForTesting
   static void resetOverridesForTesting() {
@@ -56,7 +58,10 @@ class Env {
     overrideSentryDsn = null;
     overridePosthogApiKey = null;
     overridePosthogHost = null;
+    overrideReleaseMode = null;
   }
+
+  static bool get _isDebug => overrideReleaseMode == true ? false : kDebugMode;
 
   /// Debug builds talk to the local Supabase stack when one is configured, so
   /// migrations, RPC changes and destructive testing never touch the project
@@ -69,7 +74,7 @@ class Env {
     final effectiveProd = overrideSupabaseUrl ?? _envSupabaseUrl;
     if (effectiveProd.isNotEmpty) return effectiveProd;
 
-    return kDebugMode ? defaultLocalSupabaseUrl : '';
+    return _isDebug ? defaultLocalSupabaseUrl : '';
   }
 
   static String get supabasePublishableKey {
@@ -82,13 +87,13 @@ class Env {
     final effectiveProd = overrideSupabasePublishableKey ?? _envSupabasePublishableKey;
     if (effectiveProd.isNotEmpty) return effectiveProd;
 
-    return kDebugMode ? defaultLocalSupabasePublishableKey : '';
+    return _isDebug ? defaultLocalSupabasePublishableKey : '';
   }
 
   /// True when this build is pointed at a local stack rather than production -
   /// surfaced in the lobby so a debug session can never be mistaken for one.
   static bool get usingLocalStack {
-    if (!kDebugMode) return false;
+    if (!_isDebug) return false;
     final localUrl = _local(overrideSupabaseUrlLocal ?? _envSupabaseUrlLocal);
     if (localUrl != null) return true;
     final prodUrl = overrideSupabaseUrl ?? _envSupabaseUrl;
@@ -96,7 +101,7 @@ class Env {
   }
 
   static String? _local(String value) {
-    if (!kDebugMode) return null;
+    if (!_isDebug) return null;
     return value.isEmpty ? null : value;
   }
 

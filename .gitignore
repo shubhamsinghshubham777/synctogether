@@ -65,3 +65,10 @@ supabase/.temp/
 dsa_priv.pem
 dsaparam.pem
 sparkle_ed_private_key
+
+# Secrets backup bundles (never commit to git)
+*secrets-bundle*
+*.secrets.txt
+secrets.txt
+*.bundle.txt
+

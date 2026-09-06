@@ -47,7 +47,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: build/windows
-          key: ${{ runner.os }}-flutter-build-${{ hashFiles('pubspec.lock') }}
+          key: ${{ runner.os }}-flutter-build-store-${{ hashFiles('pubspec.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-flutter-build-store-
 
       - name: Extract version from pubspec.yaml
         id: version
@@ -75,6 +77,10 @@ jobs:
           POSTHOG_API_KEY: ${{ secrets.POSTHOG_API_KEY }}
           POSTHOG_HOST: ${{ secrets.POSTHOG_HOST }}
         run: |
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_PUBLISHABLE_KEY" ]; then
+            echo "::error::SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY secrets must be configured in GitHub repository secrets."
+            exit 1
+          fi
           flutter build windows --release \
             --dart-define=STORE_BUILD=true \
             --dart-define=SUPABASE_URL="$SUPABASE_URL" \
@@ -89,7 +95,7 @@ jobs:
         shell: pwsh
         run: |
           $version = "${{ steps.version.outputs.APP_VERSION }}.0"
-          dart run msix:create --store --version $version --output-name "SyncTogether-${{ steps.version.outputs.APP_VERSION }}-Store"
+          dart run msix:create --store --build-windows false --version $version --output-name "SyncTogether-${{ steps.version.outputs.APP_VERSION }}-Store"
 
       - name: Upload MSIX artifact
         uses: actions/upload-artifact@v4

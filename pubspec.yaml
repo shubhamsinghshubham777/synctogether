@@ -106,6 +106,7 @@ msix_config:
   protocol_activation: synctogether
   architecture: x64
   store: true
+  build_windows: false
 
 # Regenerate with: fvm dart run flutter_launcher_icons
 # Source art in assets/icon/ is built by tool/generate_app_icon.py from the

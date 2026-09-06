@@ -59,4 +59,21 @@ void main() {
     expect(Env.usingLocalStack, isTrue);
     expect(Env.turnstileSiteKey, Env.defaultLocalTurnstileSiteKey);
   });
+
+  test('a release build with no defines returns empty Supabase URL and key', () {
+    Env.overrideReleaseMode = true;
+    expect(Env.supabaseUrl, isEmpty);
+    expect(Env.supabasePublishableKey, isEmpty);
+    expect(Env.usingLocalStack, isFalse);
+  });
+
+  test('a release build with production defines returns production values', () {
+    Env.overrideReleaseMode = true;
+    Env.overrideSupabaseUrl = 'https://custom.supabase.co';
+    Env.overrideSupabasePublishableKey = 'sb_publishable_custom';
+
+    expect(Env.supabaseUrl, 'https://custom.supabase.co');
+    expect(Env.supabasePublishableKey, 'sb_publishable_custom');
+    expect(Env.usingLocalStack, isFalse);
+  });
 }

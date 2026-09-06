@@ -59,6 +59,13 @@ Future<void> _bootstrap() async {
   // Windows needs a WebView2 environment rooted somewhere writable before the
   // guest captcha can render; everywhere else this returns immediately.
   await PTWebView.init();
+  if (Env.supabaseUrl.isEmpty) {
+    reportNonFatal(
+      StateError('Supabase URL is empty; check compile-time SUPABASE_URL define'),
+      StackTrace.current,
+      during: 'Supabase initialization',
+    );
+  }
   await Supabase.initialize(url: Env.supabaseUrl, publishableKey: Env.supabasePublishableKey);
   trace('supabase ready', category: 'auth', data: {'local_stack': Env.usingLocalStack});
   if (kDemoMode) {

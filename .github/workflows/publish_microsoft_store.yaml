@@ -40,10 +40,6 @@ jobs:
           VERSION=$(grep '^version:' pubspec.yaml | cut -d ' ' -f 2 | cut -d '+' -f 1)
           echo "APP_VERSION=$VERSION" >> "$GITHUB_OUTPUT"
 
-      - name: Create .env file
-        run: |
-          echo "${{ secrets.ENV_FILE }}" | Out-File -FilePath .env -Encoding utf8
-
       - name: Install dependencies
         run: |
           flutter config --enable-windows-desktop
@@ -53,7 +49,25 @@ jobs:
         run: ./.github/scripts/preextract-libwebrtc.ps1
 
       - name: Build Windows App (Store mode)
-        run: flutter build windows --release --dart-define=STORE_BUILD=true
+        shell: bash
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+          LIVEKIT_URL: ${{ secrets.LIVEKIT_URL }}
+          TURNSTILE_SITE_KEY: ${{ secrets.TURNSTILE_SITE_KEY }}
+          SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
+          POSTHOG_API_KEY: ${{ secrets.POSTHOG_API_KEY }}
+          POSTHOG_HOST: ${{ secrets.POSTHOG_HOST }}
+        run: |
+          flutter build windows --release \
+            --dart-define=STORE_BUILD=true \
+            --dart-define=SUPABASE_URL="$SUPABASE_URL" \
+            --dart-define=SUPABASE_PUBLISHABLE_KEY="$SUPABASE_PUBLISHABLE_KEY" \
+            --dart-define=LIVEKIT_URL="$LIVEKIT_URL" \
+            --dart-define=TURNSTILE_SITE_KEY="$TURNSTILE_SITE_KEY" \
+            --dart-define=SENTRY_DSN="$SENTRY_DSN" \
+            --dart-define=POSTHOG_API_KEY="$POSTHOG_API_KEY" \
+            --dart-define=POSTHOG_HOST="$POSTHOG_HOST"
 
       - name: Create MSIX Package
         shell: pwsh
@@ -74,31 +88,31 @@ jobs:
       - name: Configure Microsoft Store CLI
         if: ${{ inputs.publish_to_store }}
         env:
-          AZURE_AD_TENANT_ID: ${{ secrets.AZURE_AD_TENANT_ID }}
+          ENTRA_TENANT_ID: ${{ secrets.ENTRA_TENANT_ID || secrets.MICROSOFT_ENTRA_TENANT_ID || secrets.AZURE_AD_TENANT_ID }}
           MSSTORE_SELLER_ID: ${{ secrets.MSSTORE_SELLER_ID }}
-          AZURE_AD_CLIENT_ID: ${{ secrets.AZURE_AD_CLIENT_ID }}
-          AZURE_AD_CLIENT_SECRET: ${{ secrets.AZURE_AD_CLIENT_SECRET }}
+          ENTRA_CLIENT_ID: ${{ secrets.ENTRA_CLIENT_ID || secrets.MICROSOFT_ENTRA_CLIENT_ID || secrets.AZURE_AD_CLIENT_ID }}
+          ENTRA_CLIENT_SECRET: ${{ secrets.ENTRA_CLIENT_SECRET || secrets.MICROSOFT_ENTRA_CLIENT_SECRET || secrets.AZURE_AD_CLIENT_SECRET }}
         shell: pwsh
         run: |
-          if (-not $env:AZURE_AD_CLIENT_ID -or -not $env:AZURE_AD_TENANT_ID) {
-            Write-Host "Microsoft Store credentials (AZURE_AD_CLIENT_ID / AZURE_AD_TENANT_ID) are not configured."
+          if (-not $env:ENTRA_CLIENT_ID -or -not $env:ENTRA_TENANT_ID) {
+            Write-Host "Microsoft Store credentials (ENTRA_CLIENT_ID / ENTRA_TENANT_ID) are not configured."
             Write-Host "Skipping automated Partner Center publish (the MSIX artifact was built and uploaded successfully above)."
             exit 0
           }
           msstore reconfigure `
-            --tenantId "$env:AZURE_AD_TENANT_ID" `
+            --tenantId "$env:ENTRA_TENANT_ID" `
             --sellerId "$env:MSSTORE_SELLER_ID" `
-            --clientId "$env:AZURE_AD_CLIENT_ID" `
-            --clientSecret "$env:AZURE_AD_CLIENT_SECRET"
+            --clientId "$env:ENTRA_CLIENT_ID" `
+            --clientSecret "$env:ENTRA_CLIENT_SECRET"
 
       - name: Publish to Microsoft Partner Center
         if: ${{ inputs.publish_to_store }}
         env:
-          AZURE_AD_CLIENT_ID: ${{ secrets.AZURE_AD_CLIENT_ID }}
+          ENTRA_CLIENT_ID: ${{ secrets.ENTRA_CLIENT_ID || secrets.MICROSOFT_ENTRA_CLIENT_ID || secrets.AZURE_AD_CLIENT_ID }}
           MSSTORE_PRODUCT_ID: ${{ secrets.MSSTORE_PRODUCT_ID }}
         shell: pwsh
         run: |
-          if (-not $env:AZURE_AD_CLIENT_ID) {
+          if (-not $env:ENTRA_CLIENT_ID) {
             Write-Host "Skipping publish step because credentials are not configured."
             exit 0
           }

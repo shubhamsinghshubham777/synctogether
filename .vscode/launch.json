@@ -10,6 +10,14 @@
             "type": "dart"
         },
         {
+            "name": "debug (with .env file)",
+            "request": "launch",
+            "type": "dart",
+            "args": [
+                "--dart-define-from-file=.env"
+            ]
+        },
+        {
             "name": "Demo Mode",
             "request": "launch",
             "type": "dart",

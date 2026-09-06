@@ -1,6 +1,19 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+if [ -z "${WINSPARKLE_DSA_PRIVATE_KEY:-}" ] && [ -f .env ]; then
+  WINSPARKLE_DSA_PRIVATE_KEY=$(python3 -c "
+with open('.env', 'r', encoding='utf-8', errors='ignore') as f:
+    content = f.read()
+import re
+m = re.search(r'^WINSPARKLE_DSA_PRIVATE_KEY\s*=\s*\"([^\"]*)\"', content, re.MULTILINE | re.DOTALL)
+if not m:
+    m = re.search(r'^WINSPARKLE_DSA_PRIVATE_KEY\s*=\s*(.+)$', content, re.MULTILINE)
+if m:
+    print(m.group(1).replace(r'\n', '\n').strip())
+" 2>/dev/null || true)
+fi
+
 : "${WINSPARKLE_DSA_PRIVATE_KEY:?the Windows signing key is not configured}"
 : "${ED_SIGNATURE:?the macOS build job produced no EdDSA signature}"
 : "${DMG_LENGTH:?the macOS build job produced no DMG length}"

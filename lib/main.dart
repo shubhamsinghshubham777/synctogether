@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:app_links/app_links.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:synctogether/analytics.dart';
 import 'package:synctogether/analytics_consent.dart';
@@ -33,7 +32,6 @@ const bool kCaptureStore = bool.fromEnvironment('CAPTURE_STORE', defaultValue: f
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await dotenv.load(fileName: ".env");
 
   // Reporting is opt-in via SENTRY_DSN, so a checkout without one still runs.
   // Sentry installs its own FlutterError.onError, which is what makes every

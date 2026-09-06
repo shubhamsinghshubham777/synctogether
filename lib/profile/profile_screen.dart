@@ -21,6 +21,7 @@ import 'package:synctogether/ui/loader.dart';
 import 'package:synctogether/ui/pt_motion.dart';
 import 'package:synctogether/ui/pt_theme.dart';
 import 'package:synctogether/ui/responsive.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -53,7 +54,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       // "Try a different image" is a guess. Storage quota, a bucket policy or a
       // dead connection all land here, and only the log can tell them apart.
       reportNonFatal(e, s, during: 'uploading an avatar');
-      if (mounted) _snack("Couldn't update your photo — try a different image.");
+      if (mounted) _snack("Couldn't update your photo - try a different image.");
     } finally {
       if (mounted) setState(() => _uploadingAvatar = false);
     }
@@ -105,7 +106,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         await ProfileService.instance.updateDisplayName(name);
       } catch (e, s) {
         reportNonFatal(e, s, during: 'saving the display name');
-        if (mounted) _snack("Couldn't save that name — give it another try.");
+        if (mounted) _snack("Couldn't save that name - give it another try.");
       }
     }
   }
@@ -156,7 +157,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         // Account deletion has known server-side failure modes (a hosted room
         // still referencing the user), so the cause is worth keeping.
         reportNonFatal(e, s, during: 'deleting the account');
-        if (mounted) _snack("Couldn't delete the account right now — try again in a bit.");
+        if (mounted) _snack("Couldn't delete the account right now - try again in a bit.");
       }
     }
   }
@@ -366,17 +367,48 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Widget _privacySection() {
-    return ListenableBuilder(
-      listenable: AnalyticsConsent.instance,
-      builder: (context, _) => PTToggleRow(
-        icon: Symbols.insights_rounded,
-        title: 'Share usage data',
-        subtitle:
-            'Anonymous counts of things like rooms created and features used, so we know '
-            'what to build next. Never your chats, file names or links.',
-        value: !AnalyticsConsent.instance.optedOut,
-        onChanged: (shareData) => AnalyticsConsent.instance.setOptedOut(!shareData),
-      ),
+    return Column(
+      crossAxisAlignment: .start,
+      spacing: 12,
+      children: [
+        ListenableBuilder(
+          listenable: AnalyticsConsent.instance,
+          builder: (context, _) => PTToggleRow(
+            icon: Symbols.insights_rounded,
+            title: 'Share usage data',
+            subtitle:
+                'Anonymous counts of things like rooms created and features used, so we know '
+                'what to build next. Never your chats, file names or links.',
+            value: !AnalyticsConsent.instance.optedOut,
+            onChanged: (shareData) => AnalyticsConsent.instance.setOptedOut(!shareData),
+          ),
+        ),
+        Row(
+          spacing: 12,
+          children: [
+            PTButton(
+              label: 'Privacy policy',
+              variant: .secondary,
+              icon: Symbols.open_in_new_rounded,
+              height: 36,
+              onPressed: () => launchUrl(
+                Uri.parse('https://synctogether.app/privacy'),
+                mode: LaunchMode.externalApplication,
+              ),
+            ),
+            PTButton(
+              label: 'Terms of service',
+              variant: .secondary,
+              icon: Symbols.open_in_new_rounded,
+              height: 36,
+              onPressed: () => launchUrl(
+                Uri.parse('https://synctogether.app/terms'),
+                mode: LaunchMode.externalApplication,
+              ),
+            ),
+          ],
+        ),
+      ],
     );
   }
 
@@ -587,7 +619,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ],
               ),
               Text(
-                'Sign in with Google to pick a name and photo, and keep them across '
+                'Sign in to pick a name and photo, and keep them across '
                 'devices. Your current session carries over.',
                 style: PTText.body.copyWith(
                   fontSize: 13.5,
@@ -595,6 +627,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   height: 1.5,
                 ),
               ),
+              if (AuthService.instance.isAppleSupported)
+                AppleButton(
+                  label: 'Sign in with Apple',
+                  onPressed: () async {
+                    try {
+                      await AuthService.instance.linkAppleIdentity();
+                    } catch (e, s) {
+                      reportNonFatal(e, s, during: 'linking an Apple identity to a guest');
+                      if (mounted) _snack("Couldn't start Apple sign-in - try again.");
+                    }
+                  },
+                ),
               GoogleButton(
                 label: 'Sign in with Google',
                 onPressed: () async {
@@ -602,7 +646,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     await AuthService.instance.linkGoogleIdentity();
                   } catch (e, s) {
                     reportNonFatal(e, s, during: 'linking a Google identity to a guest');
-                    if (mounted) _snack("Couldn't start Google sign-in — try again.");
+                    if (mounted) _snack("Couldn't start Google sign-in - try again.");
                   }
                 },
               ),
@@ -632,7 +676,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final avatar = Stack(
       clipBehavior: Clip.none,
       children: [
-        // A fresh photo scale-pulses itself in — confirmation the user is
+        // A fresh photo scale-pulses itself in - confirmation the user is
         // already looking at, so no snackbar is needed for the happy path.
         PTEntrance(
           key: ValueKey(profile.avatarUrl),
@@ -776,7 +820,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             children: [
               Expanded(
                 child: Text(
-                  profile.email ?? '—',
+                  profile.email ?? '-',
                   style: PTText.body.copyWith(color: PTColors.white(0.5)),
                 ),
               ),
@@ -785,7 +829,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
         ),
         Text(
-          "Linked to your Google account — can't be changed.",
+          "Linked to your Google account - can't be changed.",
           style: PTText.finePrint.copyWith(color: PTColors.white(0.35)),
         ),
       ],

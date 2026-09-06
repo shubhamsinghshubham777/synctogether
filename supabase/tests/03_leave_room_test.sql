@@ -123,7 +123,7 @@ select is(
 select is(
   (select ended_at from public.rooms where id = (select v from t where k = 'solo_room')),
   null::timestamptz,
-  'the last member leaving does not end the room — expiry and end_room own that');
+  'the last member leaving does not end the room - expiry and end_room own that');
 
 select lives_ok(
   $$ select public.leave_room((select v from t where k = 'solo_room')) $$,

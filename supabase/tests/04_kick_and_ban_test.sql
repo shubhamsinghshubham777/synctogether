@@ -91,7 +91,7 @@ select throws_ok(
   $$ select public.kick_member(
        (select v from t where k = 'room'), (select v from t where k = 'host'), false) $$,
   'cannot_kick_self',
-  'the host cannot kick themselves — leaving is the way out');
+  'the host cannot kick themselves - leaving is the way out');
 
 select throws_ok(
   $$ select public.kick_member((select v from t where k = 'room'), null, false) $$,
@@ -159,7 +159,7 @@ select ok(
 select is(
   (select count(*) from pg_policies where schemaname = 'public' and tablename = 'room_bans'),
   0::bigint,
-  'room_bans has deliberately no policies — a ban is never read by a client');
+  'room_bans has deliberately no policies - a ban is never read by a client');
 
 select ok(
   not has_table_privilege('authenticated', 'public.room_bans', 'select'),

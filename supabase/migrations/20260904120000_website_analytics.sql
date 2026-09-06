@@ -46,7 +46,7 @@ alter table public.website_visitors enable row level security;
 alter table public.website_pageviews enable row level security;
 alter table public.website_downloads enable row level security;
 
--- Strictly revoke all public/anon/authenticated access — only service_role (internal server) can access
+-- Strictly revoke all public/anon/authenticated access - only service_role (internal server) can access
 revoke all on public.website_visitors from public, anon, authenticated;
 revoke all on public.website_pageviews from public, anon, authenticated;
 revoke all on public.website_downloads from public, anon, authenticated;

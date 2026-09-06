@@ -1,5 +1,5 @@
 begin;
-select plan(58);
+select plan(55);
 
 create function pg_temp.mk_user(p_guest boolean default false) returns uuid
 language plpgsql as $$
@@ -131,25 +131,10 @@ begin
   insert into c values ('free_code', v_room.code);
 end $$;
 
-select is(
-  (select duration_minutes from public.extend_room(
-     (select v from t where k = 'free_room'), 240)),
-  120,
-  'a free extension is a fixed hour, whatever was asked for');
-
-select ok(
-  (select expires_at - created_at from public.rooms
-   where id = (select v from t where k = 'free_room')) = interval '120 minutes',
-  'the extension moves expiry by the same hour');
-
-select ok(
-  (select free_extension_used from public.profiles where id = (select v from t where k = 'free')),
-  'the one free extension is spent');
-
 select throws_ok(
   $$ select public.extend_room((select v from t where k = 'free_room'), 60) $$,
-  'extension_used',
-  'the free tier only gets one extension, ever');
+  'extend_not_allowed',
+  'a free room cannot be extended without premium');
 
 do $$ begin perform pg_temp.act_as((select v from t where k = 'premium')); end $$;
 
@@ -533,7 +518,7 @@ end $$;
 select throws_ok(
   $$ select public.end_room((select v from t where k = 'guarded_room')) $$,
   'not_host',
-  'a plain member still cannot end the room — the creator branch widened nothing else');
+  'a plain member still cannot end the room - the creator branch widened nothing else');
 
 do $$ begin perform pg_temp.act_as((select v from t where k = 'free')); end $$;
 

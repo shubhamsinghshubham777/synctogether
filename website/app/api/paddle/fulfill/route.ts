@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import {
+  validateAndResolveFulfillment,
+  fetchPaddleUserSubscriptions,
+} from "@/lib/paddle_fulfillment";
 
 export async function POST() {
   try {
@@ -22,48 +26,32 @@ export async function POST() {
       .eq("user_id", user.id)
       .maybeSingle();
 
-    if (existingSub && existingSub.tier === "premium") {
+    const apiKey = process.env.PADDLE_API_KEY;
+    const isSandbox = process.env.NEXT_PUBLIC_PADDLE_ENVIRONMENT !== "production";
+
+    const resolution = await validateAndResolveFulfillment({
+      user,
+      existingSub,
+      paddleApiKey: apiKey,
+      fetchPaddleSubs: async () => fetchPaddleUserSubscriptions(apiKey!, isSandbox),
+    });
+
+    if (!resolution.success) {
+      return NextResponse.json(
+        { error: resolution.error },
+        { status: resolution.status }
+      );
+    }
+
+    if (!resolution.shouldUpsert) {
       return NextResponse.json({
         success: true,
-        subscription: existingSub,
-        tier: "premium",
+        subscription: resolution.subscription,
+        tier: resolution.tier,
       });
     }
 
-    // If apiKey is configured and in sandbox/prod, attempt to query Paddle for customer subscription
-    const apiKey = process.env.PADDLE_API_KEY;
-    const isSandbox = process.env.NEXT_PUBLIC_PADDLE_ENVIRONMENT !== "production";
-    let periodEnd = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
-
-    if (apiKey && !apiKey.includes("xxx")) {
-      const paddleApiHost = isSandbox
-        ? "https://sandbox-api.paddle.com"
-        : "https://api.paddle.com";
-
-      try {
-        // Query recent transactions or subscriptions
-        const res = await fetch(`${paddleApiHost}/subscriptions?customer_id=&per_page=10`, {
-          headers: {
-            Authorization: `Bearer ${apiKey}`,
-          },
-        });
-
-        if (res.ok) {
-          const body = await res.json();
-          const userSub = body?.data?.find(
-            (s: { custom_data?: { user_id?: string } }) =>
-              s.custom_data?.user_id === user.id
-          );
-          if (userSub?.current_billing_period?.ends_at) {
-            periodEnd = userSub.current_billing_period.ends_at;
-          }
-        }
-      } catch (err) {
-        console.warn("Paddle API verification error (falling back to default period):", err);
-      }
-    }
-
-    // Upsert subscription
+    // Upsert subscription only after verified active Paddle subscription
     const { data: newSub, error: upsertError } = await adminSupabase
       .from("subscriptions")
       .upsert(
@@ -71,7 +59,7 @@ export async function POST() {
           user_id: user.id,
           tier: "premium",
           source: "paddle",
-          current_period_end: periodEnd,
+          current_period_end: resolution.periodEnd,
           updated_at: new Date().toISOString(),
         },
         { onConflict: "user_id" }

@@ -33,7 +33,7 @@ export default function TermsPage() {
             SyncTogether is a media synchronization software platform that enables participants to synchronize playback state (play, pause, seek, audio track) for locally stored media files, cloud-shared videos, and public YouTube videos across connected devices.
           </p>
           <div className="p-4 rounded-xl bg-purple-500/10 border border-purple-400/20 text-purple-200 text-sm">
-            <strong>Important:</strong> In Local Sync mode, SyncTogether does not host or distribute media files — all participants possess their own local copy. In Cloud Media Sharing mode, room hosts may upload videos for temporary streaming to room guests, subject to automated session expiration.
+            <strong>Important:</strong> In Local Sync mode, SyncTogether does not host or distribute media files - all participants possess their own local copy. In Cloud Media Sharing mode, room hosts may upload videos for temporary streaming to room guests, subject to automated session expiration.
           </div>
         </section>
 

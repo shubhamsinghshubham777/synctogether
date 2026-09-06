@@ -3,9 +3,10 @@ import Link from "next/link";
 interface LogoProps {
   className?: string;
   size?: "sm" | "md" | "lg";
+  showText?: boolean;
 }
 
-export function Logo({ className = "", size = "md" }: LogoProps) {
+export function Logo({ className = "", size = "md", showText = true }: LogoProps) {
   const sizeMap = {
     sm: { icon: "w-7 h-7 text-sm", text: "text-lg", play: "w-3.5 h-3.5" },
     md: { icon: "w-9 h-9 text-base", text: "text-xl", play: "w-4.5 h-4.5" },
@@ -34,13 +35,15 @@ export function Logo({ className = "", size = "md" }: LogoProps) {
       </div>
 
       {/* Brand Name */}
-      <div className="flex flex-col">
-        <span
-          className={`${s.text} font-bold tracking-tight text-white font-[family-name:var(--font-space-grotesk)]`}
-        >
-          Sync<span className="text-gradient-accent">Together</span>
-        </span>
-      </div>
+      {showText && (
+        <div className="flex flex-col">
+          <span
+            className={`${s.text} font-bold tracking-tight text-white font-[family-name:var(--font-space-grotesk)]`}
+          >
+            Sync<span className="text-gradient-accent">Together</span>
+          </span>
+        </div>
+      )}
     </Link>
   );
 }

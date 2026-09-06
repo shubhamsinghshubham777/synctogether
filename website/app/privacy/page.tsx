@@ -22,7 +22,7 @@ import {
 } from "lucide-react";
 
 export const metadata: Metadata = {
-  title: "Privacy Policy — Complete Data Protection & Security",
+  title: "Privacy Policy - Complete Data Protection & Security",
   description:
     "Learn how SyncTogether protects your personal data, media privacy, real-time voice and video streams, and payment information.",
 };

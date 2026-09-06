@@ -176,30 +176,50 @@ SyncTogether supports two primary authentication modes:
 > [!NOTE]
 > **Platform Support**: Desktop builds officially target **macOS** and **Windows**. Linux desktop is currently unsupported due to upstream WebView and self-update limitations.
 
-1. Copy `.env.example` to `.env` in the repository root:
-   ```bash
-   cp .env.example .env
-   ```
-2. Edit `.env` with your self-hosted values:
-   ```ini
-   SUPABASE_URL=https://<your-supabase-url>
-   SUPABASE_PUBLISHABLE_KEY=<your-supabase-anon-key>
-   LIVEKIT_URL=wss://<your-livekit-url>
-   ```
-3. Build the client application for your preferred platform:
+SyncTogether uses Flutter compile-time defines (`--dart-define`) to bake configuration directly into the compiled client binary. This ensures no plaintext credentials or `.env` files are bundled into distributed release packages.
+
+#### Option A: Local Offline Development (Zero-Config)
+If testing locally with the local Supabase stack (`./scripts/dev.sh`), no flags are needed. In debug mode, the client automatically defaults to `http://127.0.0.1:54321` and local development keys:
+```bash
+# Fetch dependencies
+fvm flutter pub get
+
+# Run on macOS, Windows, Android, or iOS
+fvm flutter run -d macos
+```
+
+#### Option B: Connecting to Your Self-Hosted Cloud or VPS Instance
+Provide your self-hosted endpoints via `--dart-define`:
 
 ```bash
 # Fetch Flutter packages
 fvm flutter pub get
 
-# Run locally in debug mode
-fvm flutter run -d macos    # or windows, android, ios
+# Run in debug mode pointing to your self-hosted backend:
+fvm flutter run -d macos \
+  --dart-define=SUPABASE_URL="https://<your-supabase-url>" \
+  --dart-define=SUPABASE_PUBLISHABLE_KEY="<your-supabase-publishable-key>" \
+  --dart-define=LIVEKIT_URL="wss://<your-livekit-url>"
 
-# Build release binaries
-fvm flutter build macos --release     # Builds macOS .app / DMG
-fvm flutter build windows --release   # Builds Windows executable
-fvm flutter build apk --release       # Builds Android APK
+# Build release binaries:
+fvm flutter build macos --release \
+  --dart-define=SUPABASE_URL="https://<your-supabase-url>" \
+  --dart-define=SUPABASE_PUBLISHABLE_KEY="<your-supabase-publishable-key>" \
+  --dart-define=LIVEKIT_URL="wss://<your-livekit-url>"
+
+fvm flutter build windows --release \
+  --dart-define=SUPABASE_URL="https://<your-supabase-url>" \
+  --dart-define=SUPABASE_PUBLISHABLE_KEY="<your-supabase-publishable-key>" \
+  --dart-define=LIVEKIT_URL="wss://<your-livekit-url>"
+
+fvm flutter build apk --release \
+  --dart-define=SUPABASE_URL="https://<your-supabase-url>" \
+  --dart-define=SUPABASE_PUBLISHABLE_KEY="<your-supabase-publishable-key>" \
+  --dart-define=LIVEKIT_URL="wss://<your-livekit-url>"
 ```
+
+> [!TIP]
+> **VS Code & Define Files**: Instead of passing command-line arguments manually, you can configure these defines under `args` in `.vscode/launch.json` or maintain a local JSON file passed with `--dart-define-from-file=my_config.json`.
 
 ---
 
@@ -228,14 +248,14 @@ The web portal (`website/`) provides marketing pages, app download links, and we
 
 ## 5. Environment Variables Reference
 
-### Client Configuration (`.env`)
+### Client Configuration (`--dart-define`)
+
+Pass these variables at compile-time via `--dart-define=KEY=VALUE` or `--dart-define-from-file`:
 
 | Variable | Required? | Description |
 |---|---|---|
-| `SUPABASE_URL` | **Yes** | Public HTTPS endpoint of your Supabase API gateway |
-| `SUPABASE_PUBLISHABLE_KEY` | **Yes** | Supabase anonymous / publishable API key |
-| `SUPABASE_URL_LOCAL` | *No* | Local fallback Supabase URL used during `flutter run` debug mode |
-| `SUPABASE_PUBLISHABLE_KEY_LOCAL` | *No* | Local fallback anon key used during `flutter run` debug mode |
+| `SUPABASE_URL` | **Yes** (Release) | Public HTTPS endpoint of your Supabase API gateway (defaults to `http://127.0.0.1:54321` in debug mode) |
+| `SUPABASE_PUBLISHABLE_KEY` | **Yes** (Release) | Supabase publishable API key (defaults to local development key in debug mode) |
 | `LIVEKIT_URL` | *No* | LiveKit WebSocket endpoint (`wss://...`). Facecam rails are hidden if unset |
 | `TURNSTILE_SITE_KEY` | *No* | Cloudflare Turnstile site key for captcha verification |
 | `SENTRY_DSN` | *No* | Sentry project DSN for client-side crash telemetry |

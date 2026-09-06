@@ -27,12 +27,14 @@ mkdir -p "$PID_DIR"
 FUNCTIONS_PID_FILE="$PID_DIR/functions.pid"
 WEBSITE_PID_FILE="$PID_DIR/website.pid"
 TUNNEL_PID_FILE="$PID_DIR/tunnel.pid"
+NGROK_PID_FILE="$PID_DIR/ngrok.pid"
 LOGS_DIR="/tmp/synctogether-logs"
 mkdir -p "$LOGS_DIR"
 
 FUNCTIONS_LOG="$LOGS_DIR/functions.log"
 WEBSITE_LOG="$LOGS_DIR/website.log"
 TUNNEL_LOG="$LOGS_DIR/tunnel.log"
+NGROK_LOG="$LOGS_DIR/ngrok.log"
 
 # Cloudflare Turnstile Always-Pass Testing Keys
 TURNSTILE_TEST_SITE_KEY="1x00000000000000000000AA"
@@ -59,8 +61,8 @@ banner() { echo -e "\n${BOLD}${CYAN}=== $1 ===${NC}\n"; }
 spin_down() {
   banner "Spinning Down SyncTogether Ecosystem"
 
-  # 1. Kill Webhook Tunnels (Hookdeck / Paddle CLI)
-  info "Stopping webhook tunnels..."
+  # 1. Kill Webhook & Auth Tunnels (Hookdeck / Paddle CLI / ngrok)
+  info "Stopping webhook & auth tunnels..."
   if [ -f "$TUNNEL_PID_FILE" ]; then
     PID=$(cat "$TUNNEL_PID_FILE")
     kill "$PID" 2>/dev/null || true
@@ -68,6 +70,13 @@ spin_down() {
   fi
   pkill -f "hookdeck listen" 2>/dev/null || true
   pkill -f "paddle webhook:listen" 2>/dev/null || true
+
+  if [ -f "$NGROK_PID_FILE" ]; then
+    PID=$(cat "$NGROK_PID_FILE")
+    kill "$PID" 2>/dev/null || true
+    rm -f "$NGROK_PID_FILE"
+  fi
+  pkill -f "ngrok http.*54321" 2>/dev/null || true
 
   # 2. Kill Next.js website dev server
   info "Stopping Next.js website server..."
@@ -148,31 +157,44 @@ check_prereqs() {
 
   # Check & seed .env files if missing
   if [ ! -f "$REPO_ROOT/.env" ]; then
-    warn "Missing .env in root — creating from .env.example"
+    warn "Missing .env in root - creating from .env.example"
     cp "$REPO_ROOT/.env.example" "$REPO_ROOT/.env"
   fi
 
   if [ ! -f "$REPO_ROOT/supabase/.env" ]; then
-    warn "Missing supabase/.env — creating from supabase/.env.example"
+    warn "Missing supabase/.env - creating from supabase/.env.example"
     cp "$REPO_ROOT/supabase/.env.example" "$REPO_ROOT/supabase/.env"
   fi
 
   if [ ! -f "$REPO_ROOT/supabase/functions/.env" ]; then
-    warn "Missing supabase/functions/.env — creating from supabase/functions/.env.example"
+    warn "Missing supabase/functions/.env - creating from supabase/functions/.env.example"
     cp "$REPO_ROOT/supabase/functions/.env.example" "$REPO_ROOT/supabase/functions/.env"
   fi
 
   if [ ! -f "$REPO_ROOT/website/.env.local" ]; then
-    warn "Missing website/.env.local — creating from website/.env.example"
+    warn "Missing website/.env.local - creating from website/.env.example"
     cp "$REPO_ROOT/website/.env.example" "$REPO_ROOT/website/.env.local"
   fi
 
-  # Seed Cloudflare Turnstile always-pass test keys if still on placeholders
-  if grep -q "TURNSTILE_SITE_KEY=0x4AAA" "$REPO_ROOT/.env" || grep -q "TURNSTILE_SITE_KEY=$" "$REPO_ROOT/.env"; then
+  # Seed Cloudflare Turnstile always-pass test keys if still on placeholders or empty
+  if grep -q "TURNSTILE_SITE_KEY=0x4AAAAAA\.\.\." "$REPO_ROOT/.env" || grep -q "TURNSTILE_SITE_KEY=$" "$REPO_ROOT/.env"; then
     sed -i '' "s|TURNSTILE_SITE_KEY=.*|TURNSTILE_SITE_KEY=$TURNSTILE_TEST_SITE_KEY|" "$REPO_ROOT/.env"
   fi
-  if grep -q "SUPABASE_AUTH_CAPTCHA_SECRET=0x4AAA" "$REPO_ROOT/supabase/.env" || grep -q "SUPABASE_AUTH_CAPTCHA_SECRET=$" "$REPO_ROOT/supabase/.env"; then
+  if grep -q "SUPABASE_AUTH_CAPTCHA_SECRET=0x4AAAAAA\.\.\." "$REPO_ROOT/supabase/.env" || grep -q "SUPABASE_AUTH_CAPTCHA_SECRET=$" "$REPO_ROOT/supabase/.env"; then
     sed -i '' "s|SUPABASE_AUTH_CAPTCHA_SECRET=.*|SUPABASE_AUTH_CAPTCHA_SECRET=$TURNSTILE_TEST_SECRET_KEY|" "$REPO_ROOT/supabase/.env"
+  fi
+  if [ -f "$REPO_ROOT/website/.env.local" ]; then
+    local root_turnstile_key
+    root_turnstile_key=$(grep -E "^TURNSTILE_SITE_KEY=" "$REPO_ROOT/.env" | cut -d '=' -f2- | tr -d ' "')
+    if [ -n "$root_turnstile_key" ] && [ "$root_turnstile_key" != "0x4AAAAAA..." ]; then
+      if grep -q "NEXT_PUBLIC_TURNSTILE_SITE_KEY=" "$REPO_ROOT/website/.env.local"; then
+        sed -i '' "s|NEXT_PUBLIC_TURNSTILE_SITE_KEY=.*|NEXT_PUBLIC_TURNSTILE_SITE_KEY=$root_turnstile_key|" "$REPO_ROOT/website/.env.local"
+      else
+        echo "NEXT_PUBLIC_TURNSTILE_SITE_KEY=$root_turnstile_key" >> "$REPO_ROOT/website/.env.local"
+      fi
+    elif grep -q "NEXT_PUBLIC_TURNSTILE_SITE_KEY=0x4AAAAAA\.\.\." "$REPO_ROOT/website/.env.local" || ! grep -q "NEXT_PUBLIC_TURNSTILE_SITE_KEY=" "$REPO_ROOT/website/.env.local"; then
+      sed -i '' "s|NEXT_PUBLIC_TURNSTILE_SITE_KEY=.*|NEXT_PUBLIC_TURNSTILE_SITE_KEY=$TURNSTILE_TEST_SITE_KEY|" "$REPO_ROOT/website/.env.local" 2>/dev/null || echo "NEXT_PUBLIC_TURNSTILE_SITE_KEY=$TURNSTILE_TEST_SITE_KEY" >> "$REPO_ROOT/website/.env.local"
+    fi
   fi
 
   success "Prerequisites & environment files verified."
@@ -201,6 +223,36 @@ spin_up() {
   check_prereqs
 
   banner "Spinning Up SyncTogether Ecosystem"
+
+  # 0. Start ngrok Apple Auth Tunnel if configured
+  local tunnel_domain="${APPLE_AUTH_TUNNEL_DOMAIN:-}"
+  if [ -z "$tunnel_domain" ] && [ -f "$REPO_ROOT/supabase/.env" ]; then
+    tunnel_domain=$(grep -E "^APPLE_AUTH_TUNNEL_DOMAIN=" "$REPO_ROOT/supabase/.env" | cut -d'=' -f2- | tr -d '"' | tr -d "'" || true)
+  fi
+  if [ -z "$tunnel_domain" ] && [ -f "$REPO_ROOT/.env" ]; then
+    tunnel_domain=$(grep -E "^APPLE_AUTH_TUNNEL_DOMAIN=" "$REPO_ROOT/.env" | cut -d'=' -f2- | tr -d '"' | tr -d "'" || true)
+  fi
+
+  if [ -n "$tunnel_domain" ]; then
+    # Ensure fully-resolved redirect URI is exported so env(SUPABASE_AUTH_EXTERNAL_APPLE_REDIRECT_URI) in config.toml receives it
+    export SUPABASE_AUTH_EXTERNAL_APPLE_REDIRECT_URI="https://${tunnel_domain}/auth/v1/callback"
+
+    if command -v ngrok &>/dev/null; then
+      info "Starting ngrok Apple Auth tunnel -> https://$tunnel_domain -> :54321..."
+      nohup ngrok http 54321 --url="$tunnel_domain" > "$NGROK_LOG" 2>&1 &
+      echo $! > "$NGROK_PID_FILE"
+      sleep 1.2
+      if ! ps -p "$(cat "$NGROK_PID_FILE")" > /dev/null 2>&1; then
+        warn "ngrok tunnel failed to start. If unauthenticated, run: ngrok config add-authtoken <TOKEN>"
+        rm -f "$NGROK_PID_FILE"
+      else
+        success "ngrok Apple Auth tunnel is online (https://$tunnel_domain)"
+      fi
+    else
+      warn "APPLE_AUTH_TUNNEL_DOMAIN configured ($tunnel_domain) but ngrok CLI not found."
+      echo -e "   👉 Install via: brew install ngrok/ngrok/ngrok"
+    fi
+  fi
 
   # 1. Start Supabase Stack
   info "Starting Supabase local stack (PostgreSQL, Auth, Realtime, Storage, Studio)..."
@@ -232,6 +284,13 @@ spin_up() {
   if [ -n "$service_role_key" ]; then
     if grep -q "SUPABASE_SERVICE_ROLE_KEY=" "$REPO_ROOT/website/.env.local"; then
       sed -i '' "s|SUPABASE_SERVICE_ROLE_KEY=.*|SUPABASE_SERVICE_ROLE_KEY=$service_role_key|" "$REPO_ROOT/website/.env.local"
+    fi
+  fi
+  local turnstile_site_key
+  turnstile_site_key=$(grep -E "^TURNSTILE_SITE_KEY=" "$REPO_ROOT/.env" | cut -d '=' -f2- | tr -d ' "' || true)
+  if [ -n "$turnstile_site_key" ] && [ "$turnstile_site_key" != "0x4AAAAAA..." ]; then
+    if grep -q "NEXT_PUBLIC_TURNSTILE_SITE_KEY=" "$REPO_ROOT/website/.env.local"; then
+      sed -i '' "s|NEXT_PUBLIC_TURNSTILE_SITE_KEY=.*|NEXT_PUBLIC_TURNSTILE_SITE_KEY=$turnstile_site_key|" "$REPO_ROOT/website/.env.local"
     fi
   fi
 
@@ -290,6 +349,9 @@ spin_up() {
   if [ "$launch_tunnel" = true ] && [ "$tunnel_name" != "None" ]; then
     echo -e "  🪝 ${BOLD}Webhook Tunnel Log:${NC}    $TUNNEL_LOG ($tunnel_name)"
   fi
+  if [ -f "$NGROK_PID_FILE" ] && ps -p "$(cat "$NGROK_PID_FILE")" > /dev/null 2>&1; then
+    echo -e "  🍎 ${BOLD}Apple Auth Tunnel:${NC}     https://${tunnel_domain:-localhost} (-> :54321)"
+  fi
   echo -e "\n${BOLD}${CYAN}Available Dev Commands:${NC}"
   echo -e "  • Primary Flutter Client (A):  ${YELLOW}fvm flutter run -d macos${NC} (or ./scripts/dev.sh -f)"
   echo -e "  • Second Isolated Client (B):  ${YELLOW}./scripts/st-instance-b.sh${NC} (or ./scripts/dev.sh -b)"
@@ -311,19 +373,19 @@ spin_up() {
 }
 
 # ------------------------------------------------------------------------------
-# Status
+# System Status Inspection
 # ------------------------------------------------------------------------------
 status() {
   banner "SyncTogether Ecosystem Status"
 
-  # Supabase
-  if docker ps --filter "name=supabase_db" --format "{{.Names}}" | grep -q "supabase_db"; then
+  # Supabase Stack
+  if supabase status >/dev/null 2>&1; then
     success "Supabase Local Stack: RUNNING (Studio: http://127.0.0.1:54323)"
   else
     warn "Supabase Local Stack: STOPPED"
   fi
 
-  # Functions
+  # Edge Functions
   if [ -f "$FUNCTIONS_PID_FILE" ] && ps -p "$(cat "$FUNCTIONS_PID_FILE")" > /dev/null 2>&1; then
     success "Edge Functions:       RUNNING (PID: $(cat "$FUNCTIONS_PID_FILE"))"
   else
@@ -342,6 +404,23 @@ status() {
     success "Webhook Tunnel:       RUNNING (PID: $(cat "$TUNNEL_PID_FILE"))"
   else
     info "Webhook Tunnel:       INACTIVE (pass --hookdeck on spin up to enable)"
+  fi
+
+  # Apple Auth Tunnel
+  local tunnel_domain="${APPLE_AUTH_TUNNEL_DOMAIN:-}"
+  if [ -z "$tunnel_domain" ] && [ -f "$REPO_ROOT/supabase/.env" ]; then
+    tunnel_domain=$(grep -E "^APPLE_AUTH_TUNNEL_DOMAIN=" "$REPO_ROOT/supabase/.env" | cut -d'=' -f2- | tr -d '"' | tr -d "'" || true)
+  fi
+  if [ -z "$tunnel_domain" ] && [ -f "$REPO_ROOT/.env" ]; then
+    tunnel_domain=$(grep -E "^APPLE_AUTH_TUNNEL_DOMAIN=" "$REPO_ROOT/.env" | cut -d'=' -f2- | tr -d '"' | tr -d "'" || true)
+  fi
+
+  if [ -f "$NGROK_PID_FILE" ] && ps -p "$(cat "$NGROK_PID_FILE")" > /dev/null 2>&1; then
+    success "Apple Auth Tunnel:    RUNNING (https://${tunnel_domain:-localhost} -> :54321)"
+  elif [ -n "$tunnel_domain" ]; then
+    warn "Apple Auth Tunnel:    STOPPED (Configured: https://$tunnel_domain)"
+  else
+    info "Apple Auth Tunnel:    INACTIVE (set APPLE_AUTH_TUNNEL_DOMAIN in supabase/.env to enable)"
   fi
   echo ""
 }
@@ -385,6 +464,8 @@ view_logs() {
     tail -f "$FUNCTIONS_LOG"
   elif [[ "$target" == "tunnel" || "$target" == "hookdeck" || "$target" == "hook" ]]; then
     tail -f "$TUNNEL_LOG"
+  elif [[ "$target" == "ngrok" || "$target" == "apple" || "$target" == "apple-tunnel" ]]; then
+    tail -f "$NGROK_LOG"
   else
     echo -e "${CYAN}Tailing Website & Functions logs (Ctrl+C to exit)...${NC}\n"
     tail -f "$WEBSITE_LOG" "$FUNCTIONS_LOG"
@@ -413,6 +494,9 @@ case "$COMMAND" in
   reset)
     reset_db
     ;;
+  clean|clean-slate)
+    "$REPO_ROOT/scripts/clean-local-state.sh"
+    ;;
   logs)
     shift
     view_logs "$@"
@@ -430,6 +514,7 @@ case "$COMMAND" in
     echo -e "  status                  Show running status of Supabase, Functions, Web app, Tunnel"
     echo -e "  test                    Run all test suites (Flutter Dart, Supabase pgTAP, Webhook)"
     echo -e "  reset                   Reset local database (re-applies all migrations and seed.sql)"
+    echo -e "  clean                   Clean-slate wipe all local users, sessions, and Paddle Sandbox state"
     echo -e "  logs [web|func|tunnel]  Tail real-time logs of background services"
     echo -e "  help                    Show this help message\n"
     echo -e "Flags (can be used with 'up' or standalone):"

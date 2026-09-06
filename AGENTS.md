@@ -24,6 +24,7 @@ SyncTogether is a cross-platform Flutter application for synchronized, low-laten
 ./scripts/dev.sh                        # Spin up local stack
 ./scripts/dev.sh down                   # Cleanly spin down all services & free ports
 ./scripts/dev.sh status                 # Inspect status of all components
+./scripts/dev.sh clean                  # Clean-slate wipe local users, sessions & Paddle sandbox
 
 # Flutter Application
 fvm flutter pub get                     # Install dependencies

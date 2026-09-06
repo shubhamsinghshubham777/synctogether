@@ -3,7 +3,7 @@
 # Clones the debug SyncTogether.app under a different bundle ID so it gets its
 # own preferences domain (= its own Supabase session / guest identity), then
 # launches it with logs teed to /tmp/pt-b.log. The bundle ID is what does the
-# isolating — that was the sandbox container before the app left the sandbox, and
+# isolating - that was the sandbox container before the app left the sandbox, and
 # is NSUserDefaults keying off CFBundleIdentifier now; either way it is where
 # supabase_flutter's persisted session lives.
 #
@@ -16,7 +16,7 @@ DEST_DIR="$REPO/build/st-instance-b"
 DEST="$DEST_DIR/SyncTogether B.app"
 
 if [[ ! -d "$SRC" ]]; then
-  echo "No debug build at $SRC — run: fvm flutter build macos --debug" >&2
+  echo "No debug build at $SRC - run: fvm flutter build macos --debug" >&2
   exit 1
 fi
 

@@ -84,7 +84,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
     });
     RoomService.instance.addListener(_onRoomServiceChanged);
     if (ProfileService.instance.profile == null) {
-      // Consume the parked invite even if the profile fetch fails — the join
+      // Consume the parked invite even if the profile fetch fails - the join
       // itself doesn't need the profile.
       ProfileService.instance
           .load()
@@ -146,7 +146,9 @@ class _LobbyScreenState extends State<LobbyScreen> {
     final profile = ProfileService.instance.profile;
     final isGuest = profile?.isGuest ?? true;
     if (isGuest) {
-      if (mounted) showMediaQuotaDialog(context);
+      if (mounted) {
+        showMediaQuotaDialog(context, quotaContext: const MediaQuotaContext(reason: .guestBlocked));
+      }
       return;
     }
 
@@ -164,13 +166,24 @@ class _LobbyScreenState extends State<LobbyScreen> {
     if (!file.existsSync()) return;
 
     final fileSize = file.lengthSync();
+    final fileName = file.uri.pathSegments.isNotEmpty ? file.uri.pathSegments.last : null;
     final limits = EntitlementService.instance.limits;
     final maxFileBytes = limits?.mediaSharingMaxSizeBytes;
     if (maxFileBytes != null && fileSize > maxFileBytes) {
       final fileStr = Profile.formatBytes(fileSize);
       final maxStr = Profile.formatBytes(maxFileBytes);
       _snack('This video ($fileStr) exceeds the maximum single file limit ($maxStr).');
-      if (mounted) showMediaQuotaDialog(context);
+      if (mounted) {
+        showMediaQuotaDialog(
+          context,
+          quotaContext: MediaQuotaContext(
+            reason: .singleFileLimitExceeded,
+            fileName: fileName,
+            fileSize: fileSize,
+            maxBytes: maxFileBytes,
+          ),
+        );
+      }
       return;
     }
 
@@ -181,7 +194,18 @@ class _LobbyScreenState extends State<LobbyScreen> {
         final fileStr = Profile.formatBytes(fileSize);
         final remainingStr = Profile.formatBytes(remaining);
         _snack('This video ($fileStr) exceeds your remaining weekly quota ($remainingStr).');
-        if (mounted) showMediaQuotaDialog(context);
+        if (mounted) {
+          showMediaQuotaDialog(
+            context,
+            quotaContext: MediaQuotaContext(
+              reason: .weeklyQuotaExceeded,
+              fileName: fileName,
+              fileSize: fileSize,
+              remainingBytes: remaining,
+              maxBytes: weeklyLimit,
+            ),
+          );
+        }
         return;
       }
     }
@@ -237,7 +261,14 @@ class _LobbyScreenState extends State<LobbyScreen> {
         final error = MediaSharingException.fromError(e);
         _snack(error.message);
         if (error.code == 'quota_exceeded' && mounted) {
-          showMediaQuotaDialog(context);
+          showMediaQuotaDialog(
+            context,
+            quotaContext: MediaQuotaContext(
+              reason: .weeklyQuotaExceeded,
+              fileName: fileName,
+              fileSize: fileSize,
+            ),
+          );
         }
       }
     }
@@ -458,7 +489,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
   Future<bool> _endBlockingRoom(Room live) async {
     try {
       await RoomService.instance.endRoom(live.id);
-      if (mounted) _snack("That's a wrap — your old room has ended.", kind: .success);
+      if (mounted) _snack("That's a wrap - your old room has ended.", kind: .success);
       return true;
     } catch (e, s) {
       final failure = RoomErrorCode.fromError(e);
@@ -508,7 +539,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Anything reading the profile must do so *inside* this builder — the
+    // Anything reading the profile must do so *inside* this builder - the
     // enclosing build() doesn't re-run when the profile lands, so a value
     // captured out here stays stale until an unrelated setState.
     return Scaffold(
@@ -730,7 +761,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
         kind: .info,
         icon: Symbols.rocket_launch_rounded,
         title: 'v${updates.availableVersion} is ready',
-        subtitle: 'Grab it now — SyncTogether will restart itself.',
+        subtitle: 'Grab it now - SyncTogether will restart itself.',
         trailing: PTButton(
           label: 'Update & restart',
           height: 38,
@@ -894,7 +925,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
               children: [
                 Text('Duration', style: PTText.caption.copyWith(fontSize: compact ? 12 : 13)),
                 const Spacer(),
-                // Ticks over as the slider moves — the label the user is
+                // Ticks over as the slider moves - the label the user is
                 // actually looking at while choosing.
                 AnimatedSwitcher(
                   duration: PTMotion.functional(context, PTMotion.hover),
@@ -1208,7 +1239,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
               const Icon(Symbols.link_rounded, size: 18, color: PTColors.textAccent),
               Expanded(
                 child: Text(
-                  'Invite links open the room directly — no code needed.',
+                  'Invite links open the room directly - no code needed.',
                   style: PTText.body.copyWith(fontSize: 13, color: PTColors.white(0.65)),
                 ),
               ),
@@ -1235,7 +1266,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
   }) {
     return _intro(
       delay: delay,
-      // fade: false — this is a GlassPanel. An Opacity layer around a
+      // fade: false - this is a GlassPanel. An Opacity layer around a
       // BackdropFilter leaves it sampling an empty layer, so the card would
       // render flat for the whole entrance and then snap to blurred.
       fade: false,
@@ -1286,7 +1317,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
 }
 
 /// Subscribes to [ProfileService] itself so the name can't be captured in a
-/// scope that never rebuilds — the profile lands asynchronously after login.
+/// scope that never rebuilds - the profile lands asynchronously after login.
 class _Greeting extends StatelessWidget {
   const _Greeting({required this.style, this.twoLine = false, this.align = Alignment.center});
 
@@ -1376,7 +1407,7 @@ class _GuestLimitDialogBody extends StatelessWidget {
                 style: TextStyle(color: PTColors.white(0.85)),
               ),
               const TextSpan(
-                text: ' is still running — end it first, or sign in with Google to host more.',
+                text: ' is still running - end it first, or sign in with Google to host more.',
               ),
             ],
           ),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
+import 'package:synctogether/auth/auth_service.dart';
 import 'package:synctogether/platform.dart';
 import 'package:synctogether/ui/buttons.dart';
 import 'package:synctogether/ui/pt_motion.dart';
@@ -153,6 +154,7 @@ class PremiumTeaseDialog extends StatelessWidget {
     this.onNotify,
     this.onUpgrade,
     this.onSignIn,
+    this.onSignInApple,
     this.desktopOverride,
   });
 
@@ -162,6 +164,7 @@ class PremiumTeaseDialog extends StatelessWidget {
   final VoidCallback? onNotify;
   final VoidCallback? onUpgrade;
   final VoidCallback? onSignIn;
+  final VoidCallback? onSignInApple;
   final bool? desktopOverride;
 
   bool get _isDesktop => desktopOverride ?? isDesktop;
@@ -286,18 +289,28 @@ class PremiumTeaseDialog extends StatelessWidget {
   }
 
   Widget _signInActions(BuildContext context) {
+    final hasApple = AuthService.instance.isAppleSupported && onSignInApple != null;
     return Column(
       mainAxisSize: .min,
       crossAxisAlignment: .stretch,
       spacing: 11,
       children: [
-        GoogleButton(
-          label: 'Sign in with Google',
-          onPressed: () {
-            Navigator.of(context).pop();
-            onSignIn?.call();
-          },
-        ),
+        if (hasApple)
+          AppleButton(
+            label: 'Sign in with Apple',
+            onPressed: () {
+              Navigator.of(context).pop();
+              onSignInApple?.call();
+            },
+          ),
+        if (onSignIn != null)
+          GoogleButton(
+            label: 'Sign in with Google',
+            onPressed: () {
+              Navigator.of(context).pop();
+              onSignIn?.call();
+            },
+          ),
         PTButton(
           label: 'Maybe later',
           variant: .secondary,

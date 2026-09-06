@@ -1,12 +1,15 @@
 name: Publish to Microsoft Store (MSIX)
 on:
+  push:
+    tags:
+      - 'v*'
   workflow_dispatch:
     inputs:
       publish_to_store:
         description: "Submit and publish to Microsoft Partner Center after building MSIX"
         type: boolean
         required: true
-        default: true
+        default: false
   workflow_call:
     inputs:
       publish_to_store:
@@ -98,11 +101,11 @@ jobs:
           path: build/windows/x64/runner/Release/SyncTogether-${{ steps.version.outputs.APP_VERSION }}-Store.msix
 
       - name: Setup Microsoft Store Developer CLI
-        if: ${{ inputs.publish_to_store }}
+        if: ${{ inputs.publish_to_store == true }}
         uses: microsoft/microsoft-store-apppublisher@v1
 
       - name: Configure Microsoft Store CLI
-        if: ${{ inputs.publish_to_store }}
+        if: ${{ inputs.publish_to_store == true }}
         env:
           ENTRA_TENANT_ID: ${{ secrets.ENTRA_TENANT_ID || secrets.MICROSOFT_ENTRA_TENANT_ID || secrets.AZURE_AD_TENANT_ID }}
           MSSTORE_SELLER_ID: ${{ secrets.MSSTORE_SELLER_ID }}
@@ -122,7 +125,7 @@ jobs:
             --clientSecret "$env:ENTRA_CLIENT_SECRET"
 
       - name: Publish to Microsoft Partner Center
-        if: ${{ inputs.publish_to_store }}
+        if: ${{ inputs.publish_to_store == true }}
         env:
           ENTRA_CLIENT_ID: ${{ secrets.ENTRA_CLIENT_ID || secrets.MICROSOFT_ENTRA_CLIENT_ID || secrets.AZURE_AD_CLIENT_ID }}
           MSSTORE_PRODUCT_ID: ${{ secrets.MSSTORE_PRODUCT_ID }}

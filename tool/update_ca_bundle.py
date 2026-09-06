@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Refreshes assets/ca/cacert.pem — the CA roots the app trusts in addition to
+"""Refreshes assets/ca/cacert.pem - the CA roots the app trusts in addition to
 the ones the OS provides.
 
 Run with: python3 tool/update_ca_bundle.py
@@ -14,7 +14,7 @@ stale one.
 
 This needs refreshing occasionally: roots expire and new ones are added. It is
 purely additive at runtime (see lib/tls.dart), so a stale bundle degrades to
-"the OS roots decide", which is exactly where the app was before it existed —
+"the OS roots decide", which is exactly where the app was before it existed -
 it can never make a connection fail that would otherwise have worked.
 """
 
@@ -48,12 +48,12 @@ def main() -> int:
     if count < 100:
         # A truncated download or an error page would otherwise be written out
         # as a "valid" bundle that quietly trusts almost nothing.
-        print(f"Only {count} certificates found — refusing to write", file=sys.stderr)
+        print(f"Only {count} certificates found - refusing to write", file=sys.stderr)
         return 1
 
     DEST.parent.mkdir(parents=True, exist_ok=True)
     DEST.write_bytes(bundle)
-    print(f"Wrote {DEST} — {count} certificates, sha256 {actual}")
+    print(f"Wrote {DEST} - {count} certificates, sha256 {actual}")
     return 0
 
 

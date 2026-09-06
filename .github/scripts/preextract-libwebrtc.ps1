@@ -10,14 +10,14 @@
 # the one Flutter picks (visualStudio.cmakePath), so it cannot be pinned in CI.
 #
 # The plugin only downloads+extracts when third_party/libwebrtc is missing, so
-# doing the extraction here — against the real path, no symlink involved — makes
+# doing the extraction here - against the real path, no symlink involved - makes
 # CMake skip it entirely.
 
 $ErrorActionPreference = 'Stop'
 
 $configPath = '.dart_tool/package_config.json'
 if (-not (Test-Path $configPath)) {
-    throw "$configPath not found — run 'flutter pub get' before this script."
+    throw "$configPath not found - run 'flutter pub get' before this script."
 }
 
 $pkg = (Get-Content $configPath -Raw | ConvertFrom-Json).packages |
@@ -41,7 +41,7 @@ $zip = Join-Path $thirdParty 'downloads\libwebrtc.zip'
 $needZip = -not (Test-Path $zip)
 $needExtract = -not (Test-Path $dest)
 if (-not $needZip -and -not $needExtract) {
-    Write-Host "libwebrtc already present at $dest — nothing to do."
+    Write-Host "libwebrtc already present at $dest - nothing to do."
     exit 0
 }
 
@@ -49,7 +49,7 @@ if ($needZip) {
     $cmakeLists = Join-Path $thirdParty 'CMakeLists.txt'
     $url = [regex]::Match((Get-Content $cmakeLists -Raw), 'set\(DOWNLOAD_URL\s+"([^"]+)"').Groups[1].Value
     if (-not $url) {
-        throw "Could not parse DOWNLOAD_URL from $cmakeLists — flutter_webrtc may have changed its download logic."
+        throw "Could not parse DOWNLOAD_URL from $cmakeLists - flutter_webrtc may have changed its download logic."
     }
     New-Item -ItemType Directory -Force -Path (Split-Path $zip) | Out-Null
     Write-Host "Downloading $url"
@@ -57,7 +57,7 @@ if ($needZip) {
 }
 
 if (-not $needExtract) {
-    Write-Host "libwebrtc already extracted at $dest — zip restored, skipping extraction."
+    Write-Host "libwebrtc already extracted at $dest - zip restored, skipping extraction."
     exit 0
 }
 
@@ -66,7 +66,7 @@ Add-Type -AssemblyName System.IO.Compression.FileSystem
 # Extract entry by entry rather than via ExtractToDirectory: the archive holds a
 # couple of Linux-only symlink entries (lib/elinux-*/libwebrtc.so), and .NET 7+
 # tries to materialise those as real symlinks. ExtractToFile just writes bytes,
-# which is all the Windows build needs — it only reads include/ and lib/win64/.
+# which is all the Windows build needs - it only reads include/ and lib/win64/.
 $archive = [System.IO.Compression.ZipFile]::OpenRead($zip)
 try {
     foreach ($entry in $archive.Entries) {
@@ -83,6 +83,6 @@ try {
 }
 
 if (-not (Test-Path $dest)) {
-    throw "Extraction finished but $dest is missing — the archive layout may have changed."
+    throw "Extraction finished but $dest is missing - the archive layout may have changed."
 }
 Write-Host "libwebrtc ready at $dest"

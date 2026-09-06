@@ -1,12 +1,12 @@
 ---
 name: release
-description: Cut a SyncTogether release or pre-release — analyze commits since the last release tag, bump the pubspec version accordingly, push to main, and trigger the build_installers GitHub workflow. Use when the user says "cut a release", "ship a release", "cut a pre-release", "bump the version and build installers", or "/release". Optional arg overrides the computed version (e.g. "/release 0.5.0" or "/release patch"); a "pre" arg (alone or combined, e.g. "/release pre" or "/release pre minor") publishes it as a GitHub pre-release.
+description: Cut a SyncTogether release or pre-release - analyze commits since the last release tag, bump the pubspec version accordingly, push to main, and trigger the build_installers GitHub workflow. Use when the user says "cut a release", "ship a release", "cut a pre-release", "bump the version and build installers", or "/release". Optional arg overrides the computed version (e.g. "/release 0.5.0" or "/release patch"); a "pre" arg (alone or combined, e.g. "/release pre" or "/release pre minor") publishes it as a GitHub pre-release.
 ---
 
 # Cut a release
 
 Bumps `version:` in pubspec.yaml, commits and pushes to `main`, and triggers the
-`build_installers.yaml` workflow. **Do NOT create or push a git tag** — the
+`build_installers.yaml` workflow. **Do NOT create or push a git tag** - the
 workflow's `release` job tags the commit itself as `v<version>_<run_id>` (see
 `tag_name:` in `.github/workflows/build_installers.yaml`); a locally pushed tag
 would be a duplicate that matches nothing.
@@ -15,7 +15,7 @@ The `release` job pushes that tag itself, from the built commit, before it calls
 `softprops/action-gh-release`. That step is what makes a release survive a push
 to `main` while the 15-30 min build is in flight: `GITHUB_TOKEN` is allowed to
 create a release whose target is a branch *tip*, but gets a 403 "Resource not
-accessible by integration" when the target commit has been overtaken — which is
+accessible by integration" when the target commit has been overtaken - which is
 how the first 0.9.0 attempt failed. Creating the tag first leaves the release
 API nothing to resolve. The step is a no-op if the tag already exists, so
 re-running a failed `release` job is safe.
@@ -24,8 +24,8 @@ re-running a failed `release` job is safe.
 
 Installed desktop apps update themselves from this workflow's output, so a few
 things that used to be cosmetic are now load-bearing. Nothing here needs extra
-release steps — the `release` job generates and attaches `appcast.xml`
-unconditionally — but do not "tidy" any of it:
+release steps - the `release` job generates and attaches `appcast.xml`
+unconditionally - but do not "tidy" any of it:
 
 - **The asset filenames and the tag format are a published contract.**
   `.github/scripts/generate-appcast.sh` composes the enclosure URLs from
@@ -34,7 +34,7 @@ unconditionally — but do not "tidy" any of it:
   feed pointing at 404s, and every installed copy silently stops updating.
 - **Every release must carry `appcast.xml`.** Apps read it through the
   `releases/latest/download/appcast.xml` permalink, which resolves to the newest
-  *non-pre-release* — if that release lacks the asset, the permalink 404s and
+  *non-pre-release* - if that release lacks the asset, the permalink 404s and
   updates stop until the next good release.
 - **Pre-releases are invisible to the updater** (that's the `/latest/`
   permalink), so `pre` is the safe way to ship something you don't want pushed
@@ -43,7 +43,7 @@ unconditionally — but do not "tidy" any of it:
   signatures against the public keys committed in the repo before publishing. If
   it fails with "drifted apart", the `SPARKLE_ED_PRIVATE_KEY` /
   `WINSPARKLE_DSA_PRIVATE_KEY` secret no longer matches
-  `macos/Runner/Info.plist` / `windows/runner/resources/dsa_pub.pem` — do not
+  `macos/Runner/Info.plist` / `windows/runner/resources/dsa_pub.pem` - do not
   work around it by regenerating keys, that strands every installed copy.
 - **The first updater-enabled release needs a manual-install note.** Anyone on
   0.8.x or earlier has no updater, so its release notes must tell them to
@@ -53,19 +53,19 @@ unconditionally — but do not "tidy" any of it:
 A `pre` argument (alone or alongside a version/bump arg) cuts a **pre-release**:
 the flow is identical except that step 3 defaults the bump to patch, step 6
 passes `-f prerelease=true` to the dispatch, and step 7 reports it as a
-pre-release. Pre-releases still get a real version and tag — "promoting" one to
+pre-release. Pre-releases still get a real version and tag - "promoting" one to
 stable later means cutting a new, higher version, not re-tagging.
 
 ## Steps
 
-1. **Preflight** — abort with a clear message if any of these fail:
+1. **Preflight** - abort with a clear message if any of these fail:
    - `git branch --show-current` must be `main`.
    - Working tree must be clean (`git status --porcelain` empty). If dirty, stop
-     and tell the user what's uncommitted — never bundle unrelated changes into
+     and tell the user what's uncommitted - never bundle unrelated changes into
      the bump commit.
    - `git pull --ff-only origin main` must succeed.
 
-2. **Find the last release** — release tags look like `v0.3.0_20682763842`
+2. **Find the last release** - release tags look like `v0.3.0_20682763842`
    (version + workflow run id, created by CI):
 
    ```bash
@@ -73,37 +73,37 @@ stable later means cutting a new, higher version, not re-tagging.
    ```
 
    Extract the version from the tag name (strip leading `v` and trailing
-   `_<run_id>`). Sanity-check it against `version:` in pubspec.yaml — they
+   `_<run_id>`). Sanity-check it against `version:` in pubspec.yaml - they
    should match; if they don't, tell the user and ask before continuing.
 
 3. **Decide the new version.**
    - If the user passed an explicit version (`0.5.0`) or a bump keyword
      (`patch` / `minor` / `major`), use that and skip the analysis.
    - Otherwise analyze `git log <last-tag>..HEAD --oneline`. If there are zero
-     commits, abort — there is nothing to release. Read the commit subjects
+     commits, abort - there is nothing to release. Read the commit subjects
      (use `git show --stat` on any that are unclear) and pick the bump using
      the 0.x scheme this app follows:
-     - **minor** — any new user-facing feature or capability (new screens,
+     - **minor** - any new user-facing feature or capability (new screens,
        modes, sync features, redesigns), or a breaking/behavioral change.
-     - **patch** — only fixes, polish, refactors, CI/docs/chores.
-     - **major** (→ 1.0.0) — never infer this; only when the user explicitly
+     - **patch** - only fixes, polish, refactors, CI/docs/chores.
+     - **major** (→ 1.0.0) - never infer this; only when the user explicitly
        asks for it.
-     - **pre-release** (`pre` with no version/bump arg) — default to **patch**
+     - **pre-release** (`pre` with no version/bump arg) - default to **patch**
        unless the commits clearly warrant minor; the eventual stable release
        takes the next, higher version.
    - State the chosen version **with a one-line rationale citing the commits
-     that drove the decision**, then proceed — no confirmation needed unless
+     that drove the decision**, then proceed - no confirmation needed unless
      the analysis is genuinely ambiguous.
 
    Even when the user passed an explicit version and the bump analysis is
-   skipped, still read `git log <last-tag>..HEAD --oneline` — the release
+   skipped, still read `git log <last-tag>..HEAD --oneline` - the release
    notes in step 6 are written from it either way.
 
-4. **Bump** — edit the `version:` line in pubspec.yaml (bare `X.Y.Z`, no
-   `+build` suffix — CI's version extraction and installer names depend on
+4. **Bump** - edit the `version:` line in pubspec.yaml (bare `X.Y.Z`, no
+   `+build` suffix - CI's version extraction and installer names depend on
    this format).
 
-5. **Commit and push** — message follows repo precedent, exactly:
+5. **Commit and push** - message follows repo precedent, exactly:
 
    ```
    Bump app version to X.Y.Z
@@ -112,16 +112,16 @@ stable later means cutting a new, higher version, not re-tagging.
    No co-author trailers. Then `git push origin main`.
 
    That subject line is matched by a `startsWith` guard in `test.yaml`, which
-   skips the push-triggered test run for a bump commit — the dispatch in step 6
+   skips the push-triggered test run for a bump commit - the dispatch in step 6
    re-runs both suites on the same tree and gates the release on them, so the
    push-triggered run is pure duplication. Rewording the subject only costs the
    duplicate run back; it cannot let an untested commit reach a release.
 
 6. **Write the release notes and trigger the workflow.** Compose a Markdown
-   "What's Changed" section from the commits since the last tag — user-facing
+   "What's Changed" section from the commits since the last tag - user-facing
    summaries grouped by theme, not raw commit subjects. Lead with features,
    then fixes; fold internal work (CI, refactors, docs) into a single line or
-   omit it. Keep it short — a handful of bullets. Include the heading, e.g.:
+   omit it. Keep it short - a handful of bullets. Include the heading, e.g.:
 
    ```markdown
    ## What's Changed
@@ -144,7 +144,7 @@ stable later means cutting a new, higher version, not re-tagging.
    For a pre-release, append `-f prerelease=true` to that command (the input
    defaults to false, so stable releases never pass it).
 
-   The dispatch is async — poll until the new run appears:
+   The dispatch is async - poll until the new run appears:
 
    ```bash
    gh run list --workflow=build_installers.yaml --limit 1 --json url,createdAt,status
@@ -153,7 +153,7 @@ stable later means cutting a new, higher version, not re-tagging.
    (re-run the list command if the newest run predates the dispatch; it
    usually appears within a few seconds).
 
-7. **Report and stop** — print the new version and the run URL. Do **not**
+7. **Report and stop** - print the new version and the run URL. Do **not**
    watch the build (it takes 15–30 min); the workflow will create the GitHub
    release, tag, and installer artifacts on its own. Remind the user the
    release will appear at

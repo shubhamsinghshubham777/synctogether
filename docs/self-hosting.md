@@ -1,6 +1,6 @@
 # Self-Hosting SyncTogether
 
-This guide provides complete instructions for self-hosting your own SyncTogether infrastructure — from running on a local home server to deploying a high-availability production instance on a VPS or cloud provider.
+This guide provides complete instructions for self-hosting your own SyncTogether infrastructure - from running on a local home server to deploying a high-availability production instance on a VPS or cloud provider.
 
 ---
 

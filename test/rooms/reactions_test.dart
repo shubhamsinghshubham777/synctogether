@@ -52,7 +52,7 @@ void main() {
         expect(
           _repoFile(reaction.asset).existsSync(),
           isTrue,
-          reason: '${reaction.asset} is missing — run tool/fetch_reaction_emoji.py',
+          reason: '${reaction.asset} is missing - run tool/fetch_reaction_emoji.py',
         );
       }
     });
@@ -100,7 +100,7 @@ void main() {
       expect(
         glyphs,
         isNotEmpty,
-        reason: 'the EMOJI tables were restructured — this check needs restructuring with it',
+        reason: 'the EMOJI tables were restructured - this check needs restructuring with it',
       );
     });
 

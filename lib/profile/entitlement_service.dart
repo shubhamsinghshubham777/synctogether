@@ -33,7 +33,7 @@ class TierLimits {
     avLevel: .voice,
     persistentRoomCap: 0,
     dormantHours: 24,
-    freeExtensionMinutes: 60,
+    freeExtensionMinutes: 0,
     mediaSharing: 'limited',
     mediaSharingWeeklyBytes: 2684354560,
   );

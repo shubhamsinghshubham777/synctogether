@@ -37,7 +37,7 @@ Future<void> main() async {
 
   // Reporting is opt-in via SENTRY_DSN, so a checkout without one still runs.
   // Sentry installs its own FlutterError.onError, which is what makes every
-  // existing reportNonFatal call site arrive here for free — see diagnostics.dart.
+  // existing reportNonFatal call site arrive here for free - see diagnostics.dart.
   final dsn = Env.sentryDsn;
   if (dsn == null || dsn.isEmpty) return _bootstrap();
   return SentryFlutter.init((options) {
@@ -52,7 +52,7 @@ Future<void> main() async {
 
 Future<void> _bootstrap() async {
   // Before anything opens a socket, so the very first Supabase call already has
-  // the bundled roots — and, if it still fails, says which certificate it was
+  // the bundled roots - and, if it still fails, says which certificate it was
   // offered.
   await installTlsOverrides();
   MediaKit.ensureInitialized();
@@ -84,13 +84,13 @@ Future<void> _bootstrap() async {
   if (supportsSelfUpdate) unawaited(UpdateService.instance.checkForUpdate());
 }
 
-/// Desktop starts in OS fullscreen — this is a media app, and the room screen's
+/// Desktop starts in OS fullscreen - this is a media app, and the room screen's
 /// F/Esc toggle stays the way back out.
 ///
 /// It has to wait for a frame: asked before the engine has drawn, macOS's
 /// `toggleFullScreen` on a window that has never rendered leaves the app with
 /// no window at all (frontmost, zero AXWindows) rather than a fullscreen one.
-/// Hence after runApp, and unawaited — nothing downstream may block on the
+/// Hence after runApp, and unawaited - nothing downstream may block on the
 /// window's shape, least of all a window manager that refuses outright.
 Future<void> _enterFullScreen() async {
   try {
@@ -121,14 +121,14 @@ class _MainAppState extends State<MainApp> with WidgetsBindingObserver {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     // The OAuth callback resolves inside supabase_flutter, long after the login
-    // button's own error handling has finished — so a failure there has no
+    // button's own error handling has finished - so a failure there has no
     // screen to report itself on. This is that screen.
     _authFailureSub = AuthService.instance.failures.listen(
       (message) => showPTSnackVia(_scaffoldMessengerKey.currentState, message, kind: .error),
     );
     _linkSub = _appLinks.uriLinkStream.listen((uri) => _onDeepLink(uri, source: 'stream'));
     // The native side replays the launch URL only to the FIRST stream
-    // subscriber — which is supabase_flutter (it subscribes inside
+    // subscriber - which is supabase_flutter (it subscribes inside
     // Supabase.initialize, before runApp). Cold-start invite links must
     // therefore be fetched explicitly; getInitialLink keeps returning the
     // launch URL regardless of that replay.
@@ -145,7 +145,7 @@ class _MainAppState extends State<MainApp> with WidgetsBindingObserver {
   String? _lastLinkHandled;
   DateTime _lastLinkHandledAt = DateTime.fromMillisecondsSinceEpoch(0);
 
-  /// synctogether://join/<code> — invite links. The auth callback URI also
+  /// synctogether://join/<code> - invite links. The auth callback URI also
   /// flows through this stream (it's a broadcast shared with supabase_flutter);
   /// the `join` host filter is what keeps it out of this handler.
   Future<void> _onDeepLink(Uri uri, {required String source}) async {
@@ -179,7 +179,7 @@ class _MainAppState extends State<MainApp> with WidgetsBindingObserver {
         try {
           await RoomService.instance.leaveRoom(currentId);
         } catch (e, s) {
-          // Still navigate — the invite is what the user asked for. But the old
+          // Still navigate - the invite is what the user asked for. But the old
           // membership row survives, and it keeps counting against that room's
           // 8-member cap and its authority election until expiry.
           reportNonFatal(e, s, during: 'leaving room $currentId after an invite');

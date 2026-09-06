@@ -84,13 +84,13 @@ class Room {
   final DateTime expiresAt;
   final DateTime? endedAt;
 
-  /// Canonical media — set by the host only, via `set_room_media`.
+  /// Canonical media - set by the host only, via `set_room_media`.
   final RoomMediaKind mediaKind;
 
   /// Local mode: the exact basename the readiness gate matches on.
   final String? mediaName;
 
-  /// Soft ±2 s warning only — never gating (see the initiative's non-goals).
+  /// Soft ±2 s warning only - never gating (see the initiative's non-goals).
   final Duration? mediaDuration;
   final String? mediaUrl;
 
@@ -99,7 +99,7 @@ class Room {
   /// before adopting media state from either source.
   final DateTime? mediaUpdatedAt;
 
-  /// "The host has the remote" — when true only the host may play/pause/seek.
+  /// "The host has the remote" - when true only the host may play/pause/seek.
   final bool transportLock;
 
   final bool persistent;
@@ -295,7 +295,7 @@ class RoomMedia {
 
   /// A room-row refetch can resolve *after* a newer `media_set` broadcast has
   /// been applied, so media is adopted only when strictly newer. State with no
-  /// timestamp never wins — that is the never-set case, which must not be able
+  /// timestamp never wins - that is the never-set case, which must not be able
   /// to wipe media that has been set.
   bool isNewerThan(RoomMedia other) {
     final mine = updatedAt;
@@ -336,28 +336,28 @@ class RoomMember {
   }
 }
 
-/// Friendly-copy mapping for RPC errors (design voice — no raw codes).
+/// Friendly-copy mapping for RPC errors (design voice - no raw codes).
 enum RoomErrorCode {
   roomNotFound('room_not_found', "Hmm, we couldn't find a room with that code."),
-  roomDormant('room_dormant', 'That room is napping — the host has to wake it up first.'),
+  roomDormant('room_dormant', 'That room is napping - the host has to wake it up first.'),
   roomEnded('room_ended', 'That room has already ended.'),
-  roomFull('room_full', "This room is full — there's no space for one more."),
+  roomFull('room_full', "This room is full - there's no space for one more."),
   roomBanned('room_banned', "The host removed you from this room, so you can't rejoin."),
   guestRoomLimit('guest_room_limit', 'Guests can host one live room at a time.'),
   roomLimitReached(
     'room_limit_reached',
-    "You've hit your room limit — delete an old room or go premium.",
+    "You've hit your room limit - delete an old room or go premium.",
   ),
   extensionUsed('extension_used', "You've already used your free hour on us."),
   extensionCap('extension_cap', "That's as long as a single room can run."),
   extendNotAllowed(
     'extend_not_allowed',
-    "Guest rooms can't be extended — sign in to get more time.",
+    "Rooms can't be extended on this plan - upgrade to Premium for longer sessions.",
   ),
   notAMember('not_a_member', "You're not in that room any more."),
   notOwner('not_owner', 'Only the person who made this room can delete it.'),
   notHost('not_host', 'Only the host can do that.'),
-  cannotKickSelf('cannot_kick_self', "You can't remove yourself — leave the room instead."),
+  cannotKickSelf('cannot_kick_self', "You can't remove yourself - leave the room instead."),
   invalidDuration('invalid_duration', 'Pick a duration between 5 minutes and 4 hours.'),
   invalidMedia('invalid_media', "Hmm, we couldn't set that as the room's video."),
   activeUploadInProgress(

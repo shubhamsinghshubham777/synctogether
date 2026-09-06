@@ -13,7 +13,7 @@ void main() {
         'av_level': 'voice',
         'persistent_room_cap': 0,
         'dormant_hours': 24,
-        'free_extension_minutes': 60,
+        'free_extension_minutes': 0,
         'media_sharing': 'limited',
         'media_sharing_weekly_bytes': 2684354560,
       });

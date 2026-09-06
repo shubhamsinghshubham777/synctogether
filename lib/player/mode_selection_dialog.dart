@@ -26,7 +26,7 @@ class ModeSelectionDialog extends StatelessWidget {
           duration: PTMotion.state,
           offset: 8,
           child: Text(
-            'Pick a source — everyone stays in sync either way.',
+            'Pick a source - everyone stays in sync either way.',
             textAlign: .center,
             style: PTText.body.copyWith(fontSize: 13.5, color: PTColors.white(0.55)),
           ),
@@ -96,7 +96,7 @@ class _SourceOptionState extends State<_SourceOption> {
       onExit: (_) => setState(() => _hovered = false),
       child: PTPressable(
         onTap: widget.onTap,
-        // "What are we watching?" is the moment the evening starts — these
+        // "What are we watching?" is the moment the evening starts - these
         // should feel like physical cards you pick up.
         child: AnimatedSlide(
           offset: _hovered ? const Offset(0, -0.012) : Offset.zero,

@@ -4,7 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:synctogether/diagnostics.dart';
 
-/// Windows-only preparation for the webviews in the app — the guest captcha and
+/// Windows-only preparation for the webviews in the app - the guest captcha and
 /// the YouTube player embed, which share one environment.
 ///
 /// Everywhere else the plugin's defaults are right and every member here stays
@@ -17,13 +17,13 @@ abstract final class PTWebView {
 
   /// Set only when we positively know no WebView2 runtime is installed, which
   /// no amount of retrying will fix. An environment that merely failed to
-  /// *create* leaves this false — see [init].
+  /// *create* leaves this false - see [init].
   static bool runtimeMissing = false;
 
   /// Separates the two Windows-only ways the captcha webview fails to appear,
   /// because they need completely different fixes and look identical on screen.
   ///
-  /// The runtime can genuinely be absent — LTSC/Server and de-bloated images —
+  /// The runtime can genuinely be absent - LTSC/Server and de-bloated images -
   /// which is what the installer's Evergreen bootstrapper is for, and
   /// `getAvailableVersion` is how we learn it did not take.
   ///
@@ -33,7 +33,7 @@ abstract final class PTWebView {
   /// installer is an admin install, so that directory is under Program Files, a
   /// standard user token cannot write there, and creation fails with nothing on
   /// the wire but "Cannot create the InAppWebView instance!". That is what a
-  /// Windows 11 machine reported against 0.5.2 — where the runtime ships in-box
+  /// Windows 11 machine reported against 0.5.2 - where the runtime ships in-box
   /// and the bootstrapper correctly had nothing to do. Pointing the folder at
   /// LOCALAPPDATA is Microsoft's documented fix for packaged apps.
   static Future<void> init() async {

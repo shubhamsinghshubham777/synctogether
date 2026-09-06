@@ -1,7 +1,7 @@
 ---
 name: dev-ecosystem
 description: >-
-  Manage the full local development environment for SyncTogether — spin up or down the local Supabase stack, Edge functions, and Next.js web application, or check ecosystem status. Use when the user asks to "start dev environment", "spin up local stack", "stop dev servers", "check dev status", or run `./scripts/dev.sh`.
+  Manage the full local development environment for SyncTogether - spin up or down the local Supabase stack, Edge functions, and Next.js web application, or check ecosystem status. Use when the user asks to "start dev environment", "spin up local stack", "stop dev servers", "check dev status", or run `./scripts/dev.sh`.
 ---
 
 # Local Development Ecosystem

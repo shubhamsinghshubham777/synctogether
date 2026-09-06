@@ -20,7 +20,7 @@ abstract interface class SyncChannel {
   Future<void> sendBroadcastMessage({required String event, required Map<String, dynamic> payload});
   Future<void> track(Map<String, dynamic> payload);
 
-  /// Flattened across devices — one entry per connection, not per user. The
+  /// Flattened across devices - one entry per connection, not per user. The
   /// per-user collapse is [mergePresence]'s job.
   List<Map<String, dynamic>> presenceState();
   Future<void> unsubscribe();

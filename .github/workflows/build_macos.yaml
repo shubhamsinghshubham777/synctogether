@@ -54,7 +54,7 @@ jobs:
           # the point of caching it: `pod install` rewrites Pods.xcodeproj and
           # the Target Support Files on every run, which invalidates each pod
           # target in Xcode. media_kit, inappwebview and flutter_webrtc were
-          # recompiling on top of a perfectly warm cache because of it — worth
+          # recompiling on top of a perfectly warm cache because of it - worth
           # 77s of the build step.
           #
           # The key is versioned because a change to what gets cached is inert
@@ -90,7 +90,7 @@ jobs:
           flutter build macos --release
 
       # This used to be create-dmg, which spent ~50s mounting a scratch image and
-      # driving Finder over AppleScript to place two icons and size the window —
+      # driving Finder over AppleScript to place two icons and size the window -
       # all of which it then persisted into the volume's .DS_Store. macos/dmg/
       # dmg_ds_store IS that file, lifted out of the shipped v0.7.0 DMG, so
       # staging it reproduces the same window with Finder never involved.
@@ -125,7 +125,7 @@ jobs:
           set -euo pipefail
           DMG="SyncTogether-${{ steps.version.outputs.APP_VERSION }}-macOS.dmg"
           if [ -z "${SPARKLE_ED_PRIVATE_KEY:-}" ]; then
-            echo "::error::SPARKLE_ED_PRIVATE_KEY is unset — installed copies could not verify this update."
+            echo "::error::SPARKLE_ED_PRIVATE_KEY is unset - installed copies could not verify this update."
             exit 1
           fi
           SIGNED=$(printf '%s' "$SPARKLE_ED_PRIVATE_KEY" \
@@ -142,7 +142,7 @@ jobs:
       # Runs after the DMG is built and before the cache is saved at job end.
       # Excluding these via a `!` pattern on the cache path does not work: when
       # `path:` names a directory it is archived whole, and negations for files
-      # inside it are never applied — which is why the "trimmed" cache came out
+      # inside it are never applied - which is why the "trimmed" cache came out
       # bigger than the one it replaced. FlutterMacOS.framework.dSYM alone is
       # 505 MB of engine debug symbols riding along in a release build.
       - name: Drop debug symbols before the cache is saved

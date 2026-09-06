@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:synctogether/rooms/room_models.dart';
 
 /// How far a member has got towards having the room's canonical media loaded.
-/// Declaration order is the rank — "more ready" compares by [index], which is
+/// Declaration order is the rank - "more ready" compares by [index], which is
 /// what resolves a multi-device user to a single status.
 enum ReadyStatus {
   none,
@@ -40,7 +40,7 @@ class PresentMember {
   final String? avatarUrl;
 
   /// A client that predates the readiness gate sends no status, which reads as
-  /// [ReadyStatus.none] and holds the gate shut — the accepted trade-off.
+  /// [ReadyStatus.none] and holds the gate shut - the accepted trade-off.
   final ReadyStatus readyStatus;
 
   /// Basename this member actually has open, for the "they have `weird.mp4`" copy.
@@ -85,7 +85,7 @@ class ChatMessage {
 enum RemoteActionKind { play, pause, seek }
 
 /// A user-initiated remote playback action, surfaced for attribution UI. Only
-/// emitted for genuine play/pause/seek broadcasts — never for mechanical
+/// emitted for genuine play/pause/seek broadcasts - never for mechanical
 /// `state_response` application or `position_sync` drift correction, so
 /// late-join and drift never read as someone touching the controls.
 class RemoteAction {
@@ -97,7 +97,7 @@ class RemoteAction {
 }
 
 /// History rows carry DB timestamps while live broadcasts carry sender-clock
-/// timestamps, so exact keys don't exist — fuzzy-match to dedupe. Broadcasts
+/// timestamps, so exact keys don't exist - fuzzy-match to dedupe. Broadcasts
 /// never replay, so this reload is the only way messages sent while we were
 /// disconnected ever arrive.
 const kChatMergeWindow = Duration(seconds: 10);
@@ -114,7 +114,7 @@ void mergeChatHistory(List<ChatMessage> into, List<ChatMessage> history) {
   into.sort((a, b) => a.sentAt.compareTo(b.sentAt));
 }
 
-/// `ready` only means "something is open" — the name comparison is the gate's
+/// `ready` only means "something is open" - the name comparison is the gate's
 /// job, which is what lets the UI tell "still loading" apart from "loaded the
 /// wrong thing".
 bool memberSatisfiesGate(PresentMember member, RoomMedia media) {
@@ -164,7 +164,7 @@ GateTransition? gateTransitionFor({
   if (next == GateState.closed && previous == GateState.open) {
     // The decision is room-level: when the host opens a new file their own
     // player stops while everyone else plays on, and that is exactly when the
-    // gate must pause — so it cannot be made from our own `isPlaying`.
+    // gate must pause - so it cannot be made from our own `isPlaying`.
     return roomPlaying ? GateTransition.pause : null;
   }
   if (next == GateState.open && previous == GateState.closed && pausedByGate) {
@@ -175,7 +175,7 @@ GateTransition? gateTransitionFor({
 
 /// Our own position is only meaningful if we still have the room's media
 /// loaded. If we are the one holding the gate up we have just opened something
-/// else and sit at 0 — resuming everyone there would throw the room back to the
+/// else and sit at 0 - resuming everyone there would throw the room back to the
 /// start. A null held position simply skips the realignment seek.
 Duration? gateHeldPosition({
   required String? subjectUserId,

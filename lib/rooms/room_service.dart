@@ -236,7 +236,7 @@ class RoomService extends ChangeNotifier {
   }
 
   /// Host only. Removing the member's row does not eject them from the realtime
-  /// channel — Realtime authorizes at subscribe time — so the caller must also
+  /// channel - Realtime authorizes at subscribe time - so the caller must also
   /// broadcast `member_kicked`.
   Future<void> kickMember({
     required String roomId,

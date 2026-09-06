@@ -26,7 +26,7 @@ class ReactionStrip extends StatefulWidget {
   final ValueChanged<PTReaction> onPick;
   final List<PTReaction> reactions;
 
-  /// The strip stays the same eight whatever the tier — a wider set is a
+  /// The strip stays the same eight whatever the tier - a wider set is a
   /// *panel*, not a longer row, because the row lives over the video and a
   /// FittedBox would shrink every cell to fit.
   final bool hasMore;

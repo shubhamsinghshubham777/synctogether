@@ -11,7 +11,7 @@ import 'package:synctogether/ui/pt_theme.dart';
 
 /// Runs a Cloudflare Turnstile challenge in a webview and returns the
 /// captcha token (null on cancel/failure). The page is served from a throwaway
-/// loopback server so its origin really is `localhost` — that hostname must
+/// loopback server so its origin really is `localhost` - that hostname must
 /// stay in the Turnstile widget allow-list.
 Future<String?> showTurnstileDialog(BuildContext context) {
   return showGlassDialog<String>(
@@ -46,7 +46,7 @@ class _TurnstileBodyState extends State<_TurnstileBody> {
   void initState() {
     super.initState();
     // Known before anything is drawn, and no amount of waiting or retrying
-    // changes it — so say so immediately instead of after the full deadline.
+    // changes it - so say so immediately instead of after the full deadline.
     if (PTWebView.runtimeMissing) {
       _failed = true;
       _errorCode = 'webview2-missing';
@@ -58,7 +58,7 @@ class _TurnstileBodyState extends State<_TurnstileBody> {
   /// The silent-failure case, and the reason this timer exists: if the webview
   /// never renders at all, nothing throws and no error-callback fires, so the
   /// dialog just sits there looking patient. Without an explicit deadline that
-  /// state produces no telemetry whatsoever — which is exactly the hole we
+  /// state produces no telemetry whatsoever - which is exactly the hole we
   /// fell into on Windows.
   void _armTimeout() {
     _timeout?.cancel();
@@ -91,7 +91,7 @@ class _TurnstileBodyState extends State<_TurnstileBody> {
   /// Hands the challenge page a real `http://localhost:<port>` origin.
   ///
   /// Loading it as inline data instead would be simpler, but Windows drops
-  /// `InAppWebViewInitialData.baseUrl` on the floor — the WebView2 backend maps
+  /// `InAppWebViewInitialData.baseUrl` on the floor - the WebView2 backend maps
   /// initial data straight onto `NavigateToString`, which has no baseUrl
   /// parameter and always yields an opaque origin. Turnstile then sees a
   /// hostname that is not on its allow-list, refuses to issue a token, and
@@ -107,7 +107,7 @@ class _TurnstileBodyState extends State<_TurnstileBody> {
       _server = server;
       server.listen((request) {
         // Distinguishes "the webview never reached us" from "it loaded the page
-        // and Turnstile then failed" — the two have completely different causes
+        // and Turnstile then failed" - the two have completely different causes
         // and look identical from the outside.
         _pageRequested = true;
         trace('challenge page requested', category: 'turnstile', data: {'path': request.uri.path});
@@ -169,7 +169,7 @@ function onloadTurnstile() {
 ''';
 
   /// "Try again" is the right advice for a challenge that timed out, and the
-  /// wrong advice for a PC that is missing the component this renders in —
+  /// wrong advice for a PC that is missing the component this renders in -
   /// retrying that forever is precisely what people did.
   String get _failureMessage => _errorCode == 'webview2-missing'
       ? "Your PC is missing a Windows component this check needs. "
@@ -185,7 +185,7 @@ function onloadTurnstile() {
       children: [
         Text('Quick check', style: PTText.cardHeading),
         Text(
-          _failed ? _failureMessage : "Just making sure you're human — takes a second.",
+          _failed ? _failureMessage : "Just making sure you're human - takes a second.",
           style: PTText.body.copyWith(fontSize: 13.5, color: PTColors.white(0.6)),
         ),
         // Shown only on failure, and deliberately not dressed up as friendly
@@ -231,7 +231,7 @@ function onloadTurnstile() {
                     ),
                     onWebViewCreated: (controller) {
                       // Never fires if the platform could not build the webview
-                      // — which is the failure this dialog could not previously
+                      // - which is the failure this dialog could not previously
                       // distinguish from Cloudflare never answering.
                       _webViewCreated = true;
                       controller.addJavaScriptHandler(
@@ -248,8 +248,8 @@ function onloadTurnstile() {
                         handlerName: 'turnstileError',
                         callback: (args) {
                           // Cloudflare's code is the single most diagnostic
-                          // thing available here — 110200 is an unlisted
-                          // hostname, 300xxx/600xxx are render-side failures —
+                          // thing available here - 110200 is an unlisted
+                          // hostname, 300xxx/600xxx are render-side failures -
                           // so it goes to Sentry *and* on screen, because the
                           // person hitting this is usually not the person
                           // reading the dashboard.

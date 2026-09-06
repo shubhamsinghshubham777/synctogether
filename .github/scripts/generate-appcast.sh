@@ -20,7 +20,7 @@ dmg="SyncTogether-${version}-macOS.dmg"
 
 for artifact in "$exe" "$dmg"; do
   if [ ! -f "$artifact" ]; then
-    echo "::error::$artifact is not in $(pwd) — the appcast would point at nothing"
+    echo "::error::$artifact is not in $(pwd) - the appcast would point at nothing"
     exit 1
   fi
 done
@@ -30,7 +30,7 @@ trap 'rm -rf "$work"' EXIT
 
 dmg_length="$(wc -c < "$dmg" | tr -d ' ')"
 if [ "$dmg_length" != "$DMG_LENGTH" ]; then
-  echo "::error::the DMG is $dmg_length bytes but was signed at $DMG_LENGTH — the artifact changed in transit"
+  echo "::error::the DMG is $dmg_length bytes but was signed at $DMG_LENGTH - the artifact changed in transit"
   exit 1
 fi
 
@@ -49,7 +49,7 @@ openssl pkey -pubin -inform DER -in "$work/ed_pub.der" -out "$work/ed_pub.pem"
 printf '%s' "$ED_SIGNATURE" | base64 -d > "$work/ed_sig.bin"
 if ! openssl pkeyutl -verify -rawin -pubin -inkey "$work/ed_pub.pem" \
   -sigfile "$work/ed_sig.bin" -in "$dmg" > /dev/null; then
-  echo "::error::the DMG signature does not match SUPublicEDKey — SPARKLE_ED_PRIVATE_KEY and macos/Runner/Info.plist have drifted apart"
+  echo "::error::the DMG signature does not match SUPublicEDKey - SPARKLE_ED_PRIVATE_KEY and macos/Runner/Info.plist have drifted apart"
   exit 1
 fi
 
@@ -71,7 +71,7 @@ printf '%s' "$dsa_signature" | base64 -d > "$work/dsa_sig.bin"
 if ! openssl dgst -sha1 -binary < "$exe" \
   | openssl dgst -sha1 -verify windows/runner/resources/dsa_pub.pem \
     -signature "$work/dsa_sig.bin" > /dev/null; then
-  echo "::error::the installer signature does not match windows/runner/resources/dsa_pub.pem — WINSPARKLE_DSA_PRIVATE_KEY and the committed public key have drifted apart"
+  echo "::error::the installer signature does not match windows/runner/resources/dsa_pub.pem - WINSPARKLE_DSA_PRIVATE_KEY and the committed public key have drifted apart"
   exit 1
 fi
 

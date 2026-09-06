@@ -40,14 +40,14 @@ jobs:
 
       # The expensive translation units here belong to plugins (inappwebview,
       # flutter_webrtc), and those sources live in the pub cache, which
-      # flutter-action restores with their original mtimes — so MSBuild's
+      # flutter-action restores with their original mtimes - so MSBuild's
       # timestamp check accepts the cached .obj files instead of rebuilding them.
       # Deliberately no restore-keys: a prefix hit would pair objects with a
       # different set of plugin versions, and a subtly stale installer is a worse
       # outcome than a slow one. A pubspec.lock change simply pays full price.
       # Measured on a 2-core runner: 676s cold, 89s warm, ~6s to restore. Note
-      # that Actions caches do not travel from a branch to main — only main's own
-      # caches are visible everywhere — so the first run after a change here, and
+      # that Actions caches do not travel from a branch to main - only main's own
+      # caches are visible everywhere - so the first run after a change here, and
       # after every dependency bump, is a cold one.
       - name: Cache Windows build outputs
         uses: actions/cache@v4
@@ -75,7 +75,7 @@ jobs:
           flutter pub get
 
       # flutter_webrtc's third_party/CMakeLists.txt downloads libwebrtc.zip and
-      # extracts it into its own package dir — which the Windows build reaches
+      # extracts it into its own package dir - which the Windows build reaches
       # through windows/flutter/ephemeral/.plugin_symlinks/flutter_webrtc.
       # Recent CMake (bundled with Visual Studio, so not pinnable here) refuses
       # to extract through a symlink. Its guard skips the download+extract when
@@ -91,7 +91,7 @@ jobs:
         run: dart run inno_bundle --no-app --release --no-installer
 
       # Adds the synctogether:// protocol handler (OAuth callbacks) and the
-      # WebView2 runtime (guest captcha) — neither is expressible in the
+      # WebView2 runtime (guest captcha) - neither is expressible in the
       # inno_bundle config, and it rewrites the script on every build.
       - name: Patch installer script
         run: ./.github/scripts/patch-installer-script.ps1

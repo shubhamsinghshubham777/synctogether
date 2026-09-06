@@ -16,7 +16,7 @@ enum PTSnackKind { info, success, error }
 /// **not** glass: `ScaffoldMessenger` wraps floating snack bars in a
 /// `FadeTransition`, and a `BackdropFilter` inside one samples an empty layer.
 ///
-/// Newest wins — the queue is cleared before every show. Without that, holding
+/// Newest wins - the queue is cleared before every show. Without that, holding
 /// a blocked key (Space against a shut readiness gate) stacked one four-second
 /// toast per keypress and the app spent half a minute telling you the same thing.
 ///
@@ -24,7 +24,7 @@ enum PTSnackKind { info, success, error }
 /// room that is the floating control bar.
 ///
 /// Never throws. If there is no `ScaffoldMessenger` to show it in, the toast is
-/// dropped and the failure — including the message that was lost — is reported
+/// dropped and the failure - including the message that was lost - is reported
 /// to the error console rather than passing silently.
 void showPTSnack(
   BuildContext context,
@@ -38,7 +38,7 @@ void showPTSnack(
   bottomInset: bottomInset,
 );
 
-/// For callers holding a messenger key rather than a subtree context — the
+/// For callers holding a messenger key rather than a subtree context - the
 /// deep-link handler in `main.dart` runs outside any screen.
 void showPTSnackVia(
   ScaffoldMessengerState? messenger,
@@ -53,7 +53,7 @@ void showPTSnackVia(
     // production. The dropped copy rides along so the log says what the user
     // should have seen.
     reportNonFatal(
-      StateError('No ScaffoldMessenger available — a ${kind.name} toast was dropped'),
+      StateError('No ScaffoldMessenger available - a ${kind.name} toast was dropped'),
       StackTrace.current,
       during: 'showing the toast "$message"',
     );
@@ -163,7 +163,7 @@ class PTBanner extends StatefulWidget {
   /// Ignored without an [onDismiss].
   final Duration? autoDismissAfter;
 
-  /// Rotates the glyph continuously — the universal "working on it" cue, which
+  /// Rotates the glyph continuously - the universal "working on it" cue, which
   /// is what stops the reconnecting banner reading as stuck.
   final bool spinIcon;
 

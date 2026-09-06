@@ -16,7 +16,7 @@ class ReadinessChipStyle {
   final Color color;
 
   /// A member who is "ready" but holding the wrong file reads as a problem, not
-  /// as progress — the gate treats them the same way.
+  /// as progress - the gate treats them the same way.
   static ReadinessChipStyle of(PresentMember member, RoomMedia media) {
     if (media.kind == .local && member.isReady && member.loadedFileName != media.name) {
       return ReadinessChipStyle(
@@ -168,7 +168,7 @@ class ReadinessOverlay extends StatelessWidget {
                       ),
                     if (onLocateFile != null)
                       PTButton(
-                        // Just the action — the headline directly above already
+                        // Just the action - the headline directly above already
                         // names the file, and release names are long enough to
                         // swamp the panel if repeated here.
                         label: 'Locate your copy',

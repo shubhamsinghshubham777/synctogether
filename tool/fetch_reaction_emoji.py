@@ -48,8 +48,8 @@ DEST = ROOT / "assets" / "emoji"
 MANIFEST = ROOT / "lib" / "rooms" / "reactions.dart"
 
 USAGE = """\
-Refreshes assets/emoji/*.json — the Noto Animated Emoji (Lottie) the room's
-quick reactions render — and verifies the digests the app uses to check the
+Refreshes assets/emoji/*.json - the Noto Animated Emoji (Lottie) the room's
+quick reactions render - and verifies the digests the app uses to check the
 *extended* set it fetches at runtime. The JSONs are build output: edit this
 script, never them.
 
@@ -63,8 +63,8 @@ swapped animation is not something anyone would catch.
 
 Only EMOJI is bundled. EXTENDED is verified and then discarded: those animations
 are fetched by the app on demand and checked against the same digests, mirrored
-in kExtendedReactions. A pin that drifts there does not break the app — the
-reaction quietly falls back to its glyph — so this script is the only place the
+in kExtendedReactions. A pin that drifts there does not break the app - the
+reaction quietly falls back to its glyph - so this script is the only place the
 drift is visible at all. Run it when reactions start rendering flat.
 
 The CDN path says "latest", so a mismatch most likely means Google republished
@@ -132,7 +132,7 @@ def check_manifest(codepoints: list[str]) -> bool:
         return True
     if not referenced:
         print(
-            f"  found no `codepoint: '…'` entries in {MANIFEST.name} at all — if the\n"
+            f"  found no `codepoint: '…'` entries in {MANIFEST.name} at all - if the\n"
             "  manifest was restructured, this check needs restructuring with it",
             file=sys.stderr,
         )
@@ -176,7 +176,7 @@ def main(argv: list[str]) -> int:
             continue
         if actual != expected:
             print(
-                f"  SHA-256 mismatch — expected {expected}, got {actual}\n"
+                f"  SHA-256 mismatch - expected {expected}, got {actual}\n"
                 "  Re-run with --print-digests and re-pin deliberately.",
                 file=sys.stderr,
             )
@@ -189,7 +189,7 @@ def main(argv: list[str]) -> int:
     if printing:
         return 1 if failed else 0
     if failed:
-        print("\nNothing written — fix the failures above and re-run.", file=sys.stderr)
+        print("\nNothing written - fix the failures above and re-run.", file=sys.stderr)
         return 1
 
     print()
@@ -214,7 +214,7 @@ def main(argv: list[str]) -> int:
     for name in DEST.glob("*.json"):
         if name.stem not in downloaded:
             name.unlink()
-            print(f"Removed {name.relative_to(ROOT)} — no longer in the set")
+            print(f"Removed {name.relative_to(ROOT)} - no longer in the set")
     for codepoint, raw in downloaded.items():
         target = DEST / f"{codepoint}.json"
         target.write_bytes(raw)

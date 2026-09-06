@@ -125,7 +125,7 @@ write("app_icon_square", art(SIZE, rounded=False))
 # Android adaptive layers are full-bleed: flutter_launcher_icons wraps the
 # foreground and monochrome drawables in its own 16% safe-zone inset, so
 # pre-shrinking them here would shrink the glyph twice. The corner radius lives
-# on the background layer only — the launcher mask does the real rounding.
+# on the background layer only - the launcher mask does the real rounding.
 write("app_icon_background", art(SIZE, rounded=False, glyph=False))
 write("app_icon_foreground", art(SIZE, bg=False))
 write("app_icon_monochrome", art(SIZE, bg=False))

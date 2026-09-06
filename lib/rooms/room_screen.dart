@@ -158,14 +158,14 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
   Timer? _actionToastTimer;
 
   // Floating chat bubbles (last 3) shown over the video while the panel is
-  // closed (desktop/landscape only — portrait chat is always visible). Each
+  // closed (desktop/landscape only - portrait chat is always visible). Each
   // self-expires; timers are tracked so they can be cancelled on dispose, and
   // on open (where the bubbles instead fade out under the arriving panel).
   final _overlayChat = <ChatMessage>[];
   final _overlayChatTimers = <Timer>{};
 
   /// Bubbles that have timed out and are playing their exit. They stay in
-  /// [_overlayChat] until the fade finishes — removing them on the timer alone
+  /// [_overlayChat] until the fade finishes - removing them on the timer alone
   /// is what made them vanish mid-sentence.
   final _expiringChat = <ChatMessage>{};
 
@@ -180,7 +180,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
 
   // Floating chrome (topbar + control bar) auto-hides while playing; tap the
   // video to toggle it manually. Only applies to the overlay layouts
-  // (desktop/landscape) — portrait keeps controls in the column flow.
+  // (desktop/landscape) - portrait keeps controls in the column flow.
   bool _controlsVisible = true;
   bool _pointerOverControls = false;
   Timer? _controlsHideTimer;
@@ -236,7 +236,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
 
   GateState _gateState = GateState.indeterminate;
 
-  // Readiness-overlay reveal. Driven only by `closed` — `indeterminate` must
+  // Readiness-overlay reveal. Driven only by `closed` - `indeterminate` must
   // render as usable, or the overlay flashes on every room entry. Out is
   // quicker than in on purpose: the payoff of the gate opening is *seeing the
   // video*, so don't make people wait for it.
@@ -261,7 +261,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
   void _syncGateReveal() {
     // `_selfBlocksGate` keeps the panel up for someone the host started
     // without: the room is playing, the gate is open, and they still have
-    // nothing loaded — which is exactly when they need the locate button.
+    // nothing loaded - which is exactly when they need the locate button.
     final shouldShow = (_gateState == GateState.closed || _selfBlocksGate) && !_awaitingFirstSource;
     if (shouldShow) {
       _gateAnim.forward();
@@ -270,7 +270,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     }
   }
 
-  // The overflow menu is a Navigator route — a sibling subtree — so setState
+  // The overflow menu is a Navigator route - a sibling subtree - so setState
   // here can never rebuild it. Everything it shows is pushed through this
   // notifier instead; null means "close now" (the room is over for us).
   final _menuData = ValueNotifier<RoomMenuData?>(null);
@@ -307,7 +307,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
       return;
     }
     if (kind == 'cam' && on && !av.canPublishCamera) {
-      _snack('Cameras are a premium thing — this room is voice only.', kind: .info);
+      _snack('Cameras are a premium thing - this room is voice only.', kind: .info);
       return;
     }
     if (on) _facecamUsed = true;
@@ -346,7 +346,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     if (isDesktop) {
       windowManager.addListener(this);
       // The window is already fullscreen by the time the first room opens (the
-      // app launches that way), and the listener only reports *transitions* —
+      // app launches that way), and the listener only reports *transitions* -
       // without seeding, Esc would fall through to nothing.
       windowManager.isFullScreen().then((value) {
         if (mounted && value != _fullscreen) setState(() => _fullscreen = value);
@@ -395,7 +395,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
       return;
     }
 
-    // A transient fetch failure must NOT be misread as "room ended" —
+    // A transient fetch failure must NOT be misread as "room ended" -
     // only a missing/expired room gets the "That's a wrap!" treatment.
     Room? room;
     var loadFailed = false;
@@ -410,7 +410,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     }
     if (!mounted) return;
     if (loadFailed) {
-      _snack("Couldn't load the room — check your connection and try again.");
+      _snack("Couldn't load the room - check your connection and try again.");
       context.go('/lobby');
       return;
     }
@@ -427,7 +427,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     } catch (e, s) {
       reportNonFatal(e, s, during: 'loading members of room ${widget.roomId}');
       if (mounted) {
-        _snack("Couldn't load the room — check your connection and try again.");
+        _snack("Couldn't load the room - check your connection and try again.");
         context.go('/lobby');
       }
       return;
@@ -527,12 +527,12 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
         _publishMenuData();
       }),
       sync.gateResumedStream.listen(
-        (_) => _showActionToast("Everyone's ready — resuming", arrival: true),
+        (_) => _showActionToast("Everyone's ready - resuming", arrival: true),
       ),
       sync.connectionStream.listen((up) {
         final wasConnected = _connected;
         setState(() => _connected = up);
-        // Backfill anything said during the outage — broadcasts don't replay.
+        // Backfill anything said during the outage - broadcasts don't replay.
         if (up && !wasConnected) _reloadChatHistory();
       }),
       widget.player.stream.playing.listen((playing) {
@@ -604,13 +604,13 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
 
     unawaited(_resumeFromCanonicalMedia());
 
-    // If the state-sync window closes with no media, we're first in — ask
+    // If the state-sync window closes with no media, we're first in - ask
     // what to watch.
     _idleSourceTimer = Timer(const Duration(milliseconds: 4500), () {
       if (!mounted) return;
       _resolveFirstSource();
       if (_ended) return;
-      // Members are never auto-prompted for a source — the readiness overlay
+      // Members are never auto-prompted for a source - the readiness overlay
       // tells them the host is still choosing.
       if (!(_sync?.isHost ?? false)) return;
       final hasMedia = widget.player.state.duration != Duration.zero || _youtubeUrl != null;
@@ -758,7 +758,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     });
   }
 
-  /// [arrival] gets the one overshoot curve in the system — reserved for
+  /// [arrival] gets the one overshoot curve in the system - reserved for
   /// "we're all here" moments, never for routine attribution.
   void _showActionToast(String text, {bool arrival = false}) {
     if (!mounted) return;
@@ -818,7 +818,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
 
   bool get _ytReady => _youtubeController?.isReady ?? false;
 
-  /// Spinner shows only while the player is stalled AND meant to be playing —
+  /// Spinner shows only while the player is stalled AND meant to be playing -
   /// a buffer that fills behind a paused frame needs no indicator. YouTube's
   /// state reads `buffering` (not `playing`) mid-stall, so gate it on intent.
   bool get _showBuffering => _buffering && (_mode == .youtube ? _ytIntendedPlaying : _playing);
@@ -883,7 +883,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
   }
 
   // ---------------------------------------------------------------------------
-  // Mode switching (ported from PTVideoPlayer — dialog dismissal is delicate)
+  // Mode switching (ported from PTVideoPlayer - dialog dismissal is delicate)
   // ---------------------------------------------------------------------------
 
   Future<void> _onRemoteModeSwitch(dynamic event) async {
@@ -970,8 +970,8 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
       return;
     }
     // Re-applying the video we already have embedded must NOT reset anything.
-    // Duplicate switches are routine — a `state_response` after a reconnect
-    // replays the room's mode — and tearing readiness down for one would shut
+    // Duplicate switches are routine - a `state_response` after a reconnect
+    // replays the room's mode - and tearing readiness down for one would shut
     // the gate on a room that never changed what it was watching.
     if (_mode == .youtube &&
         _youtubeController != null &&
@@ -1073,7 +1073,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     });
     if (isPlaying != wasPlaying) _onPlayingChangedForControls(isPlaying);
 
-    // Broadcast only transitions that diverge from the agreed play state —
+    // Broadcast only transitions that diverge from the agreed play state -
     // those are direct iframe interactions. Everything triggered by _playPause
     // or a remote event already matches _ytIntendedPlaying, so no echo and no
     // double-broadcast, regardless of iframe latency.
@@ -1257,7 +1257,17 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
       final fileStr = Profile.formatBytes(fileSize);
       final maxStr = Profile.formatBytes(maxFileBytes);
       _snack('This video ($fileStr) exceeds the maximum single file limit ($maxStr).');
-      if (mounted) showMediaQuotaDialog(context);
+      if (mounted) {
+        showMediaQuotaDialog(
+          context,
+          quotaContext: MediaQuotaContext(
+            reason: .singleFileLimitExceeded,
+            fileName: name,
+            fileSize: fileSize,
+            maxBytes: maxFileBytes,
+          ),
+        );
+      }
       return;
     }
 
@@ -1269,7 +1279,18 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
         final fileStr = Profile.formatBytes(fileSize);
         final remainingStr = Profile.formatBytes(remaining);
         _snack('This video ($fileStr) exceeds your remaining weekly quota ($remainingStr).');
-        if (mounted) showMediaQuotaDialog(context);
+        if (mounted) {
+          showMediaQuotaDialog(
+            context,
+            quotaContext: MediaQuotaContext(
+              reason: .weeklyQuotaExceeded,
+              fileName: name,
+              fileSize: fileSize,
+              remainingBytes: remaining,
+              maxBytes: weeklyLimit,
+            ),
+          );
+        }
         return;
       }
     }
@@ -1328,7 +1349,14 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
       final error = MediaSharingException.fromError(e);
       _snack(error.message);
       if (error.code == 'quota_exceeded' && mounted) {
-        showMediaQuotaDialog(context);
+        showMediaQuotaDialog(
+          context,
+          quotaContext: MediaQuotaContext(
+            reason: .weeklyQuotaExceeded,
+            fileName: name,
+            fileSize: fileSize,
+          ),
+        );
       }
     }
   }
@@ -1677,7 +1705,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
   }
 
   /// Duration only arrives async after `open`. If it never does, announce
-  /// without it rather than never announcing at all — silence would leave the
+  /// without it rather than never announcing at all - silence would leave the
   /// room with no canonical media and the gate shut forever.
   Future<void> _announceLocalFile(String name) async {
     var duration = Duration.zero;
@@ -1697,7 +1725,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     );
   }
 
-  /// Host only — the RPC rejects everyone else, so this no-ops for members
+  /// Host only - the RPC rejects everyone else, so this no-ops for members
   /// (whose picker exists to locate their own copy, not to set the room's).
   /// Persist first: the row is what reaches late joiners and outlives the host.
   Future<void> _publishCanonicalMedia(
@@ -1730,7 +1758,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
   void _onCanonicalMedia(RoomMedia media) {
     // `media_set` and its `mode_switch` are separate broadcasts and can land in
     // either order. Drop our YouTube buffer flag the moment the room's video
-    // changes, or the gate reads "ready" for the *previous* video for a beat —
+    // changes, or the gate reads "ready" for the *previous* video for a beat -
     // long enough to auto-resume into the wrong thing.
     if (!_isSameYouTubeVideo(media)) {
       _ytBufferFallbackTimer?.cancel();
@@ -1753,7 +1781,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
 
   // ---------------------------------------------------------------------------
   // Readiness: derive our own status from local state and push it onto
-  // presence. Cheap to call from anywhere — retrackReadiness no-ops when
+  // presence. Cheap to call from anywhere - retrackReadiness no-ops when
   // nothing actually changed.
   // ---------------------------------------------------------------------------
 
@@ -1773,7 +1801,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
         return .none; // nothing has been picked for the room yet
       case .local:
         if (_localFileName == null) return .none;
-        // `ready` means "a file is fully open", NOT "the right file" — the gate
+        // `ready` means "a file is fully open", NOT "the right file" - the gate
         // compares loadedFileName against canonical itself, so the UI can tell
         // "still loading" apart from "loaded the wrong thing".
         return _duration == Duration.zero ? .loading : .ready;
@@ -1815,7 +1843,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
   /// The D6 fallback, armed when the embed is created rather than from the
   /// player listener. The controller only notifies on value *changes*, so a
   /// member who never presses play gets a short burst of events during init
-  /// and then silence — arming from the listener meant that if the flag was
+  /// and then silence - arming from the listener meant that if the flag was
   /// ever cleared afterwards, nothing existed to re-arm it and they sat on
   /// "Loading" forever while the host (whose player keeps emitting) went ready.
   void _armYouTubeReadyFallback() {
@@ -1828,7 +1856,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     });
   }
 
-  /// The old "different file loaded" banner is gone — the readiness overlay
+  /// The old "different file loaded" banner is gone - the readiness overlay
   /// now says who is missing what, in better words, and the gate stops
   /// playback outright. What survives is the case the gate deliberately does
   /// NOT block on: right name, suspiciously different length (D3's soft
@@ -1967,7 +1995,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     // "waiting for X and Y to load <name>" covers both situations.
     if (others.length == 1 && _canonicalMedia.kind == .local && others.first.isReady) {
       final wrong = others.first.loadedFileName ?? 'nothing';
-      return 'Waiting for ${others.first.displayName} to pick the right file — '
+      return 'Waiting for ${others.first.displayName} to pick the right file - '
           'they currently have $wrong.';
     }
     return 'Waiting for ${_joinNames(others.map((m) => m.displayName).toList())} to load $what.';
@@ -1981,7 +2009,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
   };
 
   /// True when the action was blocked. Every user-initiated transport action
-  /// funnels through here — the dimmed widgets are affordance only, and
+  /// funnels through here - the dimmed widgets are affordance only, and
   /// keyboard shortcuts and double-tap skip zones never touch them.
   bool _blockTransport() {
     final reason = _transportBlockedReason;
@@ -1998,7 +2026,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
       final controller = _youtubeController;
       if (controller == null || !_ytReady) return;
       final currentPosition = controller.position;
-      // Toggle on intent, not iframe state — the iframe lags behind commands.
+      // Toggle on intent, not iframe state - the iframe lags behind commands.
       if (_ytIntendedPlaying) {
         _ytIntendedPlaying = false;
         controller.pause();
@@ -2090,7 +2118,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
 
     if (_modifierChordHeld) return KeyEventResult.ignored;
 
-    // A focused text field (chat input) owns the keyboard — space must type a
+    // A focused text field (chat input) owns the keyboard - space must type a
     // space, not toggle playback. Esc hands focus back to player shortcuts.
     final focusedContext = FocusManager.instance.primaryFocus?.context;
     if (focusedContext?.findAncestorStateOfType<EditableTextState>() != null) {
@@ -2246,7 +2274,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     if (playing) {
       _scheduleControlsHide();
     } else {
-      // Paused: controls stay up — hiding them on a paused frame helps no one.
+      // Paused: controls stay up - hiding them on a paused frame helps no one.
       _controlsHideTimer?.cancel();
       if (!_controlsVisible) setState(() => _controlsVisible = true);
     }
@@ -2319,8 +2347,8 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     icon: Symbols.delete_forever_rounded,
   );
 
-  /// The host removed us. Same teardown as a room ending — only the copy
-  /// differs — because from this client's side the room is equally over.
+  /// The host removed us. Same teardown as a room ending - only the copy
+  /// differs - because from this client's side the room is equally over.
   Future<void> _onKicked() => _evictSelf(
     reason: 'kicked',
     title: 'Removed from the room',
@@ -2345,12 +2373,12 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
       category: 'room',
       data: {'room_id': widget.roomId, 'reason': reason},
     );
-    // Null closes the overflow menu if it happens to be open — otherwise it
+    // Null closes the overflow menu if it happens to be open - otherwise it
     // sits over the "That's a wrap!" dialog listing a room that no longer runs.
     _publishMenuData();
     _countdownTimer?.cancel();
     _remotePause();
-    // Unpublish mic/cam right away — not when the user finally taps
+    // Unpublish mic/cam right away - not when the user finally taps
     // "Back to lobby".
     final av = _av;
     if (mounted) {
@@ -2376,7 +2404,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     return (
       title: "Room's taking a nap",
       body: isHost
-          ? "You're out of time for now, but the room is waiting in your lobby — "
+          ? "You're out of time for now, but the room is waiting in your lobby - "
                 'pick it back up whenever you like.'
           : "You're out of time for now. The host can wake this room back up, and "
                 "it'll be waiting in your lobby.",
@@ -2578,7 +2606,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     try {
       await RoomService.instance.leaveRoom(widget.roomId);
     } catch (e, s) {
-      // Leave for the lobby regardless — trapping someone in a room they asked
+      // Leave for the lobby regardless - trapping someone in a room they asked
       // to leave is worse. But the membership is now stranded: it holds a slot
       // against the 8-member cap and stays eligible for host succession.
       reportNonFatal(e, s, during: 'leaving room ${widget.roomId}');
@@ -2648,7 +2676,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     if (room == null) return;
     Clipboard.setData(ClipboardData(text: room.inviteLink));
     Analytics.instance.track('invite_copied', {'room_id': widget.roomId});
-    _snack('Invite link copied — send it to your people.', kind: .success);
+    _snack('Invite link copied - send it to your people.', kind: .success);
   }
 
   void _onChatCopied() => _snack('Message copied.', kind: .success);
@@ -2702,14 +2730,14 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
       setState(() => mergeChatHistory(_messages, history));
     } catch (e, s) {
       // Broadcasts don't replay, so this reload is the only way messages sent
-      // while we were disconnected ever arrive — losing it leaves a permanent
+      // while we were disconnected ever arrive - losing it leaves a permanent
       // hole in the transcript.
       reportNonFatal(e, s, during: 'reloading chat history after a reconnect');
     }
   }
 
   void _openOverflowMenu() {
-    // A null snapshot means "close" — opening on it would strand an empty panel.
+    // A null snapshot means "close" - opening on it would strand an empty panel.
     if (_ended) return;
     _publishMenuData();
     showRoomOverflowMenu(
@@ -2802,48 +2830,37 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
 
   TierLimits get _limits => EntitlementService.instance.limitsOrFallback;
 
-  bool get _hasFreebie =>
-      _limits.hasFreeExtension && !(ProfileService.instance.profile?.freeExtensionUsed ?? false);
+  String get _extendLabel => _limits.picksExtensionLength ? 'Add time' : 'Go Premium';
 
-  String get _extendLabel {
-    if (_limits.picksExtensionLength) return 'Add time';
-    if (_hasFreebie) return '+1 hour, on us';
-    return 'Go Premium';
-  }
-
-  IconData? get _extendIcon {
-    if (!_limits.picksExtensionLength && !_hasFreebie) {
-      return Symbols.crown_rounded;
-    }
-    return null;
-  }
+  IconData? get _extendIcon => _limits.picksExtensionLength ? null : Symbols.crown_rounded;
 
   String get _expirySubtitle {
     final room = _room;
     if (room != null && room.goesDormant) {
-      return 'This room naps at $_endsAtLabel — you can pick it back up later.';
+      return 'This room naps at $_endsAtLabel - you can pick it back up later.';
     }
-    return 'Time to wrap up — this room ends at $_endsAtLabel.';
+    return 'Time to wrap up - this room ends at $_endsAtLabel.';
   }
 
   Future<void> _extendRoom() async {
     final room = _room;
     if (room == null || _extending) return;
 
-    if (!_limits.picksExtensionLength && !_hasFreebie) {
+    if (!_limits.picksExtensionLength) {
       if (_limits.isGuest) {
         await _showPremiumTease(
           surface: 'room_expiry',
           headline: 'Sign in for more time',
           body:
-              'Guest rooms run for an hour and stop there. Sign in with Google — it '
+              'Guest rooms run for an hour and stop there. Sign in with Google - it '
               'takes a moment, it costs nothing, and this session carries over.',
           perks: const [
             'Rooms that run for four hours, not one',
-            'An hour more on the house when you need it',
+            'Voice chat for up to 8 friends',
             'Rooms that nap in your lobby instead of vanishing',
           ],
           onSignIn: _linkGoogleIdentity,
+          onSignInApple: AuthService.instance.isAppleSupported ? _linkAppleIdentity : null,
         );
         return;
       }
@@ -2851,8 +2868,8 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
         surface: 'room_expiry',
         headline: 'Keep the party going',
         body:
-            'Your free +1 hour is spent, and this room ends at $_endsAtLabel. Upgrade to '
-            'Premium for marathon rooms, larger groups, and persistent watch spaces.',
+            'This room ends at $_endsAtLabel. Upgrade to '
+            'Premium for marathon rooms up to 24 hours, larger groups, and persistent watch spaces.',
         perks: const [
           'Rooms that run up to 24 hours',
           'Up to 16 watchers, with video facecams',
@@ -2862,23 +2879,20 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
       return;
     }
 
-    var minutes = _limits.freeExtensionMinutes;
-    if (_limits.picksExtensionLength) {
-      final headroom = _limits.maxTotalSessionMinutes - room.durationMinutes;
-      final options = [30, 60, 120, 240].where((m) => m <= headroom).toList();
-      if (options.isEmpty) {
-        _snack(RoomErrorCode.extensionCap.message, kind: .info);
-        Analytics.instance.track('limit_hit', {'which': 'extension_cap'});
-        return;
-      }
-      final chosen = await showGlassDialog<int>(
-        context: context,
-        width: 420,
-        builder: (_) => ExtendRoomDialog(options: options, headroomMinutes: headroom),
-      );
-      if (chosen == null || !mounted) return;
-      minutes = chosen;
+    final headroom = _limits.maxTotalSessionMinutes - room.durationMinutes;
+    final options = [30, 60, 120, 240].where((m) => m <= headroom).toList();
+    if (options.isEmpty) {
+      _snack(RoomErrorCode.extensionCap.message, kind: .info);
+      Analytics.instance.track('limit_hit', {'which': 'extension_cap'});
+      return;
     }
+    final chosen = await showGlassDialog<int>(
+      context: context,
+      width: 420,
+      builder: (_) => ExtendRoomDialog(options: options, headroomMinutes: headroom),
+    );
+    if (chosen == null || !mounted) return;
+    final minutes = chosen;
 
     setState(() => _extending = true);
     try {
@@ -2898,8 +2912,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
           durationMinutes: extended.durationMinutes,
         ),
       );
-      if (_limits.hasFreeExtension) unawaited(ProfileService.instance.load());
-      _snack('More time — this room now runs until $_endsAtLabel.', kind: .success);
+      _snack('More time - this room now runs until $_endsAtLabel.', kind: .success);
     } catch (e, s) {
       final failure = RoomErrorCode.fromError(e);
       if (failure == .unknown) reportNonFatal(e, s, during: 'extending room ${widget.roomId}');
@@ -2929,6 +2942,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     required String body,
     required List<String> perks,
     VoidCallback? onSignIn,
+    VoidCallback? onSignInApple,
   }) async {
     Analytics.instance.track('upgrade_cta_shown', {'surface': surface});
     await showGlassDialog<void>(
@@ -2958,9 +2972,32 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
                 });
                 onSignIn();
               },
+        onSignInApple: onSignInApple == null
+            ? null
+            : () {
+                Analytics.instance.track('upgrade_cta_clicked', {
+                  'surface': surface,
+                  'action': 'sign_in_apple',
+                });
+                onSignInApple();
+              },
       ),
     );
     if (mounted) _shortcutFocus.requestFocus();
+  }
+
+  Future<void> _linkAppleIdentity() async {
+    trace(
+      'starting an Apple guest upgrade from the room',
+      category: 'auth',
+      data: {'room': widget.roomId},
+    );
+    try {
+      await AuthService.instance.linkAppleIdentity();
+    } catch (e, s) {
+      reportNonFatal(e, s, during: 'linking an Apple identity from the expiry upsell');
+      if (mounted) _snack("Couldn't start Apple sign-in - try again.");
+    }
   }
 
   Future<void> _linkGoogleIdentity() async {
@@ -2973,7 +3010,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
       await AuthService.instance.linkGoogleIdentity();
     } catch (e, s) {
       reportNonFatal(e, s, during: 'linking a Google identity from the expiry upsell');
-      if (mounted) _snack("Couldn't start Google sign-in — try again.");
+      if (mounted) _snack("Couldn't start Google sign-in - try again.");
     }
   }
 
@@ -3017,7 +3054,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
   @override
   Widget build(BuildContext context) {
     // The room sits on top of the lobby, so a system back gesture would pop
-    // straight out of it — and a bare pop skips leave_room, stranding the
+    // straight out of it - and a bare pop skips leave_room, stranding the
     // membership (member cap, authority election). Route it through _leaveRoom.
     // PopScope stays outside the loading branch so a back gesture during the
     // initial fetch is handled too.
@@ -3073,7 +3110,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
 
   /// Wraps the video for touch layouts: double-tapping the left/right third
   /// skips ∓10 s (broadcast via [_skip]) with a label flash; a middle
-  /// double-tap is ignored. `onTap` still toggles the chrome — accepting the
+  /// double-tap is ignored. `onTap` still toggles the chrome - accepting the
   /// ~300 ms single-tap delay the double-tap recognizer imposes (touch only).
   Widget _skipZones({required Widget child, VoidCallback? onTap}) {
     return LayoutBuilder(
@@ -3115,15 +3152,15 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
         if (_mode == .youtube && _youtubeController != null)
           // The embed is a display surface, not a control surface. Its own
           // chrome is stripped, so the only things left to click are the big
-          // play button — which would bypass the readiness gate and the
-          // transport lock, since those are enforced in _playPause/_seek — and
+          // play button - which would bypass the readiness gate and the
+          // transport lock, since those are enforced in _playPause/_seek - and
           // "Watch on YouTube", which navigates the embed away entirely. It
           // also stops the platform view from competing for the mouse cursor.
           IgnorePointer(
             child: PTYouTubeEmbed(
               // Keyed on the controller so a replaced one gets a fresh webview
               // rather than leaving the old element pointed at a closed
-              // loopback server. Never key this by URL — switching video reuses
+              // loopback server. Never key this by URL - switching video reuses
               // the controller by design.
               key: ObjectKey(_youtubeController!),
               controller: _youtubeController!,
@@ -3171,10 +3208,10 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
             ),
           ),
         ),
-        // Covers the video only — chat, facecams and the member list stay
+        // Covers the video only - chat, facecams and the member list stay
         // interactive while the room waits (D2). Mounted for as long as the
         // reveal is non-zero rather than while the gate is shut, so the exit
-        // animation gets to play — and so the roster's entrance stagger fires
+        // animation gets to play - and so the roster's entrance stagger fires
         // when the overlay actually appears, not when the room screen builds.
         Positioned.fill(
           child: AnimatedBuilder(
@@ -3237,7 +3274,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
           child: IgnorePointer(
             child: Center(
               // Drops in from above and rises on the way out. The pill is glass,
-              // so fading it does flatten the blur for the duration — accepted
+              // so fading it does flatten the blur for the duration - accepted
               // here because `Opacity` skips painting entirely at zero, which
               // keeps a dormant BackdropFilter off the playing video.
               child: AnimatedSlide(
@@ -3358,7 +3395,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
             tooltip: 'Keyboard shortcuts',
             onPressed: _showShortcuts,
           ),
-          // Urgency without layout movement — this sits right next to the
+          // Urgency without layout movement - this sits right next to the
           // video, so nothing here may reflow or jitter.
           Tooltip(
             message: (_sync?.isHost ?? false) ? 'Extend room duration' : 'Time remaining',
@@ -3465,7 +3502,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
             icon: Symbols.difference_rounded,
             title: 'Same name, different length',
             subtitle:
-                'Your copy of ${_roomFile!.name} runs a little different — you might drift apart.',
+                'Your copy of ${_roomFile!.name} runs a little different - you might drift apart.',
             trailing: PTButton(
               label: 'Pick another',
               variant: .secondary,
@@ -3605,7 +3642,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     return MouseRegion(
       cursor: SystemMouseCursors.click,
       child: GestureDetector(
-        // Opaque so the bubble's padding is tappable too, not just its text —
+        // Opaque so the bubble's padding is tappable too, not just its text -
         // the Row hugs its content, so this claims no space beyond the bubble.
         behavior: .opaque,
         onTap: _openChat,
@@ -3665,7 +3702,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
 
   /// The chat panel itself: slides in from off the right edge (the Stack clips
   /// it on the way past) and unmounts at rest, so the panel and its input only
-  /// exist while it's on screen. Deliberately *not* faded — the
+  /// exist while it's on screen. Deliberately *not* faded - the
   /// panel is a GlassPanel, and an Opacity layer around a BackdropFilter leaves
   /// it sampling an empty layer, i.e. the glass goes flat mid-animation.
   Widget _chatRevealed({required double offscreen, required Widget panel}) {

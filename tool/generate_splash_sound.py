@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Generate assets/sfx/splash.wav — the splash-screen logo sting.
+"""Generate assets/sfx/splash.wav - the splash-screen logo sting.
 
 Synthesised rather than recorded, for the same reason assets/icon/ is
 generated: the sound has to land *on* the splash animation, so its timing
-lives next to the numbers it must match. `IMPACT` below is the contract —
+lives next to the numbers it must match. `IMPACT` below is the contract -
 lib/ui/splash_screen.dart plays this file at animation t=0 and lands the logo
 tile at the same offset.
 
@@ -16,7 +16,7 @@ Stdlib only. Layers, in the order you hear them:
     0.30s  chime    detuned Cmaj bell partials      -> the brand accent
     0.30s  tail     feedback delay on the chime     -> room, then silence
 
-Tuning it means editing the layer functions and re-running — the .wav is build
+Tuning it means editing the layer functions and re-running - the .wav is build
 output, not a source file. Anything that replaces it has to keep its transient
 at IMPACT, or the logo's spring and the hit come apart.
 """
@@ -75,7 +75,7 @@ def impact():
     return out
 
 
-# (ratio to C5, amplitude, decay tau, pan) — a Cmaj triad spread over two
+# (ratio to C5, amplitude, decay tau, pan) - a Cmaj triad spread over two
 # octaves. Alternating pans give the bell some width without a stereo effect.
 PARTIALS = [
     (1.0000, 1.00, 0.60, 0.42),   # C5
@@ -84,7 +84,7 @@ PARTIALS = [
     (2.0000, 0.46, 0.38, 0.64),   # C6
     (2.5198, 0.26, 0.30, 0.34),   # E6
     (3.0000, 0.18, 0.24, 0.66),   # G6
-    (4.0000, 0.09, 0.16, 0.50),   # C7 — just the strike's sparkle
+    (4.0000, 0.09, 0.16, 0.50),   # C7 - just the strike's sparkle
 ]
 ROOT = 523.25  # C5
 
@@ -107,7 +107,7 @@ def chime():
 
 
 def tail(left, right):
-    """Three delay taps — a hint of room so the chime dissolves, not stops."""
+    """Three delay taps - a hint of room so the chime dissolves, not stops."""
     for tap in range(1, 4):
         delay = int(SR * 0.085 * tap)
         gain = 0.40 ** tap

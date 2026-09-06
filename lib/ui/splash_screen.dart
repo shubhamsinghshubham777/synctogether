@@ -10,7 +10,7 @@ import 'package:synctogether/ui/pt_theme.dart';
 /// Total run: logo in, hold, cross-fade out.
 const _kTotal = Duration(milliseconds: 1800);
 
-/// The accent — the logo's spring reaches full overshoot here, and the sound's
+/// The accent - the logo's spring reaches full overshoot here, and the sound's
 /// transient is cut to hit the same instant (`IMPACT` in
 /// tool/generate_splash_sound.py). Move one, move the other.
 const _kImpact = Duration(milliseconds: 300);
@@ -24,11 +24,11 @@ const _kSfx = 'asset:///assets/sfx/splash.wav';
 
 /// Underdamped spring settle: overshoots once by ~17%, undershoots a hair,
 /// done. [PTMotion.arrive]'s easeOutBack is the kit's overshoot curve, but it
-/// has to spend its whole interval on a single lean-back — a real spring can
+/// has to spend its whole interval on a single lean-back - a real spring can
 /// take the same time and still feel like it *lands* partway through, which is
 /// what lets the visual accent sit on the audio transient.
 /// Its first and largest overshoot (~17%) peaks at π/frequency ≈ 0.273 of the
-/// interval — that fraction is the beat the ear reads as the hit, and it is
+/// interval - that fraction is the beat the ear reads as the hit, and it is
 /// what the tile's timing below is solved against.
 class _Spring extends Curve {
   const _Spring();
@@ -53,7 +53,7 @@ Interval _beat(int startMs, int endMs, Curve curve) =>
 /// Only the tile is timed to the audio: its spring peaks on [_kImpact]
 /// (110 + 0.273 × 700 ≈ 300). Everything else trails it as follow-through, so
 /// the ear hears one hit and not three. Scale and opacity run on separate
-/// intervals on purpose — a spring that faded over its whole travel would
+/// intervals on purpose - a spring that faded over its whole travel would
 /// still be translucent at the moment it is supposed to land.
 final _tile = _beat(110, 810, _spring);
 final _tileFade = _beat(110, 400, PTMotion.enter);
@@ -62,8 +62,8 @@ final _ring = _beat(300, 880, PTMotion.exit);
 final _word = _beat(210, 910, _spring);
 final _wordFade = _beat(210, 490, PTMotion.enter);
 
-/// The app is built here, still hidden, so its first frame — glass blurs,
-/// shader warm-up, the lobby's whole tree — is paid for during the hold
+/// The app is built here, still hidden, so its first frame - glass blurs,
+/// shader warm-up, the lobby's whole tree - is paid for during the hold
 /// instead of on the first frame of the fade, where it stalls the raster
 /// thread and turns the cross-fade into a cut.
 final _prewarm = 950 / _kTotal.inMilliseconds;
@@ -73,7 +73,7 @@ final _exit = _beat(1240, _kTotal.inMilliseconds, PTMotion.emphasized);
 /// then cross-fades so the lobby's own entrance choreography plays into the
 /// gap rather than behind an opaque cover.
 ///
-/// It is an overlay in `MaterialApp.builder`, not a route — the router,
+/// It is an overlay in `MaterialApp.builder`, not a route - the router,
 /// redirects and the deep-link handler in main.dart all keep running
 /// underneath, so an invite link that arrives during the splash still lands.
 class PTSplash extends StatefulWidget {
@@ -180,7 +180,7 @@ class _Stage extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = animation.value;
     // `MaterialApp.builder` sits above every Scaffold, so there is no ancestor
-    // text style here — without this the wordmark paints with the framework's
+    // text style here - without this the wordmark paints with the framework's
     // yellow "unstyled text" underline.
     return DefaultTextStyle(
       style: PTText.body,
@@ -239,7 +239,7 @@ class _Tile extends StatelessWidget {
         children: [
           // One pulse leaving the tile on the impact, gone before the wordmark
           // settles. OverflowBox because a non-positioned Stack child is
-          // constrained to the Stack's size — the ring has to outgrow it.
+          // constrained to the Stack's size - the ring has to outgrow it.
           if (ring > 0 && ring < 1)
             OverflowBox(
               maxWidth: double.infinity,

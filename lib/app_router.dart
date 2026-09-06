@@ -18,7 +18,7 @@ import 'ui/pt_motion.dart';
 
 /// Profile, subscribe and rooms are *sub-routes* of the lobby, so the lobby is always the
 /// page beneath them in the navigator stack. That is what makes `go('/lobby')`
-/// — every back button, leave, eviction and end-room exit — shrink the stack
+/// - every back button, leave, eviction and end-room exit - shrink the stack
 /// and play the reverse (pop) transition. As sibling top-level routes, `go`
 /// swaps the whole stack and Flutter animates it as a forward push instead.
 const kRoomPathPrefix = '/lobby/room/';
@@ -64,8 +64,8 @@ GoRouter buildRouter(Player player) {
           GoRoute(
             path: 'room/:id',
             // Keyed by room id: go_router reuses the page for room A → room B
-            // (same route pattern), and without the key the old room's State —
-            // sync channel, countdown, chat — would survive the navigation.
+            // (same route pattern), and without the key the old room's State -
+            // sync channel, countdown, chat - would survive the navigation.
             pageBuilder: (context, state) => _rise(
               state,
               RoomScreen(
@@ -87,7 +87,7 @@ GoRouter buildRouter(Player player) {
 
 /// Every transition is fade-dominant and short. The room mounts a media_kit
 /// texture and (in YouTube mode) a platform-view WebView, and heavy transforms
-/// over those jank — so the translate legs stay small and nothing scales.
+/// over those jank - so the translate legs stay small and nothing scales.
 ///
 /// `key: state.pageKey` is not optional: it is what makes go_router treat a
 /// re-navigation to the same location as the same page rather than a new one.
@@ -117,7 +117,7 @@ CustomTransitionPage<void> _fadeThrough(GoRouterState state, Widget child) {
 }
 
 /// Entering the theater: the room rises into place, and sinks back down on
-/// every `go('/lobby')` exit — leave, eviction, end-room — because the nested
+/// every `go('/lobby')` exit - leave, eviction, end-room - because the nested
 /// lobby→room stack makes those genuine pops.
 CustomTransitionPage<void> _rise(GoRouterState state, Widget child) {
   return _page(state, child, (context, animation, secondary, child) {
@@ -136,7 +136,7 @@ CustomTransitionPage<void> _rise(GoRouterState state, Widget child) {
   });
 }
 
-/// Sibling detail page — a subtle horizontal shared axis.
+/// Sibling detail page - a subtle horizontal shared axis.
 CustomTransitionPage<void> _sharedAxis(GoRouterState state, Widget child) {
   return _page(state, child, (context, animation, secondary, child) {
     final curved = CurvedAnimation(

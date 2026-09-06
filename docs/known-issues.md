@@ -10,9 +10,9 @@ Since the readiness gate shipped, presence carries each member's
 media identity lives on the room row. The only thing `file_info` still carries
 that presence does not is each member's **duration**, feeding the soft "same
 name, different length" warning. Settled recommendation (2026-07-26): fold a
-`loaded_duration_ms` into presence and delete `file_info` entirely — including
+`loaded_duration_ms` into presence and delete `file_info` entirely - including
 the synthesized `FileInfoEvent` in `_handleStateResponse`
-(`lib/sync/sync_service.dart`) — in one move, not a half-migration. Nothing is
+(`lib/sync/sync_service.dart`) - in one move, not a half-migration. Nothing is
 blocked meanwhile.
 
 ## Cursor flicker over the room screen in YouTube mode (macOS)
@@ -25,42 +25,42 @@ default arrow and the pointing hand. Local-file mode is unaffected. Reported
 **Why only YouTube mode:** local video renders as a Flutter texture
 (media_kit), so Flutter owns the whole surface. The YouTube embed
 (`lib/player/youtube/` → `flutter_inappwebview`) is a **macOS platform
-view** — a real `WKWebView` `NSView` inside the window. AppKit delivers mouse
+view** - a real `WKWebView` `NSView` inside the window. AppKit delivers mouse
 tracking to that view directly, *below Flutter's event layer*: WKWebView
 re-asserts the arrow cursor on mouse moves while FlutterView sets the pointing
 hand for hovered buttons, and the two alternate → flicker.
 
-**Still present after the IFrame migration (2026-07-31)** — the embed moved off
+**Still present after the IFrame migration (2026-07-31)** - the embed moved off
 `youtube_player_flutter` onto our own bridge, but it is the same
 `flutter_inappwebview` platform-view class, so nothing about the arbitration
 changed. **One thing did change and it invalidates the appendix below:** the
 reverted swizzle told the two webviews apart by `url.host`, skipping
 `localhost` so the Turnstile captcha stayed interactive. Both are now served
 from a loopback `HttpServer`, so **both are `localhost`** and host is no longer
-a discriminator. A future attempt needs a different one — the port
+a discriminator. A future attempt needs a different one - the port
 (`PTYouTubeController.pageUrl`), or better, a marker the Dart side sets on the
 webview it owns.
 
 **Ruled out (don't retry these):**
 
-- **Dart-side `IgnorePointer` / `MouseRegion` around the embed** — cannot
+- **Dart-side `IgnorePointer` / `MouseRegion` around the embed** - cannot
   work; the fight happens in AppKit, beneath Flutter's event pipeline. The
   embed is already wrapped in `IgnorePointer` and its page already sets
   `pointer-events: none` on the whole body (both were true of the old package
   too, and remain true of `PTYouTubeEmbed`), so DOM hover inside the webview
   was never the source either.
-- **`flutter_inappwebview` settings** — no interaction/cursor-related setting
+- **`flutter_inappwebview` settings** - no interaction/cursor-related setting
   exists in the macOS implementation (checked 1.1.2 sources).
-- **`pointer_interceptor`** — has no macOS support
+- **`pointer_interceptor`** - has no macOS support
   ([flutter/flutter#162662](https://github.com/flutter/flutter/issues/162662)).
-- **Runner-level WKWebView swizzle** — tried and **reverted** (it did not stop
+- **Runner-level WKWebView swizzle** - tried and **reverted** (it did not stop
   the flicker). `MainFlutterWindow.swift` swizzled `hitTest` / `mouseMoved` /
   `mouseEntered` / `mouseExited` / `cursorUpdate` to no-ops for webviews whose
   `url.host` was `youtube-nocookie.com` (the embed's baseUrl; the Turnstile
   captcha webview uses `localhost` and must stay interactive). The full
   implementation is preserved at the bottom of this file (it was never
   committed). Its failure suggests the cursor set isn't reaching WKWebView
-  through those NSResponder entry points on the WKWebView instance itself —
+  through those NSResponder entry points on the WKWebView instance itself -
   candidates: WebKit setting the cursor from an internal/child object or via
   its own `NSTrackingArea` owner that isn't the `WKWebView`, or the Flutter
   engine's platform-view container views participating in tracking.
@@ -78,7 +78,7 @@ webview it owns.
   writing native code again.
 - Nuclear option: while in YouTube mode, force a single cursor for the whole
   window (e.g. default arrow everywhere over the video region) so there is
-  nothing to fight about — degrades hover affordances but kills the flicker.
+  nothing to fight about - degrades hover affordances but kills the flicker.
 
 ### Appendix: the reverted swizzle (for reference)
 
@@ -86,7 +86,7 @@ Lived in `macos/Runner/MainFlutterWindow.swift`; installed from
 `awakeFromNib` via `WKWebView.ptInstallDisplayOnlyPatch()` after
 `RegisterGeneratedPlugins`. Did NOT fix the flicker, but did compile and run;
 a variant with different interception points could start from here. **Its
-`ptIsDisplayOnly` host check is now wrong** — see the note above: the embed is
+`ptIsDisplayOnly` host check is now wrong** - see the note above: the embed is
 served from `localhost`, which this code deliberately treats as the captcha.
 
 ```swift

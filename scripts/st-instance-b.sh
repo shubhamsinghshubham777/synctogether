@@ -32,7 +32,7 @@ rm -rf "$DEST_DIR" && mkdir -p "$DEST_DIR"
 cp -R "$SRC" "$DEST"
 
 PLIST="$DEST/Contents/Info.plist"
-/usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier app.synctogether.macos.b" "$PLIST"
+/usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier app.synctogether.b" "$PLIST"
 /usr/libexec/PlistBuddy -c "Set :CFBundleName SyncTogether B" "$PLIST"
 
 # Create clean ad-hoc entitlements by stripping restricted Apple entitlements

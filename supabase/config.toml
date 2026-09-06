@@ -340,7 +340,7 @@ secret = "env(SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET)"
 
 [auth.external.apple]
 enabled = true
-client_id = "app.synctogether.web,app.synctogether.macos,app.synctogether.ios"
+client_id = "app.synctogether.web,app.synctogether"
 # DO NOT commit your OAuth provider secret to git. Use environment variable substitution instead:
 secret = "env(SUPABASE_AUTH_EXTERNAL_APPLE_SECRET)"
 # Overrides the default auth callback URL derived from auth.external_url.

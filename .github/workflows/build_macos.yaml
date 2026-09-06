@@ -74,48 +74,63 @@ jobs:
           VERSION=$(grep '^version:' pubspec.yaml | cut -d ' ' -f 2 | cut -d '+' -f 1)
           echo "APP_VERSION=$VERSION" >> "$GITHUB_OUTPUT"
 
-      - name: Create .env file
-        run: |
-          echo "${{ secrets.ENV_FILE }}" > .env
-
       - name: Install dependencies
         run: flutter pub get
 
       # No explicit `pod install`: flutter runs CocoaPods itself when Podfile.lock
       # and the pods' Manifest.lock disagree, and skips it when they agree. Doing
       # it unconditionally is what dirtied every pod target on every build.
+      - name: Import Apple Developer ID Certificate
+        env:
+          MACOS_CERTIFICATE_BASE64: ${{ secrets.MACOS_CERTIFICATE_BASE64 }}
+          MACOS_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+        run: |
+          set -euo pipefail
+          if [ -z "${MACOS_CERTIFICATE_BASE64:-}" ]; then
+            echo "::warning::MACOS_CERTIFICATE_BASE64 secret is not set. Skipping certificate import."
+            exit 0
+          fi
+          KEYCHAIN_PATH="$RUNNER_TEMP/build.keychain"
+          KEYCHAIN_PASSWORD="runner_temp_password"
+
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+
+          CERT_PATH="$RUNNER_TEMP/cert.p12"
+          echo "$MACOS_CERTIFICATE_BASE64" | base64 --decode > "$CERT_PATH"
+          security import "$CERT_PATH" -k "$KEYCHAIN_PATH" -P "${MACOS_CERTIFICATE_PASSWORD:-}" -T /usr/bin/codesign -T /usr/bin/security
+          rm -f "$CERT_PATH"
+
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security list-keychains -d user -s "$KEYCHAIN_PATH" $(security list-keychains -d user | tr -d '"')
+
       - name: Build macOS App
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+          LIVEKIT_URL: ${{ secrets.LIVEKIT_URL }}
+          TURNSTILE_SITE_KEY: ${{ secrets.TURNSTILE_SITE_KEY }}
+          SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
+          POSTHOG_API_KEY: ${{ secrets.POSTHOG_API_KEY }}
+          POSTHOG_HOST: ${{ secrets.POSTHOG_HOST }}
         run: |
           flutter config --enable-macos-desktop
-          flutter build macos --release
+          flutter build macos --release \
+            --dart-define=SUPABASE_URL="$SUPABASE_URL" \
+            --dart-define=SUPABASE_PUBLISHABLE_KEY="$SUPABASE_PUBLISHABLE_KEY" \
+            --dart-define=LIVEKIT_URL="$LIVEKIT_URL" \
+            --dart-define=TURNSTILE_SITE_KEY="$TURNSTILE_SITE_KEY" \
+            --dart-define=SENTRY_DSN="$SENTRY_DSN" \
+            --dart-define=POSTHOG_API_KEY="$POSTHOG_API_KEY" \
+            --dart-define=POSTHOG_HOST="$POSTHOG_HOST"
 
-      # This used to be create-dmg, which spent ~50s mounting a scratch image and
-      # driving Finder over AppleScript to place two icons and size the window -
-      # all of which it then persisted into the volume's .DS_Store. macos/dmg/
-      # dmg_ds_store IS that file, lifted out of the shipped v0.7.0 DMG, so
-      # staging it reproduces the same window with Finder never involved.
-      # Regenerate it (mount a DMG, copy .DS_Store) if the layout should change;
-      # the icon positions inside it are keyed to these exact filenames.
-      - name: Create DMG
-        run: |
-          STAGE="$RUNNER_TEMP/dmg"
-          rm -rf "$STAGE" && mkdir -p "$STAGE"
-          # ditto, not cp -R: it preserves the extended attributes and resource
-          # forks that the release build's ad-hoc code signature depends on.
-          ditto "build/macos/Build/Products/Release/SyncTogether.app" "$STAGE/SyncTogether.app"
-          ln -s /Applications "$STAGE/Applications"
-          cp macos/dmg/dmg_ds_store "$STAGE/.DS_Store"
-          # zlib-level=9 is what create-dmg asked for. The hdiutil default is
-          # ~15s faster to write and ~6 MB larger to download, which is the wrong
-          # way round for something every user fetches once.
-          hdiutil create \
-            -volname "SyncTogether" \
-            -srcfolder "$STAGE" \
-            -fs HFS+ \
-            -format UDZO \
-            -imagekey zlib-level=9 \
-            -ov \
-            "SyncTogether-${{ steps.version.outputs.APP_VERSION }}-macOS.dmg"
+      - name: Sign, Package, Notarize, and Staple DMG
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+        run: ./scripts/sign-macos.sh
 
       - name: Sign the DMG for Sparkle
         id: sign
@@ -153,3 +168,11 @@ jobs:
         with:
           name: macos-dmg
           path: ./SyncTogether-${{ steps.version.outputs.APP_VERSION }}-macOS.dmg
+
+      - name: Clean up temporary keychain
+        if: always()
+        run: |
+          KEYCHAIN_PATH="$RUNNER_TEMP/build.keychain"
+          if [ -f "$KEYCHAIN_PATH" ]; then
+            security delete-keychain "$KEYCHAIN_PATH" || true
+          fi

@@ -103,7 +103,6 @@ jobs:
             - **macOS**: `SyncTogether-${{ needs.macos.outputs.app_version }}-macOS.dmg`
 
             ## macOS Installation Notes
-            This build is unsigned. To run the app:
+            This build is signed with Apple Developer ID and notarized by Apple.
             1. Open the DMG and drag SyncTogether to Applications
-            2. Right-click the app and select "Open" (first time only)
-            3. Or run: `xattr -cr /Applications/SyncTogether.app`
+            2. Double-click to open and launch immediately (no security approval needed in Settings)

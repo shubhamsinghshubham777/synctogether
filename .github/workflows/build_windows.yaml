@@ -62,10 +62,6 @@ jobs:
           VERSION=$(grep '^version:' pubspec.yaml | cut -d ' ' -f 2 | cut -d '+' -f 1)
           echo "APP_VERSION=$VERSION" >> "$GITHUB_OUTPUT"
 
-      - name: Create .env file
-        run: |
-          echo "${{ secrets.ENV_FILE }}" | Out-File -FilePath .env -Encoding utf8
-
       # `flutter clean` used to sit between two `pub get`s here, which meant the
       # first one only ever produced a .dart_tool for clean to delete. The runner
       # is a fresh checkout, so there is nothing to clean in the first place.
@@ -85,7 +81,24 @@ jobs:
         run: ./.github/scripts/preextract-libwebrtc.ps1
 
       - name: Build Windows App
-        run: flutter build windows --release
+        shell: bash
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+          LIVEKIT_URL: ${{ secrets.LIVEKIT_URL }}
+          TURNSTILE_SITE_KEY: ${{ secrets.TURNSTILE_SITE_KEY }}
+          SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
+          POSTHOG_API_KEY: ${{ secrets.POSTHOG_API_KEY }}
+          POSTHOG_HOST: ${{ secrets.POSTHOG_HOST }}
+        run: |
+          flutter build windows --release \
+            --dart-define=SUPABASE_URL="$SUPABASE_URL" \
+            --dart-define=SUPABASE_PUBLISHABLE_KEY="$SUPABASE_PUBLISHABLE_KEY" \
+            --dart-define=LIVEKIT_URL="$LIVEKIT_URL" \
+            --dart-define=TURNSTILE_SITE_KEY="$TURNSTILE_SITE_KEY" \
+            --dart-define=SENTRY_DSN="$SENTRY_DSN" \
+            --dart-define=POSTHOG_API_KEY="$POSTHOG_API_KEY" \
+            --dart-define=POSTHOG_HOST="$POSTHOG_HOST"
 
       - name: Build iss script
         run: dart run inno_bundle --no-app --release --no-installer

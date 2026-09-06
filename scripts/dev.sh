@@ -177,15 +177,21 @@ check_prereqs() {
   fi
 
   # Seed Cloudflare Turnstile always-pass test keys if still on placeholders or empty
-  if grep -q "TURNSTILE_SITE_KEY=0x4AAAAAA\.\.\." "$REPO_ROOT/.env" || grep -q "TURNSTILE_SITE_KEY=$" "$REPO_ROOT/.env"; then
-    sed -i '' "s|TURNSTILE_SITE_KEY=.*|TURNSTILE_SITE_KEY=$TURNSTILE_TEST_SITE_KEY|" "$REPO_ROOT/.env"
+  if [ -f "$REPO_ROOT/.env" ]; then
+    if grep -q "TURNSTILE_SITE_KEY=0x4AAAAAA\.\.\." "$REPO_ROOT/.env" || grep -q "TURNSTILE_SITE_KEY=$" "$REPO_ROOT/.env"; then
+      sed -i '' "s|TURNSTILE_SITE_KEY=.*|TURNSTILE_SITE_KEY=$TURNSTILE_TEST_SITE_KEY|" "$REPO_ROOT/.env"
+    fi
   fi
-  if grep -q "SUPABASE_AUTH_CAPTCHA_SECRET=0x4AAAAAA\.\.\." "$REPO_ROOT/supabase/.env" || grep -q "SUPABASE_AUTH_CAPTCHA_SECRET=$" "$REPO_ROOT/supabase/.env"; then
-    sed -i '' "s|SUPABASE_AUTH_CAPTCHA_SECRET=.*|SUPABASE_AUTH_CAPTCHA_SECRET=$TURNSTILE_TEST_SECRET_KEY|" "$REPO_ROOT/supabase/.env"
+  if [ -f "$REPO_ROOT/supabase/.env" ]; then
+    if grep -q "SUPABASE_AUTH_CAPTCHA_SECRET=0x4AAAAAA\.\.\." "$REPO_ROOT/supabase/.env" || grep -q "SUPABASE_AUTH_CAPTCHA_SECRET=$" "$REPO_ROOT/supabase/.env"; then
+      sed -i '' "s|SUPABASE_AUTH_CAPTCHA_SECRET=.*|SUPABASE_AUTH_CAPTCHA_SECRET=$TURNSTILE_TEST_SECRET_KEY|" "$REPO_ROOT/supabase/.env"
+    fi
   fi
   if [ -f "$REPO_ROOT/website/.env.local" ]; then
-    local root_turnstile_key
-    root_turnstile_key=$(grep -E "^TURNSTILE_SITE_KEY=" "$REPO_ROOT/.env" | cut -d '=' -f2- | tr -d ' "')
+    local root_turnstile_key=""
+    if [ -f "$REPO_ROOT/.env" ]; then
+      root_turnstile_key=$(grep -E "^TURNSTILE_SITE_KEY=" "$REPO_ROOT/.env" | cut -d '=' -f2- | tr -d ' "' || true)
+    fi
     if [ -n "$root_turnstile_key" ] && [ "$root_turnstile_key" != "0x4AAAAAA..." ]; then
       if grep -q "NEXT_PUBLIC_TURNSTILE_SITE_KEY=" "$REPO_ROOT/website/.env.local"; then
         sed -i '' "s|NEXT_PUBLIC_TURNSTILE_SITE_KEY=.*|NEXT_PUBLIC_TURNSTILE_SITE_KEY=$root_turnstile_key|" "$REPO_ROOT/website/.env.local"
@@ -274,7 +280,7 @@ spin_up() {
 
   # Auto-sync local keys into .env and website/.env.local
   if [ -n "$anon_key" ]; then
-    if grep -q "SUPABASE_PUBLISHABLE_KEY_LOCAL=" "$REPO_ROOT/.env"; then
+    if [ -f "$REPO_ROOT/.env" ] && grep -q "SUPABASE_PUBLISHABLE_KEY_LOCAL=" "$REPO_ROOT/.env"; then
       sed -i '' "s|SUPABASE_PUBLISHABLE_KEY_LOCAL=.*|SUPABASE_PUBLISHABLE_KEY_LOCAL=$anon_key|" "$REPO_ROOT/.env"
     fi
     if grep -q "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=" "$REPO_ROOT/website/.env.local"; then
@@ -286,8 +292,10 @@ spin_up() {
       sed -i '' "s|SUPABASE_SERVICE_ROLE_KEY=.*|SUPABASE_SERVICE_ROLE_KEY=$service_role_key|" "$REPO_ROOT/website/.env.local"
     fi
   fi
-  local turnstile_site_key
-  turnstile_site_key=$(grep -E "^TURNSTILE_SITE_KEY=" "$REPO_ROOT/.env" | cut -d '=' -f2- | tr -d ' "' || true)
+  local turnstile_site_key=""
+  if [ -f "$REPO_ROOT/.env" ]; then
+    turnstile_site_key=$(grep -E "^TURNSTILE_SITE_KEY=" "$REPO_ROOT/.env" | cut -d '=' -f2- | tr -d ' "' || true)
+  fi
   if [ -n "$turnstile_site_key" ] && [ "$turnstile_site_key" != "0x4AAAAAA..." ]; then
     if grep -q "NEXT_PUBLIC_TURNSTILE_SITE_KEY=" "$REPO_ROOT/website/.env.local"; then
       sed -i '' "s|NEXT_PUBLIC_TURNSTILE_SITE_KEY=.*|NEXT_PUBLIC_TURNSTILE_SITE_KEY=$turnstile_site_key|" "$REPO_ROOT/website/.env.local"
@@ -361,12 +369,17 @@ spin_up() {
   echo -e "  • View Realtime Logs:          ${YELLOW}./scripts/dev.sh logs${NC}\n"
 
   # Optional client launches
-  if [ "$launch_instance_b" = true ]; then
+  if [ "$launch_instance_b" = true ] && [ "$launch_flutter" = true ]; then
+    info "Building fresh macOS debug client for dual instances..."
+    fvm flutter build macos --debug
     info "Launching secondary isolated instance (Instance B)..."
-    ./scripts/st-instance-b.sh &
-  fi
-
-  if [ "$launch_flutter" = true ]; then
+    "$REPO_ROOT/scripts/st-instance-b.sh"
+    info "Launching primary Flutter client (Instance A) with interactive hot reload..."
+    fvm flutter run -d macos
+  elif [ "$launch_instance_b" = true ]; then
+    info "Launching secondary isolated instance (Instance B)..."
+    "$REPO_ROOT/scripts/st-instance-b.sh"
+  elif [ "$launch_flutter" = true ]; then
     info "Launching primary Flutter client (Instance A)..."
     fvm flutter run -d macos
   fi

@@ -1,0 +1,87 @@
+name: Publish to Desktop App Stores
+on:
+  workflow_dispatch:
+    inputs:
+      publish_to_microsoft_store:
+        description: "Build and submit to Microsoft Partner Center (MSIX)"
+        type: boolean
+        required: true
+        default: true
+      publish_to_mac_app_store:
+        description: "Build and submit to Mac App Store Connect (PKG)"
+        type: boolean
+        required: true
+        default: true
+  workflow_call:
+    inputs:
+      publish_to_microsoft_store:
+        description: "Build and submit to Microsoft Partner Center (MSIX)"
+        type: boolean
+        required: false
+        default: true
+      publish_to_mac_app_store:
+        description: "Build and submit to Mac App Store Connect (PKG)"
+        type: boolean
+        required: false
+        default: true
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}-stores
+  cancel-in-progress: true
+
+jobs:
+  tests:
+    name: Preflight Tests
+    uses: ./.github/workflows/test.yaml
+    secrets: inherit
+
+  microsoft-store:
+    name: Microsoft Store (Windows MSIX)
+    needs: tests
+    if: ${{ inputs.publish_to_microsoft_store }}
+    uses: ./.github/workflows/publish_microsoft_store.yaml
+    with:
+      publish_to_store: true
+    secrets: inherit
+
+  mac-app-store:
+    name: Mac App Store (macOS PKG)
+    needs: tests
+    if: ${{ inputs.publish_to_mac_app_store }}
+    uses: ./.github/workflows/publish_mac_app_store.yaml
+    with:
+      publish_to_store: true
+    secrets: inherit
+
+  summary:
+    name: Store Release Summary
+    runs-on: ubuntu-latest
+    needs: [ tests, microsoft-store, mac-app-store ]
+    if: always()
+    steps:
+      - name: Generate Summary Report
+        run: |
+          echo "### Desktop App Stores Release Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Target Store | Platform | Artifact Format | In-App Updater | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|---|---|---|---|---|" >> $GITHUB_STEP_SUMMARY
+
+          MS_STATUS="${{ needs.microsoft-store.result }}"
+          MAS_STATUS="${{ needs.mac-app-store.result }}"
+
+          if [ "${{ inputs.publish_to_microsoft_store }}" = "true" ]; then
+            echo "| Microsoft Store | Windows (x64) | MSIX | Disabled (STORE_BUILD) | $MS_STATUS |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| Microsoft Store | Windows (x64) | MSIX | Disabled (STORE_BUILD) | Skipped |" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          if [ "${{ inputs.publish_to_mac_app_store }}" = "true" ]; then
+            echo "| Mac App Store | macOS (Universal/x64/arm64) | PKG (Sandboxed) | Disabled (STORE_BUILD) | $MAS_STATUS |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| Mac App Store | macOS (Universal/x64/arm64) | PKG (Sandboxed) | Disabled (STORE_BUILD) | Skipped |" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Store-only desktop builds run without the in-app updater and rely solely on platform store update mechanisms." >> $GITHUB_STEP_SUMMARY

@@ -7,6 +7,20 @@ on:
         type: boolean
         required: true
         default: true
+  workflow_call:
+    inputs:
+      publish_to_store:
+        description: "Submit and publish to Microsoft Partner Center after building MSIX"
+        type: boolean
+        required: false
+        default: true
+    outputs:
+      app_version:
+        description: "Version from pubspec.yaml, e.g. 1.2.0"
+        value: ${{ jobs.build-and-publish.outputs.app_version }}
+      artifact_name:
+        description: "Name of uploaded MSIX artifact"
+        value: windows-store-msix
 permissions:
   contents: read
 
@@ -17,6 +31,8 @@ concurrency:
 jobs:
   build-and-publish:
     runs-on: windows-latest
+    outputs:
+      app_version: ${{ steps.version.outputs.APP_VERSION }}
     steps:
       - name: Checkout Repo
         uses: actions/checkout@v6

@@ -263,7 +263,7 @@ void main() {
         expect(memberSatisfiesGate(member, _localMedia), isTrue);
       });
 
-      test('ready with the wrong file does not — ready means open, not correct', () {
+      test('ready with the wrong file does not - ready means open, not correct', () {
         final member = _member('a', ready: .ready, file: 'weird.mp4');
         expect(memberSatisfiesGate(member, _localMedia), isFalse);
       });

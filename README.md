@@ -18,7 +18,7 @@
 
 ---
 
-SyncTogether is a modern cross-platform application for synchronized media playback across devices. Create a **room**, share a 6-character room code (or a `synctogether://join/<code>` invite link), and keep everyone's playback in lockstep — play, pause, and seeks broadcast in real-time, accompanied by synchronized chat, animated emoji reactions, and live voice & video facecams.
+SyncTogether is a modern cross-platform application for synchronized media playback across devices. Create a **room**, share a 6-character room code (or a `synctogether://join/<code>` invite link), and keep everyone's playback in lockstep - play, pause, and seeks broadcast in real-time, accompanied by synchronized chat, animated emoji reactions, and live voice & video facecams.
 
 ## Preview
 
@@ -32,14 +32,14 @@ SyncTogether is a modern cross-platform application for synchronized media playb
 
 ## Key Features
 
-- **Strict Lockstep Sync** — Millisecond-level synchronization with readiness gates, host drift-correction heartbeats, and authority-answered state recovery for late joiners.
-- **Two Playback Modes** — Local video files (via `media_kit` hardware-accelerated rendering with file hash mismatch warnings) and YouTube (via internal loopback IFrame bridge).
-- **Voice & Video Facecams** — Multi-participant live AV tiles powered by LiveKit SFU mesh with dynamic mic/camera controls.
-- **Persisted Chat & Quick Reactions** — In-room chat history, typing indicators, and Google Noto animated emoji reactions.
-- **Flexible Authentication** — Instant anonymous guest accounts (protected by Cloudflare Turnstile) or Google Sign-In with seamless in-place identity upgrades.
-- **Resumable & Persistent Rooms** — Dormant rooms can be resumed by the host with playback position preserved, or extended/ended on demand.
-- **Self-Hosting Ready** — Deploy the complete stack (Postgres database, Realtime engine, Edge Functions, LiveKit server, Web portal) on your own infrastructure or cloud free tiers.
-- **Modern Violet Glass UI** — Consistent, dark glassmorphism design system across desktop, tablet, and mobile orientations.
+- **Strict Lockstep Sync** - Millisecond-level synchronization with readiness gates, host drift-correction heartbeats, and authority-answered state recovery for late joiners.
+- **Two Playback Modes** - Local video files (via `media_kit` hardware-accelerated rendering with file hash mismatch warnings) and YouTube (via internal loopback IFrame bridge).
+- **Voice & Video Facecams** - Multi-participant live AV tiles powered by LiveKit SFU mesh with dynamic mic/camera controls.
+- **Persisted Chat & Quick Reactions** - In-room chat history, typing indicators, and Google Noto animated emoji reactions.
+- **Flexible Authentication** - Instant anonymous guest accounts (protected by Cloudflare Turnstile) or Google Sign-In with seamless in-place identity upgrades.
+- **Resumable & Persistent Rooms** - Dormant rooms can be resumed by the host with playback position preserved, or extended/ended on demand.
+- **Self-Hosting Ready** - Deploy the complete stack (Postgres database, Realtime engine, Edge Functions, LiveKit server, Web portal) on your own infrastructure or cloud free tiers.
+- **Modern Violet Glass UI** - Consistent, dark glassmorphism design system across desktop, tablet, and mobile orientations.
 
 ---
 

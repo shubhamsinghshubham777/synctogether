@@ -23,7 +23,7 @@ Three load-bearing mechanisms prevent feedback loops:
 3. Last-action-wins timestamp ordering (`_shouldApply`).
 
 ### Late-Joiner State Sync
-- Only the **authority** answers `state_request` (host if present, else earliest-joined present member) — computed with the *requester excluded*, so when the authority is the one asking (e.g. host reopening their own room), the next in line answers and there is always exactly one responder.
+- Only the **authority** answers `state_request` (host if present, else earliest-joined present member) - computed with the *requester excluded*, so when the authority is the one asking (e.g. host reopening their own room), the next in line answers and there is always exactly one responder.
 - Joiner retries once after 2 s then assumes idle.
 - `_checkSelfGateSatisfaction` re-requests state on the edge where we *first* have the room's canonical media open. (The entry response is answered while the joiner still has the file picker open, so its seek hits an empty player and is lost).
 - Resync is skipped when `_roomPlaying`/`_pausedByGate` (gate resume owns realignment) or when alone.
@@ -69,7 +69,7 @@ Presence is budgeted against the server's real contract: **5 calls per 30 second
 Nobody can start or scrub until **every present member** has the room's canonical media loaded.
 - **Canonical media is room-level and host-only**: Written solely by `set_room_media` RPC. Clients refetch on entry and resubscribe. `RoomMedia.isNewerThan` (server clock `media_updated_at`) prevents clobbering by stale refetches.
 - **Readiness rides on presence** (`ready_status`, `loaded_file_name`). `ReadyStatus` declaration order is its rank; multi-device merge keeps the most ready.
-- **`gateState` is tri-state**: `indeterminate` until first presence sync—render as usable to avoid initial flashing.
+- **`gateState` is tri-state**: `indeterminate` until first presence sync - render as usable to avoid initial flashing.
 - **Authority emits derived actions**: Gate play/pause uses `_roomPlaying` (room-level), not `isPlaying` (local player).
 - **Gate actions carry `reason: 'gate'`** and never raise attribution toasts.
 - **`waiveGateBlockers`**: Host-only waiver per member per media; clears when canonical media changes.

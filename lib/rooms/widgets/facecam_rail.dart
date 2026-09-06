@@ -217,7 +217,7 @@ class _FacecamTile extends StatelessWidget {
     final radius = compact ? 13.0 : 16.0;
 
     // The highest-value AV micro: this is how you know who just laughed.
-    // Snaps on and lingers on the way out, the way a voice does — an equal
+    // Snaps on and lingers on the way out, the way a voice does - an equal
     // fade both ways reads as a flicker on short utterances.
     return AnimatedContainer(
       duration: speaking ? const Duration(milliseconds: 200) : const Duration(milliseconds: 600),

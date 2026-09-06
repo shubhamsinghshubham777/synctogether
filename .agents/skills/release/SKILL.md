@@ -1,7 +1,7 @@
 ---
 name: release
 description: >-
-  Cut a SyncTogether release or pre-release — analyze commits since the last release tag, bump the pubspec version accordingly, push to main, and trigger the build_installers GitHub workflow. Use when the user says "cut a release", "ship a release", "cut a pre-release", "bump the version and build installers", or "/release". Optional arg overrides the computed version (e.g. "/release 0.5.0" or "/release patch"); a "pre" arg (alone or combined, e.g. "/release pre" or "/release pre minor") publishes it as a GitHub pre-release.
+  Cut a SyncTogether release or pre-release - analyze commits since the last release tag, bump the pubspec version accordingly, push to main, and trigger the build_installers GitHub workflow. Use when the user says "cut a release", "ship a release", "cut a pre-release", "bump the version and build installers", or "/release". Optional arg overrides the computed version (e.g. "/release 0.5.0" or "/release patch"); a "pre" arg (alone or combined, e.g. "/release pre" or "/release pre minor") publishes it as a GitHub pre-release.
 ---
 
 # Cut a release
@@ -9,7 +9,7 @@ description: >-
 Bumps `version:` in `pubspec.yaml`, commits and pushes to `main`, and triggers the `build_installers.yaml` workflow.
 
 > [!IMPORTANT]
-> **Do NOT create or push a git tag locally** — the workflow's `release` job tags the commit itself as `v<version>_<run_id>`.
+> **Do NOT create or push a git tag locally** - the workflow's `release` job tags the commit itself as `v<version>_<run_id>`.
 
 ## Steps
 

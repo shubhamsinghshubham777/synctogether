@@ -103,7 +103,7 @@ class PremiumCrown extends StatelessWidget {
 }
 
 /// Presence dot with a one-shot ripple when someone comes online. Deliberately
-/// *not* a continuous pulse — eight avatars breathing forever is noise, and it
+/// *not* a continuous pulse - eight avatars breathing forever is noise, and it
 /// would keep the vsync awake for the whole session.
 class _PresenceDot extends StatefulWidget {
   const _PresenceDot({required this.online, required this.size});
@@ -240,7 +240,7 @@ class PTAvatarStack extends StatelessWidget {
 
 /// Copyable room-code chip: violet tint, JetBrains Mono, copy glyph.
 ///
-/// The glyph flips to a tick for a beat after a copy — feedback lands where the
+/// The glyph flips to a tick for a beat after a copy - feedback lands where the
 /// eye already is, which a snackbar at the other end of the screen never does.
 class RoomCodeChip extends StatefulWidget {
   const RoomCodeChip({super.key, required this.code, this.onCopy, this.fontSize = 13});
@@ -414,7 +414,7 @@ class PremiumBadge extends StatelessWidget {
 }
 
 /// Unread-count bubble anchored to a corner of its child. Pops in with the
-/// arrival overshoot and pulses on every increment — the one place in the app
+/// arrival overshoot and pulses on every increment - the one place in the app
 /// where a message you haven't read needs to interrupt you.
 class UnreadBadge extends StatefulWidget {
   const UnreadBadge({super.key, required this.count, required this.child});

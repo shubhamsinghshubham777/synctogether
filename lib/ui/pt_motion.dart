@@ -3,14 +3,14 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
-/// Motion tokens — the app's whole timing/easing vocabulary. Mirrors
+/// Motion tokens - the app's whole timing/easing vocabulary. Mirrors
 /// [PTColors]/[PTText]: screens pick a token, never an inline `Duration`.
 ///
 /// Two rules the rest of the kit depends on:
 /// * **Glass glides, it doesn't fade.** Anything wrapping a `GlassPanel` (i.e.
 ///   a `BackdropFilter`) in `Opacity`/`FadeTransition` makes the blur sample an
 ///   empty layer and the glass goes flat mid-animation. Slide, scale or clip
-///   glass — or animate `GlassPanel`'s own `opacity`/`blur` arguments, which is
+///   glass - or animate `GlassPanel`'s own `opacity`/`blur` arguments, which is
 ///   a real fade without an opacity layer.
 /// * **Decorative motion checks [reducedMotion] and renders the end state;
 ///   functional motion shortens instead of disappearing.**
@@ -25,7 +25,7 @@ abstract final class PTMotion {
   static const state = Duration(milliseconds: 220);
 
   /// Panels, overlays, dialogs. Deliberately equal to the chat panel's
-  /// existing `Durations.medium1` — that animation is the reference, so
+  /// existing `Durations.medium1` - that animation is the reference, so
   /// adopting the token must not retune it.
   static const panel = Duration(milliseconds: 250);
 
@@ -37,7 +37,7 @@ abstract final class PTMotion {
   /// Entrance choreography (logo, cards, roster rows).
   static const entrance = Duration(milliseconds: 380);
 
-  /// Looped ambient drift — idle screens only, never the room.
+  /// Looped ambient drift - idle screens only, never the room.
   static const ambient = Duration(seconds: 14);
 
   static const enter = Curves.easeOutCubic;
@@ -45,7 +45,7 @@ abstract final class PTMotion {
   static const emphasized = Curves.easeInOutCubic;
 
   /// The one overshoot curve, for "arrival" moments only (unread badge,
-  /// everyone's-ready toast, code completion). Never bounce/elastic — it
+  /// everyone's-ready toast, code completion). Never bounce/elastic - it
   /// fights the glass aesthetic.
   static const arrive = Curves.easeOutBack;
 
@@ -60,7 +60,7 @@ bool reducedMotion(BuildContext context) => MediaQuery.disableAnimationsOf(conte
 
 /// Fade + rise (+ optional scale) on mount, with a [delay] for staggering.
 ///
-/// [fade] must be **false** when the child is a `GlassPanel` — see the class
+/// [fade] must be **false** when the child is a `GlassPanel` - see the class
 /// note on [PTMotion]. Children *inside* a panel sit above its `BackdropFilter`
 /// and may fade freely.
 class PTEntrance extends StatefulWidget {
@@ -85,7 +85,7 @@ class PTEntrance extends StatefulWidget {
   /// 1.0 disables the scale leg.
   final double scaleFrom;
 
-  /// Whether to fade — never for glass surfaces.
+  /// Whether to fade - never for glass surfaces.
   final bool fade;
 
   /// False renders the end state immediately (e.g. a stagger that has already
@@ -156,7 +156,7 @@ class _PTEntranceState extends State<PTEntrance> with SingleTickerProviderStateM
 }
 
 /// Scale-on-press wrapper. Owns the tap gesture, so the widget it wraps must
-/// not carry its own `GestureDetector` — hover/cursor stay with the caller.
+/// not carry its own `GestureDetector` - hover/cursor stay with the caller.
 ///
 /// Press feedback was the single biggest "feels static" gap on touch: every
 /// button in the kit had a hover state and nothing at all for a finger.
@@ -210,7 +210,7 @@ class _PTPressableState extends State<PTPressable> {
   }
 }
 
-/// Looping opacity breath. Decorative — renders its end state under
+/// Looping opacity breath. Decorative - renders its end state under
 /// reduce-motion, and fades, so never wrap glass in it.
 class PTPulse extends StatefulWidget {
   const PTPulse({

@@ -324,7 +324,7 @@ class PTSlider extends StatefulWidget {
   final ValueChanged<double>? onChangeEnd;
 
   /// Reports the normalized (0–1) position under a hovering pointer, and null
-  /// when it leaves. Desktop-only in practice — touch never hovers.
+  /// when it leaves. Desktop-only in practice - touch never hovers.
   final ValueChanged<double?>? onHover;
   final double trackHeight;
   final double thumbRadius;

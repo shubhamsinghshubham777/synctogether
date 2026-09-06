@@ -21,7 +21,7 @@ abstract class SyncEventType {
   static const String roomExtended = 'room_extended';
 }
 
-/// Why a play/pause happened. Absent means a human pressed something — the
+/// Why a play/pause happened. Absent means a human pressed something - the
 /// distinction attribution toasts and gate auto-resume both hang off.
 abstract class SyncActionReason {
   static const String gate = 'gate';
@@ -313,7 +313,7 @@ class PositionSyncEvent extends SyncEvent {
 }
 
 /// The room's canonical media, fanned out by the host straight after
-/// `set_room_media` persisted it. The `rooms` row stays the source of truth —
+/// `set_room_media` persisted it. The `rooms` row stays the source of truth -
 /// this is latency, not durability, since clients also refetch on join and on
 /// every reconnect.
 class MediaSetEvent extends SyncEvent {
@@ -322,7 +322,7 @@ class MediaSetEvent extends SyncEvent {
   final int? durationMs;
   final String? url;
 
-  /// `rooms.media_updated_at` — the **server** clock, not the sender's. It is
+  /// `rooms.media_updated_at` - the **server** clock, not the sender's. It is
   /// the ordering key that lets a room-row refetch resolving late be discarded
   /// instead of clobbering this event.
   final int? updatedAtMs;

@@ -18,8 +18,8 @@ export 'sync_logic.dart';
 /// Room-scoped sync engine over a private Supabase Realtime channel
 /// (`room:<id>`). Created on room entry, disposed on leave.
 ///
-/// Echo/loop prevention is a trio — do not break it:
-/// 1. channel `self: false` — never receive own broadcasts;
+/// Echo/loop prevention is a trio - do not break it:
+/// 1. channel `self: false` - never receive own broadcasts;
 /// 2. [_isApplyingRemoteAction] suppresses re-broadcast while applying;
 /// 3. last-action-wins ordering in [_shouldApply].
 class SyncService {
@@ -65,7 +65,7 @@ class SyncService {
   bool _hasPresenceSynced = false;
 
   /// False until the first presence sync lands. Readiness is unknowable until
-  /// then, so the gate must read as indeterminate rather than closed — else
+  /// then, so the gate must read as indeterminate rather than closed - else
   /// every room entry flashes the waiting overlay.
   bool get hasPresenceSynced => _hasPresenceSynced;
 
@@ -113,7 +113,7 @@ class SyncService {
   GateState _lastGateState = GateState.indeterminate;
 
   /// True on **every** client once a gate-derived pause lands, not just the one
-  /// that emitted it — otherwise host succession mid-wait would lose the flag
+  /// that emitted it - otherwise host succession mid-wait would lose the flag
   /// and auto-resume would never fire. Any human play/pause clears it, which is
   /// what stops auto-resume from overriding a deliberate pause.
   bool _pausedByGate = false;
@@ -122,7 +122,7 @@ class SyncService {
   /// Whether the *room* is playing, which is not the same as whether our own
   /// player is. When the host opens a new file their player stops while
   /// everyone else keeps playing, and that is precisely when the gate needs to
-  /// pause the room — so the decision can't be made from `isPlaying`.
+  /// pause the room - so the decision can't be made from `isPlaying`.
   bool _roomPlaying = false;
 
   bool memberSatisfiesGate(PresentMember member) =>
@@ -145,7 +145,7 @@ class SyncService {
   List<PresentMember> get gateBlockers =>
       logic.gateBlockersOf(_canonicalMedia, _presentMembers, waived: _waived);
 
-  /// Everyone not yet ready, waiver or not — what the host is deciding about.
+  /// Everyone not yet ready, waiver or not - what the host is deciding about.
   List<PresentMember> get gateStragglers => logic.gateBlockersOf(_canonicalMedia, _presentMembers);
 
   PresentMember? get gateBlocker => gateBlockers.firstOrNull;
@@ -238,7 +238,7 @@ class SyncService {
 
   /// A throw inside a realtime callback propagates into the socket's stream
   /// handler and can take the whole channel's message processing down with it
-  /// — one malformed event would silently kill sync for the rest of the
+  /// - one malformed event would silently kill sync for the rest of the
   /// session. Every broadcast handler goes through here.
   void Function(Map<String, dynamic>) _guard(
     String event,
@@ -370,7 +370,7 @@ class SyncService {
   }
 
   /// Sent by the host after `kick_member` succeeds. Deleting the membership row
-  /// does not eject anyone — Realtime authorizes a private channel at
+  /// does not eject anyone - Realtime authorizes a private channel at
   /// *subscribe* time, so an already-connected client keeps receiving until it
   /// resubscribes. This broadcast is what actually removes them.
   Future<void> broadcastMemberKicked(String targetUserId) async {
@@ -443,7 +443,7 @@ class SyncService {
   /// stops holding the gate shut without anyone having to notice.
   ///
   /// [_readyStatus] survives reconnects, so the `_trackPresence()` in the
-  /// subscribe callback re-announces it for free — that is the whole of the
+  /// subscribe callback re-announces it for free - that is the whole of the
   /// "re-announce readiness on resubscribe" requirement.
   ///
   /// The pair is announced as a whole: omitting [loadedFileName] clears it, so
@@ -484,13 +484,13 @@ class SyncService {
 
   /// The room's position, asked for again now that there is something to apply
   /// it to. A late joiner's entry `state_request` is answered while the file
-  /// picker is still open, so the seek lands on an empty player and is lost —
+  /// picker is still open, so the seek lands on an empty player and is lost -
   /// and opening a file afterwards starts at 0.
   ///
   /// A *playing* room heals itself: the joiner's arrival shuts the gate, which
   /// pauses everyone at a held position, and the reopen broadcasts a seek back
-  /// to it. A room that was already paused has no such moment — nothing moves,
-  /// so nothing is broadcast — which is how the joiner ends up parked at 0
+  /// to it. A room that was already paused has no such moment - nothing moves,
+  /// so nothing is broadcast - which is how the joiner ends up parked at 0
   /// while everyone else sits where the host paused.
   void _resyncRoomPosition() {
     if (_disposed || _channel == null) return;
@@ -571,7 +571,7 @@ class SyncService {
         ).toPayload(),
       );
     } catch (e, s) {
-      // The row below still persists it, so the message survives — but nobody
+      // The row below still persists it, so the message survives - but nobody
       // sees it until their next history reload.
       reportNonFatal(e, s, during: 'broadcasting a chat message');
     }
@@ -749,7 +749,7 @@ class SyncService {
   // ---------------------------------------------------------------------------
   // Canonical media: the `rooms` row is the source of truth, `media_set` is
   // fan-out. Broadcasts never replay, so refetch on entry and on every
-  // resubscribe — same doctrine as chat history.
+  // resubscribe - same doctrine as chat history.
   // ---------------------------------------------------------------------------
 
   void _adoptCanonicalMedia(RoomMedia media) {
@@ -878,7 +878,7 @@ class SyncService {
   }
 
   /// Host only (the RPC enforces it). Adopts locally first because the channel
-  /// is `self: false` — the sender never receives its own broadcast.
+  /// is `self: false` - the sender never receives its own broadcast.
   Future<void> broadcastMediaSet(RoomMedia media) async {
     _adoptCanonicalMedia(media);
     await _channel?.sendBroadcastMessage(
@@ -1052,7 +1052,7 @@ class SyncService {
 
   // ---------------------------------------------------------------------------
   // Late-joiner state sync: only the authority answers (host if present, else
-  // earliest-joined present member) — avoids N-1 redundant responses.
+  // earliest-joined present member) - avoids N-1 redundant responses.
   // ---------------------------------------------------------------------------
 
   void _requestInitialState() {
@@ -1072,13 +1072,13 @@ class SyncService {
       );
       // After the retry window, assume an idle room.
       _stateRequestRetry = Timer(const Duration(seconds: 2), () {
-        trace('no state response — assuming an idle room', category: 'sync');
+        trace('no state response - assuming an idle room', category: 'sync');
         _hasReceivedInitialState = true;
       });
     });
   }
 
-  /// Presence as *we* would broadcast it — [_presentMembers] carries everyone
+  /// Presence as *we* would broadcast it - [_presentMembers] carries everyone
   /// else's, but a client's own entry can lag its local state by a round trip.
   PresentMember get _selfPresence => PresentMember(
     userId: userId,
@@ -1104,7 +1104,7 @@ class SyncService {
   bool get hasReceivedInitialState => _hasReceivedInitialState;
 
   void _handleStateRequest(Map<String, dynamic> payload) {
-    // The authority answers — except when the authority is the one asking (a
+    // The authority answers - except when the authority is the one asking (a
     // host reopening their own room), where the next in line answers instead.
     // Excluding the requester keeps it to exactly one responder either way.
     final requesterId = payload['senderId'] as String?;
@@ -1262,7 +1262,7 @@ class SyncService {
     if (!_shouldApply(payload)) return;
     final reason = payload['reason'] as String?;
     _roomPlaying = true;
-    // Gate actions are mechanical — attribution toasts are for humans only.
+    // Gate actions are mechanical - attribution toasts are for humans only.
     if (reason == null) {
       _pausedByGate = false;
       _emitRemoteAction(payload, RemoteActionKind.play);
@@ -1301,7 +1301,7 @@ class SyncService {
     if (!_shouldApply(payload)) return;
     final positionMs = payload['positionMs'] as int;
     // A mechanical seek (the realignment riding along with a play/pause, or a
-    // gate resume) is not something anyone did — attributing it would both be
+    // gate resume) is not something anyone did - attributing it would both be
     // wrong and overwrite the play/pause toast that IS correct.
     if (payload['reason'] == null) {
       _emitRemoteAction(payload, RemoteActionKind.seek, Duration(milliseconds: positionMs));

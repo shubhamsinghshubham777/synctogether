@@ -28,7 +28,7 @@ concurrency:
 
 jobs:
   # The per-platform build logic lives in the same workflows that can be
-  # dispatched on their own — this workflow only fans out and releases.
+  # dispatched on their own - this workflow only fans out and releases.
   windows:
     uses: ./.github/workflows/build_windows.yaml
     secrets: inherit

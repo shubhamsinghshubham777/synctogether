@@ -128,7 +128,7 @@ class GlassPill extends StatelessWidget {
 }
 
 /// Ambient violet glow blobs behind empty screens (Login, Lobby, Profile).
-/// Never used in the room — nothing ambient may move near playing video.
+/// Never used in the room - nothing ambient may move near playing video.
 ///
 /// The blobs drift along phase-offset elliptical paths with coprime-ish rates
 /// so they never visibly sync up. **Translation only, no scale**: these are
@@ -137,7 +137,7 @@ class GlassPill extends StatelessWidget {
 /// `Transform.translate` moves the cached layer instead.
 ///
 /// The drift **ping-pongs** (`repeat(reverse: true)`) rather than wrapping: those
-/// coprime rates — and the `cos(t * 0.6)` on the vertical axis — leave the trig
+/// coprime rates - and the `cos(t * 0.6)` on the vertical axis - leave the trig
 /// phase mid-cycle when the controller reaches 1, so a plain `repeat()` snapped
 /// all three layers back to frame 0 every period. `easeInOut` is the other half
 /// of the fix; its zero velocity at both ends makes the turnaround a stall
@@ -266,6 +266,7 @@ Future<T?> showGlassDialog<T>({
   required WidgetBuilder builder,
   bool barrierDismissible = true,
   double width = 430,
+  EdgeInsetsGeometry? padding,
 }) {
   return showGeneralDialog<T>(
     context: context,
@@ -274,13 +275,15 @@ Future<T?> showGlassDialog<T>({
     barrierColor: const Color(0x8C06050A),
     transitionDuration: PTMotion.panel,
     pageBuilder: (context, _, _) {
+      final screenHeight = MediaQuery.sizeOf(context).height;
+      final maxDialogHeight = screenHeight > 64 ? screenHeight - 32 : screenHeight;
       return Center(
         child: ConstrainedBox(
-          constraints: BoxConstraints(maxWidth: width),
+          constraints: BoxConstraints(maxWidth: width, maxHeight: maxDialogHeight),
           child: Material(
             type: .transparency,
             child: GlassPanel.dialog(
-              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 30),
+              padding: padding ?? const EdgeInsets.symmetric(horizontal: 32, vertical: 30),
               child: builder(context),
             ),
           ),

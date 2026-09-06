@@ -54,7 +54,7 @@ class _RoomChatPanelState extends State<RoomChatPanel> {
 
   // What the list was last laid out with. Snapshotted here rather than diffed
   // against `oldWidget`, because the room owns one mutable list and appends to
-  // it in place — `widget.messages` and `oldWidget.messages` are the same object.
+  // it in place - `widget.messages` and `oldWidget.messages` are the same object.
   int _seenCount = 0;
   DateTime? _seenLast;
   bool _seenTyping = false;
@@ -63,7 +63,7 @@ class _RoomChatPanelState extends State<RoomChatPanel> {
   /// `itemBuilder` re-runs every time a row scrolls back into view, so a
   /// one-shot animation keyed only by message identity would replay on every
   /// scroll. Keyed by *value* rather than object identity so the reconnect
-  /// history merge — which swaps equivalent rows in place — doesn't re-animate
+  /// history merge - which swaps equivalent rows in place - doesn't re-animate
   /// the entire backlog.
   final _animated = <String>{};
 
@@ -93,7 +93,7 @@ class _RoomChatPanelState extends State<RoomChatPanel> {
         widget.typingNames.isNotEmpty == _seenTyping) {
       return;
     }
-    // Read the offset *before* the new row lays out — someone who scrolled up to
+    // Read the offset *before* the new row lays out - someone who scrolled up to
     // read history keeps their place; our own outgoing message always wins.
     final follow = _nearBottom || last?.senderId == widget.sync.userId;
     _snapshot();
@@ -114,7 +114,7 @@ class _RoomChatPanelState extends State<RoomChatPanel> {
     return position.maxScrollExtent - position.pixels <= 80;
   }
 
-  /// Runs after the frame that lays the new row out — `maxScrollExtent` is only
+  /// Runs after the frame that lays the new row out - `maxScrollExtent` is only
   /// correct once the list has measured it.
   void _scrollToBottom({bool animate = true}) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -159,7 +159,7 @@ class _RoomChatPanelState extends State<RoomChatPanel> {
       widget.sync.broadcastTyping(false);
     }
     widget.onSend(text);
-    // Keep the caret in the field for the next line — Enter would otherwise hand
+    // Keep the caret in the field for the next line - Enter would otherwise hand
     // focus back to the player shortcuts (so the next Space toggles playback),
     // and tapping the send button never had it to begin with.
     _inputFocus.requestFocus();

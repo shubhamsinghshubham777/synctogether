@@ -4,7 +4,7 @@ import 'package:synctogether/ui/buttons.dart';
 import 'package:synctogether/ui/pt_theme.dart';
 
 /// Body for [showGlassDialog]. Pops `true` to remove and let them back in,
-/// `false` to remove and bar them for the life of the room, null to cancel —
+/// `false` to remove and bar them for the life of the room, null to cancel -
 /// the per-kick choice of D9, rather than a room-wide ban setting.
 class KickMemberDialog extends StatefulWidget {
   const KickMemberDialog({super.key, required this.displayName});

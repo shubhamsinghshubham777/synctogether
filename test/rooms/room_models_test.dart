@@ -232,7 +232,7 @@ void main() {
       for (final a in codes) {
         for (final b in codes) {
           if (a == b) continue;
-          expect(a.contains(b), isFalse, reason: '$a contains $b — fromError would mis-map');
+          expect(a.contains(b), isFalse, reason: '$a contains $b - fromError would mis-map');
         }
       }
     });

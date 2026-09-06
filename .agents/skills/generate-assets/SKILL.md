@@ -1,7 +1,7 @@
 ---
 name: generate-assets
 description: >-
-  Regenerate build-time assets for SyncTogether — splash sound audio, reaction emoji Lottie files, Mozilla CA certificate bundle, and application icons. Use when the user asks to "regenerate assets", "update app icons", "fetch reaction emoji", "update ca bundle", or "generate splash sound".
+  Regenerate build-time assets for SyncTogether - splash sound audio, reaction emoji Lottie files, Mozilla CA certificate bundle, and application icons. Use when the user asks to "regenerate assets", "update app icons", "fetch reaction emoji", "update ca bundle", or "generate splash sound".
 ---
 
 # Asset Generation Runbook

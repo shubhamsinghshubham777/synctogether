@@ -1,7 +1,7 @@
 ---
 name: flutter-bump
 description: >-
-  Pin the repo to a new Flutter SDK version — runs `fvm use`, syncs the Dart SDK pin in pubspec.yaml and the `flutter-version` in every GitHub workflow to match, verifies pub get, then commits and pushes. Use when the user says "bump flutter to 3.44.2", "upgrade the flutter version", "switch flutter SDK", or "/flutter-bump 3.44.2". Requires the target version as an argument.
+  Pin the repo to a new Flutter SDK version - runs `fvm use`, syncs the Dart SDK pin in pubspec.yaml and the `flutter-version` in every GitHub workflow to match, verifies pub get, then commits and pushes. Use when the user says "bump flutter to 3.44.2", "upgrade the flutter version", "switch flutter SDK", or "/flutter-bump 3.44.2". Requires the target version as an argument.
 ---
 
 # Bump the pinned Flutter version
@@ -14,7 +14,7 @@ Binds the repo to a specific Flutter SDK via FVM and keeps the **three places th
 ## Steps
 
 1. **Require the version argument.**
-   If the user didn't pass one (e.g. `/flutter-bump 3.44.2`), ask for it — never guess or pick "latest". Validate it looks like `X.Y.Z`.
+   If the user didn't pass one (e.g. `/flutter-bump 3.44.2`), ask for it - never guess or pick "latest". Validate it looks like `X.Y.Z`.
 
 2. **Preflight**:
    Ensure on `main`, working tree clean (`git status --porcelain` empty), and `git pull --ff-only origin main` succeeds.

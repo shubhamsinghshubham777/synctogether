@@ -33,13 +33,13 @@ Guidance for UI components (`lib/ui/`), audio/video facecams (`lib/av/`), diagno
 
 ## 3. Diagnostics vs. Analytics Doctrines
 
-### Diagnostics (`lib/diagnostics.dart`) — *"Why did this break?"*
+### Diagnostics (`lib/diagnostics.dart`) - *"Why did this break?"*
 - **`reportNonFatal(error, stackTrace)`**: Routes to Sentry for unhandled or unexpected failure branches.
 - **`trace(msg, category:, data:)`**: Records breadcrumbs on key state transitions (`sync`, `gate`, `media`, `room`, `av`, `auth`, `turnstile`, `youtube`, `tls`, `webview`).
 - **Do NOT log per-frame or per-heartbeat ticks**: Avoid logging on the 10 s position heartbeat, presence updates, or scrub preview dragging to prevent evicting useful breadcrumbs.
 - **Privacy**: Never log chat messages or full local file paths.
 
-### Analytics (`lib/analytics.dart`) — *"Is anyone doing this?"*
+### Analytics (`lib/analytics.dart`) - *"Is anyone doing this?"*
 - **Strictly User-Initiated**: Fire analytics events **only when a human explicitly triggered the action**. Never track inside remote action callbacks, gate pauses, drift corrections, or reconnect handlers.
 - **Implementation**: Custom lightweight `dart:io` HTTP client to PostHog Cloud (no third-party Flutter plugin dependencies).
 - **Privacy Boundaries**: Never track media file names, file paths, chat text, or YouTube video IDs.

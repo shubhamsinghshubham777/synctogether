@@ -13,7 +13,7 @@ import 'package:synctogether/ui/pt_theme.dart';
 /// Everything the overflow menu renders, as one snapshot.
 ///
 /// The menu is a Navigator route, so it lives in a sibling subtree of
-/// `RoomScreen` and its `setState` can never reach it — the values are pushed
+/// `RoomScreen` and its `setState` can never reach it - the values are pushed
 /// through a [ValueListenable] instead. Republished by
 /// `_RoomScreenState._publishMenuData` whenever any input changes (presence,
 /// membership, role, canonical media, transport lock).
@@ -161,7 +161,7 @@ class _OverflowMenuPanelState extends State<_OverflowMenuPanel> {
     setState(() => _data = next);
   }
 
-  /// Eviction path. Not `Navigator.pop` — that pops whatever is topmost, and
+  /// Eviction path. Not `Navigator.pop` - that pops whatever is topmost, and
   /// another dialog (the source chooser after inheriting host) may have opened
   /// above us in the meantime.
   void _forceClose() {
@@ -360,7 +360,7 @@ class _MemberRow extends StatelessWidget {
     );
   }
 
-  /// Same treatment as the readiness overlay's chip — the two are read side by
+  /// Same treatment as the readiness overlay's chip - the two are read side by
   /// side often enough that they must not behave differently.
   Widget _chip(BuildContext context) {
     final status = ReadinessChipStyle.of(presence!, media);

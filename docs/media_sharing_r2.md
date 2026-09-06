@@ -90,7 +90,7 @@ Host-initiated, per-room file sharing that lets a premium or quota-eligible host
 | **High-Bitrate Guidance** | Member prompt calculates estimated stream bitrate only when probed duration is available (`media_duration_ms > 0`), displaying "Download to Device (Recommended)" when stream bitrate exceeds $15\text{ Mbps}$, falling back cleanly to file size if unprobed. |
 | **Download URL delivery** | Ephemeral presigned GET URLs minted on-demand via `media-share/download-url` with TTL matching room session duration (up to 24h), RFC 5987 Unicode filename encoding, native `Media(start: heldPosition)` demuxing, and broadcast-suppressed 403 recovery with subtitle/audio track preservation. |
 | **Late joiner experience** | Auto-streams directly upon joining an active session with automatic temporary gate waiver until ready, eliminating blocking dialogs and preventing room-wide pause glitches. |
-| **Canonical media reuse** | Reuses existing `rooms.media_name` column — eliminates duplicate `media_file_name` column to prevent desynchronization bugs. |
+| **Canonical media reuse** | Reuses existing `rooms.media_name` column - eliminates duplicate `media_file_name` column to prevent desynchronization bugs. |
 | **Free-tier bandwidth tracking** | Server-side in database with weekly tumbling window (2.5 GB / 7 days), committed strictly on upload completion with `FOR UPDATE` row lock. |
 | **Anti-Abuse & Concurrency** | 1 global active upload cap with multi-factor stale-lock auto-clearing, same-room re-upload orphan cleanup, grace window for quick cancels, exponential backoff on heavy aborts, Edge Function rate limiting. |
 | **Readiness gate integration** | Room-level gate closure in `evaluateGateState` while uploading; members remain non-blocking until media is ready; watchdog extended to 45s for network streams. |
@@ -173,7 +173,7 @@ Cloudflare R2 is a **separate service** from Supabase Storage. Supabase's free-t
 | Storage | 10 GB / month | $0.015 / GB-month | Negligible (fractions of a cent) due to 24h auto-purge |
 | Class A ops (PUT, Multipart, LIST) | 1,000,000 / month | $4.50 / million | ~100-500 ops per multipart upload (~$0.0018 per upload) |
 | Class B ops (GET, HEAD) | 10,000,000 / month | $0.36 / million | Stream Range requests (~200-500 ops per 2h movie) |
-| **Egress (downloads & streams)** | **Unlimited — $0.00 forever** | N/A | **Zero bandwidth charges** |
+| **Egress (downloads & streams)** | **Unlimited - $0.00 forever** | N/A | **Zero bandwidth charges** |
 
 ---
 
@@ -251,7 +251,7 @@ Cloudflare R2 is a **separate service** from Supabase Storage. Supabase's free-t
 
 ## Proposed Changes
 
-### 1. Database Schema — New Migration
+### 1. Database Schema - New Migration
 
 #### [NEW] `supabase/migrations/YYYYMMDDHHMMSS_media_sharing.sql`
 
@@ -639,7 +639,7 @@ Scheduled worker (triggered via `pg_cron` + `pg_net` / Supabase Cron every 5 min
 
 ---
 
-### 3. Client-Side Dart — Media Sharing & Playback Architecture
+### 3. Client-Side Dart - Media Sharing & Playback Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
@@ -786,7 +786,7 @@ Manages local downloaded media cache hygiene:
 
 ---
 
-### 4. Client-Side Dart — Sync & Gate Integration
+### 4. Client-Side Dart - Sync & Gate Integration
 
 #### [MODIFY] [sync_logic.dart](file:///Users/shubham/Projects/Personal/synctogether/lib/sync/sync_logic.dart)
 
@@ -831,12 +831,12 @@ static const String sharingToggled = 'sharing_toggled';
 ```
 
 New event payloads:
-- `UploadProgressEvent` — `{ fraction, speedBps, etaSeconds, state }` (Broadcast by host during upload, throttled $\ge 3.0\text{ s}$).
-- `SharingToggledEvent` — `{ enabled, fileName, fileSize, uploadState }` (Broadcast on toggle on/off).
+- `UploadProgressEvent` - `{ fraction, speedBps, etaSeconds, state }` (Broadcast by host during upload, throttled $\ge 3.0\text{ s}$).
+- `SharingToggledEvent` - `{ enabled, fileName, fileSize, uploadState }` (Broadcast on toggle on/off).
 
 ---
 
-### 5. Client-Side Dart — Entitlement & Room Models
+### 5. Client-Side Dart - Entitlement & Room Models
 
 #### [MODIFY] [entitlement_service.dart](file:///Users/shubham/Projects/Personal/synctogether/lib/profile/entitlement_service.dart)
 
@@ -869,7 +869,7 @@ mediaSharingDisabled('media_sharing_disabled', "Media sharing is temporarily und
 
 ---
 
-### 6. Client-Side Dart — Room Screen UI & User Flows
+### 6. Client-Side Dart - Room Screen UI & User Flows
 
 #### [MODIFY] [room_screen.dart](file:///Users/shubham/Projects/Personal/synctogether/lib/rooms/room_screen.dart)
 
@@ -918,7 +918,7 @@ Add `_adoptRemoteStream({required String streamUrl, required String name, Durati
    - Calls `media-share/initiate` Edge Function and begins multipart upload.
    - Broadcasts `sharing_toggled { enabled: true }`.
 3. **Upload Progress:** Determinate progress bar in topbar showing speed and ETA. Members see upload progress banner with dead-reckoning animation.
-4. **Upload Complete:** Toast notification "File uploaded — members can now play or download." Room state updates to `ready`.
+4. **Upload Complete:** Toast notification "File uploaded - members can now play or download." Room state updates to `ready`.
 5. **Toggle OFF:** Confirmation dialog "Stop sharing? Shared file will be deleted from cloud." On confirm, calls `media-share/abort` / `clear_media_sharing`, releases wake-lock.
 6. **File Switch Lock:** If host attempts to pick another video while sharing is active, displays a snackbar: "Turn off file sharing first to switch files."
 
@@ -1010,8 +1010,8 @@ Adhering strictly to the **human-initiated analytics doctrine** (`CLAUDE.md`), p
 ### 10. Dependencies Summary
 
 **Dart Dependencies (`pubspec.yaml`):**
-- `storage_space` — for querying available disk space if a member explicitly opts to download offline.
-- `wakelock_plus` — to prevent device sleep during active uploads.
+- `storage_space` - for querying available disk space if a member explicitly opts to download offline.
+- `wakelock_plus` - to prevent device sleep during active uploads.
 - *(No AWS/S3 SDK packages added to Flutter client)*.
 
 **Edge Function Dependencies:**
@@ -1024,11 +1024,11 @@ Adhering strictly to the **human-initiated analytics doctrine** (`CLAUDE.md`), p
 
 ### Automated Tests
 1. **Dart Unit Tests (`fvm flutter test`):**
-   - `test/media_sharing_service_test.dart` — Multipart chunk slicing (exclusive offsets), explicit `contentLength`, SigV4 header neutrality, part retry logic, crash resume persistence, progress throttling, cooldown handling, part sorting & quote stripping, track preservation during 403 recovery.
-   - `test/media_sharing_cache_test.dart` — Cache directory cleanup, TTL expiration, backup attribute verification.
-   - `test/sync/sync_logic_test.dart` — Gate evaluation under `mediaUploadState == 'uploading'`, late-joiner auto-stream readiness with temporary waiver without transport pauses.
+   - `test/media_sharing_service_test.dart` - Multipart chunk slicing (exclusive offsets), explicit `contentLength`, SigV4 header neutrality, part retry logic, crash resume persistence, progress throttling, cooldown handling, part sorting & quote stripping, track preservation during 403 recovery.
+   - `test/media_sharing_cache_test.dart` - Cache directory cleanup, TTL expiration, backup attribute verification.
+   - `test/sync/sync_logic_test.dart` - Gate evaluation under `mediaUploadState == 'uploading'`, late-joiner auto-stream readiness with temporary waiver without transport pauses.
 2. **Database pgTAP Tests (`supabase test db`):**
-   - `supabase/tests/media_sharing_test.sql` — Host-only permissions on upload state RPCs, single active upload concurrency lock with multi-factor auto-healing, same-room re-upload orphan cleanup in `pending_r2_deletions`, grace window evaluation on cancels, quota deduction on completion, `pending_r2_deletions` insertion on `set_room_media` switch and `retire_room` with `media_upload_id`, dormant room media column resets, `create_room` level inheritance, `list_my_rooms` column return & grants, tightened `rooms_media_shape_chk` constraint enforcement.
+   - `supabase/tests/media_sharing_test.sql` - Host-only permissions on upload state RPCs, single active upload concurrency lock with multi-factor auto-healing, same-room re-upload orphan cleanup in `pending_r2_deletions`, grace window evaluation on cancels, quota deduction on completion, `pending_r2_deletions` insertion on `set_room_media` switch and `retire_room` with `media_upload_id`, dormant room media column resets, `create_room` level inheritance, `list_my_rooms` column return & grants, tightened `rooms_media_shape_chk` constraint enforcement.
 
 ### Manual Verification
 - **Host Upload & Direct Stream**: Host uploads 500 MB video $\rightarrow$ Member selects "Play Now" $\rightarrow$ Player starts instantly from R2 stream $\rightarrow$ Synchronized playback verified.

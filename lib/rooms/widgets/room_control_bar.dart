@@ -33,12 +33,12 @@ class RoomControlBarActions {
   final VoidCallback? onAudioTracks;
   final VoidCallback? onSubtitles;
 
-  /// Null for members — choosing what the room watches is host-only (D1), and
+  /// Null for members - choosing what the room watches is host-only (D1), and
   /// omitting the callback is how this kit hides an action.
   final VoidCallback? onSwitchSource;
   final VoidCallback? onOpenFile;
 
-  /// Members get "Locate your copy of `<name>`" — their picker exists to find
+  /// Members get "Locate your copy of `<name>`" - their picker exists to find
   /// their own copy of the room's file, never to change what the room watches.
   final String? openFileTooltip;
   final ValueChanged<double> onVolume;
@@ -83,7 +83,7 @@ class RoomControlBar extends StatefulWidget {
   final bool compact;
   final bool reactOpen;
 
-  /// Affordance only — the real enforcement lives at RoomScreen's
+  /// Affordance only - the real enforcement lives at RoomScreen's
   /// `_playPause`/`_seek`/`_skip` choke points, which keyboard shortcuts and
   /// double-tap skip zones also go through.
   final bool transportEnabled;
@@ -223,7 +223,7 @@ class _RoomControlBarState extends State<RoomControlBar> {
                 translation: const Offset(-0.5, 0),
                 child: IgnorePointer(
                   // Rises into place on the first hover. It tracks the cursor
-                  // instantly after that — the follower offset is not animated,
+                  // instantly after that - the follower offset is not animated,
                   // so the chip never lags the pointer.
                   child: PTEntrance(
                     duration: PTMotion.hover,
@@ -571,7 +571,7 @@ class _RoomControlBarState extends State<RoomControlBar> {
             ],
           ),
         ),
-        // Source controls belong here too — this row is what portrait,
+        // Source controls belong here too - this row is what portrait,
         // landscape and any narrow desktop window actually render, so leaving
         // them out of it left those layouts with no way to pick anything.
         if (actions.onSwitchSource != null)

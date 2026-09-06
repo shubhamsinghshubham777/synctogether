@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 
 /// Design tokens from the "SyncTogether" design system.
-/// Dark mode only — glass panels rely on dark video/ambient backdrops.
+/// Dark mode only - glass panels rely on dark video/ambient backdrops.
 abstract final class PTColors {
-  // Accent — violet.
+  // Accent - violet.
   static const textAccent = Color(0xFFC9B8FF);
   static const gradientEnd = Color(0xFFC084FC);
   static const gradientMid = Color(0xFFA855F7);
@@ -47,7 +47,7 @@ abstract final class PTColors {
   static Color glass(double opacity) => glassBase.withValues(alpha: opacity);
   static Color dialogGlass(double opacity) => dialogGlassBase.withValues(alpha: opacity);
 
-  /// Per-user avatar gradients — fixed per user (hash of the user id).
+  /// Per-user avatar gradients - fixed per user (hash of the user id).
   static const avatarGradients = <List<Color>>[
     [Color(0xFFA78BFA), Color(0xFF7C3AED)],
     [Color(0xFFF472B6), Color(0xFFC084FC)],
@@ -168,7 +168,7 @@ ThemeData buildPTTheme() {
       overlayShape: const RoundSliderOverlayShape(overlayRadius: 14),
     ),
     dividerTheme: DividerThemeData(color: PTColors.white(0.09), thickness: 1, space: 1),
-    // Fallback only — every toast in the app goes through `showPTSnack`, which
+    // Fallback only - every toast in the app goes through `showPTSnack`, which
     // supplies its own surface (see banners.dart). This just keeps a bare
     // `showSnackBar` from any future caller looking foreign.
     snackBarTheme: SnackBarThemeData(

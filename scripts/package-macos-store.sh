@@ -61,7 +61,7 @@ fi
 
 if [ -z "${INSTALLER_SIGN_IDENTITY:-}" ]; then
   echo "==> Probing keychain for Mac Installer identity..."
-  INSTALLER_SIGN_IDENTITY=$(security find-identity -v | grep -E "3rd Party Mac Developer Installer|Apple Distribution" | head -n 1 | sed -n 's/.*"\(.*\)".*/\1/p' || true)
+  INSTALLER_SIGN_IDENTITY=$(security find-identity -v | grep -E "3rd Party Mac Developer Installer|Mac Installer Distribution" | head -n 1 | sed -n 's/.*"\(.*\)".*/\1/p' || true)
 fi
 
 echo "==> App Bundle: $APP_PATH"

@@ -12,3 +12,6 @@ PRODUCT_BUNDLE_IDENTIFIER = app.synctogether
 
 // The copyright displayed in application information
 PRODUCT_COPYRIGHT = Copyright © 2026 Shubham Singh. All rights reserved.
+
+CODE_SIGNING_ALLOWED = NO
+CODE_SIGNING_REQUIRED = NO

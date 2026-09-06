@@ -1,8 +1,5 @@
 name: Publish to Microsoft Store (MSIX)
 on:
-  push:
-    tags:
-      - 'v*'
   workflow_dispatch:
     inputs:
       publish_to_store:

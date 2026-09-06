@@ -70,6 +70,9 @@ npm --prefix website test               # Run webhook idempotency & signature te
 8. **Communication & Formatting (MANDATORY)**:
    - **NEVER use LaTeX math formatting**: Never use LaTeX math syntax (such as `$`, `$$`, `\text{}`, `\frac{}`, `\times`, `\mathbf{}`, `\approx`, `\sim`, etc.) in chat responses, explanations, plans, walkthroughs, or markdown documents.
    - **Use clean plain text & standard symbols**: Always write out math using plain numbers, standard operators (`x`, `÷`, `=`, `~`, `approx`), percentages, and readable markdown tables so that calculations and breakdowns are crystal-clear and never show unrendered code clutter in any markdown viewer.
+9. **Follow Existing Repository Conventions (MANDATORY)**:
+   - Always prioritize and follow the repository's established conventions as the first preference across git tags, branch names, commits, releases, code patterns, and project structure.
+   - For git tags, always use the repository's standard `v`-prefixed semantic format (e.g. `v1.3.2`, never un-prefixed `1.3.2`). Never create redundant or duplicate tags.
 
 ---
 

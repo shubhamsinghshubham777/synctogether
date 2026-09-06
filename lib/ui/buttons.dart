@@ -170,7 +170,7 @@ class PTIconButton extends StatefulWidget {
   final Color? color;
   final BorderRadius? borderRadius;
 
-  /// Degrees the glyph swings and springs back on tap — signed, so the ∓10 s
+  /// Degrees the glyph swings and springs back on tap - signed, so the ∓10 s
   /// skip buttons confirm their direction the way the flash badge does.
   final double spinOnPress;
 
@@ -220,8 +220,8 @@ class _PTIconButtonState extends State<PTIconButton> with SingleTickerProviderSt
 
     final iconColor =
         widget.color ?? (widget.active ? const Color(0xFFE9DCFF) : PTColors.white(0.85));
-    // Keyed by glyph so every icon swap in the kit — volume_up ⇄ volume_off,
-    // mic on/off, chat open/closed — cross-fades instead of snapping.
+    // Keyed by glyph so every icon swap in the kit - volume_up ⇄ volume_off,
+    // mic on/off, chat open/closed - cross-fades instead of snapping.
     Widget glyph = AnimatedSwitcher(
       duration: PTMotion.functional(context, PTMotion.hover),
       child: Icon(widget.icon, key: ValueKey(widget.icon), size: widget.iconSize, color: iconColor),
@@ -375,9 +375,13 @@ class _GoogleButtonState extends State<GoogleButton> {
                     spacing: 12,
                     children: [
                       const _GoogleMark(),
-                      Text(
-                        widget.label,
-                        style: PTText.buttonLabel.copyWith(color: const Color(0xFF1A1625)),
+                      Flexible(
+                        child: Text(
+                          widget.label,
+                          style: PTText.buttonLabel.copyWith(color: const Color(0xFF1A1625)),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
                     ],
                   ),
@@ -462,6 +466,129 @@ class _GoogleMarkPainter extends CustomPainter {
           ..cubicTo(17.74, 38.49, 12.43, 34.27, 10.53, 28.58)
           ..lineTo(2.55, 34.77)
           ..cubicTo(6.51, 42.62, 14.62, 48, 24, 48)
+          ..close(),
+      ),
+      paint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+/// Apple sign-in button: black pill w/ Apple mark, matching Apple Human Interface Guidelines.
+class AppleButton extends StatefulWidget {
+  const AppleButton({super.key, required this.label, this.onPressed, this.loading = false});
+
+  final String label;
+  final VoidCallback? onPressed;
+  final bool loading;
+
+  @override
+  State<AppleButton> createState() => _AppleButtonState();
+}
+
+class _AppleButtonState extends State<AppleButton> {
+  bool _hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final enabled = widget.onPressed != null && !widget.loading;
+    return MouseRegion(
+      cursor: enabled ? SystemMouseCursors.click : MouseCursor.defer,
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: PTPressable(
+        enabled: enabled,
+        onTap: widget.onPressed,
+        child: AnimatedContainer(
+          duration: PTMotion.functional(context, PTMotion.hover),
+          height: 52,
+          alignment: .center,
+          decoration: BoxDecoration(
+            color: Colors.black.withValues(alpha: _hovered && enabled ? 1.0 : 0.88),
+            border: Border.all(color: PTColors.white(_hovered && enabled ? 0.35 : 0.2), width: 1),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: AnimatedSwitcher(
+            duration: PTMotion.functional(context, PTMotion.state),
+            switchInCurve: PTMotion.enter,
+            switchOutCurve: PTMotion.exit,
+            child: widget.loading
+                ? const PTLoader(key: ValueKey('loading'), size: 20, color: Colors.white)
+                : Row(
+                    key: const ValueKey('label'),
+                    mainAxisSize: .min,
+                    spacing: 12,
+                    children: [
+                      const _AppleMark(),
+                      Flexible(
+                        child: Text(
+                          widget.label,
+                          style: PTText.buttonLabel.copyWith(color: Colors.white),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AppleMark extends StatelessWidget {
+  const _AppleMark();
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox.square(dimension: 19, child: CustomPaint(painter: _AppleMarkPainter()));
+  }
+}
+
+class _AppleMarkPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final s = size.width / 24;
+    final paint = Paint()
+      ..color = Colors.white
+      ..style = .fill;
+
+    Path scaled(Path p) => p.transform(Matrix4.diagonal3Values(s, s, 1).storage);
+
+    // Leaf
+    canvas.drawPath(
+      scaled(
+        Path()
+          ..moveTo(15.22, 4.93)
+          ..cubicTo(16.51, 3.37, 17.39, 1.2, 17.15, 0)
+          ..cubicTo(15.29, 0.07, 13.04, 1.23, 11.71, 2.79)
+          ..cubicTo(10.53, 4.16, 9.5, 6.38, 9.77, 8.53)
+          ..cubicTo(11.85, 8.69, 13.93, 7.49, 15.22, 4.93)
+          ..close(),
+      ),
+      paint,
+    );
+
+    // Body
+    canvas.drawPath(
+      scaled(
+        Path()
+          ..moveTo(17.14, 12.44)
+          ..cubicTo(17.11, 9.45, 19.57, 7.99, 19.68, 7.92)
+          ..cubicTo(18.29, 5.89, 16.14, 5.6, 15.39, 5.54)
+          ..cubicTo(13.56, 5.35, 11.79, 6.62, 10.87, 6.62)
+          ..cubicTo(9.94, 6.62, 8.5, 5.55, 7.0, 5.58)
+          ..cubicTo(5.05, 5.61, 3.25, 6.72, 2.25, 8.46)
+          ..cubicTo(0.23, 11.96, 1.73, 17.14, 3.71, 20.0)
+          ..cubicTo(4.68, 21.39, 5.77, 22.95, 7.28, 22.89)
+          ..cubicTo(8.73, 22.83, 9.28, 21.95, 11.04, 21.95)
+          ..cubicTo(12.8, 21.95, 13.31, 22.89, 14.83, 22.86)
+          ..cubicTo(16.38, 22.83, 17.36, 21.43, 18.32, 20.03)
+          ..cubicTo(19.44, 18.4, 19.9, 16.82, 19.93, 16.74)
+          ..cubicTo(19.89, 16.72, 17.17, 15.68, 17.14, 12.44)
           ..close(),
       ),
       paint,

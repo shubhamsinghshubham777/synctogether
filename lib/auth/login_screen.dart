@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:synctogether/auth/auth_service.dart';
 import 'package:synctogether/auth/turnstile_dialog.dart';
 import 'package:synctogether/diagnostics.dart';
@@ -11,6 +14,9 @@ import 'package:synctogether/ui/glass.dart';
 import 'package:synctogether/ui/pt_motion.dart';
 import 'package:synctogether/ui/pt_theme.dart';
 import 'package:synctogether/ui/responsive.dart';
+import 'package:url_launcher/url_launcher.dart';
+
+enum _LoginMode { providers, enterEmail, enterOtp }
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -20,30 +26,75 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
+  _LoginMode _mode = .providers;
+  bool _appleLoading = false;
   bool _googleLoading = false;
   bool _guestLoading = false;
+  bool _emailLoading = false;
+  bool _otpLoading = false;
+
+  final _emailController = TextEditingController();
+  final _otpController = TextEditingController();
+  int _resendCooldown = 0;
+  Timer? _resendTimer;
+
+  bool get _anyLoading =>
+      _appleLoading || _googleLoading || _guestLoading || _emailLoading || _otpLoading;
+
+  @override
+  void dispose() {
+    _resendTimer?.cancel();
+    _emailController.dispose();
+    _otpController.dispose();
+    super.dispose();
+  }
+
+  void _startResendTimer() {
+    _resendCooldown = 30;
+    _resendTimer?.cancel();
+    _resendTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      if (_resendCooldown <= 1) {
+        timer.cancel();
+        setState(() => _resendCooldown = 0);
+      } else {
+        setState(() => _resendCooldown--);
+      }
+    });
+  }
 
   Future<void> _run(
     Future<void> Function() action,
     void Function(bool) setLoading, {
     required String during,
+    VoidCallback? onSuccess,
   }) async {
     setLoading(true);
     try {
       await action();
+      onSuccess?.call();
       // Navigation happens via the router's auth redirect.
     } catch (e, s) {
-      // The user gets one friendly line no matter what went wrong, so without
-      // this the actual cause — a rejected captcha token, a 4xx from GoTrue —
-      // never leaves the device.
       reportNonFatal(e, s, during: during);
       if (mounted) {
-        showPTSnack(context, "Couldn't sign you in — give it another try.", kind: .error);
+        final message = e is AuthException
+            ? e.message
+            : "Couldn't sign you in - give it another try.";
+        showPTSnack(context, message, kind: .error);
       }
     } finally {
       if (mounted) setLoading(false);
     }
   }
+
+  void _signInWithApple() => _run(
+    AuthService.instance.signInWithApple,
+    (v) => setState(() => _appleLoading = v),
+    during: 'signing in with Apple',
+  );
 
   void _signInWithGoogle() => _run(
     AuthService.instance.signInWithGoogle,
@@ -51,15 +102,53 @@ class _LoginScreenState extends State<LoginScreen> {
     during: 'signing in with Google',
   );
 
+  Future<void> _sendEmailOtp() async {
+    final email = _emailController.text.trim();
+    if (email.isEmpty || !email.contains('@') || !email.contains('.')) {
+      showPTSnack(context, 'Please enter a valid email address.', kind: .info);
+      return;
+    }
+    String? captchaToken;
+    final captchaRequired = (Env.turnstileSiteKey ?? '').isNotEmpty;
+    if (captchaRequired) {
+      captchaToken = await showTurnstileDialog(context);
+      if (captchaToken == null) return;
+    }
+    await _run(
+      () => AuthService.instance.sendEmailOtp(email, captchaToken: captchaToken),
+      (v) => setState(() => _emailLoading = v),
+      during: 'sending email verification code',
+      onSuccess: () {
+        setState(() {
+          _mode = .enterOtp;
+          _otpController.clear();
+          _startResendTimer();
+        });
+        showPTSnack(context, 'Verification code sent to $email', kind: .success);
+      },
+    );
+  }
+
+  Future<void> _verifyEmailOtp() async {
+    final email = _emailController.text.trim();
+    final token = _otpController.text.trim();
+    if (token.length != 6) {
+      showPTSnack(context, 'Please enter the 6-digit code.', kind: .info);
+      return;
+    }
+    await _run(
+      () => AuthService.instance.verifyEmailOtp(email: email, token: token),
+      (v) => setState(() => _otpLoading = v),
+      during: 'verifying email OTP',
+    );
+  }
+
   Future<void> _continueAsGuest() async {
     String? captchaToken;
     final captchaRequired = (Env.turnstileSiteKey ?? '').isNotEmpty;
     trace('guest sign-in started', category: 'auth', data: {'captcha': captchaRequired});
     if (captchaRequired) {
       captchaToken = await showTurnstileDialog(context);
-      // Cancelled or failed. The dialog has already reported *why*; this only
-      // records that we never got as far as the sign-in call, which is what
-      // distinguishes a captcha problem from a Supabase one.
       if (captchaToken == null) {
         trace('guest sign-in abandoned: no captcha token', category: 'auth');
         return;
@@ -143,40 +232,230 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Widget _actions({double buttonHeight = 52}) {
-    // Staggered after the brand. The glass card around this is deliberately
-    // *not* animated: fading a GlassPanel leaves its BackdropFilter sampling an
-    // empty layer, and the route's own fade-through already covers its arrival.
     return PTEntrance(
       delay: const Duration(milliseconds: 180),
-      child: Column(
-        mainAxisSize: .min,
-        children: [
-          GoogleButton(
-            label: 'Continue with Google',
-            loading: _googleLoading,
-            onPressed: _googleLoading || _guestLoading ? null : _signInWithGoogle,
+      child: AnimatedSwitcher(
+        duration: PTMotion.functional(context, PTMotion.state),
+        switchInCurve: PTMotion.enter,
+        switchOutCurve: PTMotion.exit,
+        child: switch (_mode) {
+          .providers => _providersView(buttonHeight: buttonHeight),
+          .enterEmail => _enterEmailView(buttonHeight: buttonHeight),
+          .enterOtp => _enterOtpView(buttonHeight: buttonHeight),
+        },
+      ),
+    );
+  }
+
+  Widget _providersView({required double buttonHeight}) {
+    final hasApple = AuthService.instance.isAppleSupported;
+    return Column(
+      key: const ValueKey('providers'),
+      mainAxisSize: .min,
+      crossAxisAlignment: .stretch,
+      spacing: 11,
+      children: [
+        if (hasApple)
+          AppleButton(
+            label: 'Continue with Apple',
+            loading: _appleLoading,
+            onPressed: _anyLoading ? null : _signInWithApple,
           ),
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 12),
-            child: Row(
-              spacing: 14,
-              children: [
-                Expanded(child: Container(height: 1, color: PTColors.white(0.12))),
-                Text('or', style: PTText.finePrint),
-                Expanded(child: Container(height: 1, color: PTColors.white(0.12))),
-              ],
+        GoogleButton(
+          label: 'Continue with Google',
+          loading: _googleLoading,
+          onPressed: _anyLoading ? null : _signInWithGoogle,
+        ),
+        PTButton(
+          label: 'Continue with email',
+          icon: Symbols.mail_rounded,
+          variant: .secondary,
+          height: buttonHeight,
+          onPressed: _anyLoading ? null : () => setState(() => _mode = .enterEmail),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: Row(
+            spacing: 14,
+            children: [
+              Expanded(child: Container(height: 1, color: PTColors.white(0.12))),
+              Text('or', style: PTText.finePrint),
+              Expanded(child: Container(height: 1, color: PTColors.white(0.12))),
+            ],
+          ),
+        ),
+        PTButton(
+          label: 'Continue as guest',
+          icon: Symbols.person_rounded,
+          variant: .secondary,
+          height: buttonHeight,
+          loading: _guestLoading,
+          onPressed: _anyLoading ? null : _continueAsGuest,
+        ),
+      ],
+    );
+  }
+
+  Widget _enterEmailView({required double buttonHeight}) {
+    return Column(
+      key: const ValueKey('enterEmail'),
+      mainAxisSize: .min,
+      crossAxisAlignment: .stretch,
+      spacing: 14,
+      children: [
+        Row(
+          children: [
+            IconButton(
+              icon: const Icon(Symbols.arrow_back_rounded, color: Colors.white70),
+              onPressed: _anyLoading ? null : () => setState(() => _mode = .providers),
+              tooltip: 'Back',
+            ),
+            const SizedBox(width: 4),
+            Expanded(
+              child: Text('Sign in with email', style: PTText.cardHeading.copyWith(fontSize: 17)),
+            ),
+          ],
+        ),
+        Text(
+          "We'll send a 6-digit verification code to your inbox.",
+          style: PTText.body.copyWith(color: PTColors.white(0.65), fontSize: 13.5),
+        ),
+        TextField(
+          controller: _emailController,
+          autofocus: true,
+          keyboardType: TextInputType.emailAddress,
+          textInputAction: TextInputAction.done,
+          onSubmitted: (_) => _sendEmailOtp(),
+          style: PTText.body.copyWith(color: Colors.white),
+          decoration: InputDecoration(
+            hintText: 'name@example.com',
+            hintStyle: PTText.body.copyWith(color: PTColors.white(0.35)),
+            prefixIcon: Icon(Symbols.mail_rounded, size: 20, color: PTColors.white(0.5)),
+            filled: true,
+            fillColor: PTColors.glass(0.35),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: BorderSide(color: PTColors.white(0.15)),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: BorderSide(color: PTColors.white(0.15)),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: const BorderSide(color: PTColors.primary, width: 1.5),
             ),
           ),
-          PTButton(
-            label: 'Continue as guest',
-            icon: Symbols.person_rounded,
-            variant: .secondary,
-            height: buttonHeight,
-            loading: _guestLoading,
-            onPressed: _googleLoading || _guestLoading ? null : _continueAsGuest,
+        ),
+        PTButton(
+          label: 'Send verification code',
+          icon: Symbols.send_rounded,
+          variant: .primary,
+          height: buttonHeight,
+          loading: _emailLoading,
+          onPressed: _anyLoading ? null : _sendEmailOtp,
+        ),
+      ],
+    );
+  }
+
+  Widget _enterOtpView({required double buttonHeight}) {
+    return Column(
+      key: const ValueKey('enterOtp'),
+      mainAxisSize: .min,
+      crossAxisAlignment: .stretch,
+      spacing: 14,
+      children: [
+        Row(
+          children: [
+            IconButton(
+              icon: const Icon(Symbols.arrow_back_rounded, color: Colors.white70),
+              onPressed: _anyLoading ? null : () => setState(() => _mode = .enterEmail),
+              tooltip: 'Change email',
+            ),
+            const SizedBox(width: 4),
+            Expanded(
+              child: Text('Check your inbox', style: PTText.cardHeading.copyWith(fontSize: 17)),
+            ),
+          ],
+        ),
+        Text.rich(
+          TextSpan(
+            text: 'We sent a 6-digit code to ',
+            style: PTText.body.copyWith(color: PTColors.white(0.65), fontSize: 13.5),
+            children: [
+              TextSpan(
+                text: _emailController.text.trim(),
+                style: const TextStyle(fontWeight: .w600, color: Colors.white),
+              ),
+              const TextSpan(text: '. Enter it below to sign in.'),
+            ],
           ),
-        ],
-      ),
+        ),
+        TextField(
+          controller: _otpController,
+          autofocus: true,
+          keyboardType: TextInputType.number,
+          maxLength: 6,
+          textAlign: .center,
+          textInputAction: TextInputAction.done,
+          style: PTText.body.copyWith(
+            fontSize: 22,
+            letterSpacing: 6,
+            fontWeight: .w700,
+            color: Colors.white,
+          ),
+          decoration: InputDecoration(
+            counterText: '',
+            hintText: '000000',
+            hintStyle: PTText.body.copyWith(
+              fontSize: 22,
+              letterSpacing: 6,
+              color: PTColors.white(0.2),
+            ),
+            filled: true,
+            fillColor: PTColors.glass(0.35),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: BorderSide(color: PTColors.white(0.15)),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: BorderSide(color: PTColors.white(0.15)),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: const BorderSide(color: PTColors.primary, width: 1.5),
+            ),
+          ),
+          onChanged: (code) {
+            if (code.trim().length == 6) {
+              _verifyEmailOtp();
+            }
+          },
+        ),
+        PTButton(
+          label: 'Verify code',
+          icon: Symbols.check_rounded,
+          variant: .primary,
+          height: buttonHeight,
+          loading: _otpLoading,
+          onPressed: _anyLoading ? null : _verifyEmailOtp,
+        ),
+        Center(
+          child: TextButton(
+            onPressed: _resendCooldown > 0 || _anyLoading ? null : _sendEmailOtp,
+            child: Text(
+              _resendCooldown > 0 ? 'Resend code in ${_resendCooldown}s' : 'Resend code',
+              style: PTText.finePrint.copyWith(
+                color: _resendCooldown > 0 ? PTColors.white(0.4) : const Color(0xFFB79CFF),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -191,7 +470,7 @@ class _Brand extends StatefulWidget {
 }
 
 class _BrandState extends State<_Brand> with SingleTickerProviderStateMixin {
-  // The one breathing element on this screen — the lobby's is its greeting.
+  // The one breathing element on this screen - the lobby's is its greeting.
   // Isolated behind a RepaintBoundary so a looping shadow can't dirty the rest
   // of the card every frame.
   late final AnimationController _breath = AnimationController(
@@ -282,9 +561,25 @@ class _TermsNote extends StatelessWidget {
         text: 'By continuing you agree to our ',
         style: PTText.finePrint,
         children: [
-          TextSpan(text: 'Terms', style: linkStyle, recognizer: TapGestureRecognizer()),
+          TextSpan(
+            text: 'Terms',
+            style: linkStyle,
+            recognizer: TapGestureRecognizer()
+              ..onTap = () => launchUrl(
+                Uri.parse('https://synctogether.app/terms'),
+                mode: LaunchMode.externalApplication,
+              ),
+          ),
           const TextSpan(text: ' and '),
-          TextSpan(text: 'Privacy policy', style: linkStyle, recognizer: TapGestureRecognizer()),
+          TextSpan(
+            text: 'Privacy policy',
+            style: linkStyle,
+            recognizer: TapGestureRecognizer()
+              ..onTap = () => launchUrl(
+                Uri.parse('https://synctogether.app/privacy'),
+                mode: LaunchMode.externalApplication,
+              ),
+          ),
         ],
       ),
       textAlign: .center,

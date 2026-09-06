@@ -1,10 +1,13 @@
 import 'dart:async';
+import 'dart:convert';
 
+import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
+import 'package:sign_in_with_apple/sign_in_with_apple.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:synctogether/analytics.dart';
 import 'package:synctogether/diagnostics.dart';
 import 'package:synctogether/env.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// Thin wrapper over Supabase auth. Session persistence and token refresh are
 /// handled by supabase_flutter; this only exposes the state the app reacts to.
@@ -25,7 +28,7 @@ class AuthService {
   final _failures = StreamController<String>.broadcast();
 
   /// Friendly copy for auth failures that happen with no button press to
-  /// attach them to — in practice, the OAuth callback. The app shows these as
+  /// attach them to - in practice, the OAuth callback. The app shows these as
   /// a snack; nothing else has the context to.
   Stream<String> get failures => _failures.stream;
 
@@ -39,7 +42,7 @@ class AuthService {
   /// inside its own listener, so the code-for-session exchange runs nowhere
   /// near the sign-in button's try/catch. When it fails, `_handleDeeplink`
   /// hands the AuthException to gotrue's `notifyException`, which calls
-  /// `addError` on this stream — and with no error handler attached that
+  /// `addError` on this stream - and with no error handler attached that
   /// becomes an unhandled zone error: fatal in Sentry, and *nothing at all* on
   /// screen. The login page just sits there. That is how a TLS failure on one
   /// Windows box looked exactly like Google sign-in quietly doing nothing.
@@ -52,6 +55,13 @@ class AuthService {
 
   String? _identifiedUserId;
   bool _wasAnonymous = false;
+
+  String _providerFor(User user) {
+    if (user.isAnonymous) return 'guest';
+    final provider = user.appMetadata['provider'];
+    if (provider is String && provider.isNotEmpty) return provider;
+    return 'email';
+  }
 
   void _trackAuthChange(AuthState state) {
     if (state.event == AuthChangeEvent.signedOut) {
@@ -69,7 +79,7 @@ class AuthService {
     switch (state.event) {
       case AuthChangeEvent.signedIn:
         if (knownUser == user.id) return;
-        Analytics.instance.track('signed_in', {'method': user.isAnonymous ? 'guest' : 'google'});
+        Analytics.instance.track('signed_in', {'method': _providerFor(user)});
       case AuthChangeEvent.userUpdated:
         if (wasAnonymous && !user.isAnonymous) Analytics.instance.track('guest_upgraded');
       default:
@@ -92,15 +102,15 @@ class AuthService {
     _failures.add(_friendly(error));
   }
 
-  /// Never the raw exception — this lands in a snack bar. The detail that
+  /// Never the raw exception - this lands in a snack bar. The detail that
   /// actually identifies the cause has already gone to Sentry.
   static String _friendly(Object error) => error is AuthRetryableFetchException
-      ? "Couldn't reach the sign-in service — check your connection and try again."
-      : "Couldn't finish signing you in — give it another try.";
+      ? "Couldn't reach the sign-in service - check your connection and try again."
+      : "Couldn't finish signing you in - give it another try.";
 
   /// Marks the gap between handing off to the browser and the deep link coming
   /// back, which is the only way to tell a failed callback apart from a routine
-  /// background refresh — the two arrive on the same stream, indistinguishable.
+  /// background refresh - the two arrive on the same stream, indistinguishable.
   ///
   /// The deadline matters: without it, someone who opens the browser and walks
   /// away leaves the window open forever, and the next unrelated refresh
@@ -117,11 +127,105 @@ class AuthService {
     _oauthWindow = null;
   }
 
+  /// Native Sign in with Apple is supported on macOS and iOS.
+  bool get isAppleSupported =>
+      !kIsWeb &&
+      (defaultTargetPlatform == TargetPlatform.macOS ||
+          defaultTargetPlatform == TargetPlatform.iOS);
+
   static String get _authRedirectUrl => kDebugMode && Env.usingLocalStack
       ? 'http://localhost:3000/auth/desktop-callback'
       : 'https://synctogether.app/auth/desktop-callback';
 
-  /// Browser OAuth + deep-link callback — the one flow that works on every
+  /// Native Sign in with Apple on macOS and iOS via ASAuthorizationAppleIDButton /
+  /// Apple ID Credential sheet.
+  Future<void> signInWithApple() async {
+    final rawNonce = _client.auth.generateRawNonce();
+    final hashedNonce = sha256.convert(utf8.encode(rawNonce)).toString();
+
+    final credential = await SignInWithApple.getAppleIDCredential(
+      scopes: [AppleIDAuthorizationScopes.email, AppleIDAuthorizationScopes.fullName],
+      nonce: hashedNonce,
+    );
+
+    final idToken = credential.identityToken;
+    if (idToken == null) {
+      throw StateError('Apple did not return an identity token');
+    }
+
+    final res = await _client.auth.signInWithIdToken(
+      provider: OAuthProvider.apple,
+      idToken: idToken,
+      nonce: rawNonce,
+    );
+
+    // Apple only returns name on first authorization. Update profile display name if provided.
+    final givenName = credential.givenName;
+    final familyName = credential.familyName;
+    final fullName = [
+      givenName,
+      familyName,
+    ].where((n) => n != null && n.trim().isNotEmpty).join(' ').trim();
+    if (fullName.isNotEmpty && res.user != null) {
+      try {
+        await _client.from('profiles').update({'display_name': fullName}).eq('id', res.user!.id);
+      } catch (e, s) {
+        reportNonFatal(e, s, during: 'updating Apple sign-in profile name');
+      }
+    }
+  }
+
+  /// Upgrades a guest to an Apple account in place (same user id).
+  Future<void> linkAppleIdentity() async {
+    final rawNonce = _client.auth.generateRawNonce();
+    final hashedNonce = sha256.convert(utf8.encode(rawNonce)).toString();
+
+    final credential = await SignInWithApple.getAppleIDCredential(
+      scopes: [AppleIDAuthorizationScopes.email, AppleIDAuthorizationScopes.fullName],
+      nonce: hashedNonce,
+    );
+
+    final idToken = credential.identityToken;
+    if (idToken == null) {
+      throw StateError('Apple did not return an identity token');
+    }
+
+    final res = await _client.auth.linkIdentityWithIdToken(
+      provider: OAuthProvider.apple,
+      idToken: idToken,
+      nonce: rawNonce,
+    );
+
+    final givenName = credential.givenName;
+    final familyName = credential.familyName;
+    final fullName = [
+      givenName,
+      familyName,
+    ].where((n) => n != null && n.trim().isNotEmpty).join(' ').trim();
+    if (fullName.isNotEmpty && res.user != null) {
+      try {
+        await _client.from('profiles').update({'display_name': fullName}).eq('id', res.user!.id);
+      } catch (e, s) {
+        reportNonFatal(e, s, during: 'updating Apple linked profile name');
+      }
+    }
+  }
+
+  /// Sends a 6-digit OTP code to the given email address.
+  Future<void> sendEmailOtp(String email, {String? captchaToken}) async {
+    await _client.auth.signInWithOtp(
+      email: email.trim(),
+      emailRedirectTo: _authRedirectUrl,
+      captchaToken: captchaToken,
+    );
+  }
+
+  /// Verifies a 6-digit OTP token sent to an email address.
+  Future<void> verifyEmailOtp({required String email, required String token}) async {
+    await _client.auth.verifyOTP(email: email.trim(), token: token.trim(), type: OtpType.email);
+  }
+
+  /// Browser OAuth + deep-link callback - the one flow that works on every
   /// platform (plan Phase 1). supabase_flutter handles the callback URI.
   Future<void> signInWithGoogle() => _startOAuth(
     () => _client.auth.signInWithOAuth(
@@ -144,7 +248,7 @@ class AuthService {
     _beginOAuthWindow();
     try {
       // launchUrl reports failure by returning false rather than throwing, and
-      // supabase_flutter passes that straight through — so a machine with no
+      // supabase_flutter passes that straight through - so a machine with no
       // registered browser fails silently unless we check.
       if (!await launch()) {
         throw StateError('The browser could not be opened for OAuth sign-in');

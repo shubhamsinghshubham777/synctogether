@@ -131,13 +131,17 @@ jobs:
         if: ${{ inputs.publish_to_store == true }}
         env:
           ENTRA_CLIENT_ID: ${{ secrets.ENTRA_CLIENT_ID || secrets.MICROSOFT_ENTRA_CLIENT_ID || secrets.AZURE_AD_CLIENT_ID }}
-          MSSTORE_PRODUCT_ID: ${{ secrets.MSSTORE_PRODUCT_ID }}
+          MSSTORE_PRODUCT_ID: ${{ secrets.MSSTORE_PRODUCT_ID || secrets.MICROSOFT_STORE_PRODUCT_ID || secrets.MSSTORE_APP_ID }}
         shell: pwsh
         run: |
           if (-not $env:ENTRA_CLIENT_ID) {
             Write-Host "Skipping publish step because credentials are not configured."
             exit 0
           }
+          if (-not $env:MSSTORE_PRODUCT_ID) {
+            Write-Host "::error::MSSTORE_PRODUCT_ID secret is not configured in GitHub repository secrets. Partner Center requires the Store Product ID (e.g. 9NBLGGH42THS) to identify the application when publishing loose MSIX packages."
+            exit 1
+          }
           $msixPath = "build/windows/x64/runner/Release/SyncTogether-${{ steps.version.outputs.APP_VERSION }}-Store.msix"
           Write-Host "Publishing $msixPath for Product ID $env:MSSTORE_PRODUCT_ID..."
-          msstore publish $msixPath
+          msstore publish $msixPath --appId "$env:MSSTORE_PRODUCT_ID"

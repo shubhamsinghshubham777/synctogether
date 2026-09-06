@@ -122,7 +122,7 @@ export function PricingTable() {
   const premiumSubPrice = isPriceLoading
     ? "Fetching live pricing..."
     : billingCycle === "annual"
-    ? `${monthlyEquivalentFormatted} (Billed annually${isUsdOutsideUs ? " in USD" : ""} — Save ${savingsPct})`
+    ? `${monthlyEquivalentFormatted} (Billed annually${isUsdOutsideUs ? " in USD" : ""} - Save ${savingsPct})`
     : isUsdOutsideUs
     ? "Billed monthly in USD. Cancel anytime."
     : "Billed monthly. Cancel anytime.";
@@ -247,7 +247,7 @@ export function PricingTable() {
               <tr>
                 <td className="p-4 sm:p-5 font-semibold text-white">Session Length</td>
                 <td className="p-4 sm:p-5">60 minutes</td>
-                <td className="p-4 sm:p-5">4 hours + 1h bonus</td>
+                <td className="p-4 sm:p-5">4 hours</td>
                 <td className="p-4 sm:p-5 text-amber-300 font-bold">Up to 24 hours</td>
               </tr>
               <tr>

@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { GlassPanel } from "@/components/GlassPanel";
@@ -17,31 +17,26 @@ import {
 
 function DesktopCallbackContent() {
   const searchParams = useSearchParams();
-  const [deepLinkUrl, setDeepLinkUrl] = useState<string>("synctogether://auth-callback");
-  const [isError, setIsError] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  useEffect(() => {
-    // Extract query and hash fragments
+  const error = searchParams.get("error") || searchParams.get("error_code");
+  const rawErrorDesc =
+    searchParams.get("error_description") ||
+    searchParams.get("error_message") ||
+    (error ? "The authentication process was cancelled or failed." : null);
+  const errorMessage = rawErrorDesc ? rawErrorDesc.replace(/\+/g, " ") : null;
+  const isError = Boolean(error || errorMessage);
+
+  const getDeepLinkUrl = () => {
+    if (typeof window === "undefined") return "synctogether://auth-callback";
     const search = window.location.search || "";
     const hash = window.location.hash || "";
-    const targetUri = `synctogether://auth-callback${search}${hash}`;
-    setDeepLinkUrl(targetUri);
+    return `synctogether://auth-callback${search}${hash}`;
+  };
 
-    // Check for error parameters
-    const error = searchParams.get("error") || searchParams.get("error_code");
-    const errorDesc =
-      searchParams.get("error_description") ||
-      searchParams.get("error_message") ||
-      (error ? "The authentication process was cancelled or failed." : null);
+  useEffect(() => {
+    if (isError) return;
 
-    if (error || errorDesc) {
-      setIsError(true);
-      setErrorMessage(
-        errorDesc?.replace(/\+/g, " ") || "Authentication could not be completed."
-      );
-      return;
-    }
+    const targetUri = getDeepLinkUrl();
 
     // Gentle celebratory confetti
     try {
@@ -66,12 +61,10 @@ function DesktopCallbackContent() {
     }, 250);
 
     return () => clearTimeout(timer);
-  }, [searchParams]);
+  }, [isError]);
 
   const handleManualOpen = () => {
-    if (deepLinkUrl) {
-      window.location.href = deepLinkUrl;
-    }
+    window.location.href = getDeepLinkUrl();
   };
 
   if (isError) {
@@ -150,7 +143,7 @@ function DesktopCallbackContent() {
           You&apos;re All Set!
         </h1>
         <p className="text-xs sm:text-sm text-gray-300/90 leading-relaxed max-w-xs mx-auto">
-          Successfully signed in with Google. We&apos;ve sent your session to the SyncTogether desktop app.
+          Successfully signed in. We&apos;ve sent your session to the SyncTogether desktop app.
         </p>
       </div>
 

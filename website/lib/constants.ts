@@ -72,7 +72,6 @@ export const PRICING_TIERS = {
       "4-hour session duration",
       "2.5 GB weekly media streaming quota (up to 2.0 GB file)",
       "Low-latency Voice facecams",
-      "1 free 60-min extension per session",
       "Rooms nap for 24h (resumes where you left off)",
       "Syncs account across all your devices",
     ],

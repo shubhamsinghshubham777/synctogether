@@ -19,6 +19,8 @@ import {
   Download,
   CheckCircle2,
   RefreshCw,
+  AlertCircle,
+  X,
 } from "lucide-react";
 
 interface EntitlementData {
@@ -30,7 +32,6 @@ interface EntitlementData {
   av_level: string;
   persistent_room_cap: number;
   dormant_hours: number;
-  free_extension_minutes: number;
 }
 
 interface SubscriptionData {
@@ -48,12 +49,62 @@ function AccountDashboard() {
   const [verifying, setVerifying] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const celebratedRef = useRef(false);
 
   const router = useRouter();
   const searchParams = useSearchParams();
   const isSubscribedRedirect = searchParams.get("subscribed") === "true";
   const supabase = createClient();
+
+  useEffect(() => {
+    const parseUrlErrors = () => {
+      let message: string | null = null;
+
+      // 1. Check URL hash fragment (Supabase auth error redirects)
+      if (typeof window !== "undefined" && window.location.hash) {
+        try {
+          const rawHash = window.location.hash.startsWith("#")
+            ? window.location.hash.slice(1)
+            : window.location.hash;
+          const hashParams = new URLSearchParams(rawHash);
+          const desc = hashParams.get("error_description");
+          const code = hashParams.get("error_code");
+          const err = hashParams.get("error");
+
+          if (desc) {
+            message = desc.replace(/\+/g, " ");
+          } else if (code === "otp_expired") {
+            message = "Email link is invalid or has expired. Please request a new code.";
+          } else if (err) {
+            message = err.replace(/\+/g, " ");
+          }
+        } catch (e) {
+          console.error("Failed to parse URL hash parameters on account page:", e);
+        }
+      }
+
+      // 2. Fall back to search parameters (?error_description=... or ?error=...)
+      if (!message) {
+        const desc = searchParams.get("error_description");
+        const err = searchParams.get("error");
+        if (desc) {
+          message = desc.replace(/\+/g, " ");
+        } else if (err) {
+          message = err.replace(/\+/g, " ");
+        }
+      }
+
+      if (message) {
+        setErrorMsg(message);
+      }
+    };
+
+    parseUrlErrors();
+
+    window.addEventListener("hashchange", parseUrlErrors);
+    return () => window.removeEventListener("hashchange", parseUrlErrors);
+  }, [searchParams]);
 
   useEffect(() => {
     let ignore = false;
@@ -67,7 +118,16 @@ function AccountDashboard() {
 
         if (ignore) return;
         if (!user) {
-          router.push("/auth?redirect=/account");
+          let target = "/auth?redirect=/account";
+          if (typeof window !== "undefined") {
+            const rawHash = window.location.hash ? (window.location.hash.startsWith("#") ? window.location.hash.slice(1) : window.location.hash) : "";
+            const hashParams = new URLSearchParams(rawHash);
+            const errDesc = hashParams.get("error_description") || hashParams.get("error") || searchParams.get("error_description") || searchParams.get("error");
+            if (errDesc) {
+              target += `&error=${encodeURIComponent(errDesc.replace(/\+/g, " "))}` + (window.location.hash || "");
+            }
+          }
+          router.push(target);
           return;
         }
         setUser(user);
@@ -92,7 +152,6 @@ function AccountDashboard() {
             av_level: "voice",
             persistent_room_cap: 0,
             dormant_hours: 24,
-            free_extension_minutes: 60,
           });
         }
 
@@ -153,22 +212,6 @@ function AccountDashboard() {
   }, [router, supabase]);
 
   useEffect(() => {
-    if (!isSubscribedRedirect || celebratedRef.current) return;
-    celebratedRef.current = true;
-
-    try {
-      confetti({
-        particleCount: 100,
-        spread: 70,
-        origin: { y: 0.6 },
-        colors: ["#8B5CF6", "#C084FC", "#FBBF24", "#22D3EE"],
-      });
-    } catch {
-      // ignore confetti errors
-    }
-  }, [isSubscribedRedirect]);
-
-  useEffect(() => {
     if (!isSubscribedRedirect) return;
 
     let ignore = false;
@@ -176,19 +219,45 @@ function AccountDashboard() {
       setVerifying(true);
       try {
         const res = await fetch("/api/paddle/fulfill", { method: "POST" });
+        let newSub: SubscriptionData | null = null;
         if (res.ok) {
           const data = await res.json();
           if (data.subscription && !ignore) {
+            newSub = data.subscription;
             setSubscription(data.subscription);
           }
         }
         const { data: entData } = await supabase.rpc("my_entitlement");
+        let activeTier = "free";
         if (entData && !ignore) {
           const ent = Array.isArray(entData) ? entData[0] : entData;
           setEntitlement(ent);
+          activeTier = ent?.tier || "free";
+        }
+
+        const isVerifiedPremium = activeTier === "premium" || newSub?.tier === "premium";
+
+        if (isVerifiedPremium) {
+          if (!celebratedRef.current) {
+            celebratedRef.current = true;
+            try {
+              confetti({
+                particleCount: 100,
+                spread: 70,
+                origin: { y: 0.6 },
+                colors: ["#8B5CF6", "#C084FC", "#FBBF24", "#22D3EE"],
+              });
+            } catch {
+              // ignore confetti errors
+            }
+          }
+        } else {
+          // False-positive or unverified redirect - strip the query param quietly
+          router.replace("/account");
         }
       } catch (err) {
         console.error("Fulfillment check failed:", err);
+        router.replace("/account");
       } finally {
         if (!ignore) {
           setVerifying(false);
@@ -201,7 +270,7 @@ function AccountDashboard() {
     return () => {
       ignore = true;
     };
-  }, [isSubscribedRedirect, supabase]);
+  }, [isSubscribedRedirect, router, supabase]);
 
   const handleCancelSubscription = async () => {
     if (!window.confirm("Are you sure you want to cancel your Premium subscription? Your account will revert to the Free tier.")) {
@@ -273,7 +342,47 @@ function AccountDashboard() {
     <div className="relative py-12 md:py-16 px-4 sm:px-6 lg:px-8 max-w-5xl mx-auto space-y-8">
       <div className="glow-blob-purple top-10 left-1/2 -translate-x-1/2 opacity-30" />
 
-      {isSubscribedRedirect && (
+      {errorMsg && (
+        <GlassPanel
+          className="p-4 border-rose-500/30 bg-rose-950/20 text-rose-200 text-sm flex items-start justify-between gap-3 animate-in fade-in slide-in-from-top-4 duration-300"
+        >
+          <div className="flex items-start gap-3">
+            <AlertCircle className="w-5 h-5 text-rose-400 shrink-0 mt-0.5" />
+            <div>
+              <h4 className="font-semibold text-rose-200">Authentication Alert</h4>
+              <p className="text-xs text-rose-300/80 mt-0.5 leading-relaxed">{errorMsg}</p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setErrorMsg(null)}
+            className="text-rose-400 hover:text-rose-200 p-1 rounded-lg hover:bg-rose-500/10 transition-colors cursor-pointer"
+            aria-label="Dismiss alert"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </GlassPanel>
+      )}
+
+      {isSubscribedRedirect && verifying && !isPremium && (
+        <GlassPanel
+          className="p-6 border-purple-500/30 bg-[#1F172E] space-y-2 animate-in fade-in slide-in-from-top-4 duration-300"
+        >
+          <div className="flex items-center gap-3">
+            <RefreshCw className="w-5 h-5 text-purple-400 animate-spin shrink-0" />
+            <div>
+              <h3 className="text-base font-semibold text-white font-[family-name:var(--font-space-grotesk)]">
+                Verifying Subscription Status...
+              </h3>
+              <p className="text-xs text-purple-200/70">
+                Confirming your upgrade with Paddle and activating your account benefits.
+              </p>
+            </div>
+          </div>
+        </GlassPanel>
+      )}
+
+      {isSubscribedRedirect && isPremium && (
         <GlassPanel
           glow="gold"
           className="p-6 border-amber-400/40 bg-[#1F172E] space-y-2 animate-in fade-in slide-in-from-top-4 duration-300"
@@ -285,14 +394,9 @@ function AccountDashboard() {
                 Welcome to SyncTogether Premium! 🎉
               </h3>
               <p className="text-xs text-amber-200/80">
-                {verifying
-                  ? "Activating your subscription across our network... checking status."
-                  : "Your subscription is active! All premium benefits are enabled on your account."}
+                Your subscription is active! All premium benefits are enabled on your account.
               </p>
             </div>
-            {verifying && (
-              <RefreshCw className="w-4 h-4 text-amber-300 animate-spin ml-auto" />
-            )}
           </div>
         </GlassPanel>
       )}

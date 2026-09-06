@@ -1,6 +1,6 @@
 # SyncTogether Web Portal
 
-The official web application for [SyncTogether](https://synctogether.app) — featuring the marketing landing page, app downloads, release changelogs, FAQ and legal policies, Supabase authentication, and Paddle Merchant of Record (MoR) billing checkout & account management.
+The official web application for [SyncTogether](https://synctogether.app) - featuring the marketing landing page, app downloads, release changelogs, FAQ and legal policies, Supabase authentication, and Paddle Merchant of Record (MoR) billing checkout & account management.
 
 ## Tech Stack
 
@@ -70,16 +70,16 @@ Copy the webhook secret provided by Hookdeck / Paddle into `PADDLE_WEBHOOK_SECRE
 ## Key Routes & Architecture
 
 ### User-Facing Pages
-- `/` — Homepage featuring interactive hero playback synchronizer and feature breakdown
-- `/pricing` & `/premium` — Interactive plan selector, FAQ, and embedded Paddle Checkout overlay
-- `/account` — Authenticated account overview, subscription status, renewal date, and cancellation action
-- `/auth` & `/auth/callback` — Supabase Google OAuth and magic link authentication flows
-- `/download` — Desktop installers for macOS (DMG) and Windows (Inno Setup)
-- `/changelog` — Release history fetched directly from GitHub releases
-- `/faq`, `/privacy`, `/terms`, `/refund` — Help center and compliance documentation
+- `/` - Homepage featuring interactive hero playback synchronizer and feature breakdown
+- `/pricing` & `/premium` - Interactive plan selector, FAQ, and embedded Paddle Checkout overlay
+- `/account` - Authenticated account overview, subscription status, renewal date, and cancellation action
+- `/auth` & `/auth/callback` - Supabase Google OAuth and magic link authentication flows
+- `/download` - Desktop installers for macOS (DMG) and Windows (Inno Setup)
+- `/changelog` - Release history fetched directly from GitHub releases
+- `/faq`, `/privacy`, `/terms`, `/refund` - Help center and compliance documentation
 
 ### API Route Handlers
-- `POST /api/paddle/webhook` — Receives and verifies Paddle subscription webhooks (`subscription.created`, `subscription.updated`, `subscription.activated`, `subscription.canceled`, `subscription.past_due`, `subscription.paused`), applying write-deduplication before updating Supabase.
-- `POST /api/paddle/cancel` — Authenticated endpoint allowing users to cancel their active subscription at period end.
-- `GET /api/paddle/prices` — Real-time price query endpoint proxying Paddle Billing pricing.
-- `GET /api/releases/latest` — Proxies GitHub release assets and metadata for downloads.
+- `POST /api/paddle/webhook` - Receives and verifies Paddle subscription webhooks (`subscription.created`, `subscription.updated`, `subscription.activated`, `subscription.canceled`, `subscription.past_due`, `subscription.paused`), applying write-deduplication before updating Supabase.
+- `POST /api/paddle/cancel` - Authenticated endpoint allowing users to cancel their active subscription at period end.
+- `GET /api/paddle/prices` - Real-time price query endpoint proxying Paddle Billing pricing.
+- `GET /api/releases/latest` - Proxies GitHub release assets and metadata for downloads.

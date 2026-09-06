@@ -28,7 +28,7 @@ const jetbrainsMono = JetBrains_Mono({
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_CONFIG.url),
   title: {
-    default: "SyncTogether — Synchronized Video & Media Playback",
+    default: "SyncTogether - Synchronized Video & Media Playback",
     template: "%s | SyncTogether",
   },
   description: SITE_CONFIG.description,
@@ -48,7 +48,7 @@ export const metadata: Metadata = {
     type: "website",
     locale: "en_US",
     url: SITE_CONFIG.url,
-    title: "SyncTogether — Synchronized Video & Media Playback",
+    title: "SyncTogether - Synchronized Video & Media Playback",
     description: SITE_CONFIG.description,
     siteName: SITE_CONFIG.name,
     images: [
@@ -56,13 +56,13 @@ export const metadata: Metadata = {
         url: "/og-image.png",
         width: 1200,
         height: 630,
-        alt: "SyncTogether — Synchronized Media Playback",
+        alt: "SyncTogether - Synchronized Media Playback",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "SyncTogether — Synchronized Video & Media Playback",
+    title: "SyncTogether - Synchronized Video & Media Playback",
     description: SITE_CONFIG.description,
     images: ["/og-image.png"],
     creator: "@shubhamsingh",

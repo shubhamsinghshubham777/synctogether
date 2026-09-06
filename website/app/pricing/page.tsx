@@ -3,7 +3,7 @@ import { PricingTable } from "@/components/PricingTable";
 import { FAQAccordion } from "@/components/FAQAccordion";
 
 export const metadata: Metadata = {
-  title: "Pricing & Plans — SyncTogether Premium",
+  title: "Pricing & Plans - SyncTogether Premium",
   description:
     "Upgrade to SyncTogether Premium for 20 persistent rooms, 16 members, 24-hour sessions, video facecams, and extended emoji reactions.",
 };

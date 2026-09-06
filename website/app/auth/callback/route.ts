@@ -22,6 +22,14 @@ export async function GET(request: Request) {
       }
     }
     console.error("Auth callback exchange error:", error);
+    const errorMsg = error.message || "Could not authenticate user";
+    return NextResponse.redirect(`${origin}/auth?error=${encodeURIComponent(errorMsg)}`);
+  }
+
+  // Check if error was passed directly from provider or Supabase
+  const providerError = searchParams.get("error_description") || searchParams.get("error");
+  if (providerError) {
+    return NextResponse.redirect(`${origin}/auth?error=${encodeURIComponent(providerError)}`);
   }
 
   // If error or code missing, return user to sign-in page with error

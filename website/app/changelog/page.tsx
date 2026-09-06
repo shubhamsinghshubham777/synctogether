@@ -19,7 +19,7 @@ export default async function ChangelogPage() {
     {
       id: 1,
       tag_name: "v0.11.0",
-      name: "SyncTogether 0.11.0 — Facecams & Persistent Rooms",
+      name: "SyncTogether 0.11.0 - Facecams & Persistent Rooms",
       published_at: "2026-08-11T12:00:00Z",
       body: `### New Features
 - **Video & Voice Facecams**: Real-time Video and low-latency Voice facecams integrated directly into rooms.
@@ -35,7 +35,7 @@ export default async function ChangelogPage() {
     {
       id: 2,
       tag_name: "v0.10.0",
-      name: "SyncTogether 0.10.0 — Redesigned Violet Glass Interface",
+      name: "SyncTogether 0.10.0 - Redesigned Violet Glass Interface",
       published_at: "2026-08-04T10:00:00Z",
       body: `### Highlights
 - Complete design overhaul featuring violet glassmorphism aesthetics and custom typography (Space Grotesk, Outfit, JetBrains Mono).

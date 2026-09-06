@@ -24,6 +24,7 @@ class RoomChatPanel extends StatefulWidget {
     required this.onSend,
     required this.onCopied,
     this.onPlaySharedVideo,
+    this.onReportMessage,
     this.embedded = false,
     this.premiumMembers = const {},
   });
@@ -36,6 +37,7 @@ class RoomChatPanel extends StatefulWidget {
   final ValueChanged<String> onSend;
   final VoidCallback onCopied;
   final void Function(String videoId, String sharedBy)? onPlaySharedVideo;
+  final ValueChanged<ChatMessage>? onReportMessage;
   final Set<String> premiumMembers;
 
   /// Embedded (mobile portrait) skips its own glass shell + close button.
@@ -225,6 +227,7 @@ class _RoomChatPanelState extends State<RoomChatPanel> {
                   premium: widget.premiumMembers.contains(message.senderId),
                   onCopied: widget.onCopied,
                   onPlaySharedVideo: widget.onPlaySharedVideo,
+                  onReport: widget.onReportMessage,
                 );
                 final key = _keyOf(message);
                 if (!_animated.add(key)) return bubble;
@@ -351,6 +354,7 @@ class _MessageRow extends StatefulWidget {
     required this.premium,
     required this.onCopied,
     required this.onPlaySharedVideo,
+    this.onReport,
   });
 
   final ChatMessage message;
@@ -358,6 +362,7 @@ class _MessageRow extends StatefulWidget {
   final bool premium;
   final VoidCallback onCopied;
   final void Function(String videoId, String sharedBy)? onPlaySharedVideo;
+  final ValueChanged<ChatMessage>? onReport;
 
   @override
   State<_MessageRow> createState() => _MessageRowState();
@@ -478,14 +483,30 @@ class _MessageRowState extends State<_MessageRow> {
       ),
     );
 
+    final reportButton = widget.onReport != null
+        ? AnimatedOpacity(
+            duration: PTMotion.functional(context, PTMotion.hover),
+            opacity: !isDesktop || _hovered ? 1 : 0,
+            child: PTIconButton(
+              icon: Symbols.flag_rounded,
+              onPressed: () => widget.onReport!(widget.message),
+              size: 26,
+              iconSize: 15,
+              glass: false,
+              color: PTColors.white(0.45),
+              tooltip: 'Report message',
+            ),
+          )
+        : null;
+
     return MouseRegion(
       onEnter: (_) => setState(() => _hovered = true),
       onExit: (_) => setState(() => _hovered = false),
-      child: widget.own ? _own(copyButton) : _other(copyButton),
+      child: widget.own ? _own(copyButton) : _other(copyButton, reportButton),
     );
   }
 
-  Widget _other(Widget copyButton) {
+  Widget _other(Widget copyButton, Widget? reportButton) {
     final message = widget.message;
     return Row(
       crossAxisAlignment: .end,
@@ -533,6 +554,7 @@ class _MessageRowState extends State<_MessageRow> {
           ),
         ),
         copyButton,
+        if (reportButton != null) reportButton,
       ],
     );
   }

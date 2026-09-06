@@ -25,10 +25,11 @@ String get accountUrl =>
     kDebugMode ? 'http://localhost:3000/account' : 'https://synctogether.app/account';
 
 class SubscriptionScreen extends StatefulWidget {
-  const SubscriptionScreen({super.key, this.source, this.desktopOverride});
+  const SubscriptionScreen({super.key, this.source, this.desktopOverride, this.storeBuildOverride});
 
   final String? source;
   final bool? desktopOverride;
+  final bool? storeBuildOverride;
 
   @override
   State<SubscriptionScreen> createState() => _SubscriptionScreenState();
@@ -40,6 +41,8 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> with WidgetsBin
   bool _celebrating = false;
 
   bool get _isDesktop => widget.desktopOverride ?? isDesktop;
+  bool get _isStore => widget.storeBuildOverride ?? isStoreBuild;
+  bool get _canShowCheckout => _isDesktop && !_isStore;
 
   @override
   void initState() {
@@ -364,7 +367,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> with WidgetsBin
   }
 
   Widget _purchaseActions({required bool compact}) {
-    if (_isDesktop) {
+    if (_canShowCheckout) {
       return Column(
         crossAxisAlignment: .stretch,
         spacing: 10,
@@ -385,21 +388,42 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> with WidgetsBin
     }
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
       decoration: BoxDecoration(
         color: PTColors.white(0.04),
         border: Border.all(color: PTColors.white(0.08)),
         borderRadius: BorderRadius.circular(16),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: .stretch,
         spacing: 12,
         children: [
-          const Icon(Symbols.info_rounded, size: 20, color: PTColors.textAccent),
-          Expanded(
-            child: Text(
-              'Subscriptions are managed on our website.',
-              style: PTText.body.copyWith(fontSize: 13.5, color: PTColors.white(0.75)),
-            ),
+          Row(
+            spacing: 12,
+            children: [
+              const Icon(Symbols.info_rounded, size: 20, color: PTColors.textAccent),
+              Expanded(
+                child: Text(
+                  'Subscriptions are managed on our website.',
+                  style: PTText.body.copyWith(
+                    fontSize: 13.5,
+                    color: PTColors.white(0.85),
+                    fontWeight: .w500,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          Text(
+            'Once subscribed on synctogether.app, your account automatically unlocks all premium features across all your devices.',
+            style: PTText.finePrint.copyWith(color: PTColors.white(0.55), height: 1.4),
+          ),
+          PTButton(
+            label: 'Refresh status',
+            icon: Symbols.refresh_rounded,
+            variant: .secondary,
+            height: 40,
+            onPressed: _pollForSubscription,
           ),
         ],
       ),
@@ -407,7 +431,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> with WidgetsBin
   }
 
   Widget _premiumStatusActions({required bool compact}) {
-    if (_isDesktop) {
+    if (_canShowCheckout) {
       return Column(
         crossAxisAlignment: .stretch,
         spacing: 10,
@@ -429,16 +453,29 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> with WidgetsBin
     }
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
       decoration: BoxDecoration(
         color: PTColors.white(0.04),
         border: Border.all(color: PTColors.white(0.08)),
         borderRadius: BorderRadius.circular(16),
       ),
-      child: Text(
-        'Subscriptions are managed on our website.',
-        textAlign: TextAlign.center,
-        style: PTText.body.copyWith(fontSize: 13.5, color: PTColors.white(0.75)),
+      child: Column(
+        crossAxisAlignment: .stretch,
+        spacing: 12,
+        children: [
+          Text(
+            'Your active subscription is managed on our website.',
+            textAlign: TextAlign.center,
+            style: PTText.body.copyWith(fontSize: 13.5, color: PTColors.white(0.85)),
+          ),
+          PTButton(
+            label: 'Refresh status',
+            icon: Symbols.refresh_rounded,
+            variant: .secondary,
+            height: 40,
+            onPressed: _pollForSubscription,
+          ),
+        ],
       ),
     );
   }

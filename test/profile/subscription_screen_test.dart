@@ -13,8 +13,12 @@ Widget _wrap(Widget child) {
 
 void main() {
   group('SubscriptionScreen', () {
-    testWidgets('desktop renders Go Premium button for free users', (tester) async {
-      await tester.pumpWidget(_wrap(const SubscriptionScreen(desktopOverride: true)));
+    testWidgets('desktop renders Go Premium button for free users on non-store build', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _wrap(const SubscriptionScreen(desktopOverride: true, storeBuildOverride: false)),
+      );
       await tester.pump(const Duration(milliseconds: 100));
 
       expect(find.text('SyncTogether Premium'), findsOneWidget);
@@ -26,6 +30,20 @@ void main() {
       expect(find.byIcon(Symbols.workspace_premium_rounded), findsWidgets);
     });
 
+    testWidgets('desktop store build hides Go Premium button and shows compliant info banner', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _wrap(const SubscriptionScreen(desktopOverride: true, storeBuildOverride: true)),
+      );
+      await tester.pump(const Duration(milliseconds: 100));
+
+      expect(find.text('SyncTogether Premium'), findsOneWidget);
+      expect(find.text('Go Premium'), findsNothing);
+      expect(find.text('Subscriptions are managed on our website.'), findsOneWidget);
+      expect(find.text('Refresh status'), findsOneWidget);
+    });
+
     testWidgets('mobile renders plain text info instead of button', (tester) async {
       await tester.pumpWidget(_wrap(const SubscriptionScreen(desktopOverride: false)));
       await tester.pump(const Duration(milliseconds: 100));
@@ -33,6 +51,7 @@ void main() {
       expect(find.text('SyncTogether Premium'), findsOneWidget);
       expect(find.text('Go Premium'), findsNothing);
       expect(find.text('Subscriptions are managed on our website.'), findsOneWidget);
+      expect(find.text('Refresh status'), findsOneWidget);
     });
   });
 }

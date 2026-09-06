@@ -38,6 +38,12 @@ fi
 # Remove any sparkle / update helper executables if present
 find "$APP_PATH/Contents" -type f \( -name "Autoupdate" -o -name "sign_update" \) -exec rm -f {} + 2>/dev/null || true
 
+# Strip Sparkle keys from Info.plist so Apple's static validator detects no updater configuration
+if [ -f "$APP_PATH/Contents/Info.plist" ]; then
+  /usr/libexec/PlistBuddy -c "Delete :SUPublicEDKey" "$APP_PATH/Contents/Info.plist" 2>/dev/null || true
+  /usr/libexec/PlistBuddy -c "Delete :SUEnableAutomaticChecks" "$APP_PATH/Contents/Info.plist" 2>/dev/null || true
+fi
+
 # 2. Embed Provisioning Profile if present
 if [ -n "${PROVISIONING_PROFILE:-}" ] && [ -f "$PROVISIONING_PROFILE" ]; then
   echo "==> Embedding provisioning profile: $PROVISIONING_PROFILE"

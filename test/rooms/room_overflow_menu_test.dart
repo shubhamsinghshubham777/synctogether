@@ -121,5 +121,64 @@ void main() {
 
       expect(find.text('Extend room duration'), findsNothing);
     });
+
+    testWidgets('triggers onReportConcern when tapped', (tester) async {
+      var reportTapped = false;
+      final data = ValueNotifier<RoomMenuData?>(
+        RoomMenuData(
+          members: [
+            RoomMember(
+              roomId: 'room-1',
+              userId: 'user-1',
+              role: 'member',
+              joinedAt: DateTime(2026, 1, 1),
+            ),
+          ],
+          present: [
+            PresentMember(
+              userId: 'user-1',
+              displayName: 'Alice',
+              role: 'member',
+              joinedAt: DateTime(2026, 1, 1),
+            ),
+          ],
+          media: RoomMedia.none,
+          transportLock: false,
+          selfId: 'user-1',
+          selfIsHost: false,
+        ),
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => TextButton(
+                onPressed: () => showRoomOverflowMenu(
+                  context: context,
+                  data: data,
+                  onCopyInvite: () {},
+                  onLeave: () {},
+                  onEndRoom: () {},
+                  onReportConcern: () => reportTapped = true,
+                  onTransportLockChanged: (_) {},
+                  onKick: (_) {},
+                ),
+                child: const Text('open'),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Report a concern'), findsOneWidget);
+      await tester.tap(find.text('Report a concern'));
+      await tester.pumpAndSettle();
+
+      expect(reportTapped, isTrue);
+    });
   });
 }

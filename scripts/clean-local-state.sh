@@ -66,14 +66,20 @@ pkill -f "SyncTogether B.app" 2>/dev/null || true
 pkill -f "SyncTogether.app/Contents/MacOS/SyncTogether" 2>/dev/null || true
 
 # Clear NSUserDefaults domains
+defaults delete app.synctogether 2>/dev/null || true
+defaults delete app.synctogether.b 2>/dev/null || true
 defaults delete app.synctogether.macos 2>/dev/null || true
 defaults delete app.synctogether.macos.b 2>/dev/null || true
 
 # Remove preference plist files
+rm -f "$HOME/Library/Preferences/app.synctogether.plist" 2>/dev/null || true
+rm -f "$HOME/Library/Preferences/app.synctogether.b.plist" 2>/dev/null || true
 rm -f "$HOME/Library/Preferences/app.synctogether.macos.plist" 2>/dev/null || true
 rm -f "$HOME/Library/Preferences/app.synctogether.macos.b.plist" 2>/dev/null || true
 
 # Remove container caches if present
+rm -rf "$HOME/Library/Containers/app.synctogether" 2>/dev/null || true
+rm -rf "$HOME/Library/Containers/app.synctogether.b" 2>/dev/null || true
 rm -rf "$HOME/Library/Containers/app.synctogether.macos" 2>/dev/null || true
 rm -rf "$HOME/Library/Containers/app.synctogether.macos.b" 2>/dev/null || true
 

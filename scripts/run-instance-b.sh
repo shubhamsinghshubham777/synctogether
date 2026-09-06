@@ -5,8 +5,8 @@
 # launches it via macOS LaunchServices (`open -n`).
 #
 # Usage:
-#   ./scripts/st-instance-b.sh                 # Launch Instance B
-#   ./scripts/st-instance-b.sh --build         # Force rebuild debug app before launching
+#   ./scripts/run-instance-b.sh                 # Launch Instance B
+#   ./scripts/run-instance-b.sh --build         # Force rebuild debug app before launching
 set -euo pipefail
 
 REPO="$(cd "$(dirname "$0")/.." && pwd)"

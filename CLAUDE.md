@@ -40,7 +40,7 @@ hookdeck listen 3000 synctogether-webhooks --path /api/paddle/webhook # Local Pa
 
 Desktop self-update needs two repo secrets, `SPARKLE_ED_PRIVATE_KEY` and `WINSPARKLE_DSA_PRIVATE_KEY` (see Self-update under Architecture). The release job fails loudly without them rather than publishing a feed nobody can install. Their public counterparts are committed; **the private keys exist only in those secrets and the user's password manager, and cannot be regenerated without orphaning every installed copy.**
 
-To test room sync on one Mac, run instance A normally and instance B via `./scripts/st-instance-b.sh` - instances of the same bundle id share one preferences domain (= one Supabase session), so the script clones the debug build under `app.synctogether.b` to get a second identity. Re-run it after rebuilds. (The isolation used to come from the sandbox container; since the sandbox was dropped it comes from the bundle id itself, which is what `NSUserDefaults`/`flutter_secure_storage` key off either way.)
+To test room sync on one Mac, run instance A normally and instance B via `./scripts/run-instance-b.sh` - instances of the same bundle id share one preferences domain (= one Supabase session), so the script clones the debug build under `app.synctogether.b` to get a second identity. Re-run it after rebuilds. (The isolation used to come from the sandbox container; since the sandbox was dropped it comes from the bundle id itself, which is what `NSUserDefaults`/`flutter_secure_storage` key off either way.)
 
 Test suites runnable locally and in CI:
 
@@ -226,7 +226,7 @@ Product analytics to PostHog Cloud, so activation/retention/engagement and premi
 macOS and Windows desktop applications support silent in-place updates. `UpdateService` directly parses `appcast.xml` from the GitHub release permalink `releases/latest/download/appcast.xml` (resolving to the newest non-pre-release), manages background downloading with progress tracking, and executes a silent update on restart or user request.
 
 - **`supportsSelfUpdate` (`lib/platform.dart`), not `isDesktop`.** Desktop self-updates officially target macOS and Windows (Linux desktop is unsupported).
-- **Code Signing & Notarization**: macOS release builds are signed, notarized, and stapled with Apple Developer ID credentials via `scripts/sign-macos.sh`. This ensures macOS TCC permissions (camera, microphone) persist across updates without recurring system prompts.
+- **Code Signing & Notarization**: macOS release builds are signed, notarized, and stapled with Apple Developer ID credentials via `scripts/package-macos-direct.sh`. This ensures macOS TCC permissions (camera, microphone) persist across updates without recurring system prompts.
 - **Dual-Key Archive Verification**:
   - macOS: Sparkle Ed25519 (`SUPublicEDKey` in `macos/Runner/Info.plist`, signed via `sign_update` in CI).
   - Windows: DSA-SHA1 (`windows/runner/resources/dsa_pub.pem` in `Runner.rc`).

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# scripts/sign-macos.sh
+# scripts/package-macos-direct.sh
 #
 # Signs, packages, notarizes, and staples the SyncTogether macOS app bundle and DMG.
 # Usable both locally and in CI/CD (GitHub Actions).

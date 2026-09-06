@@ -70,7 +70,7 @@ SyncTogether includes an automated orchestrator script (`./scripts/dev.sh`) to s
 fvm flutter run -d macos
 
 # Run an isolated second client for room testing (Instance B)
-./scripts/st-instance-b.sh
+./scripts/run-instance-b.sh
 
 # Check ecosystem health
 ./scripts/dev.sh status

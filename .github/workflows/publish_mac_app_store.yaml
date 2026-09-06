@@ -138,7 +138,7 @@ jobs:
         env:
           PROVISIONING_PROFILE: ${{ env.PROVISIONING_PROFILE }}
           OUTPUT_PKG: "SyncTogether-${{ steps.version.outputs.APP_VERSION }}-MacAppStore.pkg"
-        run: ./scripts/package-mac-app-store.sh
+        run: ./scripts/package-macos-store.sh
 
       - name: Drop debug symbols before cache save
         run: rm -rf build/macos/Build/Products/Release/*.dSYM

@@ -11,8 +11,6 @@
 <p align="center">
   <a href="#license"><img src="https://img.shields.io/badge/License-PolyForm_Noncommercial_1.0.0-blue.svg" alt="License: PolyForm Noncommercial 1.0.0"></a>
   <img src="https://img.shields.io/badge/Flutter-3.44.x-02569B?logo=flutter" alt="Flutter">
-  <img src="https://img.shields.io/badge/Supabase-Realtime_%26_DB-3ECF8E?logo=supabase" alt="Supabase">
-  <img src="https://img.shields.io/badge/LiveKit-AV_Mesh-FF5964?logo=webrtc" alt="LiveKit">
   <img src="https://img.shields.io/badge/Platforms-macOS_%7C_Windows_%7C_Android_%7C_iOS-blueviolet" alt="Platforms">
 </p>
 
@@ -22,11 +20,11 @@ SyncTogether is a modern cross-platform application for synchronized media playb
 
 ## Preview
 
-| Screen | Preview |
-|---|---|
-| **Splash** | <img src="https://github.com/user-attachments/assets/f6be89db-907d-4b2e-8553-87a2339f1e96" width="280" /> |
-| **Lobby** | <img src="https://github.com/user-attachments/assets/cbd1b2ae-ba97-48ec-8636-dd2fc29b03a8" width="280" /> |
-| **Room** | <img src="https://github.com/user-attachments/assets/520ddc80-dcb9-4588-a05e-9167e59ec2ca" width="280" /> |
+| Lobby | Theater Room |
+|:---:|:---:|
+| <img src="assets/store/1_violet_glass_lobby.png" alt="Lobby Screen" /> | <img src="assets/store/2_theater_room.png" alt="Theater Room" /> |
+| **Room Chat** | **Media Chooser** |
+| <img src="assets/store/3_room_chat.png" alt="Room Chat" /> | <img src="assets/store/4_media_chooser.png" alt="Media Chooser" /> |
 
 ---
 
@@ -36,7 +34,7 @@ SyncTogether is a modern cross-platform application for synchronized media playb
 - **Two Playback Modes** - Local video files (via `media_kit` hardware-accelerated rendering with file hash mismatch warnings) and YouTube (via internal loopback IFrame bridge).
 - **Voice & Video Facecams** - Multi-participant live AV tiles powered by LiveKit SFU mesh with dynamic mic/camera controls.
 - **Persisted Chat & Quick Reactions** - In-room chat history, typing indicators, and Google Noto animated emoji reactions.
-- **Flexible Authentication** - Instant anonymous guest accounts (protected by Cloudflare Turnstile) or Google Sign-In with seamless in-place identity upgrades.
+- **Flexible Authentication** - Instant anonymous guest accounts (protected by Cloudflare Turnstile), Sign in with Apple, Google Sign-In, or Passwordless Email OTP with seamless in-place identity upgrades.
 - **Resumable & Persistent Rooms** - Dormant rooms can be resumed by the host with playback position preserved, or extended/ended on demand.
 - **Self-Hosting Ready** - Deploy the complete stack (Postgres database, Realtime engine, Edge Functions, LiveKit server, Web portal) on your own infrastructure or cloud free tiers.
 - **Modern Violet Glass UI** - Consistent, dark glassmorphism design system across desktop, tablet, and mobile orientations.
@@ -45,43 +43,9 @@ SyncTogether is a modern cross-platform application for synchronized media playb
 
 ## 🚀 Self-Hosting
 
-SyncTogether is designed to be easily self-hosted. You can run it on your home server, local LAN, VPS, or private cloud.
+SyncTogether is designed to be easily self-hosted on a VPS, home server, or local LAN. Deploy the complete stack (Postgres database, Realtime engine, Edge Functions, LiveKit SFU server, and Web portal) using managed free tiers or fully self-hosted Docker containers.
 
-> 📖 **Full Guide**: See [docs/self-hosting.md](docs/self-hosting.md) for detailed production deployment, Docker Compose recipes, and configuration options.
-
-### Quick Start (Managed Hybrid Path)
-
-1. **Deploy Supabase Backend**:
-   - Create a free project at [database.new](https://database.new).
-   - Push database migrations and RPCs:
-     ```bash
-     supabase login
-     supabase link --project-ref <your-project-ref>
-     supabase db push
-     ```
-2. **Deploy Edge Functions**:
-   - Fill in `supabase/functions/.env` with your LiveKit API keys (from [cloud.livekit.io](https://cloud.livekit.io) or self-hosted server).
-   - Deploy the token minter:
-     ```bash
-     supabase functions deploy livekit-token
-     supabase secrets set --env-file supabase/functions/.env
-     ```
-3. **Build the Client**:
-   - Copy `.env.example` to `.env` and fill in your `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, and `LIVEKIT_URL`.
-   - Build for your platform:
-     ```bash
-     fvm flutter pub get
-     fvm flutter run -d macos  # or windows, android, ios
-     ```
-
-### Self-Hosted LiveKit (Docker)
-
-To self-host the LiveKit voice/video server on your own VPS or LAN:
-
-```bash
-# Start LiveKit SFU container
-docker compose -f docker-compose.selfhost.yml up -d
-```
+> 📖 **Complete Guide**: See **[docs/self-hosting.md](docs/self-hosting.md)** for step-by-step setup, Docker Compose recipes, environment configuration, and production deployment paths.
 
 ---
 
@@ -106,7 +70,7 @@ SyncTogether includes an automated orchestrator script (`./scripts/dev.sh`) to s
 fvm flutter run -d macos
 
 # Run an isolated second client for room testing (Instance B)
-./build/pt-instance-b.sh
+./scripts/st-instance-b.sh
 
 # Check ecosystem health
 ./scripts/dev.sh status
@@ -140,8 +104,8 @@ fvm flutter analyze
 ## 📦 Installers & Desktop Self-Updates
 
 Release builds and installer artifacts are built via GitHub Actions (`.github/workflows/`):
-- **macOS**: DMG package with Sparkle-based auto-updater.
-- **Windows**: Inno Setup installer (`dart run inno_bundle`) with WinSparkle auto-updater and `synctogether://` protocol registration.
+- **macOS**: DMG package with Developer ID code signing, notarization, and background auto-update.
+- **Windows**: Inno Setup installer (`dart run inno_bundle`), MSIX package for Microsoft Store distribution (`publish_microsoft_store.yaml`), background auto-update, and `synctogether://` protocol registration.
 - **Android**: Release APK.
 
 ---
@@ -155,15 +119,17 @@ Release builds and installer artifacts are built via GitHub Actions (`.github/wo
 | `lib/rooms/` | Lobby, room screen, participant grid, dormancy/resume engine, room service |
 | `lib/sync/` | Lockstep synchronization engine (`SyncService`, `SyncBackend`, `SyncLogic`) |
 | `lib/av/` | LiveKit SFU audio/video connection & facecam tiles |
-| `lib/updates/` | Desktop self-update service (Sparkle / WinSparkle appcast parser) |
+| `lib/updates/` | Desktop self-update service (Sparkle / WinSparkle appcast parser, silent background updater) |
 | `docs/` | In-depth technical documentation & [Self-Hosting Guide](docs/self-hosting.md) |
 | `docker/` | Docker Compose and server configuration templates for self-hosting |
 | `supabase/` | Database migrations (schema, RLS, RPCs, pg_cron), edge functions, auth config |
-| `website/` | Next.js 15 marketing site, download portal, changelog, FAQ, and Paddle billing |
+| `website/` | Next.js 16 marketing site, download portal, changelog, FAQ, and Paddle billing |
+| `scripts/` | Developer environment orchestrator (`dev.sh`), clean slate reset, secrets tool, macOS signing, Instance B launcher |
 | `tool/` | Asset generation scripts (audio, emoji, certificates, app icons) |
 
 ---
 
+<a id="license"></a>
 ## 📄 License & Commercial Notice
 
 SyncTogether is licensed under the **[PolyForm Noncommercial License 1.0.0 (PolyForm-Noncommercial-1.0.0)](LICENSE)**.

@@ -2,7 +2,7 @@
 
 Host-initiated, per-room file sharing that lets a premium or quota-eligible host upload their local media file to Cloudflare R2, making it streamable and downloadable by every member in the room. The file is stored temporarily, deleted on room retirement or when the host toggles sharing off, and the entire lifecycle integrates seamlessly with the existing gate, presence, tier, sync, and security systems.
 
-## User Review Required
+### Architecture Overview & Key Invariants
 
 > [!IMPORTANT]
 > **Zero Member Wait Time via Direct `media_kit` Streaming.** Once the host finishes uploading to R2, room members do **not** need to wait for a multi-gigabyte file to download to disk before the watch party can start. `media_kit` (backed by `mpv`) natively streams directly from Cloudflare R2 presigned HTTPS URLs with HTTP Range-request support (`206 Partial Content`). Members can start watching immediately with 0 GB local disk usage, with an optional background download for offline caching.
@@ -16,7 +16,7 @@ Host-initiated, per-room file sharing that lets a premium or quota-eligible host
 > - **Single-Subscription Stream Freshness on Retry:** Because `Stream<List<int>>` from `File.openRead` is a single-subscription stream, retrying a failed part must re-invoke `file.openRead(startOffset, endOffset)` freshly on each attempt rather than reusing an exhausted stream.
 > - **Explicit `Content-Length` & SigV4 Header Alignment (Prevent 411 & Signature Mismatches):** Dart's `HttpClientRequest.addStream` defaults to `Transfer-Encoding: chunked` if length is omitted. S3/R2 endpoints reject chunked multipart part PUTs; `request.contentLength = chunkSizeBytes` is explicitly assigned before streaming. To prevent AWS SigV4 `SignatureDoesNotMatch` errors on presigned PUTs, the Dart client does not add ad-hoc `Content-Type` headers that were not included in the Edge Function's signed headers.
 > - **Chunk Socket Timeouts:** Each chunk upload operation is wrapped in an explicit 60-second timeout (`uploadPartFuture.timeout(const Duration(seconds: 60))`) to protect against both frozen `request.addStream` buffers and unacknowledged TCP FIN drops on flaky mobile connections.
-> - **S3 Minimum Part Size Boundary:** S3 requires all parts except the last to be $\ge 5\text{ MB}$. Files $\le 10\text{ MB}$ are uploaded as a single part (Part 1).
+> - **S3 Minimum Part Size Boundary:** S3 requires all parts except the last to be >= 5 MB. Files <= 10 MB are uploaded as a single part (Part 1).
 > - **Sliding-Window JIT Part URLs:** Part URLs are fetched just-in-time in sliding batches of **5–10 parts** (with 2–3 concurrent upload workers) to prevent 30-minute part URL expiration on slow mobile connections.
 > - **Part Ordering, Case-Insensitive Headers & ETag Sanitization:** Part ETags returned by Cloudflare R2 are extracted via `response.headers.value(HttpHeaders.etagHeader)` (case-insensitive in `dart:io`), stripped of wrapping quotes (`.replaceAll('"', '').trim()`), and the parts array is strictly sorted in ascending order of `PartNumber` before completing the upload.
 > - **Persistent Upload State, File Fingerprinting & Server-Side Part Discovery (`media-share/list-parts`):** Active upload session metadata (`uploadId`, `r2Key`, `fileSizeBytes`, `fileLastModified`, `completedParts`) is written locally to `LocalMediaStore` on every part completion. If the app is killed by the OS or restarts, the client verifies local file integrity (aborting if size/mtime changed) and discovers already uploaded parts via the `media-share/list-parts` Edge Function endpoint without re-uploading from 0%.
@@ -48,12 +48,12 @@ Host-initiated, per-room file sharing that lets a premium or quota-eligible host
 > [!IMPORTANT]
 > **Refined Anti-Abuse, Concurrency & Multi-Factor Auto-Healing Host Locks.**
 > - **Global Concurrency Cap with Multi-Factor Auto-Healing:** Max **1 active upload per host globally**. `request_upload_slot` auto-clears the stale `active_upload_room_id` lock if:
->   1. The previous room is no longer live (`not is_room_live(...)`), OR
->   2. The previous room's upload state is no longer `'uploading'` (`media_upload_state in ('ready', 'failed', 'none')`), OR
->   3. The caller is no longer present or host in the previous room, OR
->   4. The previous upload lock is older than 30 minutes.
-> - **Grace Window for Cancellations:** Quick cancellations ($< 50\text{ MB}$ uploaded or cancelled within 30 seconds) do **not** penalize the user.
-> - **Exponential Cooldown on Consecutive Heavy Aborts:** Free-tier users who repeatedly abort heavy transfers (>50 MB) encounter exponential backoff cooldowns (1m $\rightarrow$ 5m $\rightarrow$ 15m) and a 10-session daily budget, preventing abuse without penalizing users with spotty internet.
+>   - The previously locked room no longer exists or is not `'live'`.
+>   - The previously locked room's `media_upload_state` is not `'uploading'`.
+>   - The user is no longer the host of that room (succession occurred).
+>   - The lock is older than 30 minutes (safety fallback for hard app kills).
+> - **Grace Window for Cancellations:** Quick cancellations (< 50 MB uploaded or cancelled within 30 seconds) do **not** penalize the user.
+> - **Exponential Cooldown on Consecutive Heavy Aborts:** Free-tier users who repeatedly abort heavy transfers (>50 MB) encounter exponential backoff cooldowns (1m -> 5m -> 15m) and a 10-session daily budget, preventing abuse without penalizing users with spotty internet.
 > - **Emergency Kill-Switch:** Database-level configuration flag (`app_settings.media_sharing.enabled`) to instantly disable media sharing platform-wide if an anomaly is detected.
 
 > [!IMPORTANT]
@@ -76,18 +76,18 @@ Host-initiated, per-room file sharing that lets a premium or quota-eligible host
 
 ---
 
-## Resolved Decisions
+## Architecture Decisions
 
 | Decision | Resolution |
 |---|---|
 | **R2 bucket provisioning** | Manual one-time creation via Cloudflare dashboard ($0.00 egress, 10 GB free storage). Setup guide below. |
-| **Upload architecture** | **S3 Presigned Multipart Uploads** (10 MB chunks). Enables $>5\text{ GB}$ files, streaming direct from disk without RAM bloat, fresh per-attempt stream slicing, 60s chunk timeouts, and chunk-level resume with zero S3 SDK dependencies on Flutter client. |
+| **Upload architecture** | **S3 Presigned Multipart Uploads** (10 MB chunks). Enables > 5 GB files, streaming direct from disk without RAM bloat, fresh per-attempt stream slicing, 60s chunk timeouts, and chunk-level resume with zero S3 SDK dependencies on Flutter client. |
 | **Dart slicing & SigV4 header alignment** | **Exclusive end boundary:** `file.openRead(startOffset, min(startOffset + partSizeBytes, totalFileSize))` with explicit `request.contentLength` to prevent 411 chunked rejection. Avoids un-signed custom `Content-Type` headers in client PUTs to prevent SigV4 mismatches. |
 | **Resume & Crash Persistence** | Local cache in `LocalMediaStore` / `shared_preferences` tracking `completedParts`, `fileSizeBytes`, `fileLastModified` + file modification validation + Edge Function `media-share/list-parts` fallback (safely handling empty `response.Parts ?? []`). |
 | **Edge Function topology** | Consolidated router (`supabase/functions/media-share`) for all 6 client operations to reduce cold starts and share warm S3 client isolates + standalone `cleanup-r2` worker. |
 | **Database security boundary** | `request_upload_slot`, `set_media_upload_state`, and `record_upload_bytes` granted strictly to `service_role`; Edge Function validates caller JWT authenticity, host role, and S3 upload completion before committing DB state. |
 | **Playback architecture** | **Direct streaming via `media_kit(Media(presignedGetUrl))`** for instant start upon upload completion. Embedded subtitle tracks (.mkv/.mp4) stream natively. Optional background Range-based download to local cache with non-disruptive completion. |
-| **High-Bitrate Guidance** | Member prompt calculates estimated stream bitrate only when probed duration is available (`media_duration_ms > 0`), displaying "Download to Device (Recommended)" when stream bitrate exceeds $15\text{ Mbps}$, falling back cleanly to file size if unprobed. |
+| **High-Bitrate Guidance** | Member prompt calculates estimated stream bitrate only when probed duration is available (`media_duration_ms > 0`), displaying "Download to Device (Recommended)" when stream bitrate exceeds 15 Mbps, falling back cleanly to file size if unprobed. |
 | **Download URL delivery** | Ephemeral presigned GET URLs minted on-demand via `media-share/download-url` with TTL matching room session duration (up to 24h), RFC 5987 Unicode filename encoding, native `Media(start: heldPosition)` demuxing, and broadcast-suppressed 403 recovery with subtitle/audio track preservation. |
 | **Late joiner experience** | Auto-streams directly upon joining an active session with automatic temporary gate waiver until ready, eliminating blocking dialogs and preventing room-wide pause glitches. |
 | **Canonical media reuse** | Reuses existing `rooms.media_name` column - eliminates duplicate `media_file_name` column to prevent desynchronization bugs. |
@@ -224,7 +224,7 @@ Cloudflare R2 is a **separate service** from Supabase Storage. Supabase's free-t
 
 1. **Upload-Cancel Griefing (Repeatedly streaming 3.9 GB and cancelling):**
    - **Mitigation:**
-     - **Grace Window vs Heavy Abort:** Cancellations with $< 50\text{ MB}$ uploaded do not trigger penalties. Cancellations of heavy uploads increment consecutive abort counters, triggering exponential cooldowns (1 min, 5 min, 15 min lockout).
+     - **Grace Window vs Heavy Abort:** Cancellations with < 50 MB uploaded do not trigger penalties. Cancellations of heavy uploads increment consecutive abort counters, triggering exponential cooldowns (1 min, 5 min, 15 min lockout).
      - **Concurrency Lock:** Max 1 active upload attempt globally per user.
      - **Instant Purge & S3 Abort:** Edge Function immediately aborts the multipart upload in R2 so partial data is discarded.
 
@@ -249,11 +249,11 @@ Cloudflare R2 is a **separate service** from Supabase Storage. Supabase's free-t
 
 ---
 
-## Proposed Changes
+## Implemented Architecture & Components
 
-### 1. Database Schema - New Migration
+### 1. Database Schema & Migration
 
-#### [NEW] `supabase/migrations/YYYYMMDDHHMMSS_media_sharing.sql`
+#### Database Migration (`supabase/migrations/20260816100000_media_sharing.sql`)
 
 Adds the columns, tables, constraints, and RPCs needed for media sharing state, bandwidth tracking, concurrency locks, and deletion queueing.
 
@@ -502,7 +502,7 @@ grant execute on function public.list_my_rooms() to authenticated;
      - Debits weekly quota via `record_upload_bytes(p_user_id, p_file_size)` if room is `'limited'`.
    - When transitioning to `'failed'`:
      - Clears `profiles.active_upload_room_id = null`, `profiles.active_upload_started_at = null`.
-     - If `p_bytes_uploaded > 52428800` (50 MB), increments `profiles.r2_consecutive_aborts` and applies backoff cooldown (1m $\rightarrow$ 5m $\rightarrow$ 15m).
+     - If `p_bytes_uploaded > 52428800` (50 MB), increments `profiles.r2_consecutive_aborts` and applies backoff cooldown (1m -> 5m -> 15m).
      - Queues `(p_r2_key, media_upload_id)` into `pending_r2_deletions`.
 
 5. `clear_media_sharing(p_room_id uuid, p_bytes_uploaded bigint default 0)`:
@@ -579,10 +579,10 @@ const supabaseAdmin = createClient(
 **Actions handled via URL path / request body:**
 
 1. **`POST /media-share/initiate`**
-   - **Guards:** Valid JWT, MIME type whitelist (`video/*`), host verification.
-   - Generates namespaced R2 key: `rooms/${roomId}/${crypto.randomUUID()}-${sanitizedFileName}`.
-   - S3 Part Sizing: $\le 10\text{ MB} \rightarrow 1\text{ part}$, else $\text{ceil}(\text{fileSize} / 10\text{MB})$.
-   - Executes `CreateMultipartUploadCommand` on Cloudflare R2 with declared `ContentType`.
+    - **Guards:** Valid JWT, MIME type whitelist (`video/*`), host verification.
+    - Generates namespaced R2 key: `rooms/${roomId}/${crypto.randomUUID()}-${sanitizedFileName}`.
+    - S3 Part Sizing: <= 10 MB -> 1 part, else ceil(fileSize / 10 MB).
+    - Executes `CreateMultipartUploadCommand` on Cloudflare R2 with declared `ContentType`.
    - Calls `supabaseAdmin.rpc('request_upload_slot', { p_room_id: roomId, p_user_id: user.id, p_file_size: fileSize, p_r2_key: r2Key, p_upload_id: uploadId })`.
    - If slot acquisition fails (e.g. quota exceeded or cooldown active), immediately executes `AbortMultipartUploadCommand` on R2 and returns error.
    - Returns `{ uploadId, r2Key, partSizeBytes: 10485760, totalParts }`.
@@ -626,14 +626,14 @@ const supabaseAdmin = createClient(
 
 ---
 
-#### [NEW] `supabase/functions/cleanup-r2/index.ts`
+#### Edge Function Worker (`supabase/functions/cleanup-r2/index.ts`)
 
 Scheduled worker (triggered via `pg_cron` + `pg_net` / Supabase Cron every 5 minutes):
 - Reads up to 50 rows from `pending_r2_deletions`.
 - If `upload_id` is present, executes `AbortMultipartUploadCommand`; otherwise executes `DeleteObjectCommand`.
 - Deletes processed rows from `pending_r2_deletions`.
 - Increments `attempts` on failure; drops rows exceeding 5 failed attempts.
-- Sweeps rooms stuck in `'uploading'` state for $> 2\text{ hours}$ and aborts their uploads using the stored `media_upload_id` and `media_r2_key`.
+- Sweeps rooms stuck in `'uploading'` state for > 2 hours and aborts their uploads using the stored `media_upload_id` and `media_r2_key`.
 - Sweeps unclaimed expired staged uploads (`staged_media_uploads`) and aborts/deletes their R2 objects.
 - **Fail-Safe Deletion Triggers**: `BEFORE DELETE` triggers on `public.rooms` and `public.staged_media_uploads` guarantee that whenever a room or staged upload is deleted (manual, RPC, or cascading), any attached R2 keys/upload IDs are automatically pushed to `pending_r2_deletions`.
 
@@ -747,7 +747,7 @@ Singleton service managing resumable multipart upload streaming, transparent dow
    - Listens to `AppLifecycleState.resumed`: if an upload was in progress and interrupted while backgrounded, automatically resumes from the first missing part.
 
 6. **Throttled Realtime Progress & Client Interpolation:**
-   - Throttles outgoing `upload_progress` broadcasts to **once every 3.0–4.0 seconds** (or $\Delta \ge 5\%$) to preserve Realtime channel bandwidth for transport sync.
+   - Throttles outgoing `upload_progress` broadcasts to **once every 3.0–4.0 seconds** (or delta >= 5%) to preserve Realtime channel bandwidth for transport sync.
    - Receiving clients interpolate progress locally between broadcasts using reported `speedBytesPerSec` and `etaSeconds`.
 
 7. **Broadcast-Suppressed 403 Refresher & Track Restoration:**
@@ -819,7 +819,7 @@ GateState evaluateGateState({
 
 Add media sharing broadcast methods and late-joiner auto-waiver handling:
 - **Late Joiner Auto-Waiver:** When a member joins a live room that is already playing (`roomPlaying == true`) with shared media `ready`, the authority client automatically adds the new member to `_waived` temporarily until they emit `ReadyStatus.ready`. This guarantees `evaluateGateState` does not drop to `.closed` and prevents unwanted room-wide pauses for existing watchers.
-- `broadcastUploadProgress(...)` (Host only, throttled $\ge 3.0\text{s}$).
+- `broadcastUploadProgress(...)` (Host only, throttled >= 3.0s).
 - `broadcastSharingToggled(...)` (Host only).
 
 #### [MODIFY] [sync_events.dart](file:///Users/shubham/Projects/Personal/synctogether/lib/sync/sync_events.dart)
@@ -831,7 +831,7 @@ static const String sharingToggled = 'sharing_toggled';
 ```
 
 New event payloads:
-- `UploadProgressEvent` - `{ fraction, speedBps, etaSeconds, state }` (Broadcast by host during upload, throttled $\ge 3.0\text{ s}$).
+- `UploadProgressEvent` - `{ fraction, speedBps, etaSeconds, state }` (Broadcast by host during upload, throttled >= 3.0s).
 - `SharingToggledEvent` - `{ enabled, fileName, fileSize, uploadState }` (Broadcast on toggle on/off).
 
 ---
@@ -927,7 +927,7 @@ Add `_adoptRemoteStream({required String streamUrl, required String name, Durati
 2. **When Upload Completes (`media_upload_state == 'ready'`):**
    - Shows action prompt with file size and estimated stream bitrate (e.g. `1080p · 2.4 GB (~4.5 Mbps)`), calculating bitrate only when probed duration is available (`media_duration_ms > 0`):
      - **"Play Now (Stream)"** *(Default)*: Fetches presigned stream URL from `media-share/download-url`, calls `_adoptRemoteStream(streamUrl, fileName)`. Readiness updates to `ready` immediately (0s wait, 0 GB disk).
-     - **"Download to Device"**: Begins background download to cache. If the member is already streaming, completion records to `LocalMediaStore` without interrupting active playback (no mid-stream reload stutter); if the player was idle, it switches to the local file upon completion. (Highlighted with *"Recommended for high-bitrate video"* if calculated stream bitrate $> 15\text{ Mbps}$).
+     - **"Download to Device"**: Begins background download to cache. If the member is already streaming, completion records to `LocalMediaStore` without interrupting active playback (no mid-stream reload stutter); if the player was idle, it switches to the local file upon completion. (Highlighted with *"Recommended for high-bitrate video"* if calculated stream bitrate > 15 Mbps).
 3. **Late Joiner Auto-Stream:**
    - If a member joins when the room is already live and playing with shared media, the app skips the modal prompt, auto-streams immediately, and adopts room position without triggering a room-wide pause gate transition for existing watchers.
    - A manual "Download to device" option remains available in the room menu.
@@ -975,7 +975,7 @@ Adhering strictly to the **human-initiated analytics doctrine** (`CLAUDE.md`), p
 | Scenario | Mitigation |
 |---|---|
 | **Files larger than 5 GB** | S3 Multipart Upload handles files up to 10 GB (and beyond) seamlessly. |
-| **Files smaller than 5 MB** | Part sizing logic uploads files $\le 10\text{ MB}$ as a single part (Part 1) to satisfy S3 minimum chunk bounds. |
+| **Files smaller than 5 MB** | Part sizing logic uploads files <= 10 MB as a single part (Part 1) to satisfy S3 minimum chunk bounds. |
 | **Network drop / App crash mid-upload** | Client records uploaded part ETags, `fileSizeBytes`, and `fileLastModified` in `LocalMediaStore`; validates file modification timestamp on restart and queries `media-share/list-parts` to resume without restarting from 0%. |
 | **Empty parts list on initial upload** | `media-share/list-parts` safely defaults to `(response.Parts ?? []).map(...)` if AWS SDK returns undefined parts. |
 | **SigV4 header mismatch on part PUTs** | Client avoids setting ad-hoc un-signed `Content-Type` headers in `HttpClientRequest`, relying solely on `request.contentLength = chunkSizeBytes`. |
@@ -988,7 +988,7 @@ Adhering strictly to the **human-initiated analytics doctrine** (`CLAUDE.md`), p
 | **Service role user ID context & RPC boundary** | `request_upload_slot`, `set_media_upload_state`, and `record_upload_bytes` are granted strictly to `service_role`. Edge Function extracts verified `p_user_id` from JWT. |
 | **Unicode & Special Character Filenames** | Presigned download URLs format `ResponseContentDisposition` with RFC 5987 (`filename*=UTF-8''...`) to prevent S3 signature errors. |
 | **Dormant / Persistent room resume** | `retire_room` enqueues R2 key/upload ID into `pending_r2_deletions` and resets `media_r2_key = null`, `media_upload_id = null`, `media_upload_state = 'none'` on `rooms` so resumed rooms don't reference purged media. |
-| **Stale host lock after crash / app kill** | `request_upload_slot` auto-clears stale `active_upload_room_id` if previous room is not live, upload state is not uploading, caller is no longer host, or lock is $>30\text{m}$ old. |
+| **Stale host lock after crash / app kill** | `request_upload_slot` auto-clears stale `active_upload_room_id` if previous room is not live, upload state is not uploading, caller is no longer host, or lock is > 30m old. |
 | **Media switch while sharing is active** | `set_room_media` RPC automatically enqueues old `(media_r2_key, media_upload_id)` into `pending_r2_deletions` and resets upload state. |
 | **Stream URL expires during marathon (>6h)** | Presigned download URL is minted with TTL matching remaining room duration (up to 24h). `player.stream.error` listener triggers 403 recovery with broadcast suppression. |
 | **Track selection loss during 403 recovery** | Active subtitle and audio tracks are captured before `player.open()` and restored on stream ready. |
@@ -1020,7 +1020,7 @@ Adhering strictly to the **human-initiated analytics doctrine** (`CLAUDE.md`), p
 
 ---
 
-## Verification Plan
+## Verification & Test Scenarios
 
 ### Automated Tests
 1. **Dart Unit Tests (`fvm flutter test`):**
@@ -1030,11 +1030,11 @@ Adhering strictly to the **human-initiated analytics doctrine** (`CLAUDE.md`), p
 2. **Database pgTAP Tests (`supabase test db`):**
    - `supabase/tests/media_sharing_test.sql` - Host-only permissions on upload state RPCs, single active upload concurrency lock with multi-factor auto-healing, same-room re-upload orphan cleanup in `pending_r2_deletions`, grace window evaluation on cancels, quota deduction on completion, `pending_r2_deletions` insertion on `set_room_media` switch and `retire_room` with `media_upload_id`, dormant room media column resets, `create_room` level inheritance, `list_my_rooms` column return & grants, tightened `rooms_media_shape_chk` constraint enforcement.
 
-### Manual Verification
-- **Host Upload & Direct Stream**: Host uploads 500 MB video $\rightarrow$ Member selects "Play Now" $\rightarrow$ Player starts instantly from R2 stream $\rightarrow$ Synchronized playback verified.
-- **Resumable Upload Verification**: Host starts 1 GB upload $\rightarrow$ Toggle airplane mode / terminate app at 40% $\rightarrow$ Re-open app $\rightarrow$ Verify upload resumes from 40% using local state & `list-parts` without restarting from 0%.
-- **Readiness Gate Integration**: Host starts upload $\rightarrow$ Verify members see upload banner rather than "Locate your copy" $\rightarrow$ Upload finishes $\rightarrow$ Verify member readiness transitions to ready on stream start.
-- **Late Joiner Verification**: Start playback with shared media $\rightarrow$ Join from second device $\rightarrow$ Verify late joiner immediately streams and adopts room position without blocking modals or pausing active playback.
-- **Media Switch Cleanup**: Host uploads file $\rightarrow$ Host switches to YouTube video $\rightarrow$ Verify R2 key and upload ID are enqueued in `pending_r2_deletions` and upload state is reset.
-- **Offline Download**: Member selects "Download to Device" $\rightarrow$ File downloads with progress $\rightarrow$ Player switches to local cached file upon completion.
-- **Dormant Room Cleanup**: End a room with `dormant_hours > 0` $\rightarrow$ Verify R2 object/upload session is queued in `pending_r2_deletions`, `rooms.media_upload_state` resets to `'none'`, and `cleanup-r2` purges the file.
+### Manual Verification Scenarios
+- **Host Upload & Direct Stream**: Host uploads 500 MB video -> Member selects "Play Now" -> Player starts instantly from R2 stream -> Synchronized playback verified.
+- **Resumable Upload Verification**: Host starts 1 GB upload -> Toggle airplane mode / terminate app at 40% -> Re-open app -> Verify upload resumes from 40% using local state & `list-parts` without restarting from 0%.
+- **Readiness Gate Integration**: Host starts upload -> Verify members see upload banner rather than "Locate your copy" -> Upload finishes -> Verify member readiness transitions to ready on stream start.
+- **Late Joiner Verification**: Start playback with shared media -> Join from second device -> Verify late joiner immediately streams and adopts room position without blocking modals or pausing active playback.
+- **Media Switch Cleanup**: Host uploads file -> Host switches to YouTube video -> Verify R2 key and upload ID are enqueued in `pending_r2_deletions` and upload state is reset.
+- **Offline Download**: Member selects "Download to Device" -> File downloads with progress -> Player switches to local cached file upon completion.
+- **Dormant Room Cleanup**: End a room with `dormant_hours > 0` -> Verify R2 object/upload session is queued in `pending_r2_deletions`, `rooms.media_upload_state` resets to `'none'`, and `cleanup-r2` purges the file.

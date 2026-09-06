@@ -35,7 +35,7 @@ Guidance for UI components (`lib/ui/`), audio/video facecams (`lib/av/`), diagno
 
 ### Diagnostics (`lib/diagnostics.dart`) - *"Why did this break?"*
 - **`reportNonFatal(error, stackTrace)`**: Routes to Sentry for unhandled or unexpected failure branches.
-- **`trace(msg, category:, data:)`**: Records breadcrumbs on key state transitions (`sync`, `gate`, `media`, `room`, `av`, `auth`, `turnstile`, `youtube`, `tls`, `webview`).
+- **`trace(msg, category:, data:)`**: Records breadcrumbs on key state transitions (`sync`, `gate`, `media`, `room`, `av`, `auth`, `turnstile`, `youtube`, `tls`, `webview`, `updates`, `analytics`).
 - **Do NOT log per-frame or per-heartbeat ticks**: Avoid logging on the 10 s position heartbeat, presence updates, or scrub preview dragging to prevent evicting useful breadcrumbs.
 - **Privacy**: Never log chat messages or full local file paths.
 

@@ -11,7 +11,7 @@ This block is written and re-added by `next dev` - verify at `node_modules/next/
 ## SyncTogether Web Portal Architecture & Guidelines
 
 ### Overview
-This Next.js 15 application serves as the marketing site, downloads portal, legal documentation, authentication bridge, and Paddle Merchant of Record (MoR) subscription & account management portal for SyncTogether.
+This Next.js 16 application serves as the marketing site, downloads portal, legal documentation, authentication bridge, and Paddle Merchant of Record (MoR) subscription & account management portal for SyncTogether.
 
 ### Supabase SSR Patterns
 - **Client Components**: Use `createClient()` from `lib/supabase/client.ts` (`createBrowserClient`).
@@ -19,7 +19,7 @@ This Next.js 15 application serves as the marketing site, downloads portal, lega
 - **Admin / Webhooks**: Use `createAdminClient()` from `lib/supabase/admin.ts` (`SUPABASE_SERVICE_ROLE_KEY`) only in secure server route handlers that require elevated database privileges (e.g. updating `subscriptions`).
 
 ### Paddle Billing Invariants
-1. **Webhook Signature Verification**: Webhooks at `/api/paddle/webhook` must always verify the raw body against the `Paddle-Signature` header using `PADDLE_WEBHOOK_SECRET_KEY` and `@paddle/paddle-node-sdk`.
+1. **Webhook Signature Verification**: Webhooks at `/api/paddle/webhook` must always verify the raw body against the `Paddle-Signature` header using `PADDLE_WEBHOOK_SECRET_KEY` and Node's built-in `crypto.createHmac('sha256', secret)`.
 2. **Write Deduplication & Idempotency**: Prior to updating the `subscriptions` table, verify whether the incoming status, tier, and period end differ from the current database row (`tests/webhook_dedup.test.ts`). Avoid issuing redundant DB writes that trigger unnecessary Postgres realtime events on the Flutter clients.
 3. **Cancellation Flow**: `/api/paddle/cancel` authenticates the caller via Supabase JWT, verifies subscription ownership, and requests cancellation at period end via the Paddle API.
 

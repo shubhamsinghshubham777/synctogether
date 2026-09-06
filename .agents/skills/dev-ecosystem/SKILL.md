@@ -14,7 +14,7 @@ SyncTogether uses `./scripts/dev.sh` to orchestrate all local dependencies (Supa
 ```bash
 ./scripts/dev.sh
 ```
-This spins down previous lingering instances, starts the local Supabase stack (PostgreSQL, Realtime, Auth, Storage), serves Edge Functions (`livekit-token`), and launches the Next.js development server at `http://localhost:3000`.
+This spins down previous lingering instances, starts the local Supabase stack (PostgreSQL, Realtime, Auth, Storage), serves Edge Functions (`livekit-token`, `media-share`, `cleanup-r2`), and launches the Next.js development server at `http://localhost:3000`.
 
 ### 2. Inspect Running Status
 ```bash
@@ -28,9 +28,15 @@ Shows process IDs, ports (e.g. Supabase API at `54321`, Web at `3000`), and cont
 ```
 Stops background processes, tears down Supabase containers, and frees occupied network ports.
 
+### 4. Clean-Slate Reset
+```bash
+./scripts/dev.sh clean
+```
+Completely wipes local database state, auth users, room sessions, and local storage buckets.
+
 ## Local Client Connection Notes
-- Flutter debug builds automatically prefer `SUPABASE_URL_LOCAL` and `SUPABASE_PUBLISHABLE_KEY_LOCAL` from `.env`.
-- The lobby wordmark renders `0.x.x · local` in warning amber when connected to the local stack.
+- Flutter debug builds automatically default to `http://127.0.0.1:54321` and local development keys without requiring command-line flags. Custom configurations are passed at compile time via `--dart-define` or `--dart-define-from-file=.env`.
+- The lobby wordmark renders `1.x.x · local` in warning amber when connected to the local stack.
 - To test Paddle billing locally with Next.js, run:
   ```bash
   hookdeck listen 3000 synctogether-webhooks --path /api/paddle/webhook

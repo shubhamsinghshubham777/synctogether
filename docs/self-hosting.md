@@ -159,15 +159,20 @@ supabase functions deploy cleanup-r2
 
 ### Step 4: Authentication Configuration
 
-SyncTogether supports two primary authentication modes:
+SyncTogether supports flexible authentication options through Supabase Auth:
 
 1. **Anonymous Guest Sign-in**: Enabled by default. Guests receive a temporary username (`Guest-xxxx`) and can immediately create/join rooms.
-   - *Cloudflare Turnstile (Optional)*: Protects against automated guest spam. To enable, create a free widget in Cloudflare Turnstile, set `TURNSTILE_SITE_KEY` in root `.env`, and `SUPABASE_AUTH_CAPTCHA_SECRET` in `supabase/.env`.
+   - *Cloudflare Turnstile (Optional)*: Protects against automated guest spam. To enable, create a widget in Cloudflare Turnstile, pass `TURNSTILE_SITE_KEY` via `--dart-define=TURNSTILE_SITE_KEY=...` (or `--dart-define-from-file=.env`), and configure `SUPABASE_AUTH_CAPTCHA_SECRET` in Supabase Auth settings.
 2. **Google OAuth (Optional)**:
    - In your Google Cloud Console, create a **Web Application OAuth Client**.
    - Set the Authorized Redirect URI to:
      `https://<your-supabase-ref>.supabase.co/auth/v1/callback`
    - In Supabase Dashboard (**Authentication → Providers → Google**), enable Google and enter your Client ID and Client Secret.
+3. **Apple Sign-In (Optional)**:
+   - In Apple Developer portal, configure Sign in with Apple for your Services ID and bundle identifier (`app.synctogether`).
+   - In Supabase Dashboard (**Authentication → Providers → Apple**), enable Apple with your Services ID, Team ID, Key ID, and private key.
+4. **Passwordless Email OTP (Optional)**:
+   - Supabase Auth supports passwordless 6-digit email OTPs or magic links out of the box. Turnstile captcha verification protects email sign-in requests against abuse.
 
 ---
 
@@ -288,6 +293,21 @@ supabase db push
 ### Checking Edge Functions Logs
 ```bash
 supabase functions logs livekit-token
+supabase functions logs media-share
+supabase functions logs cleanup-r2
+```
+
+### Secrets Backup and Recovery (`scripts/secrets.sh`)
+SyncTogether provides a secrets bundling script to safely pack, encrypt, and restore all environment and certificate secrets across the repository:
+```bash
+# Encrypt and package all repository secrets into a safe backup bundle
+./scripts/secrets.sh pack
+
+# List files included in a secrets bundle
+./scripts/secrets.sh list
+
+# Restore secret files into their exact paths with appropriate permissions
+./scripts/secrets.sh unpack synctogether-secrets-bundle.txt
 ```
 
 ### Testing Connectivity Locally

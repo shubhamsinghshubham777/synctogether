@@ -11,12 +11,17 @@ Guidance for working with Supabase (`supabase/`), database RPCs/RLS, tier entitl
 ## 1. Database & Supabase Architecture (`supabase/`)
 
 ### Core Schema & RLS
-- **`profiles`**: Auto-created on signup; anonymous guests get `Guest-xxxx`.
-- **`rooms`**: `code`, `expires_at`, `ended_at`, `media_kind`, `media_name`, `media_position_ms`, `transport_lock`.
+- **`profiles`**: Auto-created on signup; anonymous guests get `Guest-xxxx`; tracks `r2_upload_bytes_7d` for rolling media upload limits.
+- **`rooms`**: `code`, `expires_at`, `ended_at`, `media_kind`, `media_name`, `media_position_ms`, `transport_lock`, `media_file_size`, `media_r2_key`, `media_upload_state`, `media_sharing_level`.
   - **RLS Policy**: Must be membership *or* ownership (`using (is_room_member(id) or is_room_owner(id))`), enabling room creators who left to still view their blocking live room from the lobby.
 - **`room_members`**: `role` (`host` or `member`), `joined_at`.
 - **`messages`**: Persisted room chat; wiped upon room retirement/expiry.
+- **`pending_r2_deletions`**: Asynchronous queue storing orphaned/retired room media keys for batched deletion from Cloudflare R2 by the `cleanup-r2` Edge function.
 - **Realtime Authorization**: Room channels are private channels (`room:<id>`) authorized via `realtime.messages` policies.
+- **Edge Functions**:
+  - `livekit-token`: Issues participant tokens for LiveKit AV facecam rail.
+  - `media-share`: Issues presigned S3/R2 URLs and orchestrates multipart uploads for shared local media.
+  - `cleanup-r2`: Scheduled maintenance worker purging objects listed in `pending_r2_deletions`.
 
 ### RPC Invariants (`security definer`)
 - **`create_room`**: Generates 6-char code; denormalizes caps from the **host's** tier.
@@ -46,7 +51,7 @@ Three tiers: `guest` / `free` / `premium`.
 
 - **Paddle Checkout**: Managed via `@paddle/paddle-js` on the web portal (`website/`).
 - **Webhook Processing (`website/app/api/paddle/webhook/route.ts`)**:
-  - HMAC-SHA256 signature verification via `@paddle/paddle-node-sdk`.
+  - HMAC-SHA256 signature verification via Node's built-in `crypto.createHmac`.
   - **Deduplication**: Checks whether `status`, `current_period_end`, and `tier` are identical before issuing DB updates to avoid redundant writes and Realtime channel spam.
 - **Realtime Subscriptions**: `subscriptions` table is published to Realtime. `EntitlementService` (`lib/profile/entitlement_service.dart`) listens to `public:subscriptions:$userId` Postgres changes and debounces reload (200 ms).
 - **Debug Grants**: In local debug mode, use `debug_grant_premium(p_months)` RPC or `EntitlementService.instance.debugGrantPremium()`.

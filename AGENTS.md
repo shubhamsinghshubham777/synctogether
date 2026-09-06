@@ -10,7 +10,7 @@ SyncTogether is a cross-platform Flutter application for synchronized, low-laten
 - **Client**: Flutter (macOS, Windows, iOS, Android) using `media_kit` (local video) and an internal loopback IFrame bridge (YouTube).
 - **Backend**: Supabase (PostgreSQL, Private Realtime channels, Row-Level Security, Edge Functions).
 - **Audio/Video**: LiveKit for multi-participant voice & video facecam rails.
-- **Billing & Web**: Next.js 15 marketing site and Paddle Merchant of Record billing portal in `website/`.
+- **Billing & Web**: Next.js 16 marketing site and Paddle Merchant of Record billing portal in `website/`.
 
 ---
 

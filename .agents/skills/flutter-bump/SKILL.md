@@ -32,7 +32,7 @@ Binds the repo to a specific Flutter SDK via FVM and keeps the **three places th
    Extract the Dart version and update `environment: sdk:` in `pubspec.yaml` to match exactly.
 
 5. **Sync GitHub workflows & docs**:
-   Update `flutter-version:` in `.github/workflows/build_windows.yaml`, `.github/workflows/build_macos.yaml`, and `.github/workflows/test.yaml`.
+   Update `flutter-version:` in `.github/workflows/build_windows.yaml`, `.github/workflows/build_macos.yaml`, `.github/workflows/publish_microsoft_store.yaml`, and `.github/workflows/test.yaml`.
    Update any CI mentions in `AGENTS.md` and `CLAUDE.md`.
 
 6. **Verify**:

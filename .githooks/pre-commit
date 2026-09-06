@@ -1,23 +1,106 @@
 #!/usr/bin/env bash
 set -e
 
+# Gather all staged files (Added, Copied, Modified)
+STAGED_FILES=$(git diff --cached --name-only --diff-filter=ACM)
+
+if [ -z "$STAGED_FILES" ]; then
+  exit 0
+fi
+
 echo "==> Running SyncTogether pre-commit checks..."
 
-# 1. Format check
-echo "--> Checking Dart code formatting..."
-fvm dart format --output=none --set-exit-if-changed . || {
-  echo ""
-  echo "❌ Dart formatting check failed!"
-  echo "Run 'fvm dart format .' to fix formatting issues before committing."
-  exit 1
-}
+# -----------------------------------------------------------------------------
+# 1. P0 Safety: Secrets & Private Key Exposure Guard
+# -----------------------------------------------------------------------------
+for file in $STAGED_FILES; do
+  case "$file" in
+    *dsa_priv.pem|*sparkle_ed_private_key|*secrets-bundle*|*.secrets.txt|*.p12|*.mobileprovision)
+      echo ""
+      echo "❌ ERROR: Attempting to commit private key or secrets bundle: $file"
+      echo "Private keys and backup bundles must never be checked into version control."
+      exit 1
+      ;;
+    .env|.env.*|supabase/.env|supabase/functions/.env|website/.env*)
+      if [[ "$file" != *".example" ]]; then
+        echo ""
+        echo "❌ ERROR: Attempting to commit environment secret file: $file"
+        echo "Check .gitignore or pass secrets via platform-native mechanisms."
+        exit 1
+      fi
+      ;;
+  esac
+done
 
-# 2. Static analysis
-echo "--> Running Flutter analyzer..."
-fvm flutter analyze || {
+# Scan staged diffs (excluding hooks) for private key headers
+if git diff --cached -G"BEGIN.*PRIVATE KEY" --name-only -- ':!.githooks/*' | grep -q .; then
   echo ""
-  echo "❌ Static analysis failed!"
+  echo "❌ ERROR: Staged changes contain a private key header! Aborting commit."
   exit 1
-}
+fi
+
+# -----------------------------------------------------------------------------
+# 2. Hygiene: Merge Conflict Markers, Docs & Generated Assets
+# -----------------------------------------------------------------------------
+# Check for unresolved merge conflicts (excluding hooks)
+if git diff --cached -G"^[<>=]{7}( |$)" --name-only -- ':!.githooks/*' | grep -q .; then
+  echo ""
+  echo "❌ ERROR: Staged changes contain unresolved merge conflict markers."
+  exit 1
+fi
+
+# Check markdown files for forbidden LaTeX math syntax per AGENTS.md rule
+STAGED_MD=$(echo "$STAGED_FILES" | grep -E '\.md$' || true)
+if [ -n "$STAGED_MD" ]; then
+  if git diff --cached -G"\\\\(frac|text|mathbf|approx|times)\\{" -- $STAGED_MD | grep -q .; then
+    echo "⚠️  WARNING: Staged markdown contains LaTeX math syntax (\\text{...}, \\frac{...}, etc.)."
+    echo "    Repository doctrine (AGENTS.md): Use clean plain text and standard math operators (x, ÷, =, ~)."
+  fi
+fi
+
+# Notice for generated assets
+GEN_ASSETS=$(echo "$STAGED_FILES" | grep -E '^assets/sfx/splash\.wav$|^assets/emoji/.*\.json$|^assets/ca/cacert\.pem$|^assets/icon/.*\.png$' || true)
+if [ -n "$GEN_ASSETS" ]; then
+  echo "ℹ️  Notice: Generated assets are staged. Ensure they were produced via tool/ scripts, not manually edited."
+fi
+
+# -----------------------------------------------------------------------------
+# 3. Dart & Flutter Checks (Scoped strictly to staged Dart/Flutter files)
+# -----------------------------------------------------------------------------
+STAGED_DART=$(echo "$STAGED_FILES" | grep -E '\.dart$' || true)
+FLUTTER_TOUCHED=$(echo "$STAGED_FILES" | grep -E '^lib/|^test/|pubspec\.yaml|pubspec\.lock|analysis_options\.yaml' || true)
+
+if [ -n "$STAGED_DART" ]; then
+  echo "--> Checking formatting for staged Dart files..."
+  echo "$STAGED_DART" | xargs fvm dart format --output=none --set-exit-if-changed || {
+    echo ""
+    echo "❌ Dart formatting check failed on staged files!"
+    echo "Run 'fvm dart format <staged_files>' to fix formatting issues before committing."
+    exit 1
+  }
+fi
+
+if [ -n "$FLUTTER_TOUCHED" ]; then
+  echo "--> Running Flutter analyzer..."
+  fvm flutter analyze || {
+    echo ""
+    echo "❌ Static analysis failed!"
+    exit 1
+  }
+fi
+
+# -----------------------------------------------------------------------------
+# 4. Website Tests (Scoped strictly to staged website app/test code)
+# -----------------------------------------------------------------------------
+WEBSITE_CODE_TOUCHED=$(echo "$STAGED_FILES" | grep -E '^website/(app/|components/|lib/|tests/|package\.json)' || true)
+
+if [ -n "$WEBSITE_CODE_TOUCHED" ]; then
+  echo "--> Running website webhook & billing tests (120ms)..."
+  npm --prefix website test || {
+    echo ""
+    echo "❌ Website tests failed!"
+    exit 1
+  }
+fi
 
 echo "✅ All pre-commit checks passed."

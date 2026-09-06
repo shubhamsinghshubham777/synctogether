@@ -754,6 +754,29 @@ class _LobbyScreenState extends State<LobbyScreen> {
 
   Widget _updateBanner() {
     final updates = UpdateService.instance;
+    final String subtitle;
+    final String buttonLabel;
+    final bool isLoading;
+
+    if (updates.isInstalling) {
+      subtitle = 'Restarting SyncTogether with the new version...';
+      buttonLabel = 'Restarting...';
+      isLoading = true;
+    } else if (updates.isDownloading) {
+      final percent = (updates.downloadProgress * 100).clamp(0, 100).toInt();
+      subtitle = 'Downloading update in the background...';
+      buttonLabel = percent > 0 ? 'Downloading $percent%' : 'Downloading...';
+      isLoading = true;
+    } else if (updates.isDownloaded) {
+      subtitle = 'Downloaded and ready - SyncTogether will restart itself.';
+      buttonLabel = 'Update & restart';
+      isLoading = false;
+    } else {
+      subtitle = 'Grab it now - SyncTogether will restart itself.';
+      buttonLabel = 'Update & restart';
+      isLoading = false;
+    }
+
     return PTEntrance(
       offset: -8,
       duration: PTMotion.state,
@@ -761,13 +784,13 @@ class _LobbyScreenState extends State<LobbyScreen> {
         kind: .info,
         icon: Symbols.rocket_launch_rounded,
         title: 'v${updates.availableVersion} is ready',
-        subtitle: 'Grab it now - SyncTogether will restart itself.',
+        subtitle: subtitle,
         trailing: PTButton(
-          label: 'Update & restart',
+          label: buttonLabel,
           height: 38,
           expand: false,
-          loading: updates.handingOff,
-          onPressed: updates.handingOff ? null : _installUpdate,
+          loading: isLoading,
+          onPressed: isLoading ? null : _installUpdate,
         ),
         onDismiss: updates.dismiss,
       ),

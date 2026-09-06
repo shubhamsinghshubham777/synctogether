@@ -34,7 +34,7 @@ alter table public.rooms
 
 -- No update policy on public.rooms exists (and none is added): members read the
 -- row via "members can read their rooms", and only these security-definer RPCs
--- may write it — host-only source selection is server-enforced, not UI-enforced.
+-- may write it - host-only source selection is server-enforced, not UI-enforced.
 
 -- ---------------------------------------------------------------------------
 -- RPCs (host only, live rooms only)

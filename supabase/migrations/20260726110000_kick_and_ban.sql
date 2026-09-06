@@ -4,7 +4,7 @@
 -- Living doc: docs/readiness-gate.md (§3 A2, decision D9).
 
 -- ---------------------------------------------------------------------------
--- Bans (per room, lasts as long as the room — rooms are never deleted, only
+-- Bans (per room, lasts as long as the room - rooms are never deleted, only
 -- ended, and joining a dead room already fails with room_ended)
 -- ---------------------------------------------------------------------------
 
@@ -20,7 +20,7 @@ create table public.room_bans (
 -- delete_account cannot start failing on a new FK the way rooms.created_by did.
 -- Two layers, because a ban list is the one table where a leak is a real
 -- privacy problem: RLS with deliberately no policies (a ban is never read by
--- the client — it surfaces only as join_room's error, and both RPCs below are
+-- the client - it surfaces only as join_room's error, and both RPCs below are
 -- security definer), plus an explicit revoke so the platform's default grants
 -- on new public tables can't quietly expose it.
 alter table public.room_bans enable row level security;
@@ -66,7 +66,7 @@ begin
 
   -- Tolerant of a target who just left on their own: the ban is the part that
   -- still matters (it is what stops the rejoin), so record it either way. No
-  -- host succession to run here — the host can never be the target.
+  -- host succession to run here - the host can never be the target.
   delete from public.room_members
     where room_id = p_room_id and user_id = p_target_user_id;
 

@@ -261,7 +261,7 @@ select is(
    where room_id = (select v from t where k = 'free_room')
      and user_id = (select v from t where k = 'free_other')),
   'host',
-  'the rule is tier-blind and not creator-only — whoever enters an empty room hosts it');
+  'the rule is tier-blind and not creator-only - whoever enters an empty room hosts it');
 
 do $$ begin perform pg_temp.act_as((select v from t where k = 'free_owner')); end $$;
 do $$ begin perform public.join_room((select v from c where k = 'free_code')); end $$;

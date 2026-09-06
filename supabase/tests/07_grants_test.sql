@@ -90,7 +90,7 @@ end $$;
 select is(
   pg_temp.rows_visible_as_authenticated(pg_temp.abandoned_room()),
   1,
-  'RLS lets a creator read a room they have left — a plain table read is how the lobby finds the room blocking their cap');
+  'RLS lets a creator read a room they have left - a plain table read is how the lobby finds the room blocking their cap');
 
 create function pg_temp.visible_to_a_stranger(p_room_id uuid) returns int
 language plpgsql as $$
@@ -108,7 +108,7 @@ end $$;
 select is(
   pg_temp.visible_to_a_stranger(pg_temp.abandoned_room()),
   0,
-  'and that visibility is scoped to the creator — a stranger still sees nothing');
+  'and that visibility is scoped to the creator - a stranger still sees nothing');
 
 select * from finish();
 rollback;

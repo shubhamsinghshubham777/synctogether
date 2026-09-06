@@ -1,6 +1,6 @@
 // Mints a LiveKit access token for a room the caller is a member of.
 // Secrets (LIVEKIT_API_KEY / LIVEKIT_API_SECRET / LIVEKIT_URL) are set via
-// `supabase secrets set --env-file supabase/functions/.env` — never shipped
+// `supabase secrets set --env-file supabase/functions/.env` - never shipped
 // to clients. Membership is checked through the caller's own JWT, so RLS
 // (room_members select policy) is the source of truth.
 

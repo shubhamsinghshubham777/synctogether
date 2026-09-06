@@ -20,7 +20,7 @@ alter table public.rooms
 
 -- Unchanged from the original except the name expression: trim now applies to
 -- the stored value, not just the emptiness test, and the result is capped.
--- Truncation is deliberately silent — the client caps the field at the same 60,
+-- Truncation is deliberately silent - the client caps the field at the same 60,
 -- so anything longer arrived from outside the UI and has no one to show copy to.
 create or replace function public.create_room(p_name text, p_duration_minutes int)
 returns public.rooms

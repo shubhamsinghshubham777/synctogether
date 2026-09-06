@@ -3,7 +3,7 @@
 -- older is dead weight in auth.users/profiles.
 
 -- Without cascade here, deleting any user who ever created a room fails on
--- this FK — which also silently broke the delete_account RPC for hosts.
+-- this FK - which also silently broke the delete_account RPC for hosts.
 -- A deleted account takes its rooms (and their members/messages) with it.
 alter table public.rooms
   drop constraint rooms_created_by_fkey,

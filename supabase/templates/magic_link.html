@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Your SyncTogether Verification Code</title>
+</head>
+<body style="margin: 0; padding: 40px 20px; background-color: #0d0b18; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #ffffff;">
+  <table align="center" border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 480px; background-color: #141024; border: 1px solid rgba(168, 85, 247, 0.25); border-radius: 16px; padding: 32px; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);">
+    <tr>
+      <td align="center" style="padding-bottom: 20px;">
+        <h1 style="margin: 0; font-size: 22px; font-weight: 700; color: #ffffff; letter-spacing: -0.5px;">SyncTogether</h1>
+      </td>
+    </tr>
+    <tr>
+      <td style="color: #cbd5e1; font-size: 14px; line-height: 1.6; padding-bottom: 20px; text-align: center;">
+        Here is your single-use verification code to sign in to SyncTogether:
+      </td>
+    </tr>
+    <tr>
+      <td align="center" style="padding-bottom: 24px;">
+        <div style="display: inline-block; background-color: rgba(168, 85, 247, 0.12); border: 1px solid rgba(168, 85, 247, 0.35); border-radius: 12px; padding: 12px 28px; font-family: 'SF Mono', Monaco, Menlo, Consolas, monospace; font-size: 32px; font-weight: 700; letter-spacing: 8px; color: #c084fc;">
+          {{ .Token }}
+        </div>
+      </td>
+    </tr>
+    <tr>
+      <td style="color: #94a3b8; font-size: 12px; line-height: 1.5; text-align: center; padding-bottom: 24px;">
+        This code expires in 1 hour. If you did not request this, you can safely ignore this email.
+      </td>
+    </tr>
+    <tr>
+      <td align="center" style="border-top: 1px solid rgba(255, 255, 255, 0.08); padding-top: 20px;">
+        <p style="margin: 0 0 8px 0; font-size: 12px; color: #64748b;">
+          Alternatively, sign in directly with one click:
+        </p>
+        <a href="{{ .ConfirmationURL }}" style="color: #c084fc; text-decoration: underline; font-size: 13px; font-weight: 500;">
+          Sign in to SyncTogether
+        </a>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

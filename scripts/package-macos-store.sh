@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# scripts/package-mac-app-store.sh
+# scripts/package-macos-store.sh
 #
 # Signs and packages the SyncTogether macOS app bundle into a Mac App Store
 # installer package (.pkg) using Apple Distribution certificates and productbuild.

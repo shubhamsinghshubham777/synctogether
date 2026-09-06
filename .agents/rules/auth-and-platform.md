@@ -49,6 +49,6 @@ Self-update is implemented entirely in native Dart (`UpdateService`), checking a
   - **macOS**: Mounts the signed and notarized DMG via `hdiutil attach`, waits for the running app PID to terminate, copies the new bundle via `ditto`, detaches the mount, and relaunches with `open -n`.
   - **Windows**: Executes the Inno Setup executable installer detached with `/VERYSILENT /SP- /NORESTARTAPPLICATIONS` and terminates the current instance.
 - **Code Signing & Notarization**:
-  - macOS builds are signed with Apple Developer ID Application certificates and notarized via `notarytool` using `scripts/sign-macos.sh`.
+  - macOS builds are signed with Apple Developer ID Application certificates and notarized via `notarytool` using `scripts/package-macos-direct.sh`.
   - Windows builds are packaged via Inno Setup (`windows/inno/setup.iss`) or packaged as MSIX for the Microsoft Store (`.github/workflows/publish_microsoft_store.yaml`).
 - **Startup Check**: Pure Dart HTTP request (`UpdateService.checkForUpdate`), unawaited in `_bootstrap`. Does not interrupt active playback or room sessions.

@@ -362,7 +362,7 @@ spin_up() {
   fi
   echo -e "\n${BOLD}${CYAN}Available Dev Commands:${NC}"
   echo -e "  • Primary Flutter Client (A):  ${YELLOW}fvm flutter run -d macos${NC} (or ./scripts/dev.sh -f)"
-  echo -e "  • Second Isolated Client (B):  ${YELLOW}./scripts/st-instance-b.sh${NC} (or ./scripts/dev.sh -b)"
+  echo -e "  • Second Isolated Client (B):  ${YELLOW}./scripts/run-instance-b.sh${NC} (or ./scripts/dev.sh -b)"
   echo -e "  • Run All Test Suites:         ${YELLOW}./scripts/dev.sh test${NC}"
   echo -e "  • Reset Local Database:        ${YELLOW}./scripts/dev.sh reset${NC}"
   echo -e "  • Spin Down Everything:        ${YELLOW}./scripts/dev.sh down${NC}"
@@ -373,12 +373,12 @@ spin_up() {
     info "Building fresh macOS debug client for dual instances..."
     fvm flutter build macos --debug
     info "Launching secondary isolated instance (Instance B)..."
-    "$REPO_ROOT/scripts/st-instance-b.sh"
+    "$REPO_ROOT/scripts/run-instance-b.sh"
     info "Launching primary Flutter client (Instance A) with interactive hot reload..."
     fvm flutter run -d macos
   elif [ "$launch_instance_b" = true ]; then
     info "Launching secondary isolated instance (Instance B)..."
-    "$REPO_ROOT/scripts/st-instance-b.sh"
+    "$REPO_ROOT/scripts/run-instance-b.sh"
   elif [ "$launch_flutter" = true ]; then
     info "Launching primary Flutter client (Instance A)..."
     fvm flutter run -d macos

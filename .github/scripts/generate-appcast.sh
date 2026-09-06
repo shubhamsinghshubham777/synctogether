@@ -123,7 +123,7 @@ cat > appcast.xml <<XML
                  sparkle:version="${version}"
                  sparkle:shortVersionString="${version}"
                  sparkle:dsaSignature="${dsa_signature}"
-                 sparkle:installerArguments="/SILENT /SP- /NORESTARTAPPLICATIONS"
+                 sparkle:installerArguments="/VERYSILENT /SP- /NORESTARTAPPLICATIONS"
                  length="0"
                  type="application/octet-stream" />
     </item>

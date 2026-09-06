@@ -8,6 +8,7 @@ import 'package:material_symbols_icons/symbols.dart';
 import 'package:synctogether/analytics_consent.dart';
 import 'package:synctogether/auth/auth_service.dart';
 import 'package:synctogether/diagnostics.dart';
+import 'package:synctogether/platform.dart';
 import 'package:synctogether/profile/entitlement_service.dart';
 import 'package:synctogether/profile/media_quota_dialog.dart';
 import 'package:synctogether/profile/profile_models.dart';
@@ -21,6 +22,7 @@ import 'package:synctogether/ui/loader.dart';
 import 'package:synctogether/ui/pt_motion.dart';
 import 'package:synctogether/ui/pt_theme.dart';
 import 'package:synctogether/ui/responsive.dart';
+import 'package:synctogether/updates/update_service.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -267,6 +269,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 _emailField(profile),
                                 _subscriptionSection(),
                                 _mediaQuotaSection(),
+                                if (supportsSelfUpdate) _updatesSection(),
+                                _privacySection(),
                                 Padding(
                                   padding: const EdgeInsets.only(top: 6),
                                   child: Row(
@@ -362,6 +366,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
             onPressed: () => context.go('/lobby/subscribe?source=profile'),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _updatesSection() {
+    if (!supportsSelfUpdate) return const SizedBox.shrink();
+    return ListenableBuilder(
+      listenable: UpdateService.instance,
+      builder: (context, _) => PTToggleRow(
+        icon: Symbols.system_update_alt_rounded,
+        title: 'Automatically download updates',
+        subtitle:
+            'Download updates silently in the background so you can restart immediately when ready.',
+        value: UpdateService.instance.autoDownload,
+        onChanged: (enabled) => UpdateService.instance.setAutoDownload(enabled),
       ),
     );
   }
@@ -529,6 +548,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _nameField(profile),
         _emailField(profile),
         const Divider(),
+        if (supportsSelfUpdate) ...[_updatesSection(), const Divider()],
         _privacySection(),
         const Divider(),
         Column(
@@ -656,6 +676,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _subscriptionSection(),
         _mediaQuotaSection(),
         const Divider(),
+        if (supportsSelfUpdate) ...[_updatesSection(), const Divider()],
         _privacySection(),
         PTButton(
           label: 'End guest session',

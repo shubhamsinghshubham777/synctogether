@@ -10,6 +10,7 @@ import 'package:material_symbols_icons/symbols.dart';
 import 'package:path/path.dart' as p;
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:synctogether/analytics.dart';
 import 'package:synctogether/auth/auth_service.dart';
 import 'package:synctogether/av/livekit_service.dart';
@@ -1924,6 +1925,108 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     }
   }
 
+  Future<void> _showReportDialog({String? targetUser, String? messageSnippet}) async {
+    final roomCode = _room?.code ?? widget.roomId;
+    await showGlassDialog<void>(
+      context: context,
+      width: 440,
+      builder: (dialogContext) => Column(
+        mainAxisSize: .min,
+        crossAxisAlignment: .stretch,
+        children: [
+          Row(
+            spacing: 10,
+            children: [
+              const Icon(Symbols.flag_rounded, size: 22, color: PTColors.warningBorder),
+              Text('Report a concern', style: PTText.screenTitle.copyWith(fontSize: 18)),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'SyncTogether strictly prohibits harassment, offensive language, or abusive behavior. '
+            'If someone in this room is violating community guidelines, please report them to our team.',
+            style: PTText.body.copyWith(color: PTColors.white(0.8), height: 1.45),
+          ),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: PTColors.white(0.05),
+              border: Border.all(color: PTColors.white(0.08)),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Column(
+              crossAxisAlignment: .start,
+              spacing: 4,
+              children: [
+                Text(
+                  'Room Code: $roomCode',
+                  style: PTText.caption.copyWith(color: PTColors.textAccent),
+                ),
+                if (targetUser != null)
+                  Text(
+                    'Reported User: $targetUser',
+                    style: PTText.caption.copyWith(color: PTColors.white(0.7)),
+                  ),
+                if (messageSnippet != null)
+                  Text(
+                    'Message: "$messageSnippet"',
+                    style: PTText.caption.copyWith(color: PTColors.white(0.7)),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Reports are reviewed promptly. You can also email us directly at support@synctogether.app.',
+            style: PTText.finePrint.copyWith(color: PTColors.white(0.5)),
+          ),
+          const SizedBox(height: 18),
+          Row(
+            spacing: 12,
+            children: [
+              Expanded(
+                child: PTButton(
+                  label: 'Close',
+                  variant: .secondary,
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                ),
+              ),
+              Expanded(
+                child: PTButton(
+                  label: 'Email report',
+                  icon: Symbols.mail_rounded,
+                  onPressed: () async {
+                    Navigator.of(dialogContext).pop();
+                    final subject = Uri.encodeComponent('Report Concern - Room $roomCode');
+                    final body = Uri.encodeComponent(
+                      'Room: $roomCode\n'
+                      '${targetUser != null ? 'Reported User: $targetUser\n' : ''}'
+                      '${messageSnippet != null ? 'Reported Message: $messageSnippet\n' : ''}\n'
+                      'Please describe the issue:\n',
+                    );
+                    final emailUri = Uri.parse(
+                      'mailto:support@synctogether.app?subject=$subject&body=$body',
+                    );
+                    try {
+                      await launchUrl(emailUri, mode: LaunchMode.externalApplication);
+                    } catch (_) {}
+                    if (mounted) {
+                      _snack(
+                        'Thank you for your report. Our team will review it shortly.',
+                        kind: .success,
+                      );
+                    }
+                  },
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   bool get _canStartWithout {
     final sync = _sync;
     if (sync == null || !sync.isHost || !_canonicalMedia.isSet) return false;
@@ -2747,6 +2850,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
       onLeave: _leaveRoom,
       onEndRoom: _endRoomForEveryone,
       onExtendRoom: _extendRoom,
+      onReportConcern: _showReportDialog,
       onTransportLockChanged: _setTransportLock,
       onKick: (member) {
         final present = _present.where((p) => p.userId == member.userId).firstOrNull;
@@ -3873,6 +3977,8 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
                   onSend: _sendChat,
                   onCopied: _onChatCopied,
                   onPlaySharedVideo: (_sync?.isHost ?? false) ? _playSharedVideo : null,
+                  onReportMessage: (msg) =>
+                      _showReportDialog(targetUser: msg.displayName, messageSnippet: msg.content),
                 ),
               ),
             ),
@@ -4046,6 +4152,10 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
                           onSend: _sendChat,
                           onCopied: _onChatCopied,
                           onPlaySharedVideo: (_sync?.isHost ?? false) ? _playSharedVideo : null,
+                          onReportMessage: (msg) => _showReportDialog(
+                            targetUser: msg.displayName,
+                            messageSnippet: msg.content,
+                          ),
                           embedded: true,
                         )
                       : const SizedBox.shrink(),
@@ -4143,6 +4253,10 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
                       onSend: _sendChat,
                       onCopied: _onChatCopied,
                       onPlaySharedVideo: (_sync?.isHost ?? false) ? _playSharedVideo : null,
+                      onReportMessage: (msg) => _showReportDialog(
+                        targetUser: msg.displayName,
+                        messageSnippet: msg.content,
+                      ),
                     ),
                   ),
                 ),

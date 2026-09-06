@@ -30,6 +30,7 @@ Future<void> _pump(
   required SyncService sync,
   required List<ChatMessage> messages,
   void Function(String videoId, String sharedBy)? onPlaySharedVideo,
+  void Function(ChatMessage message)? onReportMessage,
 }) async {
   await tester.pumpWidget(
     MaterialApp(
@@ -46,6 +47,7 @@ Future<void> _pump(
             onSend: (_) {},
             onCopied: () {},
             onPlaySharedVideo: onPlaySharedVideo,
+            onReportMessage: onReportMessage,
           ),
         ),
       ),
@@ -233,6 +235,24 @@ void main() {
     await _pump(tester, sync: sync, messages: messages);
 
     expect(find.text('Message 29'), findsOneWidget);
+    sync.dispose();
+  });
+
+  testWidgets('tapping report on an incoming chat triggers onReportMessage', (tester) async {
+    final sync = _sync();
+    ChatMessage? reported;
+    await _pump(
+      tester,
+      sync: sync,
+      messages: [_shared('inappropriate content')],
+      onReportMessage: (m) => reported = m,
+    );
+
+    expect(find.byTooltip('Report message'), findsOneWidget);
+    await tester.tap(find.byTooltip('Report message'));
+    await tester.pumpAndSettle();
+
+    expect(reported?.content, 'inappropriate content');
     sync.dispose();
   });
 }

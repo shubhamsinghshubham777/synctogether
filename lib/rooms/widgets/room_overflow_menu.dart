@@ -65,6 +65,7 @@ Future<void> showRoomOverflowMenu({
   required VoidCallback onLeave,
   required VoidCallback onEndRoom,
   VoidCallback? onExtendRoom,
+  VoidCallback? onReportConcern,
   required ValueChanged<bool> onTransportLockChanged,
   required void Function(RoomMember member) onKick,
 }) {
@@ -90,6 +91,7 @@ Future<void> showRoomOverflowMenu({
                   onLeave: onLeave,
                   onEndRoom: onEndRoom,
                   onExtendRoom: onExtendRoom,
+                  onReportConcern: onReportConcern,
                   onTransportLockChanged: onTransportLockChanged,
                   onKick: onKick,
                 ),
@@ -119,6 +121,7 @@ class _OverflowMenuPanel extends StatefulWidget {
     required this.onLeave,
     required this.onEndRoom,
     this.onExtendRoom,
+    this.onReportConcern,
     required this.onTransportLockChanged,
     required this.onKick,
   });
@@ -128,6 +131,7 @@ class _OverflowMenuPanel extends StatefulWidget {
   final VoidCallback onLeave;
   final VoidCallback onEndRoom;
   final VoidCallback? onExtendRoom;
+  final VoidCallback? onReportConcern;
   final ValueChanged<bool> onTransportLockChanged;
   final void Function(RoomMember member) onKick;
 
@@ -244,6 +248,13 @@ class _OverflowMenuPanelState extends State<_OverflowMenuPanel> {
                       iconColor: PTColors.textAccent,
                       label: 'Extend room duration',
                       onTap: () => _dismiss(widget.onExtendRoom!),
+                    ),
+                  if (widget.onReportConcern != null)
+                    _ActionRow(
+                      icon: Symbols.flag_rounded,
+                      iconColor: PTColors.white(0.7),
+                      label: 'Report a concern',
+                      onTap: () => _dismiss(widget.onReportConcern!),
                     ),
                   _ActionRow(
                     icon: Symbols.logout_rounded,

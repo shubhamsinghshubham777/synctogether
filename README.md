@@ -22,9 +22,9 @@ SyncTogether is a modern cross-platform application for synchronized media playb
 
 | Lobby | Theater Room |
 |:---:|:---:|
-| <img src="assets/store/1_violet_glass_lobby.png" alt="Lobby Screen" /> | <img src="assets/store/2_theater_room.png" alt="Theater Room" /> |
+| <img src="assets/store/1_violet_glass_lobby.jpg" alt="Lobby Screen" /> | <img src="assets/store/2_theater_room.jpg" alt="Theater Room" /> |
 | **Room Chat** | **Media Chooser** |
-| <img src="assets/store/3_room_chat.png" alt="Room Chat" /> | <img src="assets/store/4_media_chooser.png" alt="Media Chooser" /> |
+| <img src="assets/store/3_room_chat.jpg" alt="Room Chat" /> | <img src="assets/store/4_media_chooser.jpg" alt="Media Chooser" /> |
 
 ---
 

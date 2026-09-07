@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:synctogether/auth/webview_runtime.dart';
 import 'package:synctogether/diagnostics.dart';
+import 'package:synctogether/platform.dart';
 import 'package:synctogether/player/youtube/pt_youtube_controller.dart';
+import 'package:synctogether/ui/buttons.dart';
 import 'package:synctogether/ui/pt_theme.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class PTYouTubeEmbed extends StatefulWidget {
   const PTYouTubeEmbed({super.key, required this.controller});
@@ -99,11 +102,13 @@ class _MissingRuntime extends StatelessWidget {
         padding: const EdgeInsets.all(32),
         child: Column(
           mainAxisSize: .min,
-          spacing: 10,
+          spacing: 12,
           children: [
             Text(
-              "Your PC is missing a Windows component YouTube videos need. "
-              "Reinstalling SyncTogether will add it.",
+              isStoreBuild
+                  ? 'Your PC is missing or needs a repair of the Microsoft Edge WebView2 Runtime, which YouTube videos need.'
+                  : 'Your PC is missing a Windows component YouTube videos need. '
+                        'Reinstalling SyncTogether will add it, or download the runtime below.',
               textAlign: .center,
               style: PTText.body.copyWith(color: PTColors.white(0.6)),
             ),
@@ -111,6 +116,21 @@ class _MissingRuntime extends StatelessWidget {
               'Error webview2-missing',
               style: PTText.mono.copyWith(fontSize: 11.5, color: PTColors.white(0.4)),
             ),
+            const SizedBox(height: 4),
+            PTButton(
+              label: 'Download WebView2 Runtime',
+              icon: Icons.download_rounded,
+              expand: false,
+              height: 42,
+              onPressed: () =>
+                  launchUrl(PTWebView.downloadUri, mode: LaunchMode.externalApplication),
+            ),
+            if (isStoreBuild)
+              Text(
+                'Already installed? In Windows Settings > Apps > Installed apps, choose Microsoft Edge WebView2 Runtime, click … and choose Modify > Repair.',
+                textAlign: .center,
+                style: PTText.caption.copyWith(color: PTColors.white(0.4), fontSize: 12),
+              ),
           ],
         ),
       ),

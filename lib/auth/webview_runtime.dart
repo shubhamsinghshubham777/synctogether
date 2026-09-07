@@ -20,6 +20,9 @@ abstract final class PTWebView {
   /// *create* leaves this false - see [init].
   static bool runtimeMissing = false;
 
+  /// Official Microsoft download URL for the WebView2 Evergreen Runtime bootstrapper.
+  static final Uri downloadUri = Uri.parse('https://go.microsoft.com/fwlink/p/?LinkId=2124703');
+
   /// Separates the two Windows-only ways the captcha webview fails to appear,
   /// because they need completely different fixes and look identical on screen.
   ///

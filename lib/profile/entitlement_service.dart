@@ -104,13 +104,13 @@ class EntitlementService extends ChangeNotifier {
   bool get isPremium => _limits?.isPremium ?? false;
 
   Future<TierLimits?> load() async {
-    final user = _client.auth.currentUser;
-    if (user == null) {
-      clear();
-      return null;
-    }
-    _ensureRealtimeSubscribed(user.id);
     try {
+      final user = _client.auth.currentUser;
+      if (user == null) {
+        clear();
+        return null;
+      }
+      _ensureRealtimeSubscribed(user.id);
       final row = await _client.rpc('my_entitlement');
       if (row == null) return _limits;
       final map = row is List

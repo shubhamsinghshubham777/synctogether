@@ -6,8 +6,11 @@ import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:synctogether/auth/webview_runtime.dart';
 import 'package:synctogether/diagnostics.dart';
 import 'package:synctogether/env.dart';
+import 'package:synctogether/platform.dart';
+import 'package:synctogether/ui/buttons.dart';
 import 'package:synctogether/ui/glass.dart';
 import 'package:synctogether/ui/pt_theme.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 /// Runs a Cloudflare Turnstile challenge in a webview and returns the
 /// captcha token (null on cancel/failure). The page is served from a throwaway
@@ -171,10 +174,15 @@ function onloadTurnstile() {
   /// "Try again" is the right advice for a challenge that timed out, and the
   /// wrong advice for a PC that is missing the component this renders in -
   /// retrying that forever is precisely what people did.
-  String get _failureMessage => _errorCode == 'webview2-missing'
-      ? "Your PC is missing a Windows component this check needs. "
-            "Reinstalling SyncTogether will add it."
-      : "Hmm, the check didn't load. Close this and try again.";
+  String get _failureMessage {
+    if (_errorCode == 'webview2-missing') {
+      return isStoreBuild
+          ? 'Your PC is missing or needs a repair of the Microsoft Edge WebView2 Runtime, which this verification needs.'
+          : 'Your PC is missing a Windows component this check needs. '
+                'Reinstalling SyncTogether will add it, or download the runtime below.';
+    }
+    return "Hmm, the check didn't load. Close this and try again.";
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -195,83 +203,110 @@ function onloadTurnstile() {
             'Error $_errorCode',
             style: PTText.mono.copyWith(fontSize: 11.5, color: PTColors.white(0.4)),
           ),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(12),
-          child: SizedBox(
-            height: 80,
-            child: _pageUrl == null
-                ? const SizedBox.shrink()
-                : InAppWebView(
-                    initialUrlRequest: URLRequest(url: WebUri.uri(_pageUrl!)),
-                    initialSettings: InAppWebViewSettings(transparentBackground: true),
-                    // Null off Windows, where the plugin's own default is right.
-                    webViewEnvironment: PTWebView.environment,
-                    // Turnstile reports its own diagnostics to the JS console
-                    // (an unlisted hostname says so there in as many words),
-                    // and that output is otherwise invisible in a release build.
-                    onConsoleMessage: (_, msg) => trace(
-                      msg.message,
-                      category: 'turnstile.console',
-                      data: {'level': msg.messageLevel.toString()},
-                    ),
-                    onReceivedError: (_, request, error) => trace(
-                      'load error: ${error.description}',
-                      category: 'turnstile.webview',
-                      data: {'url': '${request.url}', 'type': '${error.type}'},
-                    ),
-                    onReceivedHttpError: (_, request, response) => trace(
-                      'http error: ${response.statusCode}',
-                      category: 'turnstile.webview',
-                      data: {'url': '${request.url}'},
-                    ),
-                    onLoadStop: (_, url) => trace(
-                      'load finished',
-                      category: 'turnstile.webview',
-                      data: {'url': '$url'},
-                    ),
-                    onWebViewCreated: (controller) {
-                      // Never fires if the platform could not build the webview
-                      // - which is the failure this dialog could not previously
-                      // distinguish from Cloudflare never answering.
-                      _webViewCreated = true;
-                      controller.addJavaScriptHandler(
-                        handlerName: 'turnstileToken',
-                        callback: (args) {
-                          final token = args.isNotEmpty ? args.first as String : null;
-                          if (mounted && token != null) {
-                            _timeout?.cancel();
-                            Navigator.of(context).pop(token);
-                          }
-                        },
-                      );
-                      controller.addJavaScriptHandler(
-                        handlerName: 'turnstileError',
-                        callback: (args) {
-                          // Cloudflare's code is the single most diagnostic
-                          // thing available here - 110200 is an unlisted
-                          // hostname, 300xxx/600xxx are render-side failures -
-                          // so it goes to Sentry *and* on screen, because the
-                          // person hitting this is usually not the person
-                          // reading the dashboard.
-                          final code = args.isNotEmpty ? '${args.first}' : 'unknown';
-                          _timeout?.cancel();
-                          reportNonFatal(
-                            StateError('Turnstile error-callback: $code'),
-                            StackTrace.current,
-                            during: 'running the Turnstile challenge',
-                          );
-                          if (mounted) {
-                            setState(() {
-                              _failed = true;
-                              _errorCode = code;
-                            });
-                          }
-                        },
-                      );
-                    },
-                  ),
+        if (_failed && _errorCode == 'webview2-missing') ...[
+          PTButton(
+            label: 'Download WebView2 Runtime',
+            icon: Icons.download_rounded,
+            height: 44,
+            onPressed: () => launchUrl(PTWebView.downloadUri, mode: LaunchMode.externalApplication),
           ),
-        ),
+          if (isStoreBuild)
+            Text(
+              'Already installed? In Windows Settings > Apps > Installed apps, choose Microsoft Edge WebView2 Runtime, click … and choose Modify > Repair.',
+              style: PTText.caption.copyWith(color: PTColors.white(0.5), fontSize: 12),
+            ),
+          PTButton(
+            label: 'Close',
+            variant: .secondary,
+            height: 40,
+            onPressed: () => Navigator.of(context).pop(),
+          ),
+        ] else ...[
+          ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: SizedBox(
+              height: 80,
+              child: _pageUrl == null
+                  ? const SizedBox.shrink()
+                  : InAppWebView(
+                      initialUrlRequest: URLRequest(url: WebUri.uri(_pageUrl!)),
+                      initialSettings: InAppWebViewSettings(transparentBackground: true),
+                      // Null off Windows, where the plugin's own default is right.
+                      webViewEnvironment: PTWebView.environment,
+                      // Turnstile reports its own diagnostics to the JS console
+                      // (an unlisted hostname says so there in as many words),
+                      // and that output is otherwise invisible in a release build.
+                      onConsoleMessage: (_, msg) => trace(
+                        msg.message,
+                        category: 'turnstile.console',
+                        data: {'level': msg.messageLevel.toString()},
+                      ),
+                      onReceivedError: (_, request, error) => trace(
+                        'load error: ${error.description}',
+                        category: 'turnstile.webview',
+                        data: {'url': '${request.url}', 'type': '${error.type}'},
+                      ),
+                      onReceivedHttpError: (_, request, response) => trace(
+                        'http error: ${response.statusCode}',
+                        category: 'turnstile.webview',
+                        data: {'url': '${request.url}'},
+                      ),
+                      onLoadStop: (_, url) => trace(
+                        'load finished',
+                        category: 'turnstile.webview',
+                        data: {'url': '$url'},
+                      ),
+                      onWebViewCreated: (controller) {
+                        // Never fires if the platform could not build the webview
+                        // - which is the failure this dialog could not previously
+                        // distinguish from Cloudflare never answering.
+                        _webViewCreated = true;
+                        controller.addJavaScriptHandler(
+                          handlerName: 'turnstileToken',
+                          callback: (args) {
+                            final token = args.isNotEmpty ? args.first as String : null;
+                            if (mounted && token != null) {
+                              _timeout?.cancel();
+                              Navigator.of(context).pop(token);
+                            }
+                          },
+                        );
+                        controller.addJavaScriptHandler(
+                          handlerName: 'turnstileError',
+                          callback: (args) {
+                            // Cloudflare's code is the single most diagnostic
+                            // thing available here - 110200 is an unlisted
+                            // hostname, 300xxx/600xxx are render-side failures -
+                            // so it goes to Sentry *and* on screen, because the
+                            // person hitting this is usually not the person
+                            // reading the dashboard.
+                            final code = args.isNotEmpty ? '${args.first}' : 'unknown';
+                            _timeout?.cancel();
+                            reportNonFatal(
+                              StateError('Turnstile error-callback: $code'),
+                              StackTrace.current,
+                              during: 'running the Turnstile challenge',
+                            );
+                            if (mounted) {
+                              setState(() {
+                                _failed = true;
+                                _errorCode = code;
+                              });
+                            }
+                          },
+                        );
+                      },
+                    ),
+            ),
+          ),
+          if (_failed)
+            PTButton(
+              label: 'Close',
+              variant: .secondary,
+              height: 40,
+              onPressed: () => Navigator.of(context).pop(),
+            ),
+        ],
       ],
     );
   }

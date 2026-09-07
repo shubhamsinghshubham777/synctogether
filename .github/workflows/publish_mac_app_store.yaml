@@ -135,6 +135,10 @@ jobs:
             echo "::error::SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY secrets must be configured in GitHub repository secrets."
             exit 1
           fi
+          # Bypass Xcode code-signing during intermediate flutter build so it does not fail
+          # on missing Apple Development certificate; package-macos-store.sh handles deep signing with Apple Distribution.
+          echo "CODE_SIGNING_ALLOWED = NO" >> macos/Runner/Configs/AppInfo.xcconfig
+          echo "CODE_SIGNING_REQUIRED = NO" >> macos/Runner/Configs/AppInfo.xcconfig
           flutter config --enable-macos-desktop
           flutter build macos --release \
             --dart-define=STORE_BUILD=true \

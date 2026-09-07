@@ -41,7 +41,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (ProfileService.instance.profile == null) {
       ProfileService.instance.load();
     }
-    EntitlementService.instance.load();
+    if (EntitlementService.instance.limits == null) {
+      EntitlementService.instance.load();
+    }
   }
 
   Future<void> _pickAvatar() async {
@@ -402,14 +404,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
             onChanged: (shareData) => AnalyticsConsent.instance.setOptedOut(!shareData),
           ),
         ),
-        Row(
+        Wrap(
           spacing: 12,
+          runSpacing: 10,
           children: [
             PTButton(
               label: 'Privacy policy',
               variant: .secondary,
               icon: Symbols.open_in_new_rounded,
               height: 36,
+              expand: false,
               onPressed: () => launchUrl(
                 Uri.parse('https://synctogether.app/privacy'),
                 mode: LaunchMode.externalApplication,
@@ -420,6 +424,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               variant: .secondary,
               icon: Symbols.open_in_new_rounded,
               height: 36,
+              expand: false,
               onPressed: () => launchUrl(
                 Uri.parse('https://synctogether.app/terms'),
                 mode: LaunchMode.externalApplication,
@@ -505,10 +510,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  '${Profile.formatBytes(remainingBytes)} available of ${Profile.formatBytes(weeklyLimit)}',
-                  style: PTText.finePrint.copyWith(color: PTColors.white(0.6)),
+                Expanded(
+                  child: Text(
+                    '${Profile.formatBytes(remainingBytes)} available of ${Profile.formatBytes(weeklyLimit)}',
+                    style: PTText.finePrint.copyWith(color: PTColors.white(0.6)),
+                    overflow: .ellipsis,
+                  ),
                 ),
+                const SizedBox(width: 8),
                 Text(
                   '${Profile.formatBytes(usedBytes)} used',
                   style: PTText.mono.copyWith(color: PTColors.textAccent, fontSize: 11),

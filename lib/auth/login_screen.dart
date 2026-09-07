@@ -168,22 +168,27 @@ class _LoginScreenState extends State<LoginScreen> {
       body: AmbientBackground(
         child: PTResponsive(
           desktop: (_) => Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 440),
-              child: GlassPanel(
-                radius: 28,
-                opacity: 0.5,
-                blur: 32,
-                padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 44),
-                child: Column(
-                  mainAxisSize: .min,
-                  children: [
-                    const _Brand(),
-                    const SizedBox(height: 34),
-                    _actions(),
-                    const SizedBox(height: 26),
-                    const PTEntrance(delay: Duration(milliseconds: 240), child: _TermsNote()),
-                  ],
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(vertical: 24),
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 440),
+                  child: GlassPanel(
+                    radius: 28,
+                    opacity: 0.5,
+                    blur: 32,
+                    padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 44),
+                    child: Column(
+                      mainAxisSize: .min,
+                      children: [
+                        const _Brand(),
+                        const SizedBox(height: 34),
+                        _actions(),
+                        const SizedBox(height: 26),
+                        const PTEntrance(delay: Duration(milliseconds: 240), child: _TermsNote()),
+                      ],
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -194,8 +199,8 @@ class _LoginScreenState extends State<LoginScreen> {
                 const Expanded(child: Center(child: _Brand())),
                 Expanded(
                   child: Center(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 32),
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
                       child: Column(
                         mainAxisSize: .min,
                         children: [

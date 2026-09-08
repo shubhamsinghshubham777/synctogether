@@ -25,6 +25,7 @@ class Profile {
   final DateTime? r2CooldownUntil;
 
   int remainingWeeklyBytes(int weeklyLimit) {
+    if (weeklyLimit <= 0) return -1;
     if (r2UploadWindowStart == null) return weeklyLimit;
     final now = DateTime.now();
     if (now.difference(r2UploadWindowStart!).inDays >= 7) {
@@ -41,7 +42,8 @@ class Profile {
   }
 
   static String formatBytes(int bytes) {
-    if (bytes <= 0) return '0 B';
+    if (bytes < 0) return '∞ B';
+    if (bytes == 0) return '0 B';
     const suffixes = ['B', 'KB', 'MB', 'GB', 'TB'];
     var i = 0;
     double count = bytes.toDouble();

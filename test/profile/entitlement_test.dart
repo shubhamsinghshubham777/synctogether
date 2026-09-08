@@ -23,6 +23,7 @@ void main() {
       expect(freeLimits.mediaSharingMaxSizeBytes, 2147483648);
       expect(freeLimits.canShareMedia, isTrue);
       expect(freeLimits.hasUnlimitedSharing, isFalse);
+      expect(freeLimits.hasWeeklyQuota, isTrue);
 
       final premiumLimits = TierLimits.fromJson({
         'tier': 'premium',
@@ -43,6 +44,7 @@ void main() {
       expect(premiumLimits.mediaSharingMaxSizeBytes, 10737418240);
       expect(premiumLimits.canShareMedia, isTrue);
       expect(premiumLimits.hasUnlimitedSharing, isTrue);
+      expect(premiumLimits.hasWeeklyQuota, isFalse);
 
       final guestLimits = TierLimits.fromJson({
         'tier': 'guest',
@@ -62,6 +64,7 @@ void main() {
       expect(guestLimits.mediaSharingWeeklyBytes, 0);
       expect(guestLimits.canShareMedia, isFalse);
       expect(guestLimits.hasUnlimitedSharing, isFalse);
+      expect(guestLimits.hasWeeklyQuota, isFalse);
     });
 
     test('fallback limits allow limited sharing', () {
@@ -69,6 +72,7 @@ void main() {
       expect(TierLimits.fallback.mediaSharing, 'limited');
       expect(TierLimits.fallback.mediaSharingWeeklyBytes, 2684354560);
       expect(TierLimits.fallback.mediaSharingMaxSizeBytes, 2147483648);
+      expect(TierLimits.fallback.hasWeeklyQuota, isTrue);
     });
   });
 }

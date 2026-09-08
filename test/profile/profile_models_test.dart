@@ -4,6 +4,7 @@ import 'package:synctogether/profile/profile_models.dart';
 void main() {
   group('Profile Quota Helpers', () {
     test('formatBytes formats various byte sizes correctly', () {
+      expect(Profile.formatBytes(-1), '∞ B');
       expect(Profile.formatBytes(0), '0 B');
       expect(Profile.formatBytes(512), '512 B');
       expect(Profile.formatBytes(1024), '1.0 KB');
@@ -24,6 +25,18 @@ void main() {
 
       const weeklyLimit = 4 * 1024 * 1024 * 1024; // 4 GB
       expect(profile.remainingWeeklyBytes(weeklyLimit), 3 * 1024 * 1024 * 1024);
+    });
+
+    test('remainingWeeklyBytes returns -1 for unlimited weekly quota', () {
+      final profile = Profile(
+        id: 'u1',
+        displayName: 'Alice',
+        isGuest: false,
+        r2UploadBytes7d: 1024 * 1024 * 1024,
+      );
+
+      expect(profile.remainingWeeklyBytes(0), -1);
+      expect(Profile.formatBytes(profile.remainingWeeklyBytes(0)), '∞ B');
     });
 
     test('remainingWeeklyBytes resets if window start is older than 7 days', () {

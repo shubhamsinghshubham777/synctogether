@@ -59,6 +59,7 @@ class TierLimits {
 
   bool get canShareMedia => mediaSharing != 'none';
   bool get hasUnlimitedSharing => mediaSharing == 'full';
+  bool get hasWeeklyQuota => !hasUnlimitedSharing && mediaSharingWeeklyBytes > 0;
   int get mediaSharingMaxSizeBytes =>
       isPremium ? 10737418240 : 2147483648; // 10 GB for Premium, 2 GB for Free
 

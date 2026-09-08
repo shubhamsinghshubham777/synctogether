@@ -1252,9 +1252,9 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
 
   Future<void> _startMediaSharingUpload(File file, String name) async {
     final fileSize = await file.length();
-    final limits = EntitlementService.instance.limits;
-    final maxFileBytes = limits?.mediaSharingMaxSizeBytes;
-    if (maxFileBytes != null && fileSize > maxFileBytes) {
+    final limits = EntitlementService.instance.limitsOrFallback;
+    final maxFileBytes = limits.mediaSharingMaxSizeBytes;
+    if (fileSize > maxFileBytes) {
       final fileStr = Profile.formatBytes(fileSize);
       final maxStr = Profile.formatBytes(maxFileBytes);
       _snack('This video ($fileStr) exceeds the maximum single file limit ($maxStr).');
@@ -1272,11 +1272,11 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
       return;
     }
 
-    final weeklyLimit = limits?.mediaSharingWeeklyBytes;
     final profile = ProfileService.instance.profile;
-    if (weeklyLimit != null && profile != null) {
+    if (limits.hasWeeklyQuota && profile != null) {
+      final weeklyLimit = limits.mediaSharingWeeklyBytes;
       final remaining = profile.remainingWeeklyBytes(weeklyLimit);
-      if (fileSize > remaining) {
+      if (remaining >= 0 && fileSize > remaining) {
         final fileStr = Profile.formatBytes(fileSize);
         final remainingStr = Profile.formatBytes(remaining);
         _snack('This video ($fileStr) exceeds your remaining weekly quota ($remainingStr).');
@@ -3983,7 +3983,14 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
               ),
             ),
           if (_overlayChat.isNotEmpty)
-            Positioned(left: 24, bottom: 124, width: 340, child: _chatDisplaced(_chatOverlay())),
+            AnimatedPositioned(
+              duration: PTMotion.functional(context, PTMotion.state),
+              curve: _controlsVisible ? PTMotion.enter : PTMotion.exit,
+              left: 24,
+              bottom: _controlsVisible ? (_reactOpen ? 224.0 : 160.0) : 24.0,
+              width: 340,
+              child: _chatDisplaced(_chatOverlay()),
+            ),
           Positioned(
             bottom: 24,
             left: 24,
@@ -4262,7 +4269,14 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
                 ),
               Positioned(top: 66, left: 0, width: 340, child: _bannerStack(spacing: 8)),
               if (_overlayChat.isNotEmpty)
-                Positioned(left: 0, bottom: 96, width: 300, child: _chatDisplaced(_chatOverlay())),
+                AnimatedPositioned(
+                  duration: PTMotion.functional(context, PTMotion.state),
+                  curve: _controlsVisible ? PTMotion.enter : PTMotion.exit,
+                  left: 0,
+                  bottom: _controlsVisible ? (_reactOpen ? 190.0 : 138.0) : 16.0,
+                  width: 300,
+                  child: _chatDisplaced(_chatOverlay()),
+                ),
               Positioned(
                 bottom: 22,
                 left: 0,

@@ -154,16 +154,19 @@ class AmbientBackground extends StatefulWidget {
 class _AmbientBackgroundState extends State<AmbientBackground> with SingleTickerProviderStateMixin {
   // One controller for all three; TickerMode pauses it for free while the
   // route is offstage, so the lobby stops animating behind an open room.
-  late final AnimationController _drift = AnimationController(
-    vsync: this,
-    duration: PTMotion.ambient,
-  )..repeat(reverse: true);
+  late final AnimationController _drift;
+  late final CurvedAnimation _eased;
 
-  late final CurvedAnimation _eased = CurvedAnimation(
-    parent: _drift,
-    curve: Curves.easeInOut,
-    reverseCurve: Curves.easeInOut,
-  );
+  @override
+  void initState() {
+    super.initState();
+    _drift = AnimationController(vsync: this, duration: PTMotion.ambient)..repeat(reverse: true);
+    _eased = CurvedAnimation(
+      parent: _drift,
+      curve: Curves.easeInOut,
+      reverseCurve: Curves.easeInOut,
+    );
+  }
 
   @override
   void dispose() {

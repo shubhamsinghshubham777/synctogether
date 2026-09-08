@@ -24,8 +24,6 @@ services:
       - "7881:7881"
       # WebRTC UDP traffic (Voice & Video Facecam media streams)
       - "50000-50100:50000-50100/udp"
-    environment:
-      - LIVEKIT_CONFIG=/etc/livekit.yaml
     healthcheck:
       test: ["CMD", "livekit-server", "--version"]
       interval: 30s

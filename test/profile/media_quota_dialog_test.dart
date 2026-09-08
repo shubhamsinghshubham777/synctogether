@@ -293,5 +293,103 @@ void main() {
       expect(find.text('Upgrade for 10.0 GB Files'), findsOneWidget);
       expect(find.text('Got it'), findsOneWidget);
     });
+
+    testWidgets('renders premium single-file limit blockage card correctly', (tester) async {
+      ProfileService.instance.setProfileForTesting(
+        const Profile(id: 'user-prem', displayName: 'Sam', isGuest: false),
+      );
+      EntitlementService.instance.setLimitsForTesting(
+        const TierLimits(
+          tier: kPremiumTier,
+          maxLiveRooms: 20,
+          maxMembers: 16,
+          maxSessionMinutes: 240,
+          maxTotalSessionMinutes: 1440,
+          avLevel: .video,
+          persistentRoomCap: 20,
+          dormantHours: 24,
+          freeExtensionMinutes: 0,
+          mediaSharing: 'full',
+          mediaSharingWeeklyBytes: 0,
+        ),
+      );
+
+      const fileSize = 12 * 1024 * 1024 * 1024; // 12 GB
+      const maxBytes = 10 * 1024 * 1024 * 1024; // 10 GB
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData.dark().copyWith(scaffoldBackgroundColor: const Color(0xFF0D0B14)),
+          home: const Scaffold(
+            body: Center(
+              child: SingleChildScrollView(
+                child: MediaQuotaDialogBody(
+                  quotaContext: MediaQuotaContext(
+                    reason: .singleFileLimitExceeded,
+                    fileName: 'giant_movie.mkv',
+                    fileSize: fileSize,
+                    maxBytes: maxBytes,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('SINGLE-FILE LIMIT EXCEEDED'), findsOneWidget);
+      expect(find.text('Video Exceeds Premium File Limit'), findsOneWidget);
+      expect(find.text('Premium Cap'), findsOneWidget);
+      expect(find.text('Over limit by'), findsOneWidget);
+      expect(find.text('+2.0 GB'), findsOneWidget);
+      expect(find.text('Got it'), findsOneWidget);
+    });
+
+    testWidgets('renders infinity symbol for unlimited remaining quota', (tester) async {
+      ProfileService.instance.setProfileForTesting(
+        const Profile(id: 'user-prem', displayName: 'Sam', isGuest: false),
+      );
+      EntitlementService.instance.setLimitsForTesting(
+        const TierLimits(
+          tier: kPremiumTier,
+          maxLiveRooms: 20,
+          maxMembers: 16,
+          maxSessionMinutes: 240,
+          maxTotalSessionMinutes: 1440,
+          avLevel: .video,
+          persistentRoomCap: 20,
+          dormantHours: 24,
+          freeExtensionMinutes: 0,
+          mediaSharing: 'full',
+          mediaSharingWeeklyBytes: 0,
+        ),
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData.dark().copyWith(scaffoldBackgroundColor: const Color(0xFF0D0B14)),
+          home: const Scaffold(
+            body: Center(
+              child: SingleChildScrollView(
+                child: MediaQuotaDialogBody(
+                  quotaContext: MediaQuotaContext(
+                    reason: .weeklyQuotaExceeded,
+                    fileName: 'video.mp4',
+                    fileSize: 500 * 1024 * 1024,
+                    remainingBytes: -1,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Remaining'), findsOneWidget);
+      expect(find.text('∞ B'), findsOneWidget);
+      expect(find.text('Quota shortfall'), findsNothing);
+    });
   });
 }

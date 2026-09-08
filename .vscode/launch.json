@@ -18,6 +18,16 @@
             ]
         },
         {
+            "name": "debug (store mode with .env file)",
+            "request": "launch",
+            "type": "dart",
+            "deviceId": "macos",
+            "args": [
+                "--dart-define-from-file=.env",
+                "--dart-define=STORE_BUILD=true"
+            ]
+        },
+        {
             "name": "Demo Mode",
             "request": "launch",
             "type": "dart",

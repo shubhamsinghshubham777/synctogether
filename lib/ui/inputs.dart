@@ -147,10 +147,7 @@ class PTCodeInputState extends State<PTCodeInput> with SingleTickerProviderState
 
   /// Runs the left-to-right "ready to go" flourish once the sixth character
   /// lands. Each box reads its own slice of this, staggered by index.
-  late final AnimationController _complete = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 420),
-  );
+  late final AnimationController _complete;
 
   String get value => _controller.text;
 
@@ -159,6 +156,7 @@ class PTCodeInputState extends State<PTCodeInput> with SingleTickerProviderState
   @override
   void initState() {
     super.initState();
+    _complete = AnimationController(vsync: this, duration: const Duration(milliseconds: 420));
     _controller.addListener(_onText);
     _focusNode.addListener(() => setState(() {}));
   }
@@ -279,8 +277,13 @@ class _BlinkingCaret extends StatefulWidget {
 }
 
 class _BlinkingCaretState extends State<_BlinkingCaret> with SingleTickerProviderStateMixin {
-  late final _controller = AnimationController(vsync: this, duration: const Duration(seconds: 1))
-    ..repeat();
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(vsync: this, duration: const Duration(seconds: 1))..repeat();
+  }
 
   @override
   void dispose() {

@@ -46,6 +46,20 @@ const FALLBACK_RELEASE: ReleaseAssetInfo = {
   htmlUrl: `https://github.com/shubhamsinghshubham777/synctogether/releases/tag/v${FALLBACK_VERSION}`,
 };
 
+/**
+ * Strips OS installation notes (e.g. macOS Installation Notes, Windows Installation Notes)
+ * from release bodies, as normal installation is the default user expectation.
+ */
+export function sanitizeReleaseBody(body: string): string {
+  if (!body) return "";
+  return body
+    .replace(
+      /##+\s*(?:macOS|Windows)\s+Installation\s+Notes[\s\S]*?(?=(?:##+\s*|$))/gi,
+      ""
+    )
+    .trim();
+}
+
 export async function getLatestRelease(): Promise<ReleaseAssetInfo> {
   try {
     const res = await fetch(
@@ -88,7 +102,7 @@ export async function getLatestRelease(): Promise<ReleaseAssetInfo> {
         winAsset?.browser_download_url ||
         `https://github.com/shubhamsinghshubham777/synctogether/releases/download/${data.tag_name}/SyncTogether-${cleanVersion}-Windows.exe`,
       winSizeMb: winAsset ? Math.round((winAsset.size / (1024 * 1024)) * 10) / 10 : 38.2,
-      body: data.body || "",
+      body: sanitizeReleaseBody(data.body || ""),
       htmlUrl: data.html_url,
     };
   } catch (error) {
@@ -115,8 +129,13 @@ export async function getAllReleases(): Promise<GitHubRelease[]> {
     }
 
     const releases: GitHubRelease[] = await res.json();
-    // Filter out drafts and pre-releases as specified in the plan
-    return releases.filter((r) => !r.draft && !r.prerelease);
+    // Filter out drafts and pre-releases as specified in the plan, and sanitize obsolete unsigned notes from historical bodies
+    return releases
+      .filter((r) => !r.draft && !r.prerelease)
+      .map((r) => ({
+        ...r,
+        body: sanitizeReleaseBody(r.body || ""),
+      }));
   } catch (error) {
     console.error("Error fetching all releases:", error);
     return [];

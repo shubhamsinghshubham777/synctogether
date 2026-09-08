@@ -428,6 +428,8 @@ class _ContextualBlockageCard extends StatelessWidget {
     final maxBytes = quotaContext.maxBytes;
     final remainingBytes = quotaContext.remainingBytes;
 
+    final isPrem = EntitlementService.instance.isPremium;
+
     final String badgeText;
     final String titleText;
     final String bodyText;
@@ -437,15 +439,17 @@ class _ContextualBlockageCard extends StatelessWidget {
       case .singleFileLimitExceeded:
         badgeText = 'SINGLE-FILE LIMIT EXCEEDED';
         badgeIcon = Symbols.warning_amber_rounded;
-        titleText = 'Video Exceeds Free File Limit';
-        bodyText =
-            'Free accounts can upload videos up to 2.0 GB per file. Upgrade to SyncTogether Premium for files up to 10.0 GB with zero weekly caps.';
+        titleText = isPrem ? 'Video Exceeds Premium File Limit' : 'Video Exceeds Free File Limit';
+        bodyText = isPrem
+            ? 'SyncTogether Premium supports videos up to 10.0 GB per file. Please select a video within this limit.'
+            : 'Free accounts can upload videos up to 2.0 GB per file. Upgrade to SyncTogether Premium for files up to 10.0 GB with zero weekly caps.';
       case .weeklyQuotaExceeded:
         badgeText = 'WEEKLY QUOTA EXCEEDED';
         badgeIcon = Symbols.speed_rounded;
         titleText = 'Insufficient Weekly Quota';
-        bodyText =
-            'This video requires more quota than your remaining 7-day balance. Upgrade to SyncTogether Premium for unlimited sharing, or wait for your rolling quota to recharge.';
+        bodyText = isPrem
+            ? 'This video exceeds the allowable upload quota. Upgrade or wait for your quota to recharge.'
+            : 'This video requires more quota than your remaining 7-day balance. Upgrade to SyncTogether Premium for unlimited sharing, or wait for your rolling quota to recharge.';
       case .guestBlocked:
         badgeText = 'SIGN-IN REQUIRED';
         badgeIcon = Symbols.lock_person_rounded;
@@ -459,7 +463,10 @@ class _ContextualBlockageCard extends StatelessWidget {
     if (fileSize != null && reason == .singleFileLimitExceeded && maxBytes != null) {
       deltaBytes = (fileSize - maxBytes).clamp(0, 100 * 1024 * 1024 * 1024);
       deltaLabel = 'Over limit by';
-    } else if (fileSize != null && reason == .weeklyQuotaExceeded && remainingBytes != null) {
+    } else if (fileSize != null &&
+        reason == .weeklyQuotaExceeded &&
+        remainingBytes != null &&
+        remainingBytes >= 0) {
       deltaBytes = (fileSize - remainingBytes).clamp(0, 100 * 1024 * 1024 * 1024);
       deltaLabel = 'Quota shortfall';
     } else {
@@ -554,7 +561,7 @@ class _ContextualBlockageCard extends StatelessWidget {
                         if (reason == .singleFileLimitExceeded && maxBytes != null) ...[
                           Expanded(
                             child: _MetricBadge(
-                              label: 'Free Plan Cap',
+                              label: isPrem ? 'Premium Cap' : 'Free Plan Cap',
                               value: Profile.formatBytes(maxBytes),
                               highlightColor: PTColors.white(0.75),
                             ),

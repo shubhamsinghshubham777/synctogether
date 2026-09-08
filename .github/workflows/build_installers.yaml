@@ -102,8 +102,3 @@ jobs:
             ## Downloads
             - **Windows**: `SyncTogether-${{ needs.windows.outputs.app_version }}-Windows.exe`
             - **macOS**: `SyncTogether-${{ needs.macos.outputs.app_version }}-macOS.dmg`
-
-            ## macOS Installation Notes
-            This build is signed with Apple Developer ID and notarized by Apple.
-            1. Open the DMG and drag SyncTogether to Applications
-            2. Double-click to open and launch immediately (no security approval needed in Settings)

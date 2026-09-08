@@ -97,13 +97,17 @@ class PTEntrance extends StatefulWidget {
 }
 
 class _PTEntranceState extends State<PTEntrance> with SingleTickerProviderStateMixin {
-  late final AnimationController _controller = AnimationController(
-    vsync: this,
-    duration: widget.duration,
-  );
-  late final Animation<double> _curve = CurvedAnimation(parent: _controller, curve: PTMotion.enter);
+  late final AnimationController _controller;
+  late final Animation<double> _curve;
   Timer? _delay;
   bool _started = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(vsync: this, duration: widget.duration);
+    _curve = CurvedAnimation(parent: _controller, curve: PTMotion.enter);
+  }
 
   // Started here rather than in initState: the reduced-motion decision needs an
   // inherited MediaQuery, which isn't available that early.
@@ -233,10 +237,13 @@ class PTPulse extends StatefulWidget {
 }
 
 class _PTPulseState extends State<PTPulse> with SingleTickerProviderStateMixin {
-  late final AnimationController _controller = AnimationController(
-    vsync: this,
-    duration: widget.period,
-  );
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(vsync: this, duration: widget.period);
+  }
 
   void _sync() {
     final run = widget.enabled && !reducedMotion(context);
@@ -291,10 +298,13 @@ class PTShake extends StatefulWidget {
 }
 
 class _PTShakeState extends State<PTShake> with SingleTickerProviderStateMixin {
-  late final AnimationController _controller = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 300),
-  );
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 300));
+  }
 
   @override
   void didUpdateWidget(PTShake oldWidget) {

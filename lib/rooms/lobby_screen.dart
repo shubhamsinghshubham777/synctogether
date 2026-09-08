@@ -167,9 +167,9 @@ class _LobbyScreenState extends State<LobbyScreen> {
 
     final fileSize = file.lengthSync();
     final fileName = file.uri.pathSegments.isNotEmpty ? file.uri.pathSegments.last : null;
-    final limits = EntitlementService.instance.limits;
-    final maxFileBytes = limits?.mediaSharingMaxSizeBytes;
-    if (maxFileBytes != null && fileSize > maxFileBytes) {
+    final limits = EntitlementService.instance.limitsOrFallback;
+    final maxFileBytes = limits.mediaSharingMaxSizeBytes;
+    if (fileSize > maxFileBytes) {
       final fileStr = Profile.formatBytes(fileSize);
       final maxStr = Profile.formatBytes(maxFileBytes);
       _snack('This video ($fileStr) exceeds the maximum single file limit ($maxStr).');
@@ -187,10 +187,10 @@ class _LobbyScreenState extends State<LobbyScreen> {
       return;
     }
 
-    final weeklyLimit = limits?.mediaSharingWeeklyBytes;
-    if (weeklyLimit != null && profile != null) {
+    if (limits.hasWeeklyQuota && profile != null) {
+      final weeklyLimit = limits.mediaSharingWeeklyBytes;
       final remaining = profile.remainingWeeklyBytes(weeklyLimit);
-      if (fileSize > remaining) {
+      if (remaining >= 0 && fileSize > remaining) {
         final fileStr = Profile.formatBytes(fileSize);
         final remainingStr = Profile.formatBytes(remaining);
         _snack('This video ($fileStr) exceeds your remaining weekly quota ($remainingStr).');
@@ -1087,17 +1087,13 @@ class _LobbyScreenState extends State<LobbyScreen> {
                   '$percent%',
                   style: PTText.mono.copyWith(fontSize: 11, color: PTColors.textAccent),
                 ),
-                const SizedBox(width: 8),
-                GestureDetector(
-                  onTap: _cancelStagedMedia,
-                  child: Text(
-                    'Cancel',
-                    style: PTText.caption.copyWith(
-                      fontSize: 11,
-                      color: PTColors.danger,
-                      decoration: TextDecoration.underline,
-                    ),
-                  ),
+                const SizedBox(width: 4),
+                IconButton(
+                  tooltip: 'Cancel upload',
+                  icon: Icon(Symbols.close_rounded, size: 16, color: PTColors.white(0.6)),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(minWidth: 20, minHeight: 20),
+                  onPressed: _creating ? null : _cancelStagedMedia,
                 ),
               ],
             ),

@@ -40,16 +40,17 @@ class ReactionStrip extends StatefulWidget {
 }
 
 class _ReactionStripState extends State<ReactionStrip> with SingleTickerProviderStateMixin {
-  late final AnimationController _anim = AnimationController(
-    vsync: this,
-    duration: PTMotion.panel,
-    reverseDuration: PTMotion.panel,
-    value: widget.open ? 1 : 0,
-  );
+  late final AnimationController _anim;
 
   @override
   void initState() {
     super.initState();
+    _anim = AnimationController(
+      vsync: this,
+      duration: PTMotion.panel,
+      reverseDuration: PTMotion.panel,
+      value: widget.open ? 1 : 0,
+    );
     if (widget.open) _ensureAssets();
   }
 
@@ -154,12 +155,14 @@ class _ReactionCell extends StatefulWidget {
 }
 
 class _ReactionCellState extends State<_ReactionCell> with SingleTickerProviderStateMixin {
-  late final AnimationController _play = AnimationController(vsync: this);
+  AnimationController? _playController;
   bool _hovered = false;
+
+  AnimationController get _play => _playController ??= AnimationController(vsync: this);
 
   @override
   void dispose() {
-    _play.dispose();
+    _playController?.dispose();
     super.dispose();
   }
 
@@ -168,12 +171,14 @@ class _ReactionCellState extends State<_ReactionCell> with SingleTickerProviderS
     if (composition == null || reducedMotion(context)) return;
     _play.duration = composition.duration;
     _play.forward(from: 0);
+    if (mounted) setState(() {});
   }
 
   @override
   Widget build(BuildContext context) {
     final composition = widget.composition;
     final padded = widget.size + (widget.size < 40 ? 8 : 10);
+    final play = _playController;
 
     return MouseRegion(
       cursor: SystemMouseCursors.click,
@@ -209,11 +214,13 @@ class _ReactionCellState extends State<_ReactionCell> with SingleTickerProviderS
                           style: TextStyle(fontSize: widget.size * 0.78),
                         ),
                       )
+                    : play == null
+                    ? RawLottie(composition: composition, progress: 0, fit: .contain)
                     : AnimatedBuilder(
-                        animation: _play,
+                        animation: play,
                         builder: (context, _) => RawLottie(
                           composition: composition,
-                          progress: _play.value,
+                          progress: play.value,
                           fit: .contain,
                         ),
                       ),

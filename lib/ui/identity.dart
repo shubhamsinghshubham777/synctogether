@@ -116,10 +116,13 @@ class _PresenceDot extends StatefulWidget {
 }
 
 class _PresenceDotState extends State<_PresenceDot> with SingleTickerProviderStateMixin {
-  late final AnimationController _ripple = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 600),
-  );
+  late final AnimationController _ripple;
+
+  @override
+  void initState() {
+    super.initState();
+    _ripple = AnimationController(vsync: this, duration: const Duration(milliseconds: 600));
+  }
 
   @override
   void didUpdateWidget(_PresenceDot oldWidget) {
@@ -427,10 +430,13 @@ class UnreadBadge extends StatefulWidget {
 }
 
 class _UnreadBadgeState extends State<UnreadBadge> with SingleTickerProviderStateMixin {
-  late final AnimationController _bump = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 150),
-  );
+  late final AnimationController _bump;
+
+  @override
+  void initState() {
+    super.initState();
+    _bump = AnimationController(vsync: this, duration: const Duration(milliseconds: 150));
+  }
 
   @override
   void didUpdateWidget(UnreadBadge oldWidget) {
@@ -509,10 +515,14 @@ class TypingDots extends StatefulWidget {
 }
 
 class _TypingDotsState extends State<TypingDots> with SingleTickerProviderStateMixin {
-  late final _controller = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 900),
-  )..repeat();
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 900))
+      ..repeat();
+  }
 
   @override
   void dispose() {

@@ -11,6 +11,19 @@ bool get isDesktop => !kIsWeb && _desktopPlatforms.contains(defaultTargetPlatfor
 /// manages background updates directly.
 const isStoreBuild = bool.fromEnvironment('STORE_BUILD', defaultValue: false);
 
+/// Whether WebViews should be served content via a loopback [HttpServer].
+///
+/// False only on macOS Store builds: the App Sandbox requires
+/// `com.apple.security.network.server` to call `bind()` on any socket
+/// (loopback included), and Apple rejects that entitlement for apps that do
+/// not expose a genuine server to external clients. macOS WKWebView correctly
+/// honours `InAppWebViewInitialData.baseUrl`, so inline data is a clean
+/// alternative. On every other target the loopback path stays in use (Windows
+/// WebView2 drops `baseUrl` on the floor, making inline data unusable for
+/// origin-sensitive content like Turnstile).
+bool get useLoopbackServer =>
+    kIsWeb || !isStoreBuild || defaultTargetPlatform != TargetPlatform.macOS;
+
 const _selfUpdatePlatforms = {TargetPlatform.macOS, TargetPlatform.windows};
 
 bool get supportsSelfUpdate =>

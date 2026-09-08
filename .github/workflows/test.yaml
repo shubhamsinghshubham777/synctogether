@@ -137,7 +137,7 @@ jobs:
       - name: Get the Supabase CLI
         uses: supabase/setup-cli@3c2f5e2ae34c34e428e8e206e2c4d21fa2d20fbf # v2.1.1
         with:
-          version: 2.20.12
+          version: 2.111.0
 
       - name: Start the local stack
         run: supabase start

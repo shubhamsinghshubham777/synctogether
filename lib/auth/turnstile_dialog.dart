@@ -7,6 +7,7 @@ import 'package:synctogether/auth/webview_runtime.dart';
 import 'package:synctogether/diagnostics.dart';
 import 'package:synctogether/env.dart';
 import 'package:synctogether/platform.dart';
+import 'package:synctogether/player/youtube/pt_youtube_controller.dart';
 import 'package:synctogether/ui/buttons.dart';
 import 'package:synctogether/ui/glass.dart';
 import 'package:synctogether/ui/pt_theme.dart';
@@ -41,6 +42,12 @@ class _TurnstileBodyState extends State<_TurnstileBody> {
   String? _errorCode;
   HttpServer? _server;
   Uri? _pageUrl;
+
+  /// Non-null on macOS Store builds where no loopback server is used.
+  /// The InAppWebView is loaded via [InAppWebViewInitialData] with
+  /// [PTYouTubeController.inlineDataBaseUrl] as the document origin.
+  String? _initialHtml;
+
   Timer? _timeout;
   bool _pageRequested = false;
   bool _webViewCreated = false;
@@ -91,16 +98,26 @@ class _TurnstileBodyState extends State<_TurnstileBody> {
     });
   }
 
-  /// Hands the challenge page a real `http://localhost:<port>` origin.
+  /// Hands the challenge page a real `http://localhost` origin, either via a
+  /// loopback [HttpServer] (all builds except macOS Store) or via
+  /// [InAppWebViewInitialData] with a matching [baseUrl] (macOS Store builds
+  /// where the App Sandbox forbids binding a listening socket without the
+  /// `network.server` entitlement that Apple rejects).
   ///
-  /// Loading it as inline data instead would be simpler, but Windows drops
-  /// `InAppWebViewInitialData.baseUrl` on the floor - the WebView2 backend maps
-  /// initial data straight onto `NavigateToString`, which has no baseUrl
-  /// parameter and always yields an opaque origin. Turnstile then sees a
-  /// hostname that is not on its allow-list, refuses to issue a token, and
-  /// guest sign-in is impossible on Windows. A loopback server is the one form
-  /// of origin every platform's webview agrees on.
+  /// On non-macOS-Store targets the loopback server is still required because
+  /// Windows WebView2 drops `InAppWebViewInitialData.baseUrl` on the floor —
+  /// the backend routes initial data through `NavigateToString`, which takes no
+  /// baseUrl parameter and always yields an opaque origin, making Turnstile
+  /// refuse to issue a token.
   Future<void> _serve() async {
+    if (!useLoopbackServer) {
+      // macOS Store build: serve the challenge page as inline data.
+      // WKWebView on macOS correctly honours InAppWebViewInitialData.baseUrl,
+      // so `localhost` is the document origin and matches the Turnstile allow-list.
+      _armTimeout();
+      setState(() => _initialHtml = _html);
+      return;
+    }
     try {
       final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
       if (!mounted) {
@@ -224,80 +241,7 @@ function onloadTurnstile() {
         ] else ...[
           ClipRRect(
             borderRadius: BorderRadius.circular(12),
-            child: SizedBox(
-              height: 80,
-              child: _pageUrl == null
-                  ? const SizedBox.shrink()
-                  : InAppWebView(
-                      initialUrlRequest: URLRequest(url: WebUri.uri(_pageUrl!)),
-                      initialSettings: InAppWebViewSettings(transparentBackground: true),
-                      // Null off Windows, where the plugin's own default is right.
-                      webViewEnvironment: PTWebView.environment,
-                      // Turnstile reports its own diagnostics to the JS console
-                      // (an unlisted hostname says so there in as many words),
-                      // and that output is otherwise invisible in a release build.
-                      onConsoleMessage: (_, msg) => trace(
-                        msg.message,
-                        category: 'turnstile.console',
-                        data: {'level': msg.messageLevel.toString()},
-                      ),
-                      onReceivedError: (_, request, error) => trace(
-                        'load error: ${error.description}',
-                        category: 'turnstile.webview',
-                        data: {'url': '${request.url}', 'type': '${error.type}'},
-                      ),
-                      onReceivedHttpError: (_, request, response) => trace(
-                        'http error: ${response.statusCode}',
-                        category: 'turnstile.webview',
-                        data: {'url': '${request.url}'},
-                      ),
-                      onLoadStop: (_, url) => trace(
-                        'load finished',
-                        category: 'turnstile.webview',
-                        data: {'url': '$url'},
-                      ),
-                      onWebViewCreated: (controller) {
-                        // Never fires if the platform could not build the webview
-                        // - which is the failure this dialog could not previously
-                        // distinguish from Cloudflare never answering.
-                        _webViewCreated = true;
-                        controller.addJavaScriptHandler(
-                          handlerName: 'turnstileToken',
-                          callback: (args) {
-                            final token = args.isNotEmpty ? args.first as String : null;
-                            if (mounted && token != null) {
-                              _timeout?.cancel();
-                              Navigator.of(context).pop(token);
-                            }
-                          },
-                        );
-                        controller.addJavaScriptHandler(
-                          handlerName: 'turnstileError',
-                          callback: (args) {
-                            // Cloudflare's code is the single most diagnostic
-                            // thing available here - 110200 is an unlisted
-                            // hostname, 300xxx/600xxx are render-side failures -
-                            // so it goes to Sentry *and* on screen, because the
-                            // person hitting this is usually not the person
-                            // reading the dashboard.
-                            final code = args.isNotEmpty ? '${args.first}' : 'unknown';
-                            _timeout?.cancel();
-                            reportNonFatal(
-                              StateError('Turnstile error-callback: $code'),
-                              StackTrace.current,
-                              during: 'running the Turnstile challenge',
-                            );
-                            if (mounted) {
-                              setState(() {
-                                _failed = true;
-                                _errorCode = code;
-                              });
-                            }
-                          },
-                        );
-                      },
-                    ),
-            ),
+            child: SizedBox(height: 80, child: _buildWebView(context)),
           ),
           if (_failed)
             PTButton(
@@ -308,6 +252,91 @@ function onloadTurnstile() {
             ),
         ],
       ],
+    );
+  }
+
+  Widget _buildWebView(BuildContext context) {
+    final html = _initialHtml;
+    final url = _pageUrl;
+
+    // Neither path is ready yet — _serve() hasn't completed its setState call.
+    if (html == null && url == null) return const SizedBox.shrink();
+
+    return InAppWebView(
+      // macOS Store builds use inline data so no HttpServer is needed.
+      // All other builds use the loopback URL.
+      initialData: html != null
+          ? InAppWebViewInitialData(
+              data: html,
+              baseUrl: WebUri(PTYouTubeController.inlineDataBaseUrl),
+              encoding: 'utf-8',
+              mimeType: 'text/html',
+            )
+          : null,
+      initialUrlRequest: url != null ? URLRequest(url: WebUri.uri(url)) : null,
+      initialSettings: InAppWebViewSettings(transparentBackground: true),
+      // Null off Windows, where the plugin's own default is right.
+      webViewEnvironment: PTWebView.environment,
+      // Turnstile reports its own diagnostics to the JS console
+      // (an unlisted hostname says so there in as many words),
+      // and that output is otherwise invisible in a release build.
+      onConsoleMessage: (_, msg) => trace(
+        msg.message,
+        category: 'turnstile.console',
+        data: {'level': msg.messageLevel.toString()},
+      ),
+      onReceivedError: (_, request, error) => trace(
+        'load error: ${error.description}',
+        category: 'turnstile.webview',
+        data: {'url': '${request.url}', 'type': '${error.type}'},
+      ),
+      onReceivedHttpError: (_, request, response) => trace(
+        'http error: ${response.statusCode}',
+        category: 'turnstile.webview',
+        data: {'url': '${request.url}'},
+      ),
+      onLoadStop: (_, url) =>
+          trace('load finished', category: 'turnstile.webview', data: {'url': '$url'}),
+      onWebViewCreated: (controller) {
+        // Never fires if the platform could not build the webview
+        // - which is the failure this dialog could not previously
+        // distinguish from Cloudflare never answering.
+        _webViewCreated = true;
+        controller.addJavaScriptHandler(
+          handlerName: 'turnstileToken',
+          callback: (args) {
+            final token = args.isNotEmpty ? args.first as String : null;
+            if (mounted && token != null) {
+              _timeout?.cancel();
+              Navigator.of(context).pop(token);
+            }
+          },
+        );
+        controller.addJavaScriptHandler(
+          handlerName: 'turnstileError',
+          callback: (args) {
+            // Cloudflare's code is the single most diagnostic
+            // thing available here - 110200 is an unlisted
+            // hostname, 300xxx/600xxx are render-side failures -
+            // so it goes to Sentry *and* on screen, because the
+            // person hitting this is usually not the person
+            // reading the dashboard.
+            final code = args.isNotEmpty ? '${args.first}' : 'unknown';
+            _timeout?.cancel();
+            reportNonFatal(
+              StateError('Turnstile error-callback: $code'),
+              StackTrace.current,
+              during: 'running the Turnstile challenge',
+            );
+            if (mounted) {
+              setState(() {
+                _failed = true;
+                _errorCode = code;
+              });
+            }
+          },
+        );
+      },
     );
   }
 }

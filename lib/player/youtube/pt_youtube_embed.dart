@@ -19,6 +19,7 @@ class PTYouTubeEmbed extends StatefulWidget {
 
 class _PTYouTubeEmbedState extends State<PTYouTubeEmbed> {
   Uri? _url;
+  String? _initialHtml;
 
   @override
   void initState() {
@@ -37,12 +38,19 @@ class _PTYouTubeEmbedState extends State<PTYouTubeEmbed> {
 
   void _bind(PTYouTubeController controller) {
     _url = controller.pageUrl;
+    _initialHtml = controller.initialHtml;
     controller.addListener(_onControllerChanged);
   }
 
   void _onControllerChanged() {
     final url = widget.controller.pageUrl;
-    if (url != _url && mounted) setState(() => _url = url);
+    final html = widget.controller.initialHtml;
+    if ((url != _url || html != _initialHtml) && mounted) {
+      setState(() {
+        _url = url;
+        _initialHtml = html;
+      });
+    }
   }
 
   @override
@@ -54,6 +62,51 @@ class _PTYouTubeEmbedState extends State<PTYouTubeEmbed> {
   @override
   Widget build(BuildContext context) {
     if (PTWebView.runtimeMissing) return const _MissingRuntime();
+
+    final html = _initialHtml;
+    if (html != null) {
+      // macOS Store build: serve the embed page as inline data so we don't
+      // need to bind an HttpServer (which requires network.server entitlement).
+      return Center(
+        child: AspectRatio(
+          aspectRatio: 16 / 9,
+          child: InAppWebView(
+            initialData: InAppWebViewInitialData(
+              data: html,
+              baseUrl: WebUri(PTYouTubeController.inlineDataBaseUrl),
+              encoding: 'utf-8',
+              mimeType: 'text/html',
+            ),
+            initialSettings: InAppWebViewSettings(
+              transparentBackground: true,
+              mediaPlaybackRequiresUserGesture: false,
+              allowsInlineMediaPlayback: true,
+              disableContextMenu: true,
+            ),
+            webViewEnvironment: PTWebView.environment,
+            onWebViewCreated: widget.controller.attach,
+            onConsoleMessage: (_, msg) => trace(
+              msg.message,
+              category: 'youtube.console',
+              data: {'level': msg.messageLevel.toString()},
+            ),
+            onReceivedError: (_, request, error) => trace(
+              'load error: ${error.description}',
+              category: 'youtube.webview',
+              data: {'url': '${request.url}', 'type': '${error.type}'},
+            ),
+            onReceivedHttpError: (_, request, response) => trace(
+              'http error: ${response.statusCode}',
+              category: 'youtube.webview',
+              data: {'url': '${request.url}'},
+            ),
+            onLoadStop: (_, url) =>
+                trace('load finished', category: 'youtube.webview', data: {'url': '$url'}),
+          ),
+        ),
+      );
+    }
+
     final url = _url;
     if (url == null) return const SizedBox.shrink();
     return Center(

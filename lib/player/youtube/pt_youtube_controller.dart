@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:synctogether/diagnostics.dart';
+import 'package:synctogether/platform.dart';
 
 enum PTYtPlayerState { unknown, unstarted, ended, playing, paused, buffering, cued }
 
@@ -41,6 +42,17 @@ class PTYouTubeController extends ChangeNotifier {
   Uri? _pageUrl;
   Uri? get pageUrl => _pageUrl;
 
+  /// Non-null on macOS Store builds where no loopback server is used.
+  /// The embed widget uses this to load the WebView via [InAppWebViewInitialData]
+  /// with [inlineDataBaseUrl] as the document origin instead of a real URL.
+  String? _initialHtml;
+  String? get initialHtml => _initialHtml;
+
+  /// The synthetic origin used for inline-data WebViews on macOS Store builds.
+  /// Must match the `origin` parameter in the YouTube IFrame `playerVars` and
+  /// must be in the Turnstile widget's hostname allow-list.
+  static const inlineDataBaseUrl = 'http://localhost';
+
   bool _isReady = false;
   bool get isReady => _isReady;
 
@@ -60,6 +72,15 @@ class PTYouTubeController extends ChangeNotifier {
   int _volume = 100;
 
   Future<void> _serve() async {
+    if (!useLoopbackServer) {
+      // macOS Store build: no HttpServer allowed under the App Sandbox without
+      // the network.server entitlement. WKWebView on macOS correctly honours
+      // InAppWebViewInitialData.baseUrl, so serve the page as inline data.
+      _initialHtml = _pageHtml(null, _videoId);
+      _armReadyDeadline();
+      notifyListeners();
+      return;
+    }
     try {
       final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
       if (_disposed) {
@@ -210,8 +231,13 @@ class PTYouTubeController extends ChangeNotifier {
     super.dispose();
   }
 
-  String _pageHtml(int port, String videoId) =>
-      '''
+  // [port] is the loopback server's port for normal builds, or null for
+  // macOS Store builds where the HTML is served as inline data. In the
+  // inline-data case the origin is the fixed `inlineDataBaseUrl` value that
+  // matches the InAppWebViewInitialData.baseUrl set by the embed widget.
+  String _pageHtml(int? port, String videoId) {
+    final origin = port != null ? 'http://localhost:$port' : inlineDataBaseUrl;
+    return '''
 <!DOCTYPE html>
 <html>
 <head>
@@ -260,7 +286,7 @@ function onYouTubeIframeAPIReady() {
       cc_lang_pref: 'en',
       vq: 'hd1080',
       enablejsapi: 1,
-      origin: 'http://localhost:$port'
+      origin: '$origin'
     },
     events: {
       onReady: function () {
@@ -296,4 +322,5 @@ function ptLoad(id) {
 </body>
 </html>
 ''';
+  }
 }

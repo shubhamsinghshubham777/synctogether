@@ -58,6 +58,7 @@ jobs:
   summary:
     name: Store Release Summary
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     needs: [ tests, microsoft-store, mac-app-store ]
     if: always()
     steps:

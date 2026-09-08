@@ -19,6 +19,7 @@ on:
         default: false
 permissions:
   contents: read
+  pull-requests: read
 
 # Cancel previous runs when a new commit is pushed. The called workflows carry
 # their own platform-suffixed groups, so they don't collide with this one.

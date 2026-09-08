@@ -66,7 +66,7 @@ jobs:
 
       - name: Filter changed paths
         id: filter
-        uses: dorny/paths-filter@v3
+        uses: dorny/paths-filter@0e4a8c6effa4802afeda77dc8d303f8176d7dfad # v3
         with:
           filters: |
             dart:
@@ -87,6 +87,7 @@ jobs:
     name: Analyze and test
     needs: changes
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     if: >-
       (github.event_name == 'workflow_call' || github.event_name == 'workflow_dispatch' || needs.changes.outputs.dart == 'true') &&
       (github.event_name != 'push' || !startsWith(github.event.head_commit.message, 'Bump app version to '))
@@ -95,11 +96,19 @@ jobs:
         uses: actions/checkout@v6
 
       - name: Get Flutter
-        uses: subosito/flutter-action@v2
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
         with:
           # Pinned to the same version the installer workflows build with.
           flutter-version: '3.44.8'
           cache: true
+
+      - name: Cache pub dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.pub-cache/hosted
+          key: pub-${{ runner.os }}-${{ hashFiles('pubspec.lock') }}
+          restore-keys: |
+            pub-${{ runner.os }}-
 
       - name: Install dependencies
         run: flutter pub get
@@ -117,6 +126,7 @@ jobs:
     name: RPC suite (pgTAP)
     needs: changes
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     if: >-
       (github.event_name == 'workflow_call' || github.event_name == 'workflow_dispatch' || needs.changes.outputs.database == 'true') &&
       (github.event_name != 'push' || !startsWith(github.event.head_commit.message, 'Bump app version to '))
@@ -125,9 +135,9 @@ jobs:
         uses: actions/checkout@v6
 
       - name: Get the Supabase CLI
-        uses: supabase/setup-cli@v1
+        uses: supabase/setup-cli@3c2f5e2ae34c34e428e8e206e2c4d21fa2d20fbf # v2.1.1
         with:
-          version: latest
+          version: 2.20.12
 
       - name: Start the local stack
         run: supabase start

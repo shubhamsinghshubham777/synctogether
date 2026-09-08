@@ -26,6 +26,7 @@ concurrency:
 jobs:
   windows-installer:
     runs-on: windows-latest
+    timeout-minutes: 30
     outputs:
       app_version: ${{ steps.version.outputs.APP_VERSION }}
     steps:
@@ -33,7 +34,7 @@ jobs:
         uses: actions/checkout@v6
 
       - name: Get Flutter
-        uses: subosito/flutter-action@v2
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
         with:
           flutter-version: '3.44.8'
           cache: true  # Enable caching for Flutter SDK and pub dependencies
@@ -61,6 +62,14 @@ jobs:
         run: |
           VERSION=$(grep '^version:' pubspec.yaml | cut -d ' ' -f 2 | cut -d '+' -f 1)
           echo "APP_VERSION=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Cache pub dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.pub-cache/hosted
+          key: pub-${{ runner.os }}-${{ hashFiles('pubspec.lock') }}
+          restore-keys: |
+            pub-${{ runner.os }}-
 
       # `flutter clean` used to sit between two `pub get`s here, which meant the
       # first one only ever produced a .dart_tool for clean to delete. The runner
@@ -114,7 +123,7 @@ jobs:
         run: ./.github/scripts/patch-installer-script.ps1
 
       - name: Build installer
-        uses: Minionguyjpro/Inno-Setup-Action@v1.2.2
+        uses: Minionguyjpro/Inno-Setup-Action@b8e8eb5936437c243592fda645c96dfc6488c275 # v1.2.2
         with:
           path: ./build/windows/x64/installer/Release/inno-script.iss
 

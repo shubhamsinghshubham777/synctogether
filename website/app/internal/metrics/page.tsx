@@ -2,7 +2,12 @@ import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import { isAuthorizedLocalAccess } from "@/lib/admin-guard";
-import { getDashboardMetrics } from "@/lib/metrics";
+import {
+  getDashboardMetrics,
+  type DashboardMetrics,
+  type ServiceQuotaMetric,
+} from "@/lib/metrics";
+import { ProductionCredentialsError } from "@/lib/supabase/admin";
 import { GlassPanel } from "@/components/GlassPanel";
 import { InternalMetricsControls } from "./InternalMetricsControls";
 import {
@@ -22,6 +27,12 @@ import {
   Sparkles,
   Server,
   Compass,
+  Database,
+  HardDrive,
+  Video,
+  ExternalLink,
+  ShieldAlert,
+  RefreshCw,
 } from "lucide-react";
 
 export const metadata: Metadata = {
@@ -35,17 +46,172 @@ export const metadata: Metadata = {
 
 export const dynamic = "force-dynamic";
 
+function ProductionCredentialsGate({
+  error,
+}: {
+  error: { code: string; message: string; resolution: string };
+}) {
+  return (
+    <div className="relative min-h-[85vh] flex items-center justify-center p-4 sm:p-6 lg:p-8">
+      <div className="glow-blob-purple top-1/4 left-1/2 -translate-x-1/2 opacity-30" />
+      <GlassPanel glow="purple" className="max-w-2xl w-full p-8 md:p-10 border-red-500/30 space-y-6">
+        <div className="flex items-start gap-4">
+          <div className="p-3 rounded-2xl bg-red-500/10 text-red-400 border border-red-500/20 shrink-0">
+            <ShieldAlert className="w-8 h-8" />
+          </div>
+          <div className="space-y-1">
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-red-500/10 border border-red-500/20 text-xs font-mono text-red-400 font-semibold">
+              <span>DATA INTEGRITY GUARD • ACCESS DENIED</span>
+            </div>
+            <h1 className="text-2xl sm:text-3xl font-bold text-white font-[family-name:var(--font-space-grotesk)]">
+              Production Credentials Required
+            </h1>
+            <p className="text-xs text-gray-400">
+              SyncTogether Mission Control strictly operates on live production data.
+            </p>
+          </div>
+        </div>
+
+        <div className="space-y-3 text-sm text-gray-300 leading-relaxed">
+          <p>
+            This admin telemetry dashboard is strictly forbidden from displaying localhost or seed data (<code className="text-purple-300 bg-purple-950/60 px-1.5 py-0.5 rounded font-mono text-xs">127.0.0.1:54321</code>). Operating on test/seed data skews business metrics and renders service quotas meaningless.
+          </p>
+          <div className="p-4 rounded-xl bg-red-950/30 border border-red-500/20 space-y-1 font-mono text-xs">
+            <div className="text-red-400 font-bold uppercase tracking-wider">
+              Error: {error.code}
+            </div>
+            <div className="text-gray-300 leading-normal">{error.message}</div>
+          </div>
+        </div>
+
+        <div className="space-y-3 pt-2 border-t border-white/10">
+          <h2 className="text-xs font-semibold text-gray-400 font-mono uppercase tracking-wider">
+            Required Configuration
+          </h2>
+          <div className="p-4 rounded-xl bg-purple-950/40 border border-purple-500/30 space-y-2 text-xs font-mono text-gray-300">
+            <p className="text-purple-300 font-medium">{error.resolution}</p>
+            <div className="bg-black/60 p-3.5 rounded-lg text-gray-200 select-all border border-white/10 overflow-x-auto space-y-1">
+              <div className="text-gray-500"># In website/.env.local:</div>
+              <div>PROD_SUPABASE_URL=https://&lt;your-project-ref&gt;.supabase.co</div>
+              <div>PROD_SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOi...</div>
+            </div>
+            <p className="text-gray-400 text-[11px] pt-1">
+              Providing <code className="text-purple-300">PROD_SUPABASE_URL</code> targets production for telemetry without altering your local app&apos;s dev database.
+            </p>
+          </div>
+        </div>
+
+        <div className="pt-2 flex items-center justify-between border-t border-white/5">
+          <span className="text-xs text-gray-500 font-mono">SyncTogether Telemetry Guard</span>
+          <a
+            href="/admin"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-mono text-xs font-semibold transition"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+            Retry Connection
+          </a>
+        </div>
+      </GlassPanel>
+    </div>
+  );
+}
+
+function renderQuotaCard(quota: ServiceQuotaMetric, icon: React.ReactNode) {
+  const isCritical = quota.status === "critical";
+  const isWarning = quota.status === "warning";
+
+  const statusBadge = isCritical
+    ? { text: "CRITICAL", bg: "bg-red-500/10", border: "border-red-500/30", textCol: "text-red-400" }
+    : isWarning
+    ? { text: "WARNING", bg: "bg-amber-500/10", border: "border-amber-500/30", textCol: "text-amber-400" }
+    : { text: "HEALTHY", bg: "bg-emerald-500/10", border: "border-emerald-500/30", textCol: "text-emerald-400" };
+
+  const barColor = isCritical
+    ? "bg-red-500"
+    : isWarning
+    ? "bg-amber-400"
+    : "bg-gradient-to-r from-purple-500 to-emerald-400";
+
+  return (
+    <GlassPanel glow="purple" className="p-6 flex flex-col justify-between space-y-4 border-purple-500/20">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2.5">
+          <div className="p-2 rounded-xl bg-purple-500/10 border border-purple-400/20">
+            {icon}
+          </div>
+          <span className="text-xs font-mono uppercase tracking-wider text-gray-300 font-semibold">
+            {quota.name}
+          </span>
+        </div>
+        <span
+          className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase tracking-wider border ${statusBadge.bg} ${statusBadge.border} ${statusBadge.textCol}`}
+        >
+          {statusBadge.text}
+        </span>
+      </div>
+
+      <div className="space-y-2">
+        <div className="flex items-baseline justify-between">
+          <div className="flex items-baseline gap-1.5">
+            <span className="text-2xl font-extrabold text-white font-[family-name:var(--font-space-grotesk)]">
+              {quota.formattedUsed}
+            </span>
+            <span className="text-xs text-gray-400 font-mono">
+              / {quota.formattedLimit}
+            </span>
+          </div>
+          <span className={`text-sm font-bold font-mono ${statusBadge.textCol}`}>
+            {quota.percentage}%
+          </span>
+        </div>
+
+        {/* Visual Progress Bar */}
+        <div className="w-full h-2 rounded-full bg-white/10 overflow-hidden">
+          <div
+            className={`h-full rounded-full transition-all duration-500 ${barColor}`}
+            style={{ width: `${Math.min(100, quota.percentage)}%` }}
+          />
+        </div>
+      </div>
+
+      <div className="pt-3 border-t border-white/5 flex items-center justify-between text-xs font-mono text-gray-400">
+        <span>{quota.details}</span>
+      </div>
+    </GlassPanel>
+  );
+}
+
 export default async function InternalMetricsPage() {
   const reqHeaders = await headers();
   if (!isAuthorizedLocalAccess({ headers: reqHeaders })) {
     notFound();
   }
 
-  const metrics = await getDashboardMetrics();
+  let metrics: DashboardMetrics | null = null;
+  let credentialsError: { code: string; message: string; resolution: string } | null = null;
+
+  try {
+    metrics = await getDashboardMetrics();
+  } catch (err) {
+    if (err instanceof ProductionCredentialsError) {
+      credentialsError = {
+        code: err.code,
+        message: err.message,
+        resolution: err.resolution,
+      };
+    } else {
+      throw err;
+    }
+  }
+
+  if (credentialsError || !metrics) {
+    return <ProductionCredentialsGate error={credentialsError!} />;
+  }
 
   const {
     timestamp,
     health,
+    infrastructure,
     downloads,
     traffic,
     users,
@@ -70,14 +236,14 @@ export default async function InternalMetricsPage() {
               SyncTogether <span className="text-gradient-brand">Mission Control</span>
             </h1>
             <p className="text-sm text-gray-400 mt-1">
-              Real-time product analytics, direct website downloads, unique visitor sessions, and user retention.
+              Live production telemetry, service capacity quotas, and end-to-end user retention.
             </p>
           </div>
 
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#120E22]/80 border border-white/10 text-xs font-mono text-gray-300">
-              <Server className="w-3.5 h-3.5 text-emerald-400" />
-              <span>DB: {health.supabaseConnected ? "Connected" : "Disconnected"}</span>
+          <div className="flex items-center gap-3 flex-wrap">
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#120E22]/80 border border-emerald-500/30 text-xs font-mono text-emerald-300">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              <span>Target: Production ({infrastructure.dataSource.targetHost})</span>
               <span className="text-gray-500">•</span>
               <span>{health.responseTimeMs}ms</span>
             </div>
@@ -209,7 +375,75 @@ export default async function InternalMetricsPage() {
         </GlassPanel>
       </div>
 
-      {/* 2. FULL CONVERSION FUNNEL & BUSINESS CONVERSION */}
+      {/* 2. INFRASTRUCTURE, SERVICE QUOTAS & SYSTEM HEALTH */}
+      <div className="space-y-4">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2">
+              <HardDrive className="w-5 h-5 text-purple-400" />
+              <h2 className="text-xl font-bold text-white font-[family-name:var(--font-space-grotesk)]">
+                Infrastructure &amp; Service Quotas
+              </h2>
+            </div>
+            <p className="text-xs text-gray-400 mt-1">
+              Live capacity limits and utilization derived directly from production database state and media assets.
+            </p>
+          </div>
+
+          {/* Quick Launch Console Hub */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-xs text-gray-400 font-mono mr-1">Consoles:</span>
+            <a
+              href={infrastructure.consoleLinks.supabaseUsage}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-950/40 hover:bg-purple-900/40 border border-purple-500/20 text-xs font-mono text-gray-300 hover:text-white transition"
+            >
+              <Database className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Supabase Usage</span>
+              <ExternalLink className="w-3 h-3 text-gray-500" />
+            </a>
+            <a
+              href={infrastructure.consoleLinks.livekitConsole}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-950/40 hover:bg-purple-900/40 border border-purple-500/20 text-xs font-mono text-gray-300 hover:text-white transition"
+            >
+              <Video className="w-3.5 h-3.5 text-purple-400" />
+              <span>LiveKit Console</span>
+              <ExternalLink className="w-3 h-3 text-gray-500" />
+            </a>
+            <a
+              href={infrastructure.consoleLinks.cloudflareR2}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-950/40 hover:bg-purple-900/40 border border-purple-500/20 text-xs font-mono text-gray-300 hover:text-white transition"
+            >
+              <HardDrive className="w-3.5 h-3.5 text-amber-400" />
+              <span>Cloudflare R2</span>
+              <ExternalLink className="w-3 h-3 text-gray-500" />
+            </a>
+          </div>
+        </div>
+
+        {/* Quota Progress Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+          {renderQuotaCard(
+            infrastructure.services.livekit,
+            <Video className="w-5 h-5 text-purple-300" />
+          )}
+          {renderQuotaCard(
+            infrastructure.services.cloudflareR2,
+            <HardDrive className="w-5 h-5 text-amber-300" />
+          )}
+          {renderQuotaCard(
+            infrastructure.services.supabaseDatabase,
+            <Database className="w-5 h-5 text-emerald-300" />
+          )}
+        </div>
+      </div>
+
+      {/* 3. FULL CONVERSION FUNNEL & BUSINESS CONVERSION */}
       <GlassPanel className="p-8 border-purple-500/20 space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
@@ -275,7 +509,7 @@ export default async function InternalMetricsPage() {
         </div>
       </GlassPanel>
 
-      {/* 3. DOWNLOADS & PLATFORMS BREAKDOWN */}
+      {/* 4. DOWNLOADS & PLATFORMS BREAKDOWN */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Direct Website Downloads Detail */}
         <GlassPanel className="p-6 border-purple-500/20 space-y-6">
@@ -315,42 +549,30 @@ export default async function InternalMetricsPage() {
           {/* Platform Distribution Bar */}
           <div className="space-y-2">
             <div className="flex justify-between text-xs font-mono text-gray-400">
-              <span>Platform Share (Direct)</span>
-              <span>
-                macOS: {downloads.directWebsite.macos} • Windows: {downloads.directWebsite.windows}
-              </span>
+              <span>Platform Split:</span>
+              <span>macOS ({downloads.directWebsite.macos}) • Windows ({downloads.directWebsite.windows})</span>
             </div>
-            <div className="h-3 w-full bg-white/5 rounded-full overflow-hidden flex">
+            <div className="w-full h-2 rounded-full bg-white/10 overflow-hidden flex">
               <div
+                className="bg-purple-500 h-full transition-all duration-500"
                 style={{
                   width: `${
                     downloads.directWebsite.total > 0
-                      ? Math.round((downloads.directWebsite.macos / downloads.directWebsite.total) * 100)
+                      ? (downloads.directWebsite.macos / downloads.directWebsite.total) * 100
                       : 50
                   }%`,
                 }}
-                className="bg-purple-500 transition-all duration-500"
-                title={`macOS: ${downloads.directWebsite.macos}`}
               />
               <div
+                className="bg-indigo-400 h-full transition-all duration-500"
                 style={{
                   width: `${
                     downloads.directWebsite.total > 0
-                      ? Math.round((downloads.directWebsite.windows / downloads.directWebsite.total) * 100)
+                      ? (downloads.directWebsite.windows / downloads.directWebsite.total) * 100
                       : 50
                   }%`,
                 }}
-                className="bg-indigo-400 transition-all duration-500"
-                title={`Windows: ${downloads.directWebsite.windows}`}
               />
-            </div>
-            <div className="flex items-center justify-between text-[11px] font-mono text-gray-400 pt-1">
-              <span className="flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 rounded-full bg-purple-500" /> macOS (.dmg)
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 rounded-full bg-indigo-400" /> Windows (.exe)
-              </span>
             </div>
           </div>
         </GlassPanel>
@@ -359,30 +581,24 @@ export default async function InternalMetricsPage() {
         <GlassPanel className="p-6 border-purple-500/20 space-y-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Sparkles className="w-5 h-5 text-amber-300" />
+              <Share2 className="w-5 h-5 text-purple-400" />
               <h3 className="text-lg font-bold text-white font-[family-name:var(--font-space-grotesk)]">
-                GitHub Releases All-Time Stats
+                GitHub Releases Downloads
               </h3>
             </div>
-            <span className="text-xs font-mono text-gray-400">
-              {downloads.githubAllTime.releasesCount} releases tracked
+            <span className="text-xs font-mono text-indigo-300 bg-indigo-500/10 px-2.5 py-1 rounded-full border border-indigo-400/20">
+              {downloads.githubAllTime.releasesCount} Releases Published
             </span>
           </div>
 
-          <div className="grid grid-cols-3 gap-3 text-center">
-            <div className="p-3 rounded-xl bg-purple-950/30 border border-purple-500/15">
-              <div className="text-xs font-mono text-gray-400">Total Served</div>
-              <div className="text-xl font-bold text-white mt-1">
-                {downloads.githubAllTime.totalDownloads}
-              </div>
-            </div>
-            <div className="p-3 rounded-xl bg-purple-950/30 border border-purple-500/15">
+          <div className="grid grid-cols-2 gap-4 text-center">
+            <div className="p-3.5 rounded-xl bg-purple-950/30 border border-purple-500/15">
               <div className="text-xs font-mono text-gray-400">macOS DMG</div>
               <div className="text-xl font-bold text-purple-300 mt-1">
                 {downloads.githubAllTime.macDownloads}
               </div>
             </div>
-            <div className="p-3 rounded-xl bg-purple-950/30 border border-purple-500/15">
+            <div className="p-3.5 rounded-xl bg-purple-950/30 border border-purple-500/15">
               <div className="text-xs font-mono text-gray-400">Windows EXE</div>
               <div className="text-xl font-bold text-indigo-300 mt-1">
                 {downloads.githubAllTime.winDownloads}
@@ -412,7 +628,7 @@ export default async function InternalMetricsPage() {
         </GlassPanel>
       </div>
 
-      {/* 4. REAL-TIME ROOMS & PRODUCT ENGAGEMENT */}
+      {/* 5. REAL-TIME ROOMS & PRODUCT ENGAGEMENT */}
       <GlassPanel className="p-8 border-purple-500/20 space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-2">
@@ -424,43 +640,39 @@ export default async function InternalMetricsPage() {
           <div className="flex items-center gap-2 text-xs font-mono">
             <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
             <span className="text-emerald-400 font-semibold">
-              {business.rooms.liveRoomsNow} Live Room{business.rooms.liveRoomsNow === 1 ? "" : "s"} In Progress
+              Live: {business.rooms.liveRoomsNow} rooms ({business.rooms.liveParticipantsNow} participants)
             </span>
           </div>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
           <div className="p-4 rounded-xl bg-purple-950/20 border border-purple-500/15">
-            <div className="text-xs font-mono text-gray-400">Live Participants</div>
-            <div className="text-2xl font-bold text-white mt-1">
-              {business.rooms.liveParticipantsNow}
+            <div className="text-xs font-mono text-gray-400">All-Time Rooms</div>
+            <div className="text-2xl font-extrabold text-white mt-1">
+              {business.rooms.totalRoomsAllTime}
             </div>
-            <div className="text-[11px] text-gray-500 font-mono mt-0.5">currently watching</div>
+            <div className="text-[11px] text-gray-500 font-mono mt-0.5">created rooms</div>
           </div>
 
           <div className="p-4 rounded-xl bg-purple-950/20 border border-purple-500/15">
-            <div className="text-xs font-mono text-gray-400">Total Rooms (All-Time)</div>
-            <div className="text-2xl font-bold text-white mt-1">
-              {business.rooms.totalRoomsAllTime}
+            <div className="text-xs font-mono text-gray-400">Rooms (7 Days)</div>
+            <div className="text-2xl font-extrabold text-white mt-1">
+              {business.rooms.roomsLast7d}
             </div>
-            <div className="text-[11px] text-purple-300 font-mono mt-0.5">
-              +{business.rooms.roomsLast7d} in last 7d
-            </div>
+            <div className="text-[11px] text-gray-500 font-mono mt-0.5">weekly activity</div>
           </div>
 
           <div className="p-4 rounded-xl bg-purple-950/20 border border-purple-500/15">
             <div className="text-xs font-mono text-gray-400">Media Distribution</div>
-            <div className="text-base font-bold text-white mt-1">
-              YouTube: {business.rooms.mediaDistribution.youtube}
+            <div className="text-sm font-bold text-purple-300 mt-2 font-mono">
+              YT: {business.rooms.mediaDistribution.youtube} • Local: {business.rooms.mediaDistribution.local}
             </div>
-            <div className="text-[11px] text-gray-400 font-mono mt-0.5">
-              Local: {business.rooms.mediaDistribution.local} • Other: {business.rooms.mediaDistribution.none}
-            </div>
+            <div className="text-[11px] text-gray-500 font-mono mt-0.5">None: {business.rooms.mediaDistribution.none}</div>
           </div>
 
           <div className="p-4 rounded-xl bg-purple-950/20 border border-purple-500/15">
-            <div className="text-xs font-mono text-gray-400">Chat Messages Sent</div>
-            <div className="text-2xl font-bold text-white mt-1">
+            <div className="text-xs font-mono text-gray-400">Chat Messages</div>
+            <div className="text-2xl font-extrabold text-white mt-1">
               {business.rooms.totalMessagesSent}
             </div>
             <div className="text-[11px] text-gray-500 font-mono mt-0.5">lifetime messages</div>
@@ -468,7 +680,7 @@ export default async function InternalMetricsPage() {
         </div>
       </GlassPanel>
 
-      {/* 5. TRAFFIC QUALITY, REFERRERS & PAGES */}
+      {/* 6. TRAFFIC QUALITY, REFERRERS & PAGES */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Top Referrers */}
         <GlassPanel className="p-6 border-purple-500/20 space-y-4">

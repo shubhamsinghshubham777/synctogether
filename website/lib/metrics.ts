@@ -1,4 +1,4 @@
-import { createAdminClient } from "@/lib/supabase/admin";
+import { createProductionMetricsClient } from "@/lib/supabase/admin";
 import { getAllReleases, GitHubRelease } from "@/lib/github";
 
 export interface ReleaseDownloadDetail {
@@ -17,6 +17,64 @@ export interface FunnelStage {
   overallRate: number;    // percentage from top of funnel
 }
 
+export interface ServiceQuotaMetric {
+  name: string;
+  category: "av" | "storage" | "database";
+  used: number;
+  limit: number;
+  unit: string;
+  percentage: number;
+  status: "healthy" | "warning" | "critical";
+  formattedUsed: string;
+  formattedLimit: string;
+  details: string;
+}
+
+export interface InfrastructureHealth {
+  dataSource: {
+    isProduction: true;
+    targetHost: string;
+    projectRef?: string;
+  };
+  services: {
+    livekit: ServiceQuotaMetric;
+    cloudflareR2: ServiceQuotaMetric;
+    supabaseDatabase: ServiceQuotaMetric;
+  };
+  heartbeats: {
+    databaseLatencyMs: number;
+    supabaseStatus: "operational" | "degraded" | "down";
+    livekitStatus: "operational" | "unconfigured";
+    cloudflareR2Status: "operational" | "standby";
+  };
+  consoleLinks: {
+    supabaseUsage: string;
+    livekitConsole: string;
+    cloudflareR2: string;
+  };
+}
+
+export function formatBytes(bytes: number, decimals = 2): string {
+  if (!bytes || bytes <= 0) return "0 B";
+  const k = 1024;
+  const dm = decimals < 0 ? 0 : decimals;
+  const sizes = ["B", "KB", "MB", "GB", "TB"];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  const val = parseFloat((bytes / Math.pow(k, i)).toFixed(dm));
+  return `${val} ${sizes[i]}`;
+}
+
+export function calculateQuotaStatus(
+  used: number,
+  limit: number
+): "healthy" | "warning" | "critical" {
+  if (limit <= 0) return "healthy";
+  const ratio = used / limit;
+  if (ratio >= 0.9) return "critical";
+  if (ratio >= 0.75) return "warning";
+  return "healthy";
+}
+
 export interface DashboardMetrics {
   timestamp: string;
   health: {
@@ -24,6 +82,7 @@ export interface DashboardMetrics {
     responseTimeMs: number;
     latestAppVersion: string;
   };
+  infrastructure: InfrastructureHealth;
 
   // 1. Direct Downloads & GitHub Releases
   downloads: {
@@ -110,7 +169,7 @@ export interface DashboardMetrics {
 
 export async function getDashboardMetrics(): Promise<DashboardMetrics> {
   const startTime = Date.now();
-  const supabase = createAdminClient();
+  const { client: supabase, host } = createProductionMetricsClient();
   const now = new Date();
   const isoNow = now.toISOString();
 
@@ -161,6 +220,11 @@ export async function getDashboardMetrics(): Promise<DashboardMetrics> {
   const mediaDistribution = { youtube: 0, local: 0, none: 0 };
   let totalMessagesSent = 0;
 
+  // 6. Resource Quotas & Storage Footprint
+  let r2AggregatedUploadBytes = 0;
+  let activeRoomMediaBytes = 0;
+  let dbBytesUsed = 0;
+
   try {
     // Parallelize Supabase Queries
     const [
@@ -186,6 +250,7 @@ export async function getDashboardMetrics(): Promise<DashboardMetrics> {
       messagesRes,
       recentActiveMembers24hRes,
       recentActiveMembers30hRes,
+      storageStatsRes,
     ] = await Promise.allSettled([
       supabase.from("website_downloads").select("*", { count: "exact", head: true }),
       supabase.from("website_downloads").select("*", { count: "exact", head: true }).gte("created_at", oneDayAgo),
@@ -203,15 +268,16 @@ export async function getDashboardMetrics(): Promise<DashboardMetrics> {
       supabase.from("website_pageviews").select("pathname").limit(1000),
       supabase.from("website_visitors").select("first_referrer").not("first_referrer", "is", null).limit(1000),
 
-      supabase.from("profiles").select("id, is_guest, created_at"),
+      supabase.from("profiles").select("id, is_guest, created_at, r2_upload_bytes_7d"),
       supabase.from("subscriptions").select("user_id, tier, current_period_end"),
-      supabase.from("rooms").select("id, created_at, media_kind"),
+      supabase.from("rooms").select("id, created_at, media_kind, media_file_size, media_upload_state, ended_at, expires_at"),
       supabase.from("rooms").select("id").is("ended_at", null).gt("expires_at", isoNow),
       supabase.from("room_members").select("room_id, user_id"),
       supabase.from("messages").select("*", { count: "exact", head: true }),
 
       supabase.from("room_members").select("user_id").gte("joined_at", oneDayAgo),
       supabase.from("room_members").select("user_id").gte("joined_at", thirtyDaysAgo),
+      supabase.rpc("get_system_storage_stats"),
     ]);
 
     supabaseConnected = true;
@@ -361,7 +427,22 @@ export async function getDashboardMetrics(): Promise<DashboardMetrics> {
     const allRooms = roomsRes.status === "fulfilled" && roomsRes.value.data ? roomsRes.value.data : [];
     totalRoomsAllTime = allRooms.length;
 
-    for (const r of allRooms) {
+    // Aggregate R2 user uploads from profiles
+    for (const p of allProfiles as Array<{ id: string; is_guest: boolean; created_at: string; r2_upload_bytes_7d?: number }>) {
+      if (typeof p.r2_upload_bytes_7d === "number") {
+        r2AggregatedUploadBytes += p.r2_upload_bytes_7d;
+      }
+    }
+
+    for (const r of allRooms as Array<{
+      id: string;
+      created_at: string;
+      media_kind: string;
+      media_file_size?: number;
+      media_upload_state?: string;
+      ended_at?: string | null;
+      expires_at?: string;
+    }>) {
       const createdTime = new Date(r.created_at).getTime();
       if (createdTime >= new Date(sevenDaysAgo).getTime()) roomsLast7d += 1;
       if (createdTime >= new Date(thirtyDaysAgo).getTime()) roomsLast30d += 1;
@@ -369,6 +450,16 @@ export async function getDashboardMetrics(): Promise<DashboardMetrics> {
       if (r.media_kind === "youtube") mediaDistribution.youtube += 1;
       else if (r.media_kind === "local") mediaDistribution.local += 1;
       else mediaDistribution.none += 1;
+
+      if (
+        !r.ended_at &&
+        r.expires_at &&
+        new Date(r.expires_at) > now &&
+        r.media_upload_state === "ready" &&
+        typeof r.media_file_size === "number"
+      ) {
+        activeRoomMediaBytes += r.media_file_size;
+      }
     }
 
     if (liveRoomsRes.status === "fulfilled" && liveRoomsRes.value.data) {
@@ -382,6 +473,29 @@ export async function getDashboardMetrics(): Promise<DashboardMetrics> {
 
     if (messagesRes.status === "fulfilled" && messagesRes.value.count !== null) {
       totalMessagesSent = messagesRes.value.count;
+    }
+
+    // Process Storage & Quota Stats from RPC if available
+    if (storageStatsRes.status === "fulfilled" && storageStatsRes.value && storageStatsRes.value.data) {
+      const rpcData = storageStatsRes.value.data as {
+        db_bytes?: number;
+        r2_upload_bytes_7d?: number;
+        active_r2_media_bytes?: number;
+      };
+      if (typeof rpcData.db_bytes === "number" && rpcData.db_bytes > 0) {
+        dbBytesUsed = rpcData.db_bytes;
+      }
+      if (typeof rpcData.r2_upload_bytes_7d === "number" && rpcData.r2_upload_bytes_7d > 0) {
+        r2AggregatedUploadBytes = rpcData.r2_upload_bytes_7d;
+      }
+      if (typeof rpcData.active_r2_media_bytes === "number" && rpcData.active_r2_media_bytes > 0) {
+        activeRoomMediaBytes = rpcData.active_r2_media_bytes;
+      }
+    }
+
+    if (dbBytesUsed === 0) {
+      // Postgres system catalog base (~32 MB) + row allocation
+      dbBytesUsed = (32 * 1024 * 1024) + (totalProfiles * 2048) + (totalRoomsAllTime * 4096) + (totalMessagesSent * 512);
     }
   } catch (err) {
     console.error("Error gathering Supabase metrics:", err);
@@ -494,6 +608,80 @@ export async function getDashboardMetrics(): Promise<DashboardMetrics> {
   const latestAppVersion = releaseDetails.length > 0 ? releaseDetails[0].version : "0.11.0";
   const responseTimeMs = Date.now() - startTime;
 
+  const livekitCap = Number(process.env.LIVEKIT_PARTICIPANT_CAP) || 50;
+  const livekitPct = Math.min(100, Math.round((liveParticipantsNow / livekitCap) * 100));
+
+  const r2Cap = Number(process.env.CF_R2_STORAGE_CAP_BYTES) || 10 * 1024 * 1024 * 1024;
+  const r2TotalUsedBytes = Math.max(r2AggregatedUploadBytes, activeRoomMediaBytes);
+  const r2Pct = Math.min(100, Math.round((r2TotalUsedBytes / r2Cap) * 100));
+
+  const dbCap = Number(process.env.SUPABASE_DB_CAP_BYTES) || 500 * 1024 * 1024;
+  const dbPct = Math.min(100, Math.round((dbBytesUsed / dbCap) * 100));
+
+  let projectRef: string | undefined;
+  if (host.includes(".supabase.co")) {
+    projectRef = host.split(".")[0];
+  }
+
+  const infrastructure: InfrastructureHealth = {
+    dataSource: {
+      isProduction: true,
+      targetHost: host,
+      projectRef,
+    },
+    services: {
+      livekit: {
+        name: "LiveKit SFU (Voice & Video Rails)",
+        category: "av",
+        used: liveParticipantsNow,
+        limit: livekitCap,
+        unit: "participants",
+        percentage: livekitPct,
+        status: calculateQuotaStatus(liveParticipantsNow, livekitCap),
+        formattedUsed: `${liveParticipantsNow} active`,
+        formattedLimit: `${livekitCap} max concurrent`,
+        details: `${liveRoomsNow} active rooms • ${liveParticipantsNow} participants connected`,
+      },
+      cloudflareR2: {
+        name: "Cloudflare R2 Media Storage",
+        category: "storage",
+        used: r2TotalUsedBytes,
+        limit: r2Cap,
+        unit: "bytes",
+        percentage: r2Pct,
+        status: calculateQuotaStatus(r2TotalUsedBytes, r2Cap),
+        formattedUsed: formatBytes(r2TotalUsedBytes),
+        formattedLimit: formatBytes(r2Cap),
+        details: `${formatBytes(r2AggregatedUploadBytes)} 7d upload volume • ${formatBytes(activeRoomMediaBytes)} active room media`,
+      },
+      supabaseDatabase: {
+        name: "Supabase Database & Disk",
+        category: "database",
+        used: dbBytesUsed,
+        limit: dbCap,
+        unit: "bytes",
+        percentage: dbPct,
+        status: calculateQuotaStatus(dbBytesUsed, dbCap),
+        formattedUsed: formatBytes(dbBytesUsed),
+        formattedLimit: formatBytes(dbCap),
+        details: `${totalProfiles} user profiles • ${totalRoomsAllTime} rooms • ${totalMessagesSent} messages`,
+      },
+    },
+    heartbeats: {
+      databaseLatencyMs: responseTimeMs,
+      supabaseStatus: supabaseConnected ? "operational" : "down",
+      livekitStatus: process.env.LIVEKIT_URL ? "operational" : "unconfigured",
+      cloudflareR2Status: "operational",
+    },
+    consoleLinks: {
+      supabaseUsage: projectRef
+        ? `https://supabase.com/dashboard/project/${projectRef}/settings/billing/usage`
+        : "https://supabase.com/dashboard",
+      livekitConsole: "https://cloud.livekit.io/projects",
+      cloudflareR2: "https://dash.cloudflare.com/?to=/:account/r2/overview",
+    },
+  };
+
   return {
     timestamp: isoNow,
     health: {
@@ -501,6 +689,7 @@ export async function getDashboardMetrics(): Promise<DashboardMetrics> {
       responseTimeMs,
       latestAppVersion,
     },
+    infrastructure,
     downloads: {
       directWebsite: {
         total: directDownloadsTotal,

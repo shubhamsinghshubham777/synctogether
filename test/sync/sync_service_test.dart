@@ -1348,4 +1348,154 @@ void main() {
       });
     });
   });
+
+  group('catch-up protocol', () {
+    test('requestCatchUp broadcasts catch_up_request when other members present', () {
+      fakeAsync((async) {
+        final h = _Harness()..connect();
+        async.flushMicrotasks();
+        h.channel.sent.clear();
+
+        // Deliver presence state with another member
+        h.channel.syncPresence([
+          presenceEntry(_me, role: 'member'),
+          presenceEntry(_other, role: 'host'),
+        ]);
+        async.flushMicrotasks();
+
+        h.service.requestCatchUp();
+        async.flushMicrotasks();
+
+        expect(h.channel.hasSent(SyncEventType.catchUpRequest), isTrue);
+        final sent = h.channel.sent.firstWhere((m) => m.event == SyncEventType.catchUpRequest);
+        expect(sent.payload['senderId'], _me);
+
+        h.dispose();
+      });
+    });
+
+    test('requestCatchUp skips broadcast when alone in the room', () {
+      fakeAsync((async) {
+        final h = _Harness()..connect();
+        async.flushMicrotasks();
+        h.channel.sent.clear();
+
+        h.channel.syncPresence([presenceEntry(_me, role: 'host')]);
+        async.flushMicrotasks();
+
+        h.service.requestCatchUp();
+        async.flushMicrotasks();
+
+        expect(h.channel.hasSent(SyncEventType.catchUpRequest), isFalse);
+
+        h.dispose();
+      });
+    });
+
+    test('elected authority answers catch_up_request with position and playing state', () {
+      fakeAsync((async) {
+        final h = _Harness(userId: _me, role: 'host')..connect();
+        h.service.currentPosition = () => const Duration(seconds: 42);
+        h.service.isPlaying = () => true;
+
+        async.flushMicrotasks();
+        h.channel.sent.clear();
+
+        // Presence with host (me) and member (other)
+        h.channel.syncPresence([
+          presenceEntry(_me, role: 'host'),
+          presenceEntry(_other, role: 'member'),
+        ]);
+        async.flushMicrotasks();
+
+        // Other sends catch_up_request
+        h.channel.deliver(SyncEventType.catchUpRequest, {'senderId': _other, 'timestamp': 100});
+        async.flushMicrotasks();
+
+        expect(h.channel.hasSent(SyncEventType.catchUpResponse), isTrue);
+        final sent = h.channel.sent.firstWhere((m) => m.event == SyncEventType.catchUpResponse);
+        expect(sent.payload['senderId'], _me);
+        expect(sent.payload['targetUserId'], _other);
+        expect(sent.payload['positionMs'], 42000);
+        expect(sent.payload['playing'], isTrue);
+
+        h.dispose();
+      });
+    });
+
+    test('non-authority does not answer catch_up_request', () {
+      fakeAsync((async) {
+        // me is a member, 'host_user' is host
+        final h = _Harness(userId: _me, role: 'member')..connect();
+        h.service.currentPosition = () => const Duration(seconds: 10);
+        h.service.isPlaying = () => true;
+
+        async.flushMicrotasks();
+        h.channel.sent.clear();
+
+        h.channel.syncPresence([
+          presenceEntry(_me, role: 'member'),
+          presenceEntry('host_user', role: 'host'),
+          presenceEntry(_other, role: 'member'),
+        ]);
+        async.flushMicrotasks();
+
+        h.channel.deliver(SyncEventType.catchUpRequest, {'senderId': _other, 'timestamp': 100});
+        async.flushMicrotasks();
+
+        expect(h.channel.hasSent(SyncEventType.catchUpResponse), isFalse);
+
+        h.dispose();
+      });
+    });
+
+    test('catch_up_response targeted to me updates roomPlaying and emits on stream', () {
+      fakeAsync((async) {
+        final h = _Harness()..connect();
+        CatchUpResponseEvent? received;
+        h.service.catchUpStream.listen((e) => received = e);
+        async.flushMicrotasks();
+
+        // Deliver response targeted to me
+        h.channel.deliver(SyncEventType.catchUpResponse, {
+          'senderId': _other,
+          'targetUserId': _me,
+          'timestamp': 101,
+          'positionMs': 35000,
+          'playing': true,
+        });
+        async.flushMicrotasks();
+
+        expect(received, isNotNull);
+        expect(received!.positionMs, 35000);
+        expect(received!.playing, isTrue);
+        expect(h.service.roomPlaying, isTrue);
+
+        h.dispose();
+      });
+    });
+
+    test('catch_up_response targeted to another member is ignored', () {
+      fakeAsync((async) {
+        final h = _Harness()..connect();
+        CatchUpResponseEvent? received;
+        h.service.catchUpStream.listen((e) => received = e);
+        async.flushMicrotasks();
+
+        // Deliver response targeted to someone else
+        h.channel.deliver(SyncEventType.catchUpResponse, {
+          'senderId': _other,
+          'targetUserId': 'someone_else',
+          'timestamp': 101,
+          'positionMs': 35000,
+          'playing': true,
+        });
+        async.flushMicrotasks();
+
+        expect(received, isNull);
+
+        h.dispose();
+      });
+    });
+  });
 }

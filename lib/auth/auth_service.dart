@@ -3,11 +3,16 @@ import 'dart:convert';
 
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter_inappwebview/flutter_inappwebview.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:synctogether/analytics.dart';
 import 'package:synctogether/diagnostics.dart';
 import 'package:synctogether/env.dart';
+import 'package:synctogether/profile/entitlement_service.dart';
+import 'package:synctogether/rooms/local_media_store.dart';
+import 'package:synctogether/rooms/media_sharing_cache.dart';
 
 /// Thin wrapper over Supabase auth. Session persistence and token refresh are
 /// handled by supabase_flutter; this only exposes the state the app reacts to.
@@ -67,6 +72,8 @@ class AuthService {
     if (state.event == AuthChangeEvent.signedOut) {
       _identifiedUserId = null;
       _wasAnonymous = false;
+      Analytics.instance.reset();
+      EntitlementService.instance.clear();
       return;
     }
     final user = state.session?.user;
@@ -284,11 +291,50 @@ class AuthService {
       // A revoked/expired session still means "signed out" locally.
       trace('sign-out fell back to a local sign-out', category: 'auth', data: {'error': e.message});
       await _client.auth.signOut(scope: SignOutScope.local);
+    } finally {
+      EntitlementService.instance.clear();
+      Analytics.instance.reset();
+      try {
+        await CookieManager.instance().deleteAllCookies();
+      } catch (e, s) {
+        reportNonFatal(e, s, during: 'clearing webview cookies on sign-out');
+      }
+      try {
+        await LocalMediaStore.instance.clearAllUploadSessions();
+      } catch (e, s) {
+        reportNonFatal(e, s, during: 'clearing upload sessions on sign-out');
+      }
     }
   }
 
   Future<void> deleteAccount() async {
-    await _client.rpc('delete_account');
-    await _client.auth.signOut(scope: SignOutScope.local);
+    try {
+      await _client.rpc('delete_account');
+    } finally {
+      await _client.auth.signOut(scope: SignOutScope.local);
+      EntitlementService.instance.clear();
+      Analytics.instance.reset();
+      try {
+        await CookieManager.instance().deleteAllCookies();
+      } catch (e, s) {
+        reportNonFatal(e, s, during: 'clearing webview cookies on delete account');
+      }
+      try {
+        await MediaSharingCache().clearAll();
+      } catch (e, s) {
+        reportNonFatal(e, s, during: 'wiping media cache on delete account');
+      }
+      try {
+        await LocalMediaStore.instance.clearAll();
+      } catch (e, s) {
+        reportNonFatal(e, s, during: 'wiping local media store on delete account');
+      }
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.remove('pt.media_sharing.remember_choice');
+      } catch (e, s) {
+        reportNonFatal(e, s, during: 'clearing remember choice preference on delete account');
+      }
+    }
   }
 }

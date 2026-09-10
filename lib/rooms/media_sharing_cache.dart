@@ -219,4 +219,22 @@ class MediaSharingCache {
       }
     }
   }
+
+  /// Wipes all cached media and temporary files from the local disk cache
+  /// upon account deletion.
+  Future<void> clearAll() async {
+    final dir = await cacheDirectory;
+    if (!await dir.exists()) return;
+
+    final entries = dir.listSync();
+    for (final entity in entries) {
+      try {
+        if (entity is File) {
+          await entity.delete();
+        } else if (entity is Directory) {
+          await entity.delete(recursive: true);
+        }
+      } catch (_) {}
+    }
+  }
 }

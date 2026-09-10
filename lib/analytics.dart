@@ -51,6 +51,16 @@ class Analytics {
     _stopTimer();
   }
 
+  /// Clears queued events and resets the distinct identity to a fresh anonymous
+  /// ID upon sign-out or account deletion, preventing telemetry bleed across sessions.
+  void reset() {
+    _distinctId = const Uuid().v4();
+    _distinctIdIsAnonymous = true;
+    _context = const {};
+    _queue.clear();
+    _stopTimer();
+  }
+
   void init({
     required String? apiKey,
     String? host,

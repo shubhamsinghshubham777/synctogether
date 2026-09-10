@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:synctogether/auth/webview_runtime.dart';
@@ -12,6 +14,43 @@ class PTYouTubeEmbed extends StatefulWidget {
   const PTYouTubeEmbed({super.key, required this.controller});
 
   final PTYouTubeController controller;
+
+  @visibleForTesting
+  static Future<NavigationActionPolicy> handleNavigationPolicy(Uri? uri) async {
+    if (uri == null) return NavigationActionPolicy.ALLOW;
+
+    final scheme = uri.scheme.toLowerCase();
+    // Allow internal browser schemes used by WebKit and the YouTube IFrame player
+    // (e.g. about:blank during player init, data: payloads, blob: media buffers).
+    if (scheme == 'about' || scheme == 'data' || scheme == 'blob' || scheme == 'javascript') {
+      return NavigationActionPolicy.ALLOW;
+    }
+
+    // Never try to launch non-http(s) URIs in the system browser.
+    if (scheme != 'http' && scheme != 'https') {
+      return NavigationActionPolicy.CANCEL;
+    }
+
+    final host = uri.host.toLowerCase();
+    // Allow loopback origin and internal YouTube player subresources
+    if (host == 'localhost' ||
+        host == '127.0.0.1' ||
+        host.endsWith('youtube.com') ||
+        host.endsWith('youtube-nocookie.com') ||
+        host.endsWith('googlevideo.com') ||
+        host.endsWith('ytimg.com')) {
+      final path = uri.path.toLowerCase();
+      if (path.startsWith('/watch') || path.startsWith('/channel') || path.startsWith('/user')) {
+        unawaited(launchUrl(uri, mode: LaunchMode.externalApplication));
+        return NavigationActionPolicy.CANCEL;
+      }
+      return NavigationActionPolicy.ALLOW;
+    }
+
+    // External sponsor or ad click: open in external browser
+    unawaited(launchUrl(uri, mode: LaunchMode.externalApplication));
+    return NavigationActionPolicy.CANCEL;
+  }
 
   @override
   State<PTYouTubeEmbed> createState() => _PTYouTubeEmbedState();
@@ -82,9 +121,11 @@ class _PTYouTubeEmbedState extends State<PTYouTubeEmbed> {
               mediaPlaybackRequiresUserGesture: false,
               allowsInlineMediaPlayback: true,
               disableContextMenu: true,
+              useShouldOverrideUrlLoading: true,
             ),
             webViewEnvironment: PTWebView.environment,
             onWebViewCreated: widget.controller.attach,
+            shouldOverrideUrlLoading: _handleShouldOverrideUrlLoading,
             onConsoleMessage: (_, msg) => trace(
               msg.message,
               category: 'youtube.console',
@@ -119,9 +160,11 @@ class _PTYouTubeEmbedState extends State<PTYouTubeEmbed> {
             mediaPlaybackRequiresUserGesture: false,
             allowsInlineMediaPlayback: true,
             disableContextMenu: true,
+            useShouldOverrideUrlLoading: true,
           ),
           webViewEnvironment: PTWebView.environment,
           onWebViewCreated: widget.controller.attach,
+          shouldOverrideUrlLoading: _handleShouldOverrideUrlLoading,
           onConsoleMessage: (_, msg) => trace(
             msg.message,
             category: 'youtube.console',
@@ -142,6 +185,13 @@ class _PTYouTubeEmbedState extends State<PTYouTubeEmbed> {
         ),
       ),
     );
+  }
+
+  Future<NavigationActionPolicy> _handleShouldOverrideUrlLoading(
+    InAppWebViewController _,
+    NavigationAction navigationAction,
+  ) {
+    return PTYouTubeEmbed.handleNavigationPolicy(navigationAction.request.url?.uriValue);
   }
 }
 

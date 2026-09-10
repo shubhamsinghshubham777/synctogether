@@ -1,5 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import {
+  validateProductionCredentials,
+  isLoopbackHost,
+} from "../lib/supabase/admin.ts";
 
 function checkLocalAccess(
   headers: Headers,
@@ -135,4 +139,107 @@ test("Business calculations: MRR, ARR, and conversion rates behave predictably",
   assert.equal(arr, 720.0);
   assert.equal(payingRate, 8.0); // 8%
   assert.equal(downloadRate, 25.0); // 25%
+});
+
+test("isLoopbackHost identifies all localhost and loopback domains", () => {
+  const loopbacks = [
+    "localhost",
+    "127.0.0.1",
+    "0.0.0.0",
+    "::1",
+    "app.localhost",
+    "service.local",
+  ];
+  for (const host of loopbacks) {
+    assert.equal(isLoopbackHost(host), true, `Expected ${host} to be recognized as loopback`);
+  }
+
+  const productionHosts = [
+    "abcdefghij.supabase.co",
+    "synctogether.com",
+    "api.synctogether.com",
+  ];
+  for (const host of productionHosts) {
+    assert.equal(isLoopbackHost(host), false, `Expected ${host} to NOT be recognized as loopback`);
+  }
+});
+
+test("validateProductionCredentials strictly denies loopback and local seed databases", () => {
+  // 1. Loopback rejected
+  const loopbackRes = validateProductionCredentials(
+    "http://127.0.0.1:54321",
+    "valid_secret_key_12345"
+  );
+  assert.equal(loopbackRes.valid, false);
+  if (!loopbackRes.valid) {
+    assert.equal(loopbackRes.code, "LOOPBACK_DETECTED");
+  }
+
+  // 2. Demo service key rejected
+  const demoKeyRes = validateProductionCredentials(
+    "https://projectref.supabase.co",
+    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU"
+  );
+  assert.equal(demoKeyRes.valid, false);
+  if (!demoKeyRes.valid) {
+    assert.equal(demoKeyRes.code, "DEMO_KEY_DETECTED");
+  }
+
+  // 3. Missing keys rejected
+  const missingRes = validateProductionCredentials("", "");
+  assert.equal(missingRes.valid, false);
+  if (!missingRes.valid) {
+    assert.equal(missingRes.code, "MISSING_CREDENTIALS");
+  }
+
+  // 4. Invalid URL rejected
+  const invalidUrlRes = validateProductionCredentials("not-a-valid-url", "some_key");
+  assert.equal(invalidUrlRes.valid, false);
+  if (!invalidUrlRes.valid) {
+    assert.equal(invalidUrlRes.code, "INVALID_URL");
+  }
+
+  // 5. Genuine production credentials accepted
+  const validRes = validateProductionCredentials(
+    "https://myprodproject.supabase.co",
+    "sb_secret_genuine_production_key_12345"
+  );
+  assert.equal(validRes.valid, true);
+  if (validRes.valid) {
+    assert.equal(validRes.host, "myprodproject.supabase.co");
+  }
+});
+
+test("Quota status calculations accurately reflect healthy, warning, and critical bands", () => {
+  function calculateQuotaStatus(used: number, limit: number): "healthy" | "warning" | "critical" {
+    if (limit <= 0) return "healthy";
+    const ratio = used / limit;
+    if (ratio >= 0.9) return "critical";
+    if (ratio >= 0.75) return "warning";
+    return "healthy";
+  }
+
+  function formatBytes(bytes: number, decimals = 2): string {
+    if (!bytes || bytes <= 0) return "0 B";
+    const k = 1024;
+    const dm = decimals < 0 ? 0 : decimals;
+    const sizes = ["B", "KB", "MB", "GB", "TB"];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    const val = parseFloat((bytes / Math.pow(k, i)).toFixed(dm));
+    return `${val} ${sizes[i]}`;
+  }
+
+  // Quota Status
+  assert.equal(calculateQuotaStatus(10, 50), "healthy"); // 20%
+  assert.equal(calculateQuotaStatus(37, 50), "healthy"); // 74%
+  assert.equal(calculateQuotaStatus(38, 50), "warning"); // 76%
+  assert.equal(calculateQuotaStatus(44, 50), "warning"); // 88%
+  assert.equal(calculateQuotaStatus(45, 50), "critical"); // 90%
+  assert.equal(calculateQuotaStatus(50, 50), "critical"); // 100%
+
+  // Byte Formatter
+  assert.equal(formatBytes(0), "0 B");
+  assert.equal(formatBytes(1024), "1 KB");
+  assert.equal(formatBytes(1048576), "1 MB");
+  assert.equal(formatBytes(10737418240), "10 GB");
 });

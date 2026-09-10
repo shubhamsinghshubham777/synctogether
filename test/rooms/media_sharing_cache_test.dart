@@ -73,5 +73,23 @@ void main() {
       expect(await oldFile.exists(), isFalse);
       expect(await freshFile.exists(), isTrue);
     });
+
+    test('clearAll wipes all files and subdirectories in cache', () async {
+      final file1 = File('${tempDir.path}/media1.mp4');
+      await file1.writeAsBytes(Uint8List.fromList([1, 2, 3]));
+      final subDir = Directory('${tempDir.path}/sub');
+      await subDir.create();
+      final file2 = File('${subDir.path}/media2.mp4');
+      await file2.writeAsBytes(Uint8List.fromList([4, 5, 6]));
+
+      expect(await file1.exists(), isTrue);
+      expect(await file2.exists(), isTrue);
+
+      await cache.clearAll();
+
+      expect(await file1.exists(), isFalse);
+      expect(await file2.exists(), isFalse);
+      expect(await subDir.exists(), isFalse);
+    });
   });
 }

@@ -189,6 +189,29 @@ class LocalMediaStore {
     await _writeSessions(entries);
   }
 
+  /// Clears all stored upload sessions from preferences upon sign-out.
+  Future<void> clearAllUploadSessions() async {
+    _uploadSessionCache = {};
+    try {
+      await (await _asyncPrefs).remove(_kUploadSessionKey);
+    } catch (e, s) {
+      reportNonFatal(e, s, during: 'clearing upload sessions');
+    }
+  }
+
+  /// Wipes all stored local media entries and upload sessions upon account deletion.
+  Future<void> clearAll() async {
+    _cache = {};
+    _uploadSessionCache = {};
+    try {
+      final prefs = await _asyncPrefs;
+      await prefs.remove(_kStoreKey);
+      await prefs.remove(_kUploadSessionKey);
+    } catch (e, s) {
+      reportNonFatal(e, s, during: 'clearing local media store');
+    }
+  }
+
   Future<LocalMediaEntry?> lookup(String roomId) async => (await _read())[roomId];
 
   Future<void> record({

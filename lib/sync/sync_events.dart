@@ -19,6 +19,8 @@ abstract class SyncEventType {
   static const String uploadProgress = 'upload_progress';
   static const String sharingToggled = 'sharing_toggled';
   static const String roomExtended = 'room_extended';
+  static const String catchUpRequest = 'catch_up_request';
+  static const String catchUpResponse = 'catch_up_response';
 }
 
 /// Why a play/pause happened. Absent means a human pressed something - the
@@ -522,5 +524,52 @@ class RoomExtendedEvent extends SyncEvent {
     'timestamp': timestamp,
     'expiresAt': expiresAt,
     'durationMinutes': durationMinutes,
+  };
+}
+
+class CatchUpRequestEvent extends SyncEvent {
+  const CatchUpRequestEvent({required super.senderId, required super.timestamp});
+
+  factory CatchUpRequestEvent.fromPayload(Map<String, dynamic> payload) {
+    return CatchUpRequestEvent(
+      senderId: payload['senderId'] as String? ?? '',
+      timestamp: payload['timestamp'] as int? ?? 0,
+    );
+  }
+
+  @override
+  Map<String, dynamic> toPayload() => {'senderId': senderId, 'timestamp': timestamp};
+}
+
+class CatchUpResponseEvent extends SyncEvent {
+  final String targetUserId;
+  final int positionMs;
+  final bool playing;
+
+  const CatchUpResponseEvent({
+    required super.senderId,
+    required super.timestamp,
+    required this.targetUserId,
+    required this.positionMs,
+    required this.playing,
+  });
+
+  factory CatchUpResponseEvent.fromPayload(Map<String, dynamic> payload) {
+    return CatchUpResponseEvent(
+      senderId: payload['senderId'] as String? ?? '',
+      timestamp: payload['timestamp'] as int? ?? 0,
+      targetUserId: payload['targetUserId'] as String? ?? '',
+      positionMs: (payload['positionMs'] as num?)?.toInt() ?? 0,
+      playing: payload['playing'] as bool? ?? false,
+    );
+  }
+
+  @override
+  Map<String, dynamic> toPayload() => {
+    'senderId': senderId,
+    'timestamp': timestamp,
+    'targetUserId': targetUserId,
+    'positionMs': positionMs,
+    'playing': playing,
   };
 }

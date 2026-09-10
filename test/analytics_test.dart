@@ -325,6 +325,23 @@ void main() {
       });
     });
   });
+
+  group('reset', () {
+    test('wipes queue and rotates distinct ID to new anonymous UUID', () {
+      final transport = _RecordingTransport();
+      final analytics = _configured(transport);
+
+      expect(analytics.distinctId, 'user-1');
+      analytics.track('user_action');
+      expect(analytics.queuedCount, 1);
+
+      analytics.reset();
+
+      expect(analytics.queuedCount, 0);
+      expect(analytics.distinctId, isNot('user-1'));
+      expect(analytics.distinctId, isNotNull);
+    });
+  });
 }
 
 class SocketExceptionStub implements Exception {

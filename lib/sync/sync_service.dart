@@ -205,6 +205,11 @@ class SyncService {
   /// false while resubscribing after a drop ("Reconnecting…" banner).
   Stream<bool> get connectionStream => _connectionController.stream;
 
+  final _catchUpController = StreamController<CatchUpResponseEvent>.broadcast();
+
+  /// Catch-up response stream for room position realignment.
+  Stream<CatchUpResponseEvent> get catchUpStream => _catchUpController.stream;
+
   // Dual-player routing: set by the room screen; media_kit fallback otherwise.
   void Function()? onRemotePlay;
   void Function()? onRemotePause;
@@ -280,6 +285,8 @@ class SyncService {
     on(SyncEventType.uploadProgress, _handleUploadProgress);
     on(SyncEventType.sharingToggled, _handleSharingToggled);
     on(SyncEventType.roomExtended, _handleRoomExtended);
+    on(SyncEventType.catchUpRequest, _handleCatchUpRequest);
+    on(SyncEventType.catchUpResponse, _handleCatchUpResponse);
 
     channel.onPresenceSync(_handlePresenceSync).subscribe((status, error) {
       // Statuses from a superseded channel (reconnect replaced it) are stale.
@@ -1205,6 +1212,69 @@ class SyncService {
   }
 
   // ---------------------------------------------------------------------------
+  // Room Catch-Up (e.g. after ad interruption or desync)
+  // ---------------------------------------------------------------------------
+
+  Future<void> requestCatchUp() async {
+    if (_disposed || _channel == null) return;
+    if (_hasPresenceSynced && _presentMembers.every((m) => m.userId == userId)) {
+      trace('skipped catch up request: alone in room', category: 'sync');
+      return;
+    }
+    trace('requesting catch up', category: 'sync', data: {'room_id': room.id});
+    await _channel?.sendBroadcastMessage(
+      event: SyncEventType.catchUpRequest,
+      payload: CatchUpRequestEvent(senderId: userId, timestamp: _nextTimestamp()).toPayload(),
+    );
+  }
+
+  void _handleCatchUpRequest(Map<String, dynamic> payload) {
+    if (_disposed) return;
+    final requesterId = payload['senderId'] as String?;
+    if (requesterId == null || requesterId == userId) return;
+
+    final responder = logic.authorityAmong(
+      _authorityCandidates.where((m) => m.userId != requesterId),
+    );
+    if (responder != userId) return;
+
+    final pos = currentPosition?.call() ?? _player.position;
+    final playing = isPlaying?.call() ?? _player.playing;
+
+    trace(
+      'answering catch up request',
+      category: 'sync',
+      data: {'requester': requesterId, 'position_ms': pos.inMilliseconds, 'playing': playing},
+    );
+
+    _channel?.sendBroadcastMessage(
+      event: SyncEventType.catchUpResponse,
+      payload: CatchUpResponseEvent(
+        senderId: userId,
+        targetUserId: requesterId,
+        timestamp: _nextTimestamp(),
+        positionMs: pos.inMilliseconds,
+        playing: playing,
+      ).toPayload(),
+    );
+  }
+
+  void _handleCatchUpResponse(Map<String, dynamic> payload) {
+    if (_disposed) return;
+    final event = CatchUpResponseEvent.fromPayload(payload);
+    if (event.targetUserId != userId) return;
+
+    trace(
+      'received catch up response',
+      category: 'sync',
+      data: {'from': event.senderId, 'position_ms': event.positionMs, 'playing': event.playing},
+    );
+
+    _roomPlaying = event.playing;
+    _catchUpController.add(event);
+  }
+
+  // ---------------------------------------------------------------------------
   // Drift correction (host heartbeat every 10 s while playing)
   // ---------------------------------------------------------------------------
 
@@ -1392,6 +1462,7 @@ class SyncService {
     _uploadProgressController.close();
     _sharingToggledController.close();
     _roomExtendedController.close();
+    _catchUpController.close();
     disconnect();
   }
 }

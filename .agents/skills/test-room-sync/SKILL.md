@@ -21,7 +21,7 @@ Testing real-time synchronization between two participants on a single Mac requi
    ```bash
    ./scripts/run-instance-b.sh
    ```
-   This script clones the debug `.app` bundle under a secondary bundle ID (`app.synctogether.b`) to ensure an isolated Supabase session, strips restricted entitlements that would cause ad-hoc AMFI spawn failures, and launches Instance B. Pass `--build` to force a debug rebuild first if needed.
+   This script clones the debug `.app` bundle under a secondary bundle ID (`app.synctogether.b`) to ensure an isolated Supabase session, strips restricted entitlements that would cause ad-hoc AMFI spawn failures, and launches Instance B. Pass `--build` to force a debug rebuild first if needed, or `--dart-define-from-file=.env` to rebuild with compile-time environment variables.
 
 3. **Verify Sync Interactions**:
    - Copy the 6-character room code or invite URL from Instance A and join from Instance B.

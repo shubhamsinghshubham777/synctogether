@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:synctogether/platform.dart';
@@ -30,6 +31,7 @@ class ShortcutsDialog extends StatelessWidget {
       if (facecams) const _Shortcut(['V'], 'Show or hide the facecams'),
       if (isDesktop) const _Shortcut(['F'], 'Enter or exit fullscreen'),
       const _Shortcut(['F1'], 'Privacy mode - black out the room, mute mic and cam'),
+      if (kDebugMode) const _Shortcut(['F2'], 'Debug: Simulate / toggle YouTube ad'),
       const _Shortcut(['Esc'], 'Close the reaction strip, then chat, then fullscreen'),
     ];
 

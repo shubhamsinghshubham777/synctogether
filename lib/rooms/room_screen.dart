@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:fast_file_picker/fast_file_picker.dart';
 import 'package:file_selector/file_selector.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
@@ -97,6 +98,9 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
   String? _youtubeUrl;
   PTYouTubeController? _youtubeController;
   bool _youtubeWasPlaying = false;
+  bool _youtubeWasAdPlaying = false;
+  bool _isCatchingUp = false;
+  Timer? _catchUpTimeoutTimer;
   // YT sync uses an *intent* model: iframe state transitions land 200-500 ms
   // after commands, far outside SyncService's 100 ms settle window.
   // `_ytIntendedPlaying` is the agreed play state; the player listener only
@@ -479,6 +483,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
       sync.typingStream.listen((names) => setState(() => _typingNames = names)),
       sync.presenceStream.listen(_onPresenceChanged),
       sync.remoteActions.listen(_onRemoteAction),
+      sync.catchUpStream.listen(_onCatchUpResponse),
       sync.modeSwitchStream.listen(_onRemoteModeSwitch),
       sync.canonicalMediaStream.listen(_onCanonicalMedia),
       sync.uploadProgressStream.listen((event) {
@@ -640,6 +645,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     _actionToastTimer?.cancel();
     _skipFlashTimer?.cancel();
     _ytBufferFallbackTimer?.cancel();
+    _catchUpTimeoutTimer?.cancel();
     _localLoadWatchdog?.cancel();
     for (final t in _overlayChatTimers) {
       t.cancel();
@@ -827,7 +833,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
   void _remotePlay() {
     if (_mode == .youtube) {
       _ytIntendedPlaying = true;
-      if (!_ytReady) {
+      if (!_ytReady || (_youtubeController?.isAdPlaying ?? false)) {
         _pendingYtPlay = true;
         return;
       }
@@ -840,7 +846,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
   void _remotePause() {
     if (_mode == .youtube) {
       _ytIntendedPlaying = false;
-      if (!_ytReady) {
+      if (!_ytReady || (_youtubeController?.isAdPlaying ?? false)) {
         _pendingYtPlay = false;
         return;
       }
@@ -852,7 +858,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
 
   void _remoteSeek(Duration position) {
     if (_mode == .youtube) {
-      if (!_ytReady) {
+      if (!_ytReady || (_youtubeController?.isAdPlaying ?? false)) {
         _pendingYtSeek = position;
         return;
       }
@@ -877,7 +883,9 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
   void _remoteDriftCorrect(Duration position) {
     if (_mode == .youtube) {
       // No pause: drift correction only fires while both sides are playing.
-      if (_ytReady) _youtubeController?.seekTo(position);
+      if (_ytReady && !(_youtubeController?.isAdPlaying ?? false)) {
+        _youtubeController?.seekTo(position);
+      }
     } else {
       widget.player.seek(position);
     }
@@ -1034,11 +1042,15 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     _playbackTracked = false;
     _ytBufferFallbackTimer?.cancel();
     _ytBufferFallbackTimer = null;
+    _catchUpTimeoutTimer?.cancel();
+    _catchUpTimeoutTimer = null;
+    _isCatchingUp = false;
     _ytBufferReady = false;
     setState(() {
       _mode = .local;
       _youtubeUrl = null;
       _youtubeWasPlaying = false;
+      _youtubeWasAdPlaying = false;
       _ytIntendedPlaying = false;
       _pendingYtSeek = null;
       _pendingYtPlay = null;
@@ -1074,11 +1086,20 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     });
     if (isPlaying != wasPlaying) _onPlayingChangedForControls(isPlaying);
 
+    final wasAd = _youtubeWasAdPlaying;
+    final isAd = controller.isAdPlaying;
+    _youtubeWasAdPlaying = isAd;
+
+    if (wasAd && !isAd) {
+      _handleAdEnded();
+    }
+
     // Broadcast only transitions that diverge from the agreed play state -
     // those are direct iframe interactions. Everything triggered by _playPause
     // or a remote event already matches _ytIntendedPlaying, so no echo and no
     // double-broadcast, regardless of iframe latency.
-    final suppressed = DateTime.now().isBefore(_ytEventSuppressUntil);
+    // Suppress broadcasts during ads so ad playback doesn't trigger spurious room events.
+    final suppressed = DateTime.now().isBefore(_ytEventSuppressUntil) || controller.isAdPlaying;
     if (isPlaying && !_youtubeWasPlaying) {
       _youtubeWasPlaying = true;
       if (!_ytIntendedPlaying && !suppressed) {
@@ -1106,6 +1127,77 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     }
   }
 
+  void _handleAdEnded() {
+    trace('ad ended - checking room alignment', category: 'youtube');
+    // Suppress outgoing transport broadcast while realigning.
+    _ytEventSuppressUntil = DateTime.now().add(const Duration(milliseconds: 2000));
+
+    final sync = _sync;
+    final isAlone =
+        sync == null ||
+        (sync.hasPresenceSynced && sync.presentMembers.every((m) => m.userId == sync.userId));
+
+    if (isAlone) {
+      trace('alone in room after ad: resuming local playback', category: 'youtube');
+      _youtubeController?.play();
+      return;
+    }
+
+    _isCatchingUp = true;
+    _catchUpTimeoutTimer?.cancel();
+    _catchUpTimeoutTimer = Timer(const Duration(milliseconds: 1500), () {
+      if (!mounted || !_isCatchingUp) return;
+      trace('catch-up timeout: resuming local playback', category: 'youtube');
+      _isCatchingUp = false;
+      _youtubeController?.play();
+    });
+
+    sync.requestCatchUp();
+  }
+
+  void _onCatchUpResponse(CatchUpResponseEvent event) {
+    if (!mounted || !_isCatchingUp || _mode != .youtube) return;
+    _isCatchingUp = false;
+    _catchUpTimeoutTimer?.cancel();
+
+    final targetPos = Duration(milliseconds: event.positionMs);
+    final currentPos = _youtubeController?.position ?? _position;
+    final deltaMs = targetPos.inMilliseconds - currentPos.inMilliseconds;
+
+    trace(
+      'processing catch-up response',
+      category: 'youtube',
+      data: {
+        'target_ms': event.positionMs,
+        'current_ms': currentPos.inMilliseconds,
+        'delta_ms': deltaMs,
+        'playing': event.playing,
+      },
+    );
+
+    if (deltaMs > 1500) {
+      // Room has progressed forward during the ad. Catch up to room position!
+      _ytEventSuppressUntil = DateTime.now().add(const Duration(milliseconds: 2000));
+      _ytIntendedPlaying = event.playing;
+      _remoteSeek(targetPos);
+      if (event.playing) {
+        _youtubeController?.play();
+      } else {
+        _youtubeController?.pause();
+      }
+      final seconds = (deltaMs / 1000).round();
+      _snack('Ad ended • Caught up to room (+$seconds s)', kind: .info);
+    } else {
+      // Already aligned with room or room was paused/scrubbed back.
+      _ytIntendedPlaying = event.playing;
+      if (event.playing) {
+        _youtubeController?.play();
+      } else {
+        _youtubeController?.pause();
+      }
+    }
+  }
+
   String _ytErrorMessage(int code) => switch (code) {
     101 || 150 => "The owner of that video won't let it play outside YouTube. Try a different one.",
     100 => "That video is private or isn't on YouTube any more.",
@@ -1115,7 +1207,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
   /// Late joiners get the room's position/play state before the iframe can
   /// accept commands; apply the queued state on the first ready tick.
   void _flushPendingYtCommands(PTYouTubeController controller) {
-    if (!controller.isReady) return;
+    if (!controller.isReady || controller.isAdPlaying) return;
     final seek = _pendingYtSeek;
     final play = _pendingYtPlay;
     if (seek == null && play == null) return;
@@ -1811,15 +1903,20 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     }
   }
 
-  /// D6, amended: `cued` counts as ready. The IFrame API's buffered fraction
-  /// never rises for a member who hasn't pressed play, so gating on "first
-  /// buffer" sent every idle member to the 10 s fallback. Cued is the iframe's
-  /// own "video fetched, can start on command", lands a beat after onReady, and
-  /// is the YouTube equivalent of a local file being open.
+  /// Both `unstarted` (-1, initial state when player embeds with a videoId) and
+  /// `cued` (5, when cueVideoById is called) indicate the video is fetched and
+  /// ready to start playback immediately.
   void _updateYouTubeReadiness(PTYouTubeController controller) {
     if (_ytBufferReady) return;
+    // An active ad must complete before the member can be considered ready to sync.
+    if (controller.isAdPlaying) return;
     final PTYtPlayerState state = controller.playerState;
-    final loaded = state == .cued || state == .buffering || state == .playing || state == .paused;
+    final loaded =
+        state == .unstarted ||
+        state == .cued ||
+        state == .buffering ||
+        state == .playing ||
+        state == .paused;
     if (!controller.isReady || !loaded) return;
     _ytBufferFallbackTimer?.cancel();
     _ytBufferFallbackTimer = null;
@@ -1851,6 +1948,12 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     _ytBufferFallbackTimer?.cancel();
     _ytBufferFallbackTimer = Timer(const Duration(seconds: 10), () {
       if (!mounted || _ytBufferReady) return;
+      if (_youtubeController?.isAdPlaying == true) {
+        // Still in ad, do not falsely declare readiness while an ad is running;
+        // re-arm the fallback to check again.
+        _armYouTubeReadyFallback();
+        return;
+      }
       trace('youtube readiness fallback fired', category: 'youtube');
       _ytBufferReady = true;
       _updateReadiness();
@@ -2259,6 +2362,16 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
         _toggleFullscreen();
       case LogicalKeyboardKey.f1:
         _togglePrivacy();
+      case LogicalKeyboardKey.f2:
+        if (kDebugMode && _mode == .youtube && _youtubeController != null) {
+          _youtubeController!.debugToggleAdState();
+          final isAd = _youtubeController!.isAdPlaying;
+          if (isAd) {
+            _snack('Ad simulated: playback & sync paused', kind: .info);
+          }
+        } else {
+          handled = false;
+        }
       case LogicalKeyboardKey.escape:
         // Ordered: text-field unfocus (handled above) → reaction strip close →
         // chat close → fullscreen exit → let Esc bubble.
@@ -3255,12 +3368,10 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
               : Image.asset('assets/store/movie_still.jpg', fit: BoxFit.cover),
         if (_mode == .youtube && _youtubeController != null)
           // The embed is a display surface, not a control surface. Its own
-          // chrome is stripped, so the only things left to click are the big
-          // play button - which would bypass the readiness gate and the
-          // transport lock, since those are enforced in _playPause/_seek - and
-          // "Watch on YouTube", which navigates the embed away entirely. It
-          // also stops the platform view from competing for the mouse cursor.
+          // chrome is stripped, but when an ad is actively playing, allow pointer
+          // interaction so the user can click the native "Skip Ad" button.
           IgnorePointer(
+            ignoring: !(_youtubeController!.isAdPlaying),
             child: PTYouTubeEmbed(
               // Keyed on the controller so a replaced one gets a fresh webview
               // rather than leaving the old element pointed at a closed
@@ -3270,6 +3381,121 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
               controller: _youtubeController!,
             ),
           ),
+        if (_mode == .youtube && (_youtubeController?.isAdPlaying ?? false)) ...[
+          Positioned(
+            top: 24,
+            left: 24,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: const Color(0xCC1A162B),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: PTColors.white(0.15)),
+              ),
+              child: Row(
+                mainAxisSize: .min,
+                children: [
+                  const Icon(Icons.campaign_rounded, size: 16, color: Color(0xFFFFB74D)),
+                  const SizedBox(width: 6),
+                  Text(
+                    'Ad in progress — click Skip Ad when available',
+                    style: PTText.caption.copyWith(color: PTColors.white(0.9)),
+                  ),
+                  if (kDebugMode) ...[
+                    const SizedBox(width: 8),
+                    MouseRegion(
+                      cursor: SystemMouseCursors.click,
+                      child: GestureDetector(
+                        onTap: () {
+                          _youtubeController?.debugToggleAdState();
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: PTColors.white(0.12),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            'End Test Ad',
+                            style: PTText.finePrint.copyWith(
+                              color: PTColors.textAccent,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+          if (_youtubeController?.debugSimulatedAd ?? false)
+            Positioned(
+              bottom: 80,
+              right: 24,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                decoration: BoxDecoration(
+                  color: const Color(0xEE161324),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFFFFB74D).withValues(alpha: 0.5)),
+                  boxShadow: const [
+                    BoxShadow(color: Color(0x66000000), blurRadius: 16, offset: Offset(0, 4)),
+                  ],
+                ),
+                child: Row(
+                  mainAxisSize: .min,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFFB74D),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: const Text(
+                        'Ad',
+                        style: TextStyle(
+                          color: Colors.black,
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: .min,
+                      children: [
+                        Text(
+                          'Simulated Ad Playing',
+                          style: PTText.body.copyWith(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 13,
+                            color: PTColors.white(0.95),
+                          ),
+                        ),
+                        Text(
+                          'Main video paused • Sync suspended',
+                          style: PTText.caption.copyWith(fontSize: 11, color: PTColors.white(0.6)),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(width: 14),
+                    PTButton(
+                      label: 'Skip Ad',
+                      trailingIcon: Symbols.skip_next_rounded,
+                      height: 32,
+                      expand: false,
+                      onPressed: () {
+                        _youtubeController?.debugToggleAdState();
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ),
+        ],
         // Bottom scrim so glass controls always sit on something dark.
         const DecoratedBox(
           decoration: BoxDecoration(
@@ -3499,6 +3725,24 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
             tooltip: 'Keyboard shortcuts',
             onPressed: _showShortcuts,
           ),
+          if (kDebugMode && _mode == .youtube && _youtubeController != null)
+            PTIconButton(
+              icon: Symbols.campaign_rounded,
+              size: compact ? 26 : 30,
+              iconSize: compact ? 15 : 17,
+              glass: false,
+              tooltip: (_youtubeController!.isAdPlaying)
+                  ? 'Debug: End simulated ad (F2)'
+                  : 'Debug: Simulate YouTube ad (F2)',
+              color: (_youtubeController!.isAdPlaying) ? const Color(0xFFFFB74D) : null,
+              onPressed: () {
+                _youtubeController!.debugToggleAdState();
+                final isAd = _youtubeController!.isAdPlaying;
+                if (isAd) {
+                  _snack('Ad simulated: playback & sync paused', kind: .info);
+                }
+              },
+            ),
           // Urgency without layout movement - this sits right next to the
           // video, so nothing here may reflow or jitter.
           Tooltip(

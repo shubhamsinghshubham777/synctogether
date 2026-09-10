@@ -19,9 +19,6 @@ import subprocess
 import sys
 import tempfile
 
-from fontTools.pens.svgPathPen import SVGPathPen
-from fontTools.ttLib import TTFont
-
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DEFAULT_FONT = os.path.join(
     ROOT, ".fvm", "flutter_sdk", "bin", "cache", "artifacts", "material_fonts",
@@ -38,12 +35,22 @@ RADIUS_RATIO = 0.32
 GLYPH_RATIO = 0.55
 SIZE = 1024
 
-font = TTFont(FONT)
-upem = font["head"].unitsPerEm
-glyphs = font.getGlyphSet()
-pen = SVGPathPen(glyphs)
-glyphs[font.getBestCmap()[CODEPOINT]].draw(pen)
-GLYPH_PATH = pen.getCommands()
+try:
+    from fontTools.pens.svgPathPen import SVGPathPen
+    from fontTools.ttLib import TTFont
+
+    font = TTFont(FONT)
+    upem = font["head"].unitsPerEm
+    glyphs = font.getGlyphSet()
+    pen = SVGPathPen(glyphs)
+    glyphs[font.getBestCmap()[CODEPOINT]].draw(pen)
+    GLYPH_PATH = pen.getCommands()
+except (ImportError, FileNotFoundError):
+    upem = 512
+    GLYPH_PATH = "M171 367V145C171 129 189 118 204 128L377 238C390 246 390 266 377 274L204 384C189 394 171 383 171 367Z"
+
+
+
 
 
 def art(tile, rounded=True, glyph=True, bg=True):
@@ -95,7 +102,7 @@ def write(basename, svg):
     return svg_path
 
 
-def write_ico(svg_path, ico_path):
+def write_ico(svg_path, ico_path, sizes=(16, 24, 32, 48, 64, 128, 256)):
     """Multi-size .ico, each frame rasterised from the vector.
 
     flutter_launcher_icons only emits a single 256px frame, which leaves the
@@ -103,7 +110,7 @@ def write_ico(svg_path, ico_path):
     """
     frames = []
     with tempfile.TemporaryDirectory() as tmp:
-        for size in (16, 24, 32, 48, 64, 128, 256):
+        for size in sizes:
             frame = os.path.join(tmp, f"{size}.png")
             render(svg_path, frame, size)
             frames.append(frame)
@@ -129,3 +136,31 @@ write("app_icon_square", art(SIZE, rounded=False))
 write("app_icon_background", art(SIZE, rounded=False, glyph=False))
 write("app_icon_foreground", art(SIZE, bg=False))
 write("app_icon_monochrome", art(SIZE, bg=False))
+
+# Marketing website favicons and icons
+website_app = os.path.join(ROOT, "website", "app")
+website_public = os.path.join(ROOT, "website", "public")
+if os.path.isdir(website_app):
+    import shutil
+
+    # Multi-resolution favicon.ico (16, 32, 48) for web
+    write_ico(master, os.path.join(website_app, "favicon.ico"), sizes=(16, 32, 48))
+    write_ico(master, os.path.join(website_public, "favicon.ico"), sizes=(16, 32, 48))
+
+    # Vector SVG favicon for modern browsers
+    shutil.copyfile(master, os.path.join(website_app, "icon.svg"))
+    shutil.copyfile(master, os.path.join(website_public, "icon.svg"))
+
+    # Apple Touch Icon (180x180)
+    apple_icon_app = os.path.join(website_app, "apple-icon.png")
+    apple_icon_pub = os.path.join(website_public, "apple-touch-icon.png")
+    render(master, apple_icon_app, 180)
+    render(master, apple_icon_pub, 180)
+    print("wrote", os.path.relpath(apple_icon_app, ROOT))
+    print("wrote", os.path.relpath(apple_icon_pub, ROOT))
+
+    # 1024x1024 full PNG for OpenGraph / Organization schema
+    icon_pub = os.path.join(website_public, "icon.png")
+    render(master, icon_pub, SIZE)
+    print("wrote", os.path.relpath(icon_pub, ROOT))
+

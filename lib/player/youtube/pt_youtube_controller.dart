@@ -56,6 +56,10 @@ class PTYouTubeController extends ChangeNotifier {
   bool _isReady = false;
   bool get isReady => _isReady;
 
+  bool _isAdPlaying = false;
+  bool get isAdPlaying => _isAdPlaying;
+  Duration? _pendingSeekWhileAd;
+
   PTYtPlayerState _playerState = .unknown;
   PTYtPlayerState get playerState => _playerState;
 
@@ -132,6 +136,7 @@ class PTYouTubeController extends ChangeNotifier {
     web.addJavaScriptHandler(handlerName: 'ytState', callback: _onStateChange);
     web.addJavaScriptHandler(handlerName: 'ytTick', callback: _onTick);
     web.addJavaScriptHandler(handlerName: 'ytError', callback: _onError);
+    web.addJavaScriptHandler(handlerName: 'ytAdState', callback: _onAdState);
   }
 
   Map<String, dynamic> _payload(List<dynamic> args) {
@@ -144,8 +149,19 @@ class PTYouTubeController extends ChangeNotifier {
     if (_disposed) return;
     _readyDeadline?.cancel();
     _isReady = true;
-    _applySnapshot(_payload(args));
-    trace('player ready', category: 'youtube', data: {'videoId': _videoId});
+    final data = _payload(args);
+    if (data['state'] != null) {
+      _playerState = _stateFromCode(data['state'] as num?);
+    }
+    if (_playerState == .unknown) {
+      _playerState = .unstarted;
+    }
+    _applySnapshot(data);
+    trace(
+      'player ready',
+      category: 'youtube',
+      data: {'videoId': _videoId, 'state': _playerState.name, 'isAd': _isAdPlaying},
+    );
     _push('ptVolume($_volume)');
     if (_servedVideoId != null && _servedVideoId != _videoId) {
       _push("ptLoad('$_videoId')");
@@ -168,6 +184,43 @@ class PTYouTubeController extends ChangeNotifier {
     if (before != (_position, _duration)) notifyListeners();
   }
 
+  bool _debugSimulatedAd = false;
+  bool get debugSimulatedAd => _debugSimulatedAd;
+
+  void _onAdState(List<dynamic> args) {
+    if (_disposed) return;
+    final data = _payload(args);
+    // When debug simulated ad is active, prevent real iframe tick from cancelling it.
+    if (_debugSimulatedAd && data['isAd'] == false) {
+      return;
+    }
+    final isAd = data['isAd'] == true;
+    if (_isAdPlaying != isAd) {
+      _isAdPlaying = isAd;
+      trace('youtube ad state changed', category: 'youtube', data: {'isAd': isAd});
+      if (!_isAdPlaying && _pendingSeekWhileAd != null) {
+        final seek = _pendingSeekWhileAd!;
+        _pendingSeekWhileAd = null;
+        seekTo(seek);
+      }
+      notifyListeners();
+    }
+  }
+
+  /// Toggle simulated ad playback in debug builds for manual and automated testing.
+  void debugToggleAdState() {
+    assert(kDebugMode, 'debugToggleAdState must only be called in debug mode');
+    _debugSimulatedAd = !_debugSimulatedAd;
+    if (_debugSimulatedAd) {
+      pause();
+    } else {
+      play();
+    }
+    _onAdState([
+      {'isAd': _debugSimulatedAd},
+    ]);
+  }
+
   void _onError(List<dynamic> args) {
     if (_disposed) return;
     _errorCode = (_payload(args)['code'] as num?)?.toInt() ?? -1;
@@ -175,6 +228,20 @@ class PTYouTubeController extends ChangeNotifier {
   }
 
   void _applySnapshot(Map<String, dynamic> data) {
+    if (!_debugSimulatedAd) {
+      final isAd = data['isAd'] == true;
+      if (isAd != _isAdPlaying) {
+        _isAdPlaying = isAd;
+      }
+    }
+    if (data['state'] != null) {
+      _playerState = _stateFromCode(data['state'] as num?);
+    }
+    if (_isAdPlaying) {
+      // While an ad is active, the snapshot carries the ad's duration and
+      // position. Do not overwrite the main video's position or duration.
+      return;
+    }
     final seconds = (data['duration'] as num?)?.toDouble() ?? 0;
     if (seconds > 0) _duration = Duration(milliseconds: (seconds * 1000).round());
     if (DateTime.now().isBefore(_positionHoldUntil)) return;
@@ -188,6 +255,10 @@ class PTYouTubeController extends ChangeNotifier {
 
   void seekTo(Duration position) {
     if (_disposed) return;
+    if (_isAdPlaying) {
+      _pendingSeekWhileAd = position;
+      return;
+    }
     _position = position;
     _positionHoldUntil = DateTime.now().add(_kSeekPositionHold);
     _push('ptSeek(${position.inMilliseconds / 1000})');
@@ -205,8 +276,10 @@ class PTYouTubeController extends ChangeNotifier {
     _position = Duration.zero;
     _duration = Duration.zero;
     _errorCode = null;
+    _isAdPlaying = false;
+    _pendingSeekWhileAd = null;
     _playerState = .unstarted;
-    _push("ptLoad('$videoId')");
+    _push("currentVideoId = '$videoId'; ptLoad('$videoId');");
     notifyListeners();
   }
 
@@ -255,23 +328,50 @@ class PTYouTubeController extends ChangeNotifier {
 var player = null;
 var ready = false;
 var ticker = null;
+var currentVideoId = '$videoId';
+var isAd = false;
 
 function post(name, data) {
   var bridge = window.flutter_inappwebview;
   if (bridge && bridge.callHandler) { bridge.callHandler(name, data); }
 }
 
+function checkAdState() {
+  if (!player) return false;
+  try {
+    if (typeof player.getAdState === 'function' && player.getAdState() === 1) {
+      return true;
+    }
+    if (typeof player.getVideoData === 'function') {
+      var vdata = player.getVideoData();
+      if (vdata && vdata.video_id && vdata.video_id !== currentVideoId) {
+        return true;
+      }
+    }
+    var playerEl = document.getElementById('player');
+    if (playerEl && playerEl.classList && playerEl.classList.contains('ad-showing')) {
+      return true;
+    }
+  } catch (e) {}
+  return false;
+}
+
 function snapshot() {
-  if (!player || !player.getCurrentTime) { return { position: 0, duration: 0 }; }
+  if (!player || !player.getCurrentTime) {
+    return { position: 0, duration: 0, state: -1, isAd: false };
+  }
+  var adActive = checkAdState();
   return {
     position: player.getCurrentTime() || 0,
-    duration: player.getDuration() || 0
+    duration: player.getDuration() || 0,
+    state: (typeof player.getPlayerState === 'function') ? player.getPlayerState() : -1,
+    isAd: adActive
   };
 }
 
 function onYouTubeIframeAPIReady() {
   player = new YT.Player('player', {
-    host: 'https://www.youtube-nocookie.com',
+    host: 'https://www.youtube.com',
     videoId: '$videoId',
     playerVars: {
       autoplay: 0,
@@ -299,6 +399,15 @@ function onYouTubeIframeAPIReady() {
         data.state = event.data;
         post('ytState', data);
       },
+      onApiChange: function () {
+        var snap = snapshot();
+        var nowAd = snap.isAd;
+        if (nowAd !== isAd) {
+          isAd = nowAd;
+          document.body.style.pointerEvents = isAd ? 'auto' : 'none';
+          post('ytAdState', { isAd: isAd });
+        }
+      },
       onError: function (event) {
         post('ytError', { code: event.data });
       }
@@ -308,7 +417,16 @@ function onYouTubeIframeAPIReady() {
 
 function startTicker() {
   if (ticker) { return; }
-  ticker = setInterval(function () { post('ytTick', snapshot()); }, 250);
+  ticker = setInterval(function () {
+    var snap = snapshot();
+    post('ytTick', snap);
+    var nowAd = snap.isAd;
+    if (nowAd !== isAd) {
+      isAd = nowAd;
+      document.body.style.pointerEvents = isAd ? 'auto' : 'none';
+      post('ytAdState', { isAd: isAd });
+    }
+  }, 250);
 }
 
 function ptPlay() { if (ready) { player.playVideo(); } }
@@ -316,7 +434,10 @@ function ptPause() { if (ready) { player.pauseVideo(); } }
 function ptSeek(seconds) { if (ready) { player.seekTo(seconds, true); } }
 function ptVolume(level) { if (ready) { player.setVolume(level); } }
 function ptLoad(id) {
-  if (ready) { player.cueVideoById({ videoId: id, suggestedQuality: 'hd1080' }); }
+  if (ready) {
+    currentVideoId = id;
+    player.cueVideoById({ videoId: id, suggestedQuality: 'hd1080' });
+  }
 }
 </script>
 </body>

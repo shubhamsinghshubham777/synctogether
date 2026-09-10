@@ -167,6 +167,22 @@ final _cases = <String, _Case>{
     FileInfoEvent.fromPayload,
     {..._base, 'fileName', 'durationMs'},
   ),
+  'catch_up_request': _Case(
+    const CatchUpRequestEvent(senderId: 'u1', timestamp: 22),
+    CatchUpRequestEvent.fromPayload,
+    _base,
+  ),
+  'catch_up_response': _Case(
+    const CatchUpResponseEvent(
+      senderId: 'u1',
+      timestamp: 23,
+      targetUserId: 'u2',
+      positionMs: 45000,
+      playing: true,
+    ),
+    CatchUpResponseEvent.fromPayload,
+    {..._base, 'targetUserId', 'positionMs', 'playing'},
+  ),
 };
 
 void main() {
@@ -204,6 +220,8 @@ void main() {
       expect(SyncEventType.transportLock, 'transport_lock');
       expect(SyncEventType.reaction, 'reaction');
       expect(SyncEventType.roomEnded, 'room_ended');
+      expect(SyncEventType.catchUpRequest, 'catch_up_request');
+      expect(SyncEventType.catchUpResponse, 'catch_up_response');
     });
 
     test('action reasons are the strings the gate and transport stamp', () {

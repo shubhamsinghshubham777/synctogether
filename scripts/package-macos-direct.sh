@@ -131,7 +131,28 @@ echo "==> Verifying application code signature..."
 codesign --verify --deep --strict --verbose=2 "$APP_PATH"
 echo "Application signature verified successfully."
 
-# 3. Create DMG
+# 3. Notarize and Staple .app bundle (if credentials present and not skipped)
+if [ "$SKIP_NOTARIZATION" = "true" ]; then
+  echo "==> SKIP_NOTARIZATION is true. Skipping Apple Notary submission and stapling."
+elif [ -n "${APPLE_APP_SPECIFIC_PASSWORD:-}" ] && [ -n "${APPLE_ID:-}" ]; then
+  echo "==> Submitting SyncTogether.app to Apple Notary Service..."
+  APP_ZIP="$(mktemp -t synctogether_app.XXXXXX.zip)"
+  ditto -c -k --keepParent "$APP_PATH" "$APP_ZIP"
+  xcrun notarytool submit "$APP_ZIP" \
+    --apple-id "$APPLE_ID" \
+    --team-id "$APPLE_TEAM_ID" \
+    --password "$APPLE_APP_SPECIFIC_PASSWORD" \
+    --wait
+  rm -f "$APP_ZIP"
+
+  echo "==> Stapling notarization ticket to SyncTogether.app..."
+  xcrun stapler staple "$APP_PATH"
+  spctl --assess --type exec -v "$APP_PATH"
+else
+  echo "::warning::Apple notarization credentials not provided (APPLE_ID or APPLE_APP_SPECIFIC_PASSWORD unset). Skipping notarization."
+fi
+
+# 4. Create DMG
 echo "==> Packaging DMG: $DMG_PATH"
 STAGE="$(mktemp -d)"
 trap 'rm -rf "$STAGE"' EXIT
@@ -152,15 +173,13 @@ hdiutil create \
   -ov \
   "$DMG_PATH"
 
-# 4. Sign the DMG itself
+# 5. Sign the DMG itself
 echo "==> Signing DMG..."
 codesign --force --verbose --timestamp --sign "$SIGN_IDENTITY" "$DMG_PATH"
 codesign --verify --verbose=2 "$DMG_PATH"
 
-# 5. Notarize and Staple (if credentials present and not skipped)
-if [ "$SKIP_NOTARIZATION" = "true" ]; then
-  echo "==> SKIP_NOTARIZATION is true. Skipping Apple Notary submission and stapling."
-elif [ -n "${APPLE_APP_SPECIFIC_PASSWORD:-}" ] && [ -n "${APPLE_ID:-}" ]; then
+# 6. Staple notarization ticket to DMG (if credentials present and not skipped)
+if [ "$SKIP_NOTARIZATION" != "true" ] && [ -n "${APPLE_APP_SPECIFIC_PASSWORD:-}" ] && [ -n "${APPLE_ID:-}" ]; then
   echo "==> Submitting DMG to Apple Notary Service..."
   xcrun notarytool submit "$DMG_PATH" \
     --apple-id "$APPLE_ID" \
@@ -174,8 +193,6 @@ elif [ -n "${APPLE_APP_SPECIFIC_PASSWORD:-}" ] && [ -n "${APPLE_ID:-}" ]; then
   echo "==> Verifying Gatekeeper acceptance..."
   spctl --assess --type open --context context:primary-signature -v "$DMG_PATH"
   echo "DMG successfully notarized and stapled!"
-else
-  echo "::warning::Apple notarization credentials not provided (APPLE_ID or APPLE_APP_SPECIFIC_PASSWORD unset). Skipping notarization."
 fi
 
 echo "==> Completed packaging: $DMG_PATH"

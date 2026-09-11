@@ -14,6 +14,10 @@ class RoomControlBarActions {
     required this.onMicToggle,
     required this.onCamToggle,
     this.onCamLocked,
+    this.onMicDeviceSelect,
+    this.onCamDeviceSelect,
+    this.onAudioOutputSelect,
+    this.audioOutputDisabledTooltip,
     required this.onAudioTracks,
     required this.onSubtitles,
     required this.onSwitchSource,
@@ -30,6 +34,10 @@ class RoomControlBarActions {
   final ValueChanged<bool> onMicToggle;
   final ValueChanged<bool> onCamToggle;
   final VoidCallback? onCamLocked;
+  final void Function(BuildContext context)? onMicDeviceSelect;
+  final void Function(BuildContext context)? onCamDeviceSelect;
+  final void Function(BuildContext context)? onAudioOutputSelect;
+  final String? audioOutputDisabledTooltip;
   final VoidCallback? onAudioTracks;
   final VoidCallback? onSubtitles;
 
@@ -265,28 +273,38 @@ class _RoomControlBarState extends State<RoomControlBar> {
           spacing: 8,
           children: [
             if (widget.avAvailable) ...[
-              PTIconButton(
-                icon: Symbols.mic_rounded,
-                active: widget.micOn,
-                glass: false,
-                borderRadius: BorderRadius.circular(12),
-                size: 42,
-                tooltip: widget.avEnabled
-                    ? (widget.micOn ? 'Mute mic' : 'Mic on')
-                    : RoomControlBar.soloMicTooltip,
-                onPressed: widget.avEnabled ? () => actions.onMicToggle(!widget.micOn) : null,
-              ),
-              if (widget.camAvailable)
-                PTIconButton(
-                  icon: Symbols.videocam_rounded,
-                  active: widget.camOn,
+              _SplitDeviceButton(
+                height: 42,
+                onDropdown: actions.onMicDeviceSelect,
+                dropdownTooltip: 'Select microphone',
+                mainButton: PTIconButton(
+                  icon: Symbols.mic_rounded,
+                  active: widget.micOn,
                   glass: false,
                   borderRadius: BorderRadius.circular(12),
                   size: 42,
                   tooltip: widget.avEnabled
-                      ? (widget.camOn ? 'Camera off' : 'Camera on')
-                      : RoomControlBar.soloCamTooltip,
-                  onPressed: widget.avEnabled ? () => actions.onCamToggle(!widget.camOn) : null,
+                      ? (widget.micOn ? 'Mute mic' : 'Mic on')
+                      : RoomControlBar.soloMicTooltip,
+                  onPressed: widget.avEnabled ? () => actions.onMicToggle(!widget.micOn) : null,
+                ),
+              ),
+              if (widget.camAvailable)
+                _SplitDeviceButton(
+                  height: 42,
+                  onDropdown: actions.onCamDeviceSelect,
+                  dropdownTooltip: 'Select camera',
+                  mainButton: PTIconButton(
+                    icon: Symbols.videocam_rounded,
+                    active: widget.camOn,
+                    glass: false,
+                    borderRadius: BorderRadius.circular(12),
+                    size: 42,
+                    tooltip: widget.avEnabled
+                        ? (widget.camOn ? 'Camera off' : 'Camera on')
+                        : RoomControlBar.soloCamTooltip,
+                    onPressed: widget.avEnabled ? () => actions.onCamToggle(!widget.camOn) : null,
+                  ),
                 )
               else if (actions.onCamLocked != null)
                 Tooltip(
@@ -429,15 +447,24 @@ class _RoomControlBarState extends State<RoomControlBar> {
               child: Row(
                 spacing: 4,
                 children: [
-                  PTIconButton(
-                    icon: widget.volume == 0
-                        ? Symbols.volume_off_rounded
-                        : Symbols.volume_up_rounded,
-                    glass: false,
-                    size: 36,
-                    iconSize: 20,
-                    tooltip: widget.volume == 0 ? 'Unmute' : 'Mute',
-                    onPressed: actions.onToggleMute,
+                  _SplitDeviceButton(
+                    height: 36,
+                    showDropdown:
+                        actions.onAudioOutputSelect != null ||
+                        actions.audioOutputDisabledTooltip != null,
+                    onDropdown: actions.onAudioOutputSelect,
+                    dropdownTooltip: 'Select audio output',
+                    disabledDropdownTooltip: actions.audioOutputDisabledTooltip,
+                    mainButton: PTIconButton(
+                      icon: widget.volume == 0
+                          ? Symbols.volume_off_rounded
+                          : Symbols.volume_up_rounded,
+                      glass: false,
+                      size: 36,
+                      iconSize: 20,
+                      tooltip: widget.volume == 0 ? 'Unmute' : 'Mute',
+                      onPressed: actions.onToggleMute,
+                    ),
                   ),
                   SizedBox(
                     width: 110,
@@ -619,5 +646,97 @@ class _RoomControlBarState extends State<RoomControlBar> {
     final m = d.inMinutes.remainder(60).toString().padLeft(2, '0');
     final s = d.inSeconds.remainder(60).toString().padLeft(2, '0');
     return h > 0 ? '$h:$m:$s' : '$m:$s';
+  }
+}
+
+class _SplitDeviceButton extends StatelessWidget {
+  const _SplitDeviceButton({
+    required this.mainButton,
+    required this.onDropdown,
+    this.dropdownTooltip,
+    this.disabledDropdownTooltip,
+    this.height = 42,
+    this.showDropdown = true,
+  });
+
+  final Widget mainButton;
+  final void Function(BuildContext context)? onDropdown;
+  final String? dropdownTooltip;
+  final String? disabledDropdownTooltip;
+  final double height;
+  final bool showDropdown;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!showDropdown) return mainButton;
+    final isEnabled = onDropdown != null;
+    return Row(
+      mainAxisSize: .min,
+      spacing: 2,
+      children: [
+        mainButton,
+        Builder(
+          builder: (caretContext) => _CaretButton(
+            height: height,
+            tooltip: isEnabled ? dropdownTooltip : disabledDropdownTooltip,
+            onPressed: isEnabled ? () => onDropdown!(caretContext) : null,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _CaretButton extends StatefulWidget {
+  const _CaretButton({required this.height, required this.onPressed, this.tooltip});
+
+  final double height;
+  final VoidCallback? onPressed;
+  final String? tooltip;
+
+  @override
+  State<_CaretButton> createState() => _CaretButtonState();
+}
+
+class _CaretButtonState extends State<_CaretButton> {
+  bool _hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final enabled = widget.onPressed != null;
+    Widget btn = MouseRegion(
+      cursor: enabled ? SystemMouseCursors.click : MouseCursor.defer,
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: PTPressable(
+        enabled: enabled,
+        onTap: widget.onPressed,
+        child: AnimatedOpacity(
+          duration: PTMotion.functional(context, PTMotion.hover),
+          opacity: enabled ? 1.0 : 0.4,
+          child: AnimatedContainer(
+            duration: PTMotion.functional(context, PTMotion.hover),
+            width: 18,
+            height: widget.height,
+            decoration: BoxDecoration(
+              color: _hovered && enabled ? PTColors.white(0.12) : Colors.transparent,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Center(
+              child: Icon(
+                Symbols.keyboard_arrow_down_rounded,
+                size: 16,
+                color: PTColors.white(_hovered && enabled ? 0.95 : 0.6),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    if (widget.tooltip != null) {
+      btn = Tooltip(message: widget.tooltip!, child: btn);
+    }
+    return btn;
   }
 }

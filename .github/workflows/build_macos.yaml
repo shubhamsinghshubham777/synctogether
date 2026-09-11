@@ -138,6 +138,13 @@ jobs:
             --dart-define=POSTHOG_API_KEY="$POSTHOG_API_KEY" \
             --dart-define=POSTHOG_HOST="$POSTHOG_HOST"
 
+          echo "==> Verifying Avcodec.framework has PGS subtitle decoder enabled..."
+          strings "build/macos/Build/Products/Release/SyncTogether.app/Contents/Frameworks/Avcodec.framework/Versions/A/Avcodec" | grep -q "pgssub" || {
+            echo "::error::Avcodec.framework is missing the pgssub decoder!"
+            exit 1
+          }
+          echo "    Verified Avcodec includes pgssub."
+
       - name: Sign, Package, Notarize, and Staple DMG
         env:
           APPLE_ID: ${{ secrets.APPLE_ID }}
@@ -152,12 +159,15 @@ jobs:
         run: |
           set -euo pipefail
           DMG="SyncTogether-${{ steps.version.outputs.APP_VERSION }}-macOS.dmg"
-          if [ -z "${SPARKLE_ED_PRIVATE_KEY:-}" ]; then
-            echo "::error::SPARKLE_ED_PRIVATE_KEY is unset - installed copies could not verify this update."
-            exit 1
+          SIGN_UPDATE="macos/Pods/Sparkle/bin/sign_update"
+          if [ ! -f "$SIGN_UPDATE" ]; then
+            echo "==> Downloading Sparkle CLI tools for appcast signing..."
+            mkdir -p "$RUNNER_TEMP/sparkle"
+            curl -sL https://github.com/sparkle-project/Sparkle/releases/download/2.6.4/Sparkle-2.6.4.tar.xz | tar -xJ -C "$RUNNER_TEMP/sparkle"
+            SIGN_UPDATE="$RUNNER_TEMP/sparkle/bin/sign_update"
           fi
           SIGNED=$(printf '%s' "$SPARKLE_ED_PRIVATE_KEY" \
-            | macos/Pods/Sparkle/bin/sign_update --ed-key-file - "$DMG")
+            | "$SIGN_UPDATE" --ed-key-file - "$DMG")
           SIG=$(printf '%s' "$SIGNED" | sed -n 's/.*edSignature="\([^"]*\)".*/\1/p')
           LEN=$(printf '%s' "$SIGNED" | sed -n 's/.*length="\([0-9][0-9]*\)".*/\1/p')
           if [ -z "$SIG" ] || [ -z "$LEN" ]; then

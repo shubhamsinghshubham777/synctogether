@@ -12,8 +12,12 @@ import 'package:path/path.dart' as p;
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:livekit_client/livekit_client.dart' as lk;
 import 'package:synctogether/analytics.dart';
 import 'package:synctogether/auth/auth_service.dart';
+
+import 'package:synctogether/av/device_preference_service.dart';
+import 'package:synctogether/av/device_selector_popup.dart';
 import 'package:synctogether/av/livekit_service.dart';
 import 'package:synctogether/diagnostics.dart';
 import 'package:synctogether/platform.dart';
@@ -238,6 +242,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
   File? _currentLocalHostFile;
   bool _localReadyPromptDismissed = false;
   Duration? _bufferPosition;
+  StreamSubscription<List<lk.MediaDevice>>? _deviceChangeSub;
 
   GateState _gateState = GateState.indeterminate;
 
@@ -628,7 +633,69 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     if (LiveKitService.isAvailableFor(room.avLevel)) {
       final av = LiveKitService(roomId: widget.roomId, avLevel: room.avLevel);
       setState(() => _av = av);
-      av.connect().catchError((_) {});
+      av
+          .connect()
+          .then((_) {
+            if (mounted) _applyPreferredDevices();
+          })
+          .catchError((_) {});
+
+      _deviceChangeSub = DevicePreferenceService.instance.onDeviceChange.listen((_) {
+        if (mounted) _applyPreferredDevices();
+      });
+    }
+  }
+
+  Future<void> _applyPreferredDevices() async {
+    final av = _av;
+    if (av == null || !mounted) return;
+
+    final prefService = DevicePreferenceService.instance;
+    await prefService.init();
+
+    // 1. Microphone
+    final audioInputs = await av.audioInputDevices();
+    final resolvedMic = prefService.resolveDevice(audioInputs, prefService.preferredMic);
+    if (resolvedMic != null && resolvedMic.deviceId != av.selectedAudioInputId) {
+      await av.setAudioInputDevice(resolvedMic);
+    }
+
+    // 2. Camera
+    final videoInputs = await av.videoInputDevices();
+    final resolvedCam = prefService.resolveDevice(videoInputs, prefService.preferredCam);
+    if (resolvedCam != null && resolvedCam.deviceId != av.selectedVideoInputId) {
+      await av.setVideoInputDevice(resolvedCam);
+    }
+
+    // 3. Audio Output (routes to LiveKit and media_kit player in local mode)
+    final audioOutputs = await av.audioOutputDevices();
+    final resolvedOutput = prefService.resolveDevice(audioOutputs, prefService.preferredOutput);
+    if (resolvedOutput != null) {
+      if (resolvedOutput.deviceId != av.selectedAudioOutputId) {
+        await av.setAudioOutputDevice(resolvedOutput);
+      }
+      if (_mode == .local) {
+        final playerDevices = widget.player.state.audioDevices;
+        final match = playerDevices.where((d) {
+          final devDesc = d.description.trim().toLowerCase();
+          final targetLabel = resolvedOutput.label.trim().toLowerCase();
+          final devName = d.name.trim().toLowerCase();
+          final targetId = resolvedOutput.deviceId.trim().toLowerCase();
+          return (devDesc.isNotEmpty &&
+                  (devDesc == targetLabel ||
+                      targetLabel.contains(devDesc) ||
+                      devDesc.contains(targetLabel))) ||
+              (targetId.isNotEmpty && devName.contains(targetId));
+        }).firstOrNull;
+        if (match != null) {
+          unawaited(widget.player.setAudioDevice(match));
+          trace(
+            'applied default player audio device',
+            category: 'media',
+            data: {'device': match.name, 'label': resolvedOutput.label},
+          );
+        }
+      }
     }
   }
 
@@ -658,6 +725,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     _gateCurve.dispose();
     _gateAnim.dispose();
     _youtubeController?.dispose();
+    _deviceChangeSub?.cancel();
     _sync?.dispose();
     _av?.dispose();
     super.dispose();
@@ -1540,6 +1608,13 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     _bufferPosition = null;
     try {
       await widget.player.open(Media(uri), play: false);
+      unawaited(_suppressSecondarySubtitles());
+      try {
+        await (widget.player.platform as dynamic)?.setProperty('sub-auto', 'fuzzy');
+      } catch (_) {}
+      if (path != null) {
+        unawaited(_loadSidecarSubtitles(path));
+      }
     } catch (e, s) {
       reportNonFatal(e, s, during: 'opening a local video file');
       if (!mounted) return;
@@ -1567,6 +1642,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
       _localLoadWatchdog?.cancel();
       _localLoadStalled = false;
       await widget.player.open(Media(dl.streamUrl.toString()), play: false);
+      unawaited(_suppressSecondarySubtitles());
       _armLocalLoadWatchdog(fileName);
       if (seekTo != null) unawaited(_seekOnceLoaded(seekTo, fileName));
       setState(() {});
@@ -3005,30 +3081,34 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
 
   Future<void> _showTrackChooser({required bool subtitles}) async {
     final tracks = widget.player.state.tracks;
-    final values = subtitles ? tracks.subtitle : tracks.audio;
-    if (values.isEmpty) {
-      _snack(
-        subtitles ? 'No subtitle tracks in this video.' : 'No audio tracks in this video.',
-        kind: .info,
-      );
+    if (!subtitles && tracks.audio.isEmpty) {
+      _snack('No audio tracks in this video.', kind: .info);
       return;
     }
+    final subTracks = tracks.subtitle.isNotEmpty
+        ? tracks.subtitle
+        : [SubtitleTrack.no(), SubtitleTrack.auto()];
     await showGlassDialog(
       context: context,
       width: 380,
       builder: (dialogContext) => subtitles
           ? ChooserDialog<SubtitleTrack>(
               type: 'Subtitles',
-              values: values as List<SubtitleTrack>,
+              values: subTracks,
               selected: widget.player.state.track.subtitle,
               onChosen: (track) async {
                 await widget.player.setSubtitleTrack(track);
+                unawaited(_suppressSecondarySubtitles());
                 if (dialogContext.mounted) Navigator.of(dialogContext).pop();
+              },
+              onAddFromFile: () {
+                Navigator.of(dialogContext).pop();
+                unawaited(_pickExternalSubtitleFile());
               },
             )
           : ChooserDialog<AudioTrack>(
               type: 'Audio',
-              values: values as List<AudioTrack>,
+              values: tracks.audio,
               selected: widget.player.state.track.audio,
               onChosen: (track) async {
                 await widget.player.setAudioTrack(track);
@@ -3036,6 +3116,89 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
               },
             ),
     );
+  }
+
+  Future<void> _showYouTubeCaptionChooser() async {
+    final yt = _youtubeController;
+    if (yt == null) return;
+    final tracks = yt.captionTracks;
+    await showGlassDialog(
+      context: context,
+      width: 380,
+      builder: (dialogContext) => ChooserDialog<PTYouTubeCaptionTrack>(
+        type: 'Subtitles',
+        values: tracks,
+        selected: yt.selectedCaptionTrack,
+        onChosen: (track) {
+          yt.setCaptionTrack(track);
+          if (dialogContext.mounted) Navigator.of(dialogContext).pop();
+        },
+      ),
+    );
+  }
+
+  Future<void> _pickExternalSubtitleFile() async {
+    const subtitleTypes = XTypeGroup(
+      label: 'Subtitles',
+      extensions: ['srt', 'vtt', 'ass', 'ssa', 'sub'],
+    );
+    final FastFilePickerPath? response;
+    try {
+      response = await FastFilePicker.pickFile(acceptedTypeGroups: [subtitleTypes]);
+    } catch (e, s) {
+      reportNonFatal(e, s, during: 'picking external subtitle file');
+      return;
+    }
+    final uri = response?.uri ?? response?.path;
+    if (uri == null) return;
+    final name = _basename(response!);
+    try {
+      await widget.player.setSubtitleTrack(SubtitleTrack.uri(uri, title: name));
+      unawaited(_suppressSecondarySubtitles());
+      if (mounted) {
+        _snack('Loaded subtitle: $name', kind: .info);
+      }
+    } catch (e, s) {
+      reportNonFatal(e, s, during: 'loading external subtitle track');
+      if (mounted) {
+        _snack('Failed to load subtitle file.');
+      }
+    }
+  }
+
+  Future<void> _loadSidecarSubtitles(String videoPath) async {
+    try {
+      final videoFile = File(videoPath);
+      final parentDir = videoFile.parent;
+      if (!await parentDir.exists()) return;
+      final videoBase = p.basenameWithoutExtension(videoPath).toLowerCase();
+      const validExts = {'.srt', '.vtt', '.ass', '.ssa', '.sub'};
+
+      await for (final entity in parentDir.list()) {
+        if (entity is! File) continue;
+        final ext = p.extension(entity.path).toLowerCase();
+        if (!validExts.contains(ext)) continue;
+        final base = p.basenameWithoutExtension(entity.path).toLowerCase();
+        if (base == videoBase ||
+            base.startsWith('$videoBase.') ||
+            base.startsWith('$videoBase-') ||
+            base.startsWith('${videoBase}_')) {
+          trace('found sidecar subtitle', category: 'media', data: {'path': entity.path});
+          final track = SubtitleTrack.uri(entity.path, title: p.basename(entity.path));
+          await widget.player.setSubtitleTrack(track);
+          unawaited(_suppressSecondarySubtitles());
+          break;
+        }
+      }
+    } catch (e, s) {
+      reportNonFatal(e, s, during: 'scanning sidecar subtitles');
+    }
+  }
+
+  Future<void> _suppressSecondarySubtitles() async {
+    try {
+      await (widget.player.platform as dynamic)?.setProperty('secondary-sid', 'no');
+    } catch (_) {}
   }
 
   String get _countdownLabel {
@@ -3241,6 +3404,94 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     return '$hour12:$minute $ampm';
   }
 
+  void _showMicDeviceSelector(BuildContext buttonContext) {
+    final av = _av;
+    if (av == null) return;
+    final renderBox = buttonContext.findRenderObject() as RenderBox?;
+    if (renderBox == null || !renderBox.hasSize) return;
+    final anchor = renderBox.localToGlobal(Offset.zero) & renderBox.size;
+
+    showDeviceSelectorPopup(
+      context: context,
+      anchor: anchor,
+      title: 'Select Microphone',
+      icon: Symbols.mic_rounded,
+      enumerateDevices: av.audioInputDevices,
+      selectedDeviceId: av.selectedAudioInputId,
+      onDeviceSelected: (device) {
+        unawaited(av.setAudioInputDevice(device));
+        unawaited(DevicePreferenceService.instance.setPreferredMic(device));
+      },
+      onDeviceChange: av.onDeviceChange,
+    );
+  }
+
+  void _showCamDeviceSelector(BuildContext buttonContext) {
+    final av = _av;
+    if (av == null) return;
+    final renderBox = buttonContext.findRenderObject() as RenderBox?;
+    if (renderBox == null || !renderBox.hasSize) return;
+    final anchor = renderBox.localToGlobal(Offset.zero) & renderBox.size;
+
+    showDeviceSelectorPopup(
+      context: context,
+      anchor: anchor,
+      title: 'Select Camera',
+      icon: Symbols.videocam_rounded,
+      enumerateDevices: av.videoInputDevices,
+      selectedDeviceId: av.selectedVideoInputId,
+      onDeviceSelected: (device) {
+        unawaited(av.setVideoInputDevice(device));
+        unawaited(DevicePreferenceService.instance.setPreferredCam(device));
+      },
+      onDeviceChange: av.onDeviceChange,
+    );
+  }
+
+  void _showAudioOutputDeviceSelector(BuildContext buttonContext) {
+    final av = _av;
+    if (av == null) return;
+    final renderBox = buttonContext.findRenderObject() as RenderBox?;
+    if (renderBox == null || !renderBox.hasSize) return;
+    final anchor = renderBox.localToGlobal(Offset.zero) & renderBox.size;
+
+    showDeviceSelectorPopup(
+      context: context,
+      anchor: anchor,
+      title: 'Select Audio Output',
+      icon: Symbols.volume_up_rounded,
+      enumerateDevices: av.audioOutputDevices,
+      selectedDeviceId: av.selectedAudioOutputId,
+      onDeviceSelected: (device) async {
+        unawaited(av.setAudioOutputDevice(device));
+        unawaited(DevicePreferenceService.instance.setPreferredOutput(device));
+        if (_mode == .local) {
+          final playerDevices = widget.player.state.audioDevices;
+          final match = playerDevices.where((d) {
+            final devDesc = d.description.trim().toLowerCase();
+            final targetLabel = device.label.trim().toLowerCase();
+            final devName = d.name.trim().toLowerCase();
+            final targetId = device.deviceId.trim().toLowerCase();
+            return (devDesc.isNotEmpty &&
+                    (devDesc == targetLabel ||
+                        targetLabel.contains(devDesc) ||
+                        devDesc.contains(targetLabel))) ||
+                (targetId.isNotEmpty && devName.contains(targetId));
+          }).firstOrNull;
+          if (match != null) {
+            unawaited(widget.player.setAudioDevice(match));
+            trace(
+              'switched player audio device',
+              category: 'media',
+              data: {'device': match.name, 'label': device.label},
+            );
+          }
+        }
+      },
+      onDeviceChange: av.onDeviceChange,
+    );
+  }
+
   // ---------------------------------------------------------------------------
   // Build
   // ---------------------------------------------------------------------------
@@ -3254,8 +3505,20 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     onCamLocked: (_av?.canPublishCamera == false && !EntitlementService.instance.isPremium)
         ? () => context.push('/lobby/subscribe?source=camera_lock')
         : null,
+    onMicDeviceSelect: isDesktop && _av != null ? _showMicDeviceSelector : null,
+    onCamDeviceSelect: isDesktop && _av != null ? _showCamDeviceSelector : null,
+    onAudioOutputSelect: isDesktop && _mode == .local && _av != null
+        ? _showAudioOutputDeviceSelector
+        : null,
+    audioOutputDisabledTooltip: isDesktop && _mode == .youtube
+        ? 'Audio output selection is unavailable for YouTube'
+        : null,
     onAudioTracks: _mode == .local ? () => _showTrackChooser(subtitles: false) : null,
-    onSubtitles: _mode == .local ? () => _showTrackChooser(subtitles: true) : null,
+    onSubtitles: _mode == .local
+        ? () => _showTrackChooser(subtitles: true)
+        : (_mode == .youtube && _youtubeController != null)
+        ? _showYouTubeCaptionChooser
+        : null,
     // D1: only the host chooses what the room watches. Members keep a picker
     // purely to locate their own copy of the canonical file.
     onSwitchSource: (_sync?.isHost ?? false) ? _handleSwitchSource : null,

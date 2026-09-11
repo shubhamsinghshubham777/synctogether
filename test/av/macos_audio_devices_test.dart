@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:synctogether/av/macos_audio_devices.dart';
 
@@ -12,5 +14,5 @@ void main() {
     expect(outputs.any((d) => d.kind == 'audiooutput'), isTrue);
     // Real inputs like USB or Camo must have kind == 'audioinput'
     expect(inputs.every((d) => d.kind == 'audioinput'), isTrue);
-  });
+  }, skip: !Platform.isMacOS);
 }

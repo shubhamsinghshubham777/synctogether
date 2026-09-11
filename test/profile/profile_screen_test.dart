@@ -35,6 +35,8 @@ void main() {
       expect(find.text('Profile'), findsOneWidget);
       expect(find.text('Alex Smith'), findsWidgets);
       expect(find.text('alex@example.com'), findsOneWidget);
+      expect(find.text('Audio & Video'), findsOneWidget);
+      expect(find.text('Configure'), findsOneWidget);
       expect(find.text('Privacy policy'), findsOneWidget);
       expect(find.text('Terms of service'), findsOneWidget);
     });

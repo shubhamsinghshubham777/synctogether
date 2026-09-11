@@ -131,5 +131,86 @@ void main() {
 
       controller.dispose();
     });
+
+    test('receives ytCaptions and updates captionTracks and selectedCaptionTrack', () async {
+      final controller = PTYouTubeController('dQw4w9WgXcQ');
+      final fakeWeb = FakeInAppWebViewController();
+      controller.attach(fakeWeb);
+
+      expect(controller.captionTracks.length, equals(1));
+      expect(controller.captionTracks.first.isOff, isTrue);
+
+      fakeWeb.handlers['ytCaptions']!([
+        {
+          'tracks': [
+            {'languageCode': 'en', 'displayName': 'English', 'kind': 'standard'},
+            {'languageCode': 'hi', 'displayName': 'Hindi', 'kind': 'standard'},
+          ],
+          'active': {'languageCode': 'en'},
+        },
+      ]);
+
+      expect(controller.captionTracks.length, equals(3));
+      expect(controller.captionTracks[0].isOff, isTrue);
+      expect(controller.captionTracks[1].languageCode, equals('en'));
+      expect(controller.captionTracks[2].languageCode, equals('hi'));
+      expect(controller.selectedCaptionTrack?.languageCode, equals('en'));
+
+      // Set caption track to Hindi
+      controller.setCaptionTrack(controller.captionTracks[2]);
+      expect(controller.selectedCaptionTrack?.languageCode, equals('hi'));
+      expect(
+        fakeWeb.executedJs.any((js) => js.contains('ptSetCaption') && js.contains('hi')),
+        isTrue,
+      );
+
+      // Turn off captions
+      controller.setCaptionTrack(PTYouTubeCaptionTrack.off());
+      expect(controller.selectedCaptionTrack?.isOff, isTrue);
+      expect(fakeWeb.executedJs.any((js) => js.contains('ptSetCaption({})')), isTrue);
+
+      controller.dispose();
+    });
+
+    test(
+      'user explicit caption track selection is not clobbered by subsequent ytCaptions events',
+      () async {
+        final controller = PTYouTubeController('dQw4w9WgXcQ');
+        final fakeWeb = FakeInAppWebViewController();
+        controller.attach(fakeWeb);
+
+        // Initial tracks received, default English
+        fakeWeb.handlers['ytCaptions']!([
+          {
+            'tracks': [
+              {'languageCode': 'en', 'displayName': 'English', 'kind': 'standard'},
+              {'languageCode': 'ja', 'displayName': 'Japanese', 'kind': 'standard'},
+            ],
+            'active': {'languageCode': 'en'},
+          },
+        ]);
+        expect(controller.selectedCaptionTrack?.languageCode, equals('en'));
+
+        // User selects Japanese
+        controller.setCaptionTrack(controller.captionTracks[2]);
+        expect(controller.selectedCaptionTrack?.languageCode, equals('ja'));
+
+        // Stale event arrives from YouTube with active: en (e.g. onApiChange / getOption quirk)
+        fakeWeb.handlers['ytCaptions']!([
+          {
+            'tracks': [
+              {'languageCode': 'en', 'displayName': 'English', 'kind': 'standard'},
+              {'languageCode': 'ja', 'displayName': 'Japanese', 'kind': 'standard'},
+            ],
+            'active': {'languageCode': 'en'},
+          },
+        ]);
+
+        // User selection must remain Japanese!
+        expect(controller.selectedCaptionTrack?.languageCode, equals('ja'));
+
+        controller.dispose();
+      },
+    );
   });
 }

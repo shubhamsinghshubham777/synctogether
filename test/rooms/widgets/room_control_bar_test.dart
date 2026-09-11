@@ -293,5 +293,156 @@ void main() {
       expect(find.widgetWithIcon(PTIconButton, Symbols.mic_rounded), findsNothing);
       expect(find.widgetWithIcon(PTIconButton, Symbols.videocam_rounded), findsNothing);
     });
+
+    testWidgets(
+      'shows dropdown carets when device select callbacks are provided and triggers on tap',
+      (tester) async {
+        BuildContext? micContext;
+        BuildContext? camContext;
+        BuildContext? audioOutputContext;
+
+        final actions = RoomControlBarActions(
+          onPlayPause: () {},
+          onSeek: (_) {},
+          onSkip: (_) {},
+          onMicToggle: (_) {},
+          onCamToggle: (_) {},
+          onMicDeviceSelect: (ctx) => micContext = ctx,
+          onCamDeviceSelect: (ctx) => camContext = ctx,
+          onAudioOutputSelect: (ctx) => audioOutputContext = ctx,
+          onAudioTracks: () {},
+          onSubtitles: () {},
+          onSwitchSource: () {},
+          onOpenFile: () {},
+          onVolume: (_) {},
+          onToggleMute: () {},
+        );
+
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: RoomControlBar(
+                playing: false,
+                position: Duration.zero,
+                duration: const Duration(minutes: 10),
+                volume: 1.0,
+                micOn: false,
+                camOn: false,
+                avAvailable: true,
+                camAvailable: true,
+                avEnabled: true,
+                actions: actions,
+              ),
+            ),
+          ),
+        );
+
+        expect(find.byTooltip('Select microphone'), findsOneWidget);
+        expect(find.byTooltip('Select camera'), findsOneWidget);
+        expect(find.byTooltip('Select audio output'), findsOneWidget);
+
+        await tester.tap(find.byTooltip('Select microphone'));
+        await tester.pump();
+        expect(micContext, isNotNull);
+
+        await tester.tap(find.byTooltip('Select camera'));
+        await tester.pump();
+        expect(camContext, isNotNull);
+
+        await tester.tap(find.byTooltip('Select audio output'));
+        await tester.pump();
+        expect(audioOutputContext, isNotNull);
+      },
+    );
+
+    testWidgets('does not show dropdown carets when device select callbacks are null', (
+      tester,
+    ) async {
+      final actions = RoomControlBarActions(
+        onPlayPause: () {},
+        onSeek: (_) {},
+        onSkip: (_) {},
+        onMicToggle: (_) {},
+        onCamToggle: (_) {},
+        onMicDeviceSelect: null,
+        onCamDeviceSelect: null,
+        onAudioOutputSelect: null,
+        onAudioTracks: () {},
+        onSubtitles: () {},
+        onSwitchSource: () {},
+        onOpenFile: () {},
+        onVolume: (_) {},
+        onToggleMute: () {},
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: RoomControlBar(
+              playing: false,
+              position: Duration.zero,
+              duration: const Duration(minutes: 10),
+              volume: 1.0,
+              micOn: false,
+              camOn: false,
+              avAvailable: true,
+              camAvailable: true,
+              avEnabled: true,
+              actions: actions,
+            ),
+          ),
+        ),
+      );
+
+      expect(find.byTooltip('Select microphone'), findsNothing);
+      expect(find.byTooltip('Select camera'), findsNothing);
+      expect(find.byTooltip('Select audio output'), findsNothing);
+    });
+
+    testWidgets(
+      'shows disabled audio output caret with disabled tooltip when audioOutputDisabledTooltip is provided',
+      (tester) async {
+        final actions = RoomControlBarActions(
+          onPlayPause: () {},
+          onSeek: (_) {},
+          onSkip: (_) {},
+          onMicToggle: (_) {},
+          onCamToggle: (_) {},
+          onAudioOutputSelect: null,
+          audioOutputDisabledTooltip: 'Audio output selection is unavailable for YouTube',
+          onAudioTracks: () {},
+          onSubtitles: () {},
+          onSwitchSource: () {},
+          onOpenFile: () {},
+          onVolume: (_) {},
+          onToggleMute: () {},
+        );
+
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: RoomControlBar(
+                playing: false,
+                position: Duration.zero,
+                duration: const Duration(minutes: 10),
+                volume: 1.0,
+                micOn: false,
+                camOn: false,
+                avAvailable: true,
+                camAvailable: true,
+                avEnabled: true,
+                actions: actions,
+              ),
+            ),
+          ),
+        );
+
+        expect(find.byTooltip('Audio output selection is unavailable for YouTube'), findsOneWidget);
+
+        // Tapping disabled caret should not crash
+        await tester.tap(find.byTooltip('Audio output selection is unavailable for YouTube'));
+        await tester.pump();
+      },
+    );
   });
 }

@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:synctogether/analytics_consent.dart';
 import 'package:synctogether/auth/auth_service.dart';
+import 'package:synctogether/av/av_settings_dialog.dart';
 import 'package:synctogether/diagnostics.dart';
 import 'package:synctogether/platform.dart';
 import 'package:synctogether/profile/entitlement_service.dart';
@@ -271,6 +272,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 _emailField(profile),
                                 _subscriptionSection(),
                                 _mediaQuotaSection(),
+                                _audioVideoSection(),
                                 if (supportsSelfUpdate) _updatesSection(),
                                 _privacySection(),
                                 Padding(
@@ -545,6 +547,55 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  Widget _audioVideoSection() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: PTColors.white(0.04),
+        border: Border.all(color: PTColors.white(0.08)),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        spacing: 12,
+        children: [
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: PTColors.white(0.08),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Icon(Symbols.tune_rounded, size: 20, color: PTColors.textAccent),
+          ),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              spacing: 2,
+              children: [
+                Text(
+                  'Audio & Video',
+                  style: PTText.body.copyWith(fontWeight: FontWeight.w600, color: Colors.white),
+                ),
+                Text(
+                  'Microphone, camera, and speaker defaults',
+                  style: PTText.finePrint.copyWith(color: PTColors.white(0.55)),
+                ),
+              ],
+            ),
+          ),
+          PTButton(
+            label: 'Configure',
+            variant: .secondary,
+            icon: Symbols.arrow_forward_rounded,
+            height: 38,
+            expand: false,
+            onPressed: () => showAvSettingsDialog(context),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _accountBody(Profile profile, {required _HeaderStyle header}) {
     return Column(
       mainAxisSize: .min,
@@ -554,6 +605,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _identityHeader(profile, vertical: header == .column),
         _subscriptionSection(),
         _mediaQuotaSection(),
+        _audioVideoSection(),
         _nameField(profile),
         _emailField(profile),
         const Divider(),
@@ -684,6 +736,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
         _subscriptionSection(),
         _mediaQuotaSection(),
+        _audioVideoSection(),
         const Divider(),
         if (supportsSelfUpdate) ...[_updatesSection(), const Divider()],
         _privacySection(),

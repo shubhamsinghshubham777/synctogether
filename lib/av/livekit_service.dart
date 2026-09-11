@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:livekit_client/livekit_client.dart' as lk;
+import 'package:synctogether/av/macos_audio_devices.dart';
 import 'package:synctogether/diagnostics.dart';
 import 'package:synctogether/env.dart';
 import 'package:synctogether/rooms/room_models.dart';
@@ -102,6 +103,86 @@ class LiveKitService extends ChangeNotifier {
       enabled,
       cameraCaptureOptions: enabled ? _cameraCapture : null,
     );
+    notifyListeners();
+  }
+
+  Future<List<lk.MediaDevice>> audioInputDevices() async {
+    if (defaultTargetPlatform == TargetPlatform.macOS) {
+      final devices = MacOSAudioDevices.getAudioInputs();
+      if (devices.isNotEmpty) return devices;
+    }
+    return lk.Hardware.instance.audioInputs();
+  }
+
+  Future<List<lk.MediaDevice>> videoInputDevices() => lk.Hardware.instance.videoInputs();
+
+  Future<List<lk.MediaDevice>> audioOutputDevices() async {
+    if (defaultTargetPlatform == TargetPlatform.macOS) {
+      final devices = MacOSAudioDevices.getAudioOutputs();
+      if (devices.isNotEmpty) return devices;
+    }
+    return lk.Hardware.instance.audioOutputs();
+  }
+
+  String? get selectedAudioInputId =>
+      _room?.selectedAudioInputDeviceId ?? lk.Hardware.instance.selectedAudioInput?.deviceId;
+  String? get selectedVideoInputId =>
+      _room?.selectedVideoInputDeviceId ?? lk.Hardware.instance.selectedVideoInput?.deviceId;
+  String? get selectedAudioOutputId =>
+      _room?.selectedAudioOutputDeviceId ?? lk.Hardware.instance.selectedAudioOutput?.deviceId;
+
+  Stream<List<lk.MediaDevice>> get onDeviceChange => lk.Hardware.instance.onDeviceChange.stream;
+
+  Future<void> setAudioInputDevice(lk.MediaDevice device) async {
+    var target = device;
+    try {
+      final webrtcDevices = await lk.Hardware.instance.audioInputs();
+      final match = webrtcDevices
+          .where(
+            (d) =>
+                d.deviceId == device.deviceId ||
+                d.label.trim().toLowerCase() == device.label.trim().toLowerCase(),
+          )
+          .firstOrNull;
+      if (match != null) target = match;
+    } catch (_) {}
+
+    if (_room != null) {
+      await _room!.setAudioInputDevice(target);
+    } else {
+      await lk.Hardware.instance.selectAudioInput(target);
+    }
+    notifyListeners();
+  }
+
+  Future<void> setVideoInputDevice(lk.MediaDevice device) async {
+    if (_room != null) {
+      await _room!.setVideoInputDevice(device);
+    } else {
+      lk.Hardware.instance.selectedVideoInput = device;
+    }
+    notifyListeners();
+  }
+
+  Future<void> setAudioOutputDevice(lk.MediaDevice device) async {
+    var target = device;
+    try {
+      final webrtcDevices = await lk.Hardware.instance.audioOutputs();
+      final match = webrtcDevices
+          .where(
+            (d) =>
+                d.deviceId == device.deviceId ||
+                d.label.trim().toLowerCase() == device.label.trim().toLowerCase(),
+          )
+          .firstOrNull;
+      if (match != null) target = match;
+    } catch (_) {}
+
+    if (_room != null) {
+      await _room!.setAudioOutputDevice(target);
+    } else {
+      await lk.Hardware.instance.selectAudioOutput(target);
+    }
     notifyListeners();
   }
 

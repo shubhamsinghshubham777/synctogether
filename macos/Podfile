@@ -42,5 +42,20 @@ post_install do |installer|
       config.build_settings['MACOSX_DEPLOYMENT_TARGET'] = '12.0'
     end
   end
+
+  # Use repo's patched Avcodec.xcframework (includes Blu-ray PGS subtitle decoding)
+  patched_avcodec = File.expand_path('Frameworks/Avcodec.xcframework', __dir__)
+  if File.exist?(patched_avcodec)
+    targets = [
+      File.expand_path('Flutter/ephemeral/.symlinks/plugins/media_kit_libs_macos_video/macos/Frameworks/Avcodec.xcframework', __dir__),
+      File.expand_path('Pods/media_kit_libs_macos_video/macos/Frameworks/Avcodec.xcframework', __dir__)
+    ]
+    targets.each do |target|
+      if File.exist?(target) || File.symlink?(target)
+        FileUtils.rm_rf(target)
+        FileUtils.cp_r(patched_avcodec, target)
+      end
+    end
+  end
 end
 

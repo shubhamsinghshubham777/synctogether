@@ -165,6 +165,63 @@ jobs:
           OUTPUT_PKG: "SyncTogether-${{ steps.version.outputs.APP_VERSION }}-MacAppStore.pkg"
         run: ./scripts/package-macos-store.sh
 
+      - name: Verify Application Launch & Dyld Invariants
+        run: |
+          set -euo pipefail
+          APP_PATH="build/macos/Build/Products/Release/SyncTogether.app"
+          BIN="$APP_PATH/Contents/MacOS/SyncTogether"
+
+          echo "==> Verifying binary exists at $BIN"
+          test -f "$BIN"
+
+          echo "==> Inspecting Mach-O dynamic library links via otool..."
+          DYLIBS=$(otool -L "$BIN")
+          echo "$DYLIBS"
+
+          # 1. Assert no Sparkle reference
+          if echo "$DYLIBS" | grep -i "Sparkle"; then
+            echo "::error::Mach-O binary links against Sparkle.framework! Disallowed in Mac App Store builds."
+            exit 1
+          fi
+
+          # 2. Assert all @rpath frameworks exist inside Contents/Frameworks
+          echo "==> Checking that all @rpath frameworks exist inside app bundle..."
+          echo "$DYLIBS" | grep "@rpath/" | while read -r line; do
+            FRAMEWORK=$(echo "$line" | sed -E 's/^[[:space:]]*@rpath\/([^\/]+)\.framework\/.*/\1.framework/')
+            if [ -n "$FRAMEWORK" ] && [[ "$FRAMEWORK" == *.framework ]]; then
+              if [ ! -d "$APP_PATH/Contents/Frameworks/$FRAMEWORK" ]; then
+                echo "::error::Binary references @rpath/$FRAMEWORK, but $APP_PATH/Contents/Frameworks/$FRAMEWORK does not exist!"
+                exit 1
+              fi
+              echo "    Verified framework exists: $FRAMEWORK"
+            fi
+          done
+
+          # 3. Assert Avcodec has pgssub decoder enabled
+          echo "==> Verifying Avcodec.framework has PGS subtitle decoder enabled..."
+          if ! strings "$APP_PATH/Contents/Frameworks/Avcodec.framework/Versions/A/Avcodec" | grep -q "pgssub"; then
+            echo "::error::Avcodec.framework is missing the pgssub decoder!"
+            exit 1
+          fi
+          echo "    Verified Avcodec includes pgssub."
+
+          # 4. Launch smoke test
+          echo "==> Executing launch smoke test..."
+          "$BIN" &
+          APP_PID=$!
+          sleep 4
+
+          if kill -0 "$APP_PID" 2>/dev/null; then
+            echo "==> Application launched and is running stably (PID: $APP_PID). Terminating smoke test..."
+            kill -TERM "$APP_PID" 2>/dev/null || true
+            wait "$APP_PID" 2>/dev/null || true
+            echo "==> Launch smoke test passed successfully!"
+          else
+            wait "$APP_PID" || EXIT_CODE=$?
+            echo "::error::Application crashed immediately on launch! Exit code: ${EXIT_CODE:-unknown}"
+            exit 1
+          fi
+
       - name: Drop debug symbols before cache save
         run: rm -rf build/macos/Build/Products/Release/*.dSYM
 

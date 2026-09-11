@@ -29,16 +29,7 @@ fi
 VERSION=$(grep '^version:' pubspec.yaml | cut -d ' ' -f 2 | cut -d '+' -f 1)
 OUTPUT_PKG="${OUTPUT_PKG:-SyncTogether-${VERSION}-MacAppStore.pkg}"
 
-# 1. Strip external updater frameworks (Sparkle / auto_updater) to comply with App Store rules
-if [ -d "$APP_PATH/Contents/Frameworks/Sparkle.framework" ]; then
-  echo "==> Removing Sparkle.framework from Mac App Store bundle to comply with App Store sandbox..."
-  rm -rf "$APP_PATH/Contents/Frameworks/Sparkle.framework"
-fi
-
-# Remove any sparkle / update helper executables if present
-find "$APP_PATH/Contents" -type f \( -name "Autoupdate" -o -name "sign_update" \) -exec rm -f {} + 2>/dev/null || true
-
-# Strip Sparkle keys from Info.plist so Apple's static validator detects no updater configuration
+# 1. Clean update metadata from Info.plist so Apple's static validator detects no updater configuration
 if [ -f "$APP_PATH/Contents/Info.plist" ]; then
   /usr/libexec/PlistBuddy -c "Delete :SUPublicEDKey" "$APP_PATH/Contents/Info.plist" 2>/dev/null || true
   /usr/libexec/PlistBuddy -c "Delete :SUEnableAutomaticChecks" "$APP_PATH/Contents/Info.plist" 2>/dev/null || true

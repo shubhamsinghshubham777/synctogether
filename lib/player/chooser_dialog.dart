@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:media_kit/media_kit.dart';
+import 'package:synctogether/player/track_label.dart';
+import 'package:synctogether/player/youtube/pt_youtube_controller.dart';
 import 'package:synctogether/ui/pt_theme.dart';
 
 /// Body for [showGlassDialog]: audio/subtitle track picker styled per the
@@ -12,12 +14,14 @@ class ChooserDialog<T> extends StatelessWidget {
     required this.values,
     required this.onChosen,
     this.selected,
+    this.onAddFromFile,
   });
 
   final String type;
   final Iterable<T> values;
   final ValueChanged<T> onChosen;
   final T? selected;
+  final VoidCallback? onAddFromFile;
 
   @override
   Widget build(BuildContext context) {
@@ -35,22 +39,41 @@ class ChooserDialog<T> extends StatelessWidget {
           child: SingleChildScrollView(
             child: Column(
               spacing: 6,
-              children: values
-                  .map<Widget?>((value) {
-                    final title = value is SubtitleTrack
-                        ? (value.title ?? value.language)
-                        : value is AudioTrack
-                        ? (value.language ?? value.title)
-                        : value.toString();
-                    if (title == null || title.isEmpty) return null;
-                    return _TrackRow(
-                      label: title,
-                      isSelected: value == selected,
-                      onTap: () => onChosen(value),
-                    );
-                  })
-                  .nonNulls
-                  .toList(),
+              children: [
+                ...values.map<Widget?>((value) {
+                  final label = formatTrackLabel(value);
+                  if (label.isEmpty) return null;
+                  final isSelected = isTrackSelected(value, selected);
+                  IconData? icon;
+                  if (value is SubtitleTrack) {
+                    if (value.id == 'no') icon = Symbols.subtitles_off_rounded;
+                    if (value.id == 'auto') icon = Symbols.auto_mode_rounded;
+                  } else if (value is AudioTrack) {
+                    if (value.id == 'no') icon = Symbols.volume_off_rounded;
+                    if (value.id == 'auto') icon = Symbols.auto_mode_rounded;
+                  } else if (value is PTYouTubeCaptionTrack) {
+                    if (value.isOff) icon = Symbols.subtitles_off_rounded;
+                  }
+                  return _TrackRow(
+                    label: label,
+                    icon: icon,
+                    isSelected: isSelected,
+                    onTap: () => onChosen(value),
+                  );
+                }).nonNulls,
+                if (onAddFromFile != null) ...[
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Divider(color: PTColors.white(0.12), height: 1),
+                  ),
+                  _TrackRow(
+                    label: 'Add from File...',
+                    icon: Symbols.file_open_rounded,
+                    isSelected: false,
+                    onTap: onAddFromFile!,
+                  ),
+                ],
+              ],
             ),
           ),
         ),
@@ -60,11 +83,12 @@ class ChooserDialog<T> extends StatelessWidget {
 }
 
 class _TrackRow extends StatefulWidget {
-  const _TrackRow({required this.label, required this.isSelected, required this.onTap});
+  const _TrackRow({required this.label, required this.isSelected, required this.onTap, this.icon});
 
   final String label;
   final bool isSelected;
   final VoidCallback onTap;
+  final IconData? icon;
 
   @override
   State<_TrackRow> createState() => _TrackRowState();
@@ -99,6 +123,14 @@ class _TrackRowState extends State<_TrackRow> {
           ),
           child: Row(
             children: [
+              if (widget.icon != null) ...[
+                Icon(
+                  widget.icon,
+                  size: 18,
+                  color: widget.isSelected ? PTColors.textAccent : PTColors.white(0.6),
+                ),
+                const SizedBox(width: 10),
+              ],
               Expanded(
                 child: Text(
                   widget.label,

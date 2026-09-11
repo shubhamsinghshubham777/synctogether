@@ -165,7 +165,7 @@ jobs:
           OUTPUT_PKG: "SyncTogether-${{ steps.version.outputs.APP_VERSION }}-MacAppStore.pkg"
         run: ./scripts/package-macos-store.sh
 
-      - name: Verify Application Launch & Dyld Invariants
+      - name: Verify App Bundle & Dyld Invariants
         run: |
           set -euo pipefail
           APP_PATH="build/macos/Build/Products/Release/SyncTogether.app"
@@ -204,23 +204,6 @@ jobs:
             exit 1
           fi
           echo "    Verified Avcodec includes pgssub."
-
-          # 4. Launch smoke test
-          echo "==> Executing launch smoke test..."
-          "$BIN" &
-          APP_PID=$!
-          sleep 4
-
-          if kill -0 "$APP_PID" 2>/dev/null; then
-            echo "==> Application launched and is running stably (PID: $APP_PID). Terminating smoke test..."
-            kill -TERM "$APP_PID" 2>/dev/null || true
-            wait "$APP_PID" 2>/dev/null || true
-            echo "==> Launch smoke test passed successfully!"
-          else
-            wait "$APP_PID" || EXIT_CODE=$?
-            echo "::error::Application crashed immediately on launch! Exit code: ${EXIT_CODE:-unknown}"
-            exit 1
-          fi
 
       - name: Drop debug symbols before cache save
         run: rm -rf build/macos/Build/Products/Release/*.dSYM

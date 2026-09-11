@@ -139,7 +139,7 @@ jobs:
             --dart-define=POSTHOG_HOST="$POSTHOG_HOST"
 
           echo "==> Verifying Avcodec.framework has PGS subtitle decoder enabled..."
-          strings "build/macos/Build/Products/Release/SyncTogether.app/Contents/Frameworks/Avcodec.framework/Versions/A/Avcodec" | grep -q "pgssub" || {
+          strings "build/macos/Build/Products/Release/SyncTogether.app/Contents/Frameworks/Avcodec.framework/Versions/A/Avcodec" | grep "pgssub" > /dev/null || {
             echo "::error::Avcodec.framework is missing the pgssub decoder!"
             exit 1
           }

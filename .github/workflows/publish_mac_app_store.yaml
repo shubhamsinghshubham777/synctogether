@@ -199,7 +199,7 @@ jobs:
 
           # 3. Assert Avcodec has pgssub decoder enabled
           echo "==> Verifying Avcodec.framework has PGS subtitle decoder enabled..."
-          if ! strings "$APP_PATH/Contents/Frameworks/Avcodec.framework/Versions/A/Avcodec" | grep -q "pgssub"; then
+          if ! strings "$APP_PATH/Contents/Frameworks/Avcodec.framework/Versions/A/Avcodec" | grep "pgssub" > /dev/null; then
             echo "::error::Avcodec.framework is missing the pgssub decoder!"
             exit 1
           fi

@@ -260,8 +260,8 @@ select is(
   (select role from public.room_members
    where room_id = (select v from t where k = 'free_room')
      and user_id = (select v from t where k = 'free_other')),
-  'host',
-  'the rule is tier-blind and not creator-only - whoever enters an empty room hosts it');
+  'member',
+  'entering an empty room does not make a non-creator host');
 
 do $$ begin perform pg_temp.act_as((select v from t where k = 'free_owner')); end $$;
 do $$ begin perform public.join_room((select v from c where k = 'free_code')); end $$;
@@ -270,8 +270,8 @@ select is(
   (select role from public.room_members
    where room_id = (select v from t where k = 'free_room')
      and user_id = (select v from t where k = 'free_owner')),
-  'member',
-  'a creator returning to a room that already has a host does not take it back');
+  'host',
+  'a creator returning to their room reclaims host when room had no host');
 
 select is(
   (select count(*) from public.room_members
@@ -321,8 +321,8 @@ select is(
   (select role from public.room_members
    where room_id = (select v from t where k = 'succ_room2')
      and user_id = (select v from t where k = 'succ_heir')),
-  'host',
-  'succession still wins: an heir who inherited the room keeps it when the creator returns');
+  'member',
+  'no automatic succession: an heir is not automatically promoted when the creator leaves');
 
 select * from finish();
 rollback;

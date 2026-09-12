@@ -73,4 +73,26 @@ void main() {
       expect(sub, equals('Unlimited uploads with Premium • Up to 10 GB'));
     });
   });
+
+  group('Lobby Create room button enablement', () {
+    bool canCreateRoom({required bool creating, required bool stagingUpload}) {
+      return !creating && !stagingUpload;
+    }
+
+    test('disabled while uploading staged file', () {
+      expect(canCreateRoom(creating: false, stagingUpload: true), isFalse);
+    });
+
+    test('disabled while creating room', () {
+      expect(canCreateRoom(creating: true, stagingUpload: false), isFalse);
+    });
+
+    test('disabled when both creating and uploading', () {
+      expect(canCreateRoom(creating: true, stagingUpload: true), isFalse);
+    });
+
+    test('enabled when neither creating nor uploading', () {
+      expect(canCreateRoom(creating: false, stagingUpload: false), isTrue);
+    });
+  });
 }

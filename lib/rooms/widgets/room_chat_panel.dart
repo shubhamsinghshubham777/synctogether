@@ -208,6 +208,7 @@ class _RoomChatPanelState extends State<RoomChatPanel> {
           child: SelectionArea(
             child: ListView.separated(
               controller: _scrollController,
+              physics: const ChatScrollPhysics(),
               padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
               // The typing slot is always present so it can collapse rather than
               // pop; its own gap lives inside it, which is why the separator
@@ -642,6 +643,45 @@ class _PlaySharedVideoButtonState extends State<_PlaySharedVideoButton> {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Scroll physics for chat panels that keeps the scroll position anchored to the
+/// bottom when the viewport height changes (e.g. control bar animating in/out,
+/// keyboard opening/closing, or window resizing), as long as the user was already
+/// near the bottom.
+class ChatScrollPhysics extends ScrollPhysics {
+  const ChatScrollPhysics({super.parent, this.bottomThreshold = 80.0});
+
+  final double bottomThreshold;
+
+  @override
+  ChatScrollPhysics applyTo(ScrollPhysics? ancestor) {
+    return ChatScrollPhysics(parent: buildParent(ancestor), bottomThreshold: bottomThreshold);
+  }
+
+  @override
+  double adjustPositionForNewDimensions({
+    required ScrollMetrics oldPosition,
+    required ScrollMetrics newPosition,
+    required bool isScrolling,
+    required double velocity,
+  }) {
+    final oldRemaining = oldPosition.maxScrollExtent - oldPosition.pixels;
+    if (!isScrolling &&
+        velocity == 0.0 &&
+        oldRemaining >= 0 &&
+        oldRemaining <= bottomThreshold &&
+        oldPosition.viewportDimension != newPosition.viewportDimension) {
+      final target = newPosition.maxScrollExtent - oldRemaining;
+      return target.clamp(newPosition.minScrollExtent, newPosition.maxScrollExtent);
+    }
+    return super.adjustPositionForNewDimensions(
+      oldPosition: oldPosition,
+      newPosition: newPosition,
+      isScrolling: isScrolling,
+      velocity: velocity,
     );
   }
 }

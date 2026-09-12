@@ -1,37 +1,35 @@
 import Link from "next/link";
+import { SyncTogetherIcon } from "./Icons";
 
 interface LogoProps {
   className?: string;
-  size?: "sm" | "md" | "lg";
+  size?: "sm" | "md" | "lg" | "xl";
   showText?: boolean;
+  asLink?: boolean;
 }
 
-export function Logo({ className = "", size = "md", showText = true }: LogoProps) {
+export function Logo({
+  className = "",
+  size = "md",
+  showText = true,
+  asLink = true,
+}: LogoProps) {
   const sizeMap = {
-    sm: { icon: "w-7 h-7 text-sm", text: "text-lg", play: "w-3.5 h-3.5" },
-    md: { icon: "w-9 h-9 text-base", text: "text-xl", play: "w-4.5 h-4.5" },
-    lg: { icon: "w-12 h-12 text-xl", text: "text-2xl", play: "w-6 h-6" },
+    sm: { icon: "w-7 h-7", text: "text-lg" },
+    md: { icon: "w-9 h-9", text: "text-xl" },
+    lg: { icon: "w-12 h-12", text: "text-2xl" },
+    xl: { icon: "w-16 h-16", text: "text-3xl" },
   };
 
   const s = sizeMap[size];
 
-  return (
-    <Link
-      href="/"
-      className={`inline-flex items-center gap-2.5 group transition-transform duration-200 active:scale-95 ${className}`}
-    >
+  const content = (
+    <>
       {/* Brand Icon */}
       <div
-        className={`${s.icon} rounded-xl btn-primary-gradient p-0.5 flex items-center justify-center shadow-lg shadow-purple-900/30 group-hover:shadow-purple-700/50 transition-shadow duration-300`}
+        className={`${s.icon} shrink-0 flex items-center justify-center drop-shadow-[0_4px_16px_rgba(139,92,246,0.35)] group-hover:drop-shadow-[0_4px_22px_rgba(139,92,246,0.55)] transition-all duration-200 group-hover:scale-105`}
       >
-        <div className="w-full h-full bg-[#161226]/80 rounded-[10px] flex items-center justify-center backdrop-blur-xs">
-          <svg
-            className={`${s.play} text-[#C9B8FF] fill-current transition-transform duration-200 group-hover:scale-110`}
-            viewBox="0 0 24 24"
-          >
-            <path d="M8 5.14v14l11-7-11-7z" />
-          </svg>
-        </div>
+        <SyncTogetherIcon className="w-full h-full" />
       </div>
 
       {/* Brand Name */}
@@ -44,6 +42,26 @@ export function Logo({ className = "", size = "md", showText = true }: LogoProps
           </span>
         </div>
       )}
+    </>
+  );
+
+  if (!asLink) {
+    return (
+      <div className={`inline-flex items-center gap-2.5 group ${className}`}>
+        {content}
+      </div>
+    );
+  }
+
+  return (
+    <Link
+      href="/"
+      className={`inline-flex items-center gap-2.5 group transition-transform duration-200 active:scale-95 ${className}`}
+    >
+      {content}
     </Link>
   );
 }
+
+export { SyncTogetherIcon };
+

@@ -85,21 +85,21 @@ select is(
   (select role from public.room_members
    where room_id = (select v from t where k = 'room')
      and user_id = (select v from t where k = 'early')),
-  'host',
-  'host succession promotes the earliest joiner');
+  'member',
+  'host leaving does not promote the earliest joiner');
 
 select is(
   (select role from public.room_members
    where room_id = (select v from t where k = 'room')
      and user_id = (select v from t where k = 'extra')),
   'member',
-  'a later joiner is passed over');
+  'a later joiner also remains a member');
 
 select is(
   (select count(*) from public.room_members
    where room_id = (select v from t where k = 'room') and role = 'host'),
-  1::bigint,
-  'succession leaves exactly one host');
+  0::bigint,
+  'host leaving leaves the room without a host until explicitly assigned or original host returns');
 
 do $$
 declare v_host uuid; v_room public.rooms;

@@ -195,6 +195,11 @@ class SyncService {
   /// Fires only on the client that was removed.
   Stream<void> get kickedStream => _kickedController.stream;
 
+  final _hostAssignedController = StreamController<String>.broadcast();
+
+  /// Broadcast when a new host is explicitly assigned.
+  Stream<String> get hostAssignedStream => _hostAssignedController.stream;
+
   final _remoteActionController = StreamController<RemoteAction>.broadcast();
 
   /// User-initiated remote play/pause/seek, for attribution toasts.
@@ -287,6 +292,7 @@ class SyncService {
     on(SyncEventType.roomExtended, _handleRoomExtended);
     on(SyncEventType.catchUpRequest, _handleCatchUpRequest);
     on(SyncEventType.catchUpResponse, _handleCatchUpResponse);
+    on(SyncEventType.hostAssigned, _handleHostAssigned);
 
     channel.onPresenceSync(_handlePresenceSync).subscribe((status, error) {
       // Statuses from a superseded channel (reconnect replaced it) are stale.
@@ -391,6 +397,21 @@ class SyncService {
     if (_disposed) return;
     if (payload['targetUserId'] != userId) return;
     _kickedController.add(null);
+  }
+
+  Future<void> broadcastHostAssigned(String newHostUserId) async {
+    await _channel?.sendBroadcastMessage(
+      event: SyncEventType.hostAssigned,
+      payload: {'senderId': userId, 'timestamp': _nextTimestamp(), 'newHostUserId': newHostUserId},
+    );
+  }
+
+  void _handleHostAssigned(Map<String, dynamic> payload) {
+    if (_disposed) return;
+    final newHostUserId = payload['newHostUserId'] as String?;
+    if (newHostUserId != null) {
+      _hostAssignedController.add(newHostUserId);
+    }
   }
 
   DateTime? _membershipJoinedAt;
@@ -1463,6 +1484,7 @@ class SyncService {
     _sharingToggledController.close();
     _roomExtendedController.close();
     _catchUpController.close();
+    _hostAssignedController.close();
     disconnect();
   }
 }

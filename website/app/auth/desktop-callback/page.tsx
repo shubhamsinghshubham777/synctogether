@@ -14,6 +14,8 @@ import {
   Sparkles,
   Layers,
 } from "lucide-react";
+import { SyncTogetherIcon } from "@/components/Icons";
+
 
 function DesktopCallbackContent() {
   const searchParams = useSearchParams();
@@ -120,16 +122,10 @@ function DesktopCallbackContent() {
         <div className="absolute inset-0 rounded-2xl bg-purple-500/20 blur-xl animate-pulse pointer-events-none" />
 
         {/* SyncTogether Icon */}
-        <div className="w-16 h-16 rounded-2xl btn-primary-gradient p-0.5 shadow-xl shadow-purple-950/60 flex items-center justify-center">
-          <div className="w-full h-full bg-[#141026] rounded-[14px] flex items-center justify-center">
-            <svg
-              className="w-7 h-7 text-[#C9B8FF] fill-current ml-0.5"
-              viewBox="0 0 24 24"
-            >
-              <path d="M8 5.14v14l11-7-11-7z" />
-            </svg>
-          </div>
+        <div className="w-16 h-16 flex items-center justify-center drop-shadow-[0_8px_24px_rgba(139,92,246,0.4)]">
+          <SyncTogetherIcon className="w-full h-full" />
         </div>
+
 
         {/* Integrated Checkmark Badge */}
         <div className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-emerald-500 text-black flex items-center justify-center shadow-lg shadow-emerald-500/40 border-2 border-[#120F20] animate-in zoom-in-50 duration-300">

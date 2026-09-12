@@ -42,8 +42,15 @@ class LiveKitService extends ChangeNotifier {
   AvConnectionState _state = .disconnected;
   AvConnectionState get state => _state;
 
-  bool get micEnabled => _room?.localParticipant?.isMicrophoneEnabled() ?? false;
-  bool get camEnabled => _room?.localParticipant?.isCameraEnabled() ?? false;
+  bool _desiredMicEnabled = false;
+  bool _desiredCamEnabled = false;
+  bool _disposed = false;
+  bool _syncingTracks = false;
+  int _reconnectAttempts = 0;
+  Timer? _reconnectTimer;
+
+  bool get micEnabled => _desiredMicEnabled;
+  bool get camEnabled => _desiredCamEnabled;
 
   lk.LocalParticipant? get localParticipant => _room?.localParticipant;
   List<lk.RemoteParticipant> get remoteParticipants =>
@@ -52,58 +59,207 @@ class LiveKitService extends ChangeNotifier {
   lk.EventsListener<lk.RoomEvent>? _listener;
 
   Future<void> connect() async {
-    if (!isAvailableFor(avLevel) || _state == .connecting || _state == .connected) return;
+    if (!isAvailableFor(avLevel) ||
+        _state == .connecting ||
+        _state == .connected ||
+        _state == .reconnecting) {
+      return;
+    }
     _setState(.connecting);
     if (isMockMode) {
       _setState(.connected);
       return;
     }
     try {
-      final response = await Supabase.instance.client.functions.invoke(
-        'livekit-token',
-        body: {'room_id': roomId},
-      );
-      final data = (response.data as Map).cast<String, dynamic>();
-      final token = data['token'] as String;
-      final url = (data['url'] as String?) ?? Env.livekitUrl!;
-
-      final room = lk.Room(
-        roomOptions: const lk.RoomOptions(
-          adaptiveStream: true,
-          dynacast: true,
-          defaultCameraCaptureOptions: _cameraCapture,
-        ),
-      );
-      _listener = room.createListener()
-        ..on<lk.RoomReconnectingEvent>((_) => _setState(.reconnecting))
-        ..on<lk.RoomReconnectedEvent>((_) => _setState(.connected))
-        ..on<lk.RoomDisconnectedEvent>((_) => _setState(.disconnected))
-        // Track/participant churn and speaking changes all surface as change
-        // notifications so tiles rebuild.
-        ..on<lk.RoomEvent>((_) => notifyListeners());
-
-      await room.connect(url, token);
-      _room = room;
-      _setState(.connected);
+      await _connectInternal();
     } catch (e, s) {
       reportNonFatal(e, s, during: 'connecting to LiveKit for room $roomId');
       _setState(.disconnected);
+      if (!_disposed) _scheduleReconnect();
       rethrow;
     }
   }
 
+  Future<void> _connectInternal() async {
+    final response = await Supabase.instance.client.functions.invoke(
+      'livekit-token',
+      body: {'room_id': roomId},
+    );
+    final data = (response.data as Map).cast<String, dynamic>();
+    final token = data['token'] as String;
+    final url = (data['url'] as String?) ?? Env.livekitUrl!;
+
+    final room = lk.Room(
+      roomOptions: const lk.RoomOptions(
+        adaptiveStream: true,
+        dynacast: true,
+        defaultCameraCaptureOptions: _cameraCapture,
+      ),
+    );
+    _listener = room.createListener()
+      ..on<lk.RoomReconnectingEvent>((_) => _setState(.reconnecting))
+      ..on<lk.RoomReconnectedEvent>((_) {
+        _setState(.connected);
+        _reconnectAttempts = 0;
+        unawaited(_syncTracks());
+      })
+      ..on<lk.RoomDisconnectedEvent>(_onDisconnected)
+      // Track/participant churn and speaking changes all surface as change
+      // notifications so tiles rebuild.
+      ..on<lk.RoomEvent>((_) {
+        if (_state == .connected) {
+          final local = _room?.localParticipant;
+          if (local != null) {
+            if ((_desiredMicEnabled && !local.isMicrophoneEnabled()) ||
+                (_desiredCamEnabled && canPublishCamera && !local.isCameraEnabled())) {
+              unawaited(_syncTracks());
+            }
+          }
+        }
+        notifyListeners();
+      });
+
+    await room.connect(url, token);
+    _room = room;
+    _reconnectAttempts = 0;
+    _reconnectTimer?.cancel();
+    _reconnectTimer = null;
+    _setState(.connected);
+
+    // Re-apply selected devices if set
+    if (_selectedAudioInput != null) {
+      unawaited(setAudioInputDevice(_selectedAudioInput!));
+    }
+    if (_selectedVideoInput != null) {
+      unawaited(setVideoInputDevice(_selectedVideoInput!));
+    }
+    if (_selectedAudioOutput != null) {
+      unawaited(setAudioOutputDevice(_selectedAudioOutput!));
+    }
+
+    await _syncTracks();
+  }
+
+  void _onDisconnected(lk.RoomDisconnectedEvent event) {
+    trace(
+      'av disconnected: ${event.reason?.name}',
+      category: 'av',
+      data: {'room_id': roomId, 'reason': event.reason?.name},
+    );
+    _setState(.disconnected);
+
+    if (_disposed) return;
+
+    if (event.reason == lk.DisconnectReason.clientInitiated ||
+        event.reason == lk.DisconnectReason.roomDeleted ||
+        event.reason == lk.DisconnectReason.duplicateIdentity) {
+      return;
+    }
+
+    _scheduleReconnect();
+  }
+
+  void _scheduleReconnect() {
+    if (_disposed ||
+        _reconnectTimer?.isActive == true ||
+        _state == .connecting ||
+        _state == .connected ||
+        _state == .reconnecting) {
+      return;
+    }
+
+    final delaySeconds = (1 << _reconnectAttempts.clamp(0, 4)).clamp(1, 15);
+    _reconnectAttempts++;
+
+    trace(
+      'scheduling av reconnect attempt $_reconnectAttempts in ${delaySeconds}s',
+      category: 'av',
+      data: {'room_id': roomId, 'attempt': _reconnectAttempts, 'delay_s': delaySeconds},
+    );
+
+    _reconnectTimer?.cancel();
+    _reconnectTimer = Timer(Duration(seconds: delaySeconds), () async {
+      if (_disposed || _state == .connecting || _state == .connected) return;
+      try {
+        await _reconnect();
+      } catch (e, s) {
+        reportNonFatal(e, s, during: 'av reconnection attempt for room $roomId');
+        _setState(.disconnected);
+        if (!_disposed) _scheduleReconnect();
+      }
+    });
+  }
+
+  Future<void> _reconnect() async {
+    if (_disposed) return;
+    _setState(.reconnecting);
+
+    await _cleanupRoom();
+    if (_disposed) return;
+
+    await _connectInternal();
+  }
+
+  Future<void> _cleanupRoom() async {
+    await _listener?.dispose();
+    _listener = null;
+    try {
+      await _room?.disconnect();
+    } catch (_) {}
+    try {
+      await _room?.dispose();
+    } catch (_) {}
+    _room = null;
+  }
+
+  Future<void> _syncTracks() async {
+    if (_syncingTracks || _state != .connected) return;
+    final local = _room?.localParticipant;
+    if (local == null) return;
+    _syncingTracks = true;
+    try {
+      if (_desiredMicEnabled != local.isMicrophoneEnabled()) {
+        await local.setMicrophoneEnabled(_desiredMicEnabled);
+      }
+      if (canPublishCamera && _desiredCamEnabled != local.isCameraEnabled()) {
+        await local.setCameraEnabled(
+          _desiredCamEnabled,
+          cameraCaptureOptions: _desiredCamEnabled ? _cameraCapture : null,
+        );
+      }
+    } catch (e, s) {
+      reportNonFatal(e, s, during: 'syncing AV tracks for room $roomId');
+    } finally {
+      _syncingTracks = false;
+    }
+  }
+
   Future<void> setMicEnabled(bool enabled) async {
-    await _room?.localParticipant?.setMicrophoneEnabled(enabled);
+    _desiredMicEnabled = enabled;
     notifyListeners();
+    if (_room != null && _state == .connected) {
+      try {
+        await _room?.localParticipant?.setMicrophoneEnabled(enabled);
+      } catch (e, s) {
+        reportNonFatal(e, s, during: 'setting microphone enabled to $enabled');
+      }
+    }
   }
 
   Future<void> setCamEnabled(bool enabled) async {
     if (enabled && !canPublishCamera) return;
-    await _room?.localParticipant?.setCameraEnabled(
-      enabled,
-      cameraCaptureOptions: enabled ? _cameraCapture : null,
-    );
+    _desiredCamEnabled = enabled;
     notifyListeners();
+    if (_room != null && _state == .connected) {
+      try {
+        await _room?.localParticipant?.setCameraEnabled(
+          enabled,
+          cameraCaptureOptions: enabled ? _cameraCapture : null,
+        );
+      } catch (e, s) {
+        reportNonFatal(e, s, during: 'setting camera enabled to $enabled');
+      }
+    }
   }
 
   Future<List<lk.MediaDevice>> audioInputDevices() async {
@@ -218,10 +374,11 @@ class LiveKitService extends ChangeNotifier {
   }
 
   @override
-  Future<void> dispose() async {
-    await _listener?.dispose();
-    await _room?.disconnect();
-    await _room?.dispose();
+  void dispose() {
+    _disposed = true;
+    _reconnectTimer?.cancel();
+    _reconnectTimer = null;
+    unawaited(_cleanupRoom());
     super.dispose();
   }
 }

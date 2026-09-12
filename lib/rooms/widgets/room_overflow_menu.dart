@@ -25,6 +25,7 @@ class RoomMenuData {
     required this.transportLock,
     required this.selfId,
     required this.selfIsHost,
+    this.canAssignHost = false,
     this.premiumMembers = const {},
   });
 
@@ -35,6 +36,7 @@ class RoomMenuData {
     transportLock: false,
     selfId: '',
     selfIsHost: false,
+    canAssignHost: false,
   );
 
   final List<RoomMember> members;
@@ -43,6 +45,7 @@ class RoomMenuData {
   final bool transportLock;
   final String selfId;
   final bool selfIsHost;
+  final bool canAssignHost;
   final Set<String> premiumMembers;
 
   /// Derived rather than passed alongside, so "who is online" and "who is
@@ -68,6 +71,7 @@ Future<void> showRoomOverflowMenu({
   VoidCallback? onReportConcern,
   required ValueChanged<bool> onTransportLockChanged,
   required void Function(RoomMember member) onKick,
+  void Function(RoomMember member)? onAssignHost,
 }) {
   return showGeneralDialog(
     context: context,
@@ -94,6 +98,7 @@ Future<void> showRoomOverflowMenu({
                   onReportConcern: onReportConcern,
                   onTransportLockChanged: onTransportLockChanged,
                   onKick: onKick,
+                  onAssignHost: onAssignHost,
                 ),
               ),
             ),
@@ -124,6 +129,7 @@ class _OverflowMenuPanel extends StatefulWidget {
     this.onReportConcern,
     required this.onTransportLockChanged,
     required this.onKick,
+    this.onAssignHost,
   });
 
   final ValueListenable<RoomMenuData?> data;
@@ -134,6 +140,7 @@ class _OverflowMenuPanel extends StatefulWidget {
   final VoidCallback? onReportConcern;
   final ValueChanged<bool> onTransportLockChanged;
   final void Function(RoomMember member) onKick;
+  final void Function(RoomMember member)? onAssignHost;
 
   @override
   State<_OverflowMenuPanel> createState() => _OverflowMenuPanelState();
@@ -224,6 +231,13 @@ class _OverflowMenuPanelState extends State<_OverflowMenuPanel> {
                       onKick: data.selfIsHost && member.userId != data.selfId && !member.isHost
                           ? () => _dismiss(() => widget.onKick(member))
                           : null,
+                      onAssignHost:
+                          (data.canAssignHost || data.selfIsHost) &&
+                              member.userId != data.selfId &&
+                              !member.isHost &&
+                              widget.onAssignHost != null
+                          ? () => _dismiss(() => widget.onAssignHost!(member))
+                          : null,
                     ),
                 ],
               ),
@@ -298,6 +312,7 @@ class _MemberRow extends StatelessWidget {
     required this.media,
     required this.presence,
     required this.onKick,
+    this.onAssignHost,
   });
 
   final RoomMember member;
@@ -309,6 +324,7 @@ class _MemberRow extends StatelessWidget {
   /// Readiness rides on presence, so an offline member simply has none.
   final PresentMember? presence;
   final VoidCallback? onKick;
+  final VoidCallback? onAssignHost;
 
   @override
   Widget build(BuildContext context) {
@@ -356,6 +372,15 @@ class _MemberRow extends StatelessWidget {
             ),
             if (presence != null && media.isSet) _chip(context),
             if (member.isHost) const HostBadge(),
+            if (onAssignHost != null)
+              PTIconButton(
+                icon: Symbols.star_rounded,
+                glass: false,
+                size: 30,
+                iconSize: 16,
+                tooltip: 'Make host',
+                onPressed: onAssignHost,
+              ),
             if (onKick != null)
               PTIconButton(
                 icon: Symbols.person_remove_rounded,

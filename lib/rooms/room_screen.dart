@@ -138,6 +138,10 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
   bool _chatOpenBeforePrivacy = false;
   bool _micBeforePrivacy = false;
   bool _camBeforePrivacy = false;
+  // ignore: unused_field, prefer_final_fields
+  bool _micBeforeSolo = false;
+  // ignore: unused_field, prefer_final_fields
+  bool _camBeforeSolo = false;
 
   final _reactionAssets = ReactionAssets();
   bool _reactOpen = false;
@@ -532,6 +536,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
         _syncGateReveal();
       }),
       sync.roomEndedStream.listen(_onRoomEndedRemotely),
+      sync.hostAssignedStream.listen(_onHostAssignedRemotely),
       sync.kickedStream.listen((_) => _onKicked()),
       sync.transportLockStream.listen((_) {
         setState(() {});
@@ -632,6 +637,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
 
     if (LiveKitService.isAvailableFor(room.avLevel)) {
       final av = LiveKitService(roomId: widget.roomId, avLevel: room.avLevel);
+      av.addListener(_onAvChanged);
       setState(() => _av = av);
       av
           .connect()
@@ -644,6 +650,10 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
         if (mounted) _applyPreferredDevices();
       });
     }
+  }
+
+  void _onAvChanged() {
+    if (mounted) setState(() {});
   }
 
   Future<void> _applyPreferredDevices() async {
@@ -727,6 +737,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     _youtubeController?.dispose();
     _deviceChangeSub?.cancel();
     _sync?.dispose();
+    _av?.removeListener(_onAvChanged);
     _av?.dispose();
     super.dispose();
   }
@@ -761,10 +772,23 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
   }
 
   Future<void> _onPresenceChanged(List<PresentMember> present) async {
+    final prevCount = _present.length;
     setState(() => _present = present);
-    if (present.length < 2) {
-      if (_av?.micEnabled == true) unawaited(_av?.setMicEnabled(false));
-      if (_av?.camEnabled == true) unawaited(_av?.setCamEnabled(false));
+    final av = _av;
+    if (av != null) {
+      if (prevCount >= 2 && present.length < 2) {
+        // Remember active user intent so it restores automatically when a member rejoins.
+        _camBeforeSolo = av.camEnabled;
+        _micBeforeSolo = av.micEnabled;
+        if (_camBeforeSolo) unawaited(av.setCamEnabled(false));
+        if (_micBeforeSolo) unawaited(av.setMicEnabled(false));
+      } else if (prevCount < 2 && present.length >= 2) {
+        // Someone joined: restore active media if it was active before the solo drop.
+        if (_camBeforeSolo && !_privacyHidden) unawaited(av.setCamEnabled(true));
+        if (_micBeforeSolo && !_privacyHidden) unawaited(av.setMicEnabled(true));
+        _camBeforeSolo = false;
+        _micBeforeSolo = false;
+      }
     }
     unawaited(_refreshMemberTiers());
     _syncGateReveal();
@@ -808,6 +832,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
   /// lock, eviction.
   void _publishMenuData() {
     final sync = _sync;
+    final isOwner = _room?.createdBy == sync?.userId;
     _menuData.value = _ended
         ? null
         : RoomMenuData(
@@ -818,6 +843,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
             transportLock: sync?.transportLock ?? false,
             selfId: sync?.userId ?? '',
             selfIsHost: sync?.isHost ?? false,
+            canAssignHost: (sync?.isHost ?? false) || isOwner,
           );
   }
 
@@ -2104,6 +2130,94 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     }
   }
 
+  Future<void> _confirmAssignHost(RoomMember member) async {
+    final confirmed = await showGlassDialog<bool>(
+      context: context,
+      width: 400,
+      builder: (dialogContext) => Column(
+        mainAxisSize: .min,
+        crossAxisAlignment: .stretch,
+        children: [
+          Row(
+            spacing: 10,
+            children: [
+              const Icon(Symbols.star_rounded, size: 22, color: PTColors.warning),
+              Text('Assign host', style: PTText.screenTitle.copyWith(fontSize: 18)),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'Make ${member.displayName} the host of this room? They will receive full host controls including media playback selection, kicking participants, and ending or extending the session.',
+            style: PTText.body.copyWith(color: PTColors.white(0.8), height: 1.45),
+          ),
+          const SizedBox(height: 20),
+          Row(
+            spacing: 10,
+            children: [
+              Expanded(
+                child: PTButton(
+                  label: 'Cancel',
+                  variant: .secondary,
+                  onPressed: () => Navigator.of(dialogContext).pop(false),
+                ),
+              ),
+              Expanded(
+                child: PTButton(
+                  label: 'Make host',
+                  variant: .primary,
+                  onPressed: () => Navigator.of(dialogContext).pop(true),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    try {
+      await RoomService.instance.assignHost(roomId: widget.roomId, userId: member.userId);
+      await _sync?.broadcastHostAssigned(member.userId);
+      final members = await RoomService.instance.fetchMembers(widget.roomId);
+      if (!mounted) return;
+      setState(() => _members = members);
+      final selfRole = members.where((m) => m.userId == _sync?.userId).firstOrNull?.role;
+      if (selfRole != null) {
+        _sync?.updateRole(selfRole);
+      }
+      _publishMenuData();
+      _snack('${member.displayName} is now the host.', kind: .success);
+    } catch (e, s) {
+      final failure = RoomErrorCode.fromError(e);
+      if (failure == .unknown) reportNonFatal(e, s, during: 'assigning host');
+      if (mounted) _snack(failure.message);
+    }
+  }
+
+  void _onHostAssignedRemotely(String newHostUserId) async {
+    try {
+      final members = await RoomService.instance.fetchMembers(widget.roomId);
+      if (!mounted) return;
+      setState(() => _members = members);
+      unawaited(_refreshMemberTiers());
+      final selfRole = members.where((m) => m.userId == _sync?.userId).firstOrNull?.role;
+      if (selfRole != null) {
+        final wasHost = _sync?.isHost ?? false;
+        _sync?.updateRole(selfRole);
+        if (!wasHost && (_sync?.isHost ?? false)) {
+          _snack('You are now the room host.', kind: .info);
+        } else if (newHostUserId != _sync?.userId) {
+          final hostName =
+              members.where((m) => m.userId == newHostUserId).firstOrNull?.displayName ??
+              'A member';
+          _snack('$hostName is now the room host.', kind: .info);
+        }
+      }
+      _publishMenuData();
+    } catch (e, s) {
+      reportNonFatal(e, s, during: 'refreshing members after host assignment');
+    }
+  }
+
   Future<void> _showReportDialog({String? targetUser, String? messageSnippet}) async {
     final roomCode = _room?.code ?? widget.roomId;
     await showGlassDialog<void>(
@@ -2492,9 +2606,14 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     if (_privacyHidden) {
       setState(() => _privacyHidden = false);
       if (_chatOpenBeforePrivacy && !_chatOpen) _toggleChat();
-      if (av != null && _present.length >= 2) {
-        if (_micBeforePrivacy) av.setMicEnabled(true);
-        if (_camBeforePrivacy) av.setCamEnabled(true);
+      if (av != null) {
+        if (_present.length >= 2) {
+          if (_micBeforePrivacy) av.setMicEnabled(true);
+          if (_camBeforePrivacy) av.setCamEnabled(true);
+        } else {
+          if (_micBeforePrivacy) _micBeforeSolo = true;
+          if (_camBeforePrivacy) _camBeforeSolo = true;
+        }
       }
     } else {
       _chatOpenBeforePrivacy = _chatOpen;
@@ -2673,6 +2792,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     // Unpublish mic/cam right away - not when the user finally taps
     // "Back to lobby".
     final av = _av;
+    av?.removeListener(_onAvChanged);
     if (mounted) {
       setState(() => _av = null);
     } else {
@@ -3054,6 +3174,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
               ),
         );
       },
+      onAssignHost: _confirmAssignHost,
     );
   }
 

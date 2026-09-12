@@ -180,5 +180,148 @@ void main() {
 
       expect(reportTapped, isTrue);
     });
+
+    testWidgets('displays Make host button when self can assign host and invokes callback on tap', (
+      tester,
+    ) async {
+      RoomMember? assignedMember;
+      final data = ValueNotifier<RoomMenuData?>(
+        RoomMenuData(
+          members: [
+            RoomMember(
+              roomId: 'room-1',
+              userId: 'user-host',
+              role: 'host',
+              joinedAt: DateTime(2026, 1, 1),
+            ),
+            RoomMember(
+              roomId: 'room-1',
+              userId: 'user-member',
+              role: 'member',
+              joinedAt: DateTime(2026, 1, 2),
+            ),
+          ],
+          present: [
+            PresentMember(
+              userId: 'user-host',
+              displayName: 'Host User',
+              role: 'host',
+              joinedAt: DateTime(2026, 1, 1),
+            ),
+            PresentMember(
+              userId: 'user-member',
+              displayName: 'Member User',
+              role: 'member',
+              joinedAt: DateTime(2026, 1, 2),
+            ),
+          ],
+          media: RoomMedia.none,
+          transportLock: false,
+          selfId: 'user-host',
+          selfIsHost: true,
+          canAssignHost: true,
+        ),
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => TextButton(
+                onPressed: () => showRoomOverflowMenu(
+                  context: context,
+                  data: data,
+                  onCopyInvite: () {},
+                  onLeave: () {},
+                  onEndRoom: () {},
+                  onTransportLockChanged: (_) {},
+                  onKick: (_) {},
+                  onAssignHost: (m) => assignedMember = m,
+                ),
+                child: const Text('open'),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+
+      final makeHostBtn = find.byTooltip('Make host');
+      expect(makeHostBtn, findsOneWidget);
+
+      await tester.tap(makeHostBtn);
+      await tester.pumpAndSettle();
+
+      expect(assignedMember, isNotNull);
+      expect(assignedMember?.userId, 'user-member');
+    });
+
+    testWidgets('does not display Make host button when self cannot assign host', (tester) async {
+      final data = ValueNotifier<RoomMenuData?>(
+        RoomMenuData(
+          members: [
+            RoomMember(
+              roomId: 'room-1',
+              userId: 'user-1',
+              role: 'member',
+              joinedAt: DateTime(2026, 1, 1),
+            ),
+            RoomMember(
+              roomId: 'room-1',
+              userId: 'user-2',
+              role: 'member',
+              joinedAt: DateTime(2026, 1, 2),
+            ),
+          ],
+          present: [
+            PresentMember(
+              userId: 'user-1',
+              displayName: 'User 1',
+              role: 'member',
+              joinedAt: DateTime(2026, 1, 1),
+            ),
+            PresentMember(
+              userId: 'user-2',
+              displayName: 'User 2',
+              role: 'member',
+              joinedAt: DateTime(2026, 1, 2),
+            ),
+          ],
+          media: RoomMedia.none,
+          transportLock: false,
+          selfId: 'user-1',
+          selfIsHost: false,
+          canAssignHost: false,
+        ),
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => TextButton(
+                onPressed: () => showRoomOverflowMenu(
+                  context: context,
+                  data: data,
+                  onCopyInvite: () {},
+                  onLeave: () {},
+                  onEndRoom: () {},
+                  onTransportLockChanged: (_) {},
+                  onKick: (_) {},
+                ),
+                child: const Text('open'),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+
+      expect(find.byTooltip('Make host'), findsNothing);
+    });
   });
 }

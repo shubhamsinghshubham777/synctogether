@@ -81,7 +81,7 @@ Deno.serve(async (req) => {
     roomJoin: true,
     canPublish: true,
     canSubscribe: true,
-    canPublishData: false,
+    canPublishData: true,
   });
 
   return json({ token: await token.toJwt(), url: Deno.env.get("LIVEKIT_URL") });

@@ -249,6 +249,11 @@ class RoomService extends ChangeNotifier {
     );
   }
 
+  /// Host or original creator only. Transfers the room's host role to [userId].
+  Future<void> assignHost({required String roomId, required String userId}) async {
+    await _client.rpc('assign_host', params: {'p_room_id': roomId, 'p_target_user_id': userId});
+  }
+
   Future<List<RoomMember>> fetchMembers(String roomId) async {
     final rows = await _client
         .from('room_members')

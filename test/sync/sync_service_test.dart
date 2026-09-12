@@ -1498,4 +1498,41 @@ void main() {
       });
     });
   });
+
+  group('host assignment', () {
+    test('broadcastHostAssigned broadcasts host_assigned event to channel', () {
+      fakeAsync((async) {
+        final h = _Harness(role: 'host')..connect();
+        h.channel.sent.clear();
+
+        h.service.broadcastHostAssigned(_other);
+        async.flushMicrotasks();
+
+        expect(h.channel.hasSent(SyncEventType.hostAssigned), isTrue);
+        expect(h.channel.sent.last.payload['newHostUserId'], _other);
+
+        h.dispose();
+      });
+    });
+
+    test('incoming host_assigned event delivers newHostUserId to hostAssignedStream', () {
+      fakeAsync((async) {
+        final h = _Harness(role: 'member')..connect();
+        String? assignedHostId;
+        h.service.hostAssignedStream.listen((id) => assignedHostId = id);
+        async.flushMicrotasks();
+
+        h.channel.deliver(SyncEventType.hostAssigned, {
+          'senderId': _other,
+          'timestamp': 100,
+          'newHostUserId': _other,
+        });
+        async.flushMicrotasks();
+
+        expect(assignedHostId, _other);
+
+        h.dispose();
+      });
+    });
+  });
 }

@@ -29,6 +29,7 @@ Future<void> _pump(
   WidgetTester tester, {
   required SyncService sync,
   required List<ChatMessage> messages,
+  double height = 460,
   void Function(String videoId, String sharedBy)? onPlaySharedVideo,
   void Function(ChatMessage message)? onReportMessage,
 }) async {
@@ -37,7 +38,7 @@ Future<void> _pump(
       home: Scaffold(
         body: SizedBox(
           width: 330,
-          height: 460,
+          height: height,
           child: RoomChatPanel(
             sync: sync,
             messages: messages,
@@ -253,6 +254,103 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(reported?.content, 'inappropriate content');
+    sync.dispose();
+  });
+
+  testWidgets('chat list stays pinned to the bottom when panel height shrinks and expands', (
+    tester,
+  ) async {
+    final sync = _sync();
+    final messages = List.generate(
+      30,
+      (i) => ChatMessage(
+        senderId: i.isEven ? _me : _other,
+        displayName: 'User $i',
+        content: 'Message $i',
+        sentAt: DateTime.utc(2026, 7, 31, 16, i),
+      ),
+    );
+
+    await _pump(tester, sync: sync, messages: messages, height: 460);
+
+    // Initial state: scrolled to bottom. Message 29 is visible.
+    expect(find.text('Message 29'), findsOneWidget);
+
+    final listFinder = find.byType(ListView);
+    var scrollable = tester.state<ScrollableState>(
+      find.descendant(of: listFinder, matching: find.byType(Scrollable)),
+    );
+    expect(scrollable.position.pixels, closeTo(scrollable.position.maxScrollExtent, 0.5));
+
+    // Shrink height from 460 to 324 (simulating control bar appearing)
+    await _pump(tester, sync: sync, messages: messages, height: 324);
+
+    scrollable = tester.state<ScrollableState>(
+      find.descendant(of: listFinder, matching: find.byType(Scrollable)),
+    );
+    // Should still be pinned to the new bottom
+    expect(scrollable.position.pixels, closeTo(scrollable.position.maxScrollExtent, 0.5));
+    expect(find.text('Message 29'), findsOneWidget);
+
+    // Expand height back to 460 (simulating control bar hiding)
+    await _pump(tester, sync: sync, messages: messages, height: 460);
+
+    scrollable = tester.state<ScrollableState>(
+      find.descendant(of: listFinder, matching: find.byType(Scrollable)),
+    );
+    expect(scrollable.position.pixels, closeTo(scrollable.position.maxScrollExtent, 0.5));
+    expect(find.text('Message 29'), findsOneWidget);
+
+    sync.dispose();
+  });
+
+  testWidgets('user reading older history retains position when panel height changes', (
+    tester,
+  ) async {
+    final sync = _sync();
+    final messages = List.generate(
+      40,
+      (i) => ChatMessage(
+        senderId: i.isEven ? _me : _other,
+        displayName: 'User $i',
+        content: 'Message $i',
+        sentAt: DateTime.utc(2026, 7, 31, 16, i),
+      ),
+    );
+
+    await _pump(tester, sync: sync, messages: messages, height: 460);
+
+    final listFinder = find.byType(ListView);
+    var scrollable = tester.state<ScrollableState>(
+      find.descendant(of: listFinder, matching: find.byType(Scrollable)),
+    );
+
+    // Scroll far up into history using pointer scroll
+    await tester.sendEventToBinding(
+      PointerScrollEvent(
+        position: tester.getCenter(listFinder),
+        scrollDelta: const Offset(0, -600),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    scrollable = tester.state<ScrollableState>(
+      find.descendant(of: listFinder, matching: find.byType(Scrollable)),
+    );
+    final historyOffset = scrollable.position.pixels;
+    // Verify user is well above the bottom threshold (> 80px away from bottom)
+    expect(scrollable.position.maxScrollExtent - historyOffset, greaterThan(200));
+
+    // Shrink height (control bar shows)
+    await _pump(tester, sync: sync, messages: messages, height: 324);
+
+    scrollable = tester.state<ScrollableState>(
+      find.descendant(of: listFinder, matching: find.byType(Scrollable)),
+    );
+    // User reading history should NOT be yanked to the bottom
+    expect(scrollable.position.pixels, closeTo(historyOffset, 1.0));
+    expect(scrollable.position.maxScrollExtent - scrollable.position.pixels, greaterThan(200));
+
     sync.dispose();
   });
 }

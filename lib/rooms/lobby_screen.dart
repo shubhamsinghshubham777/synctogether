@@ -102,6 +102,9 @@ class _LobbyScreenState extends State<LobbyScreen> {
 
   void _onRoomServiceChanged() {
     if (_roomExit.observe(inRoom: RoomService.instance.currentRoom != null)) {
+      if (mounted && (_stagedSession != null || _stagedFile != null)) {
+        setState(_clearStagedUploadState);
+      }
       unawaited(_loadMyRooms());
       if (AuthService.instance.isSignedIn) {
         unawaited(ProfileService.instance.load());
@@ -274,19 +277,21 @@ class _LobbyScreenState extends State<LobbyScreen> {
     }
   }
 
+  void _clearStagedUploadState() {
+    _stagedFile = null;
+    _stagedSession = null;
+    _activeStagingSession = null;
+    _stagingUpload = false;
+    _stagingProgress = null;
+    _stagingCancelToken = null;
+  }
+
   Future<void> _cancelStagedMedia() async {
     _stagingCancelToken?.cancel();
     final active = _activeStagingSession;
     final ready = _stagedSession;
 
-    setState(() {
-      _stagedFile = null;
-      _stagedSession = null;
-      _activeStagingSession = null;
-      _stagingUpload = false;
-      _stagingProgress = null;
-      _stagingCancelToken = null;
-    });
+    setState(_clearStagedUploadState);
 
     if (active != null) {
       unawaited(
@@ -307,20 +312,32 @@ class _LobbyScreenState extends State<LobbyScreen> {
     }
   }
 
-  Future<void> _create({bool isRetry = false}) async {
-    setState(() => _creating = true);
+  Future<void> _create({
+    bool isRetry = false,
+    StagedUploadSession? retrySession,
+    File? retryFile,
+  }) async {
+    if (_stagingUpload) return;
+
+    final session = retrySession ?? _stagedSession;
+    final file = retryFile ?? _stagedFile;
+
+    setState(() {
+      _creating = true;
+      _clearStagedUploadState();
+    });
     var roomEndedForRetry = false;
     try {
       final room = await RoomService.instance.createRoom(
         name: _nameController.text,
         durationMinutes: _durationMinutes,
-        stagedId: _stagedSession?.stagedId,
+        stagedId: session?.stagedId,
       );
-      if (_stagedFile != null) {
+      if (file != null) {
         await LocalMediaStore.instance.record(
           roomId: room.id,
-          name: p.basename(_stagedFile!.path),
-          path: _stagedFile!.path,
+          name: p.basename(file.path),
+          path: file.path,
         );
       }
       if (mounted) context.go(roomPath(room.id));
@@ -335,10 +352,18 @@ class _LobbyScreenState extends State<LobbyScreen> {
       } else {
         _snack(code.message);
       }
+      if (!roomEndedForRetry && mounted) {
+        setState(() {
+          _stagedSession = session;
+          _stagedFile = file;
+        });
+      }
     } finally {
       if (mounted) setState(() => _creating = false);
     }
-    if (roomEndedForRetry && mounted) await _create(isRetry: true);
+    if (roomEndedForRetry && mounted) {
+      await _create(isRetry: true, retrySession: session, retryFile: file);
+    }
   }
 
   Future<void> _join(String code, {RoomJoinSource via = RoomJoinSource.code}) async {
@@ -1001,7 +1026,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
           label: 'Create room',
           icon: Symbols.rocket_launch_rounded,
           loading: _creating,
-          onPressed: _creating ? null : _create,
+          onPressed: (_creating || _stagingUpload) ? null : _create,
         ),
       ],
     );

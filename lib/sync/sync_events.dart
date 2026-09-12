@@ -21,6 +21,7 @@ abstract class SyncEventType {
   static const String roomExtended = 'room_extended';
   static const String catchUpRequest = 'catch_up_request';
   static const String catchUpResponse = 'catch_up_response';
+  static const String hostAssigned = 'host_assigned';
 }
 
 /// Why a play/pause happened. Absent means a human pressed something - the
@@ -571,5 +572,30 @@ class CatchUpResponseEvent extends SyncEvent {
     'targetUserId': targetUserId,
     'positionMs': positionMs,
     'playing': playing,
+  };
+}
+
+class HostAssignedEvent extends SyncEvent {
+  final String newHostUserId;
+
+  const HostAssignedEvent({
+    required super.senderId,
+    required super.timestamp,
+    required this.newHostUserId,
+  });
+
+  factory HostAssignedEvent.fromPayload(Map<String, dynamic> payload) {
+    return HostAssignedEvent(
+      senderId: payload['senderId'] as String? ?? '',
+      timestamp: payload['timestamp'] as int? ?? 0,
+      newHostUserId: payload['newHostUserId'] as String? ?? '',
+    );
+  }
+
+  @override
+  Map<String, dynamic> toPayload() => {
+    'senderId': senderId,
+    'timestamp': timestamp,
+    'newHostUserId': newHostUserId,
   };
 }

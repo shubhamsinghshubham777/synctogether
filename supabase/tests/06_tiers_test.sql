@@ -391,6 +391,7 @@ begin
   perform pg_temp.act_as(v_heir);
   perform public.join_room(v_room.code);
   perform pg_temp.act_as(v_owner);
+  perform public.assign_host(v_room.id, v_heir);
   perform public.leave_room(v_room.id);
   perform pg_temp.act_as(v_heir);
 end $$;
@@ -400,7 +401,7 @@ select is(
    where room_id = (select v from t where k = 'succ_room')
      and user_id = (select v from t where k = 'heir')),
   'host',
-  'leaving hands the room to the next member, as before');
+  'explicitly assigned member becomes host and remains host after original host leaves');
 
 select throws_ok(
   $$ select public.delete_room((select v from t where k = 'succ_room')) $$,

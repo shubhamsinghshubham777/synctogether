@@ -178,5 +178,56 @@ void main() {
       expect(find.text('Built-in Mic'), findsOneWidget);
       expect(find.text('Plugged-in Headset'), findsOneWidget);
     });
+
+    testWidgets(
+      'resolves selected device by label and shows selection tick when IDs differ (macOS CoreAudio vs WebRTC)',
+      (tester) async {
+        final devices = [
+          const lk.MediaDevice('AppleHDAEngineInput:1', 'USB Audio CODEC', 'audioinput', null),
+          const lk.MediaDevice(
+            'BuiltInMicrophoneDevice',
+            "Shubham's iPhone Microphone",
+            'audioinput',
+            null,
+          ),
+          const lk.MediaDevice('com.reincubate.camo', 'Camo Microphone', 'audioinput', null),
+        ];
+
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: Builder(
+                builder: (context) => ElevatedButton(
+                  onPressed: () {
+                    showDeviceSelectorPopup(
+                      context: context,
+                      anchor: const Rect.fromLTWH(100, 500, 42, 42),
+                      title: 'Select Microphone',
+                      icon: Symbols.mic_rounded,
+                      enumerateDevices: () async => devices,
+                      // WebRTC device ID differs from CoreAudio UID
+                      selectedDeviceId: '0',
+                      selectedDeviceLabel: 'USB Audio CODEC',
+                      onDeviceSelected: (_) {},
+                    );
+                  },
+                  child: const Text('Open'),
+                ),
+              ),
+            ),
+          ),
+        );
+
+        await tester.tap(find.text('Open'));
+        await tester.pumpAndSettle();
+
+        expect(find.text('USB Audio CODEC'), findsOneWidget);
+        expect(find.text("Shubham's iPhone Microphone"), findsOneWidget);
+        expect(find.text('Camo Microphone'), findsOneWidget);
+
+        // Selection tick is rendered for the resolved match
+        expect(find.byIcon(Symbols.check_circle_rounded), findsOneWidget);
+      },
+    );
   });
 }

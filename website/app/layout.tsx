@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Space_Grotesk, Outfit, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { Analytics } from "@vercel/analytics/next";
@@ -83,6 +83,11 @@ export const metadata: Metadata = {
   },
 };
 
+export const viewport: Viewport = {
+  colorScheme: "dark",
+  themeColor: "#08070C",
+};
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -115,8 +120,11 @@ export default function RootLayout({
     <html
       lang="en"
       className={`${spaceGrotesk.variable} ${outfit.variable} ${jetbrainsMono.variable} dark`}
+      style={{ colorScheme: "dark" }}
     >
       <head>
+        <meta name="color-scheme" content="dark" />
+        <meta name="theme-color" content="#08070C" />
         <meta name="awin-verification" content="Awin" />
         <script
           type="application/ld+json"

@@ -36,6 +36,7 @@ Completely wipes local database state, auth users, room sessions, and local stor
 
 ## Local Client Connection Notes
 - Flutter debug builds automatically default to `http://127.0.0.1:54321` and local development keys without requiring command-line flags. Custom configurations are passed at compile time via `--dart-define` or `--dart-define-from-file=.env`.
+- **Windows via Parallels Desktop**: Apple Silicon Parallels cannot run nested virtualization for Docker. Run `./scripts/dev.sh --parallels` on the macOS host to automatically bridge `10.211.55.1` &rarr; `127.0.0.1`, and map Windows `127.0.0.1` to `10.211.55.1` via `netsh interface portproxy`.
 - The lobby wordmark renders `1.x.x · local` in warning amber when connected to the local stack.
 - To test Paddle billing locally with Next.js, run:
   ```bash

@@ -60,11 +60,10 @@ npm --prefix website test               # Run webhook idempotency & signature te
 5. **Generated Assets**: Never manually edit `assets/sfx/splash.wav`, `assets/emoji/*.json`, `assets/ca/cacert.pem`, or icon PNGs. Use the generator scripts in `tool/`.
 6. **Licensing & Self-Hosting**: Licensed under PolyForm Noncommercial License 1.0.0 (`LICENSE`). Self-hosting documentation lives in `docs/self-hosting.md`. Commercial SaaS/resale and commercial use are restricted.
 7. **Pre-Commit Verification & Cleanup (MANDATORY)**:
-   Before committing code or concluding code modifications, the agent MUST ALWAYS run and verify the CI checks locally:
+   Before committing code or concluding code modifications, the agent MUST ALWAYS run and verify the relevant CI checks locally:
    - **Optimization & Cleanup**: Inspect `git status` and `git diff` for possible optimizations, redundant allocations, dead code, unused imports, or temporary scratch files, and clean them up without altering expected behavior.
-   - **Format**: `fvm dart format --output=none --set-exit-if-changed .` (run `fvm dart format .` to format if differences exist).
-   - **Analysis**: `fvm flutter analyze` (zero issues/warnings).
-   - **Tests**: `fvm flutter test` (all unit and widget tests passing).
+   - **Flutter / Dart Checks**: Whenever Flutter or Dart files are touched (`lib/`, `test/`, `pubspec.yaml`, etc.), verify formatting (`fvm dart format --output=none --set-exit-if-changed .`), static analysis (`fvm flutter analyze`), and tests (`fvm flutter test`). Avoid running Flutter checks when changes are strictly confined to `website/`, `docs/`, or non-Dart files.
+   - **Website Checks**: Whenever `website/` files are touched, verify `npm --prefix website test` and `npm --prefix website run build`.
    - **Database**: `supabase test db` (mandatory whenever `supabase/` files are touched).
    Never commit or push code with unformatted files or failing tests.
 8. **Communication & Formatting (MANDATORY)**:

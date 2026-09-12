@@ -68,7 +68,7 @@ fi
 # 3. Dart & Flutter Checks (Scoped strictly to staged Dart/Flutter files)
 # -----------------------------------------------------------------------------
 STAGED_DART=$(echo "$STAGED_FILES" | grep -E '\.dart$' || true)
-FLUTTER_TOUCHED=$(echo "$STAGED_FILES" | grep -E '^lib/|^test/|pubspec\.yaml|pubspec\.lock|analysis_options\.yaml' || true)
+FLUTTER_TOUCHED=$(echo "$STAGED_FILES" | grep -E '^lib/|^test/|^tool/|^macos/|^windows/|^android/|^ios/|^pubspec\.yaml$|^pubspec\.lock$|^analysis_options\.yaml$' || true)
 
 if [ -n "$STAGED_DART" ]; then
   echo "--> Checking formatting for staged Dart files..."
@@ -89,10 +89,14 @@ if [ -n "$FLUTTER_TOUCHED" ]; then
   }
 fi
 
+if [ -z "$STAGED_DART" ] && [ -z "$FLUTTER_TOUCHED" ]; then
+  echo "--> Skipping Dart & Flutter checks (no Flutter codebase changes detected)."
+fi
+
 # -----------------------------------------------------------------------------
 # 4. Website Tests (Scoped strictly to staged website app/test code)
 # -----------------------------------------------------------------------------
-WEBSITE_CODE_TOUCHED=$(echo "$STAGED_FILES" | grep -E '^website/(app/|components/|lib/|tests/|package\.json)' || true)
+WEBSITE_CODE_TOUCHED=$(echo "$STAGED_FILES" | grep -E '^website/(app/|components/|lib/|tests/|package\.json|globals\.css)' || true)
 
 if [ -n "$WEBSITE_CODE_TOUCHED" ]; then
   echo "--> Running website webhook & billing tests (120ms)..."
@@ -101,6 +105,25 @@ if [ -n "$WEBSITE_CODE_TOUCHED" ]; then
     echo "❌ Website tests failed!"
     exit 1
   }
+else
+  echo "--> Skipping website tests (no website code changes detected)."
+fi
+
+# -----------------------------------------------------------------------------
+# 5. Supabase Database Checks (Scoped strictly to staged supabase/ files)
+# -----------------------------------------------------------------------------
+SUPABASE_TOUCHED=$(echo "$STAGED_FILES" | grep -E '^supabase/' || true)
+
+if [ -n "$SUPABASE_TOUCHED" ]; then
+  if command -v supabase &>/dev/null && supabase status &>/dev/null; then
+    echo "--> Running pgTAP database test suite..."
+    supabase test db || {
+      echo "❌ Database tests failed!"
+      exit 1
+    }
+  else
+    echo "ℹ️  Notice: Supabase files touched, but local stack is not active; skipping pgTAP db tests."
+  fi
 fi
 
 echo "✅ All pre-commit checks passed."

@@ -39,6 +39,9 @@ Completely wipes local database state, auth users, room sessions, and local stor
 - **Windows via Parallels Desktop**: Run `./scripts/dev.sh` on the macOS host. In Windows (Administrator PowerShell), forward localhost to the Mac host adapter (`10.211.55.2`):
   ```powershell
   netsh interface portproxy add v4tov4 listenport=54321 listenaddress=127.0.0.1 connectport=54321 connectaddress=10.211.55.2
+  netsh interface portproxy add v4tov4 listenport=54322 listenaddress=127.0.0.1 connectport=54322 connectaddress=10.211.55.2
+  netsh interface portproxy add v4tov4 listenport=54323 listenaddress=127.0.0.1 connectport=54323 connectaddress=10.211.55.2
+  netsh interface portproxy add v4tov4 listenport=54324 listenaddress=127.0.0.1 connectport=54324 connectaddress=10.211.55.2
   netsh interface portproxy add v4tov4 listenport=3000 listenaddress=127.0.0.1 connectport=3000 connectaddress=10.211.55.2
   ```
 - The lobby wordmark renders `1.x.x · local` in warning amber when connected to the local stack.

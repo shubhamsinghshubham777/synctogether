@@ -8,6 +8,10 @@ enum PTLayout { desktop, portrait, landscape }
 const kMobileBreakpoint = 'MOBILE';
 const kDesktopBreakpoint = 'DESKTOP';
 
+/// Minimum window size for desktop platforms to prevent layout squishing
+/// and control overflow.
+const kDesktopMinWindowSize = Size(900, 600);
+
 PTLayout layoutOf(BuildContext context) {
   if (ResponsiveBreakpoints.of(context).largerOrEqualTo(kDesktopBreakpoint)) {
     return .desktop;

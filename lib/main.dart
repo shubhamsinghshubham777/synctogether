@@ -54,8 +54,11 @@ Future<void> _bootstrap() async {
   // offered.
   await installTlsOverrides();
   MediaKit.ensureInitialized();
-  // OS-window fullscreen (F key in a room) needs the manager ready up front.
-  if (isDesktop) await windowManager.ensureInitialized();
+  // OS-window fullscreen (F key in a room) and window sizing needs the manager ready up front.
+  if (isDesktop) {
+    await windowManager.ensureInitialized();
+    await windowManager.setMinimumSize(kDesktopMinWindowSize);
+  }
   // Windows needs a WebView2 environment rooted somewhere writable before the
   // guest captcha can render; everywhere else this returns immediately.
   await PTWebView.init();
@@ -85,24 +88,20 @@ Future<void> _bootstrap() async {
   // the auth stream has an error handler before the first deep link can land.
   AuthService.instance.start();
   runApp(const MainApp());
-  if (isDesktop && !kDebugMode) unawaited(_enterFullScreen());
+  if (isDesktop) unawaited(_initDesktopWindow());
   if (supportsSelfUpdate) unawaited(UpdateService.instance.checkForUpdate());
 }
 
-/// Desktop starts in OS fullscreen - this is a media app, and the room screen's
-/// F/Esc toggle stays the way back out.
-///
-/// It has to wait for a frame: asked before the engine has drawn, macOS's
-/// `toggleFullScreen` on a window that has never rendered leaves the app with
-/// no window at all (frontmost, zero AXWindows) rather than a fullscreen one.
-/// Hence after runApp, and unawaited - nothing downstream may block on the
-/// window's shape, least of all a window manager that refuses outright.
-Future<void> _enterFullScreen() async {
+/// Configures the desktop window on launch: enforces a minimum size to prevent
+/// UI overflow, and maximizes to fill the screen workspace without entering
+/// OS fullscreen (preserving title bars and native window controls).
+Future<void> _initDesktopWindow() async {
   try {
     await WidgetsBinding.instance.endOfFrame;
-    await windowManager.setFullScreen(true);
+    await windowManager.setMinimumSize(kDesktopMinWindowSize);
+    await windowManager.maximize();
   } catch (e, s) {
-    reportNonFatal(e, s, during: 'launch fullscreen');
+    reportNonFatal(e, s, during: 'init desktop window');
   }
 }
 

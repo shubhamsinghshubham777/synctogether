@@ -1,5 +1,45 @@
 # Project-level configuration.
 cmake_minimum_required(VERSION 3.14)
+
+# When building on a Windows ARM64 host for x64 (the default Flutter Windows
+# target), CMake inherits CMAKE_SYSTEM_PROCESSOR from the host environment
+# (ARM64) unless explicitly set before project(). This causes dependencies such
+# as Sentry Native's Crashpad to select ARM64 assembly with MARMASM into an x64
+# project, breaking MSBuild.
+if(CMAKE_GENERATOR_PLATFORM STREQUAL "x64")
+  set(CMAKE_SYSTEM_PROCESSOR "x86_64" CACHE STRING "Target system processor" FORCE)
+  set(CMAKE_SYSTEM_PROCESSOR "x86_64")
+endif()
+
+# Sentry Native defaults to Crashpad, which invokes Google Crashpad. On Windows
+# ARM64 hosts compiling for x64, Crashpad attempts to assemble ARM64 assembly
+# with MARMASM into an x64 project, failing MSBuild with MSB8076. Breakpad
+# compiles cleanly across all architectures.
+if(NOT DEFINED ENV{SENTRY_NATIVE_BACKEND} OR "$ENV{SENTRY_NATIVE_BACKEND}" STREQUAL "")
+  if("$ENV{PROCESSOR_ARCHITECTURE}" STREQUAL "ARM64" OR CMAKE_SYSTEM_PROCESSOR MATCHES "ARM64|arm64")
+    set(ENV{SENTRY_NATIVE_BACKEND} "breakpad")
+  endif()
+endif()
+
+# JNI package (pulled by sentry_flutter) requires a JDK during CMake FindJNI.
+# If JAVA_HOME is not set in the current process environment, scan standard JDK locations.
+if(NOT DEFINED ENV{JAVA_HOME} OR "$ENV{JAVA_HOME}" STREQUAL "")
+  file(GLOB _JDK_CANDIDATES
+    "C:/tools/jdk"
+    "C:/Program Files/Microsoft/jdk-*"
+    "C:/Program Files/Eclipse Adoptium/jdk-*"
+    "C:/Program Files/Java/jdk-*"
+    "C:/Program Files/Android/Android Studio/jbr"
+    "$ENV{LOCALAPPDATA}/Programs/Common/Oracle/Java/javapath"
+  )
+  foreach(_JDK_PATH IN LISTS _JDK_CANDIDATES)
+    if(EXISTS "${_JDK_PATH}/include/jni.h")
+      set(ENV{JAVA_HOME} "${_JDK_PATH}")
+      break()
+    endif()
+  endforeach()
+endif()
+
 project(synctogether LANGUAGES CXX)
 
 # The name of the executable created for the application. Change this to change
@@ -69,6 +109,18 @@ add_subdirectory(${FLUTTER_MANAGED_DIR})
 # Application build; see runner/CMakeLists.txt.
 add_subdirectory("runner")
 
+
+# flutter_webrtc extracts libwebrtc.zip inside its own directory. On Windows,
+# CMake rejects extracting through the .plugin_symlinks junction. If the zip was
+# downloaded but libwebrtc/ has not been extracted yet, extract it here to the
+# real path before generated_plugins.cmake runs.
+set(WEBRTC_PLUGIN_DIR "${CMAKE_CURRENT_SOURCE_DIR}/flutter/ephemeral/.plugin_symlinks/flutter_webrtc")
+if(EXISTS "${WEBRTC_PLUGIN_DIR}/third_party/downloads/libwebrtc.zip" AND NOT EXISTS "${WEBRTC_PLUGIN_DIR}/third_party/libwebrtc")
+  message(STATUS "Pre-extracting libwebrtc.zip to avoid symlink extraction error...")
+  execute_process(
+    COMMAND tar -xf "${WEBRTC_PLUGIN_DIR}/third_party/downloads/libwebrtc.zip" -C "${WEBRTC_PLUGIN_DIR}/third_party"
+  )
+endif()
 
 # Generated plugin build rules, which manage building the plugins and adding
 # them to the application.

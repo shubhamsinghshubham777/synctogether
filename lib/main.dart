@@ -113,11 +113,7 @@ class MainApp extends StatefulWidget {
 }
 
 class _MainAppState extends State<MainApp> with WidgetsBindingObserver {
-  // Created once for the whole app lifetime; the room screen attaches to it.
-  late final player = Player(
-    configuration: PlayerConfiguration(logLevel: MPVLogLevel.warn, libass: isDesktop),
-  );
-  late final router = buildRouter(player);
+  late final router = buildRouter();
   final _appLinks = AppLinks();
   StreamSubscription<Uri>? _linkSub;
   StreamSubscription<String>? _authFailureSub;
@@ -216,7 +212,6 @@ class _MainAppState extends State<MainApp> with WidgetsBindingObserver {
     WidgetsBinding.instance.removeObserver(this);
     _linkSub?.cancel();
     _authFailureSub?.cancel();
-    player.dispose();
     super.dispose();
   }
 

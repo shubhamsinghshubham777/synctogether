@@ -1,4 +1,3 @@
-import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
@@ -130,114 +129,40 @@ class GlassPill extends StatelessWidget {
 /// Ambient violet glow blobs behind empty screens (Login, Lobby, Profile).
 /// Never used in the room - nothing ambient may move near playing video.
 ///
-/// The blobs drift along phase-offset elliptical paths with coprime-ish rates
-/// so they never visibly sync up. **Translation only, no scale**: these are
-/// 640–720 px circles under a sigma-45+ blur, and a per-frame scale would
-/// invalidate the raster cache and re-blur them every frame. A pure
-/// `Transform.translate` moves the cached layer instead.
-///
-/// The drift **ping-pongs** (`repeat(reverse: true)`) rather than wrapping: those
-/// coprime rates - and the `cos(t * 0.6)` on the vertical axis - leave the trig
-/// phase mid-cycle when the controller reaches 1, so a plain `repeat()` snapped
-/// all three layers back to frame 0 every period. `easeInOut` is the other half
-/// of the fix; its zero velocity at both ends makes the turnaround a stall
-/// rather than a bounce.
-class AmbientBackground extends StatefulWidget {
+/// Static atmospheric rendering allows Flutter to cache the backdrop raster
+/// layer once, dropping idle CPU from ~33% to ~0% and avoiding continuous
+/// multi-pass BackdropFilter re-blurring.
+class AmbientBackground extends StatelessWidget {
   const AmbientBackground({super.key, required this.child});
 
   final Widget child;
 
   @override
-  State<AmbientBackground> createState() => _AmbientBackgroundState();
-}
-
-class _AmbientBackgroundState extends State<AmbientBackground> with SingleTickerProviderStateMixin {
-  // One controller for all three; TickerMode pauses it for free while the
-  // route is offstage, so the lobby stops animating behind an open room.
-  late final AnimationController _drift;
-  late final CurvedAnimation _eased;
-
-  @override
-  void initState() {
-    super.initState();
-    _drift = AnimationController(vsync: this, duration: PTMotion.ambient)..repeat(reverse: true);
-    _eased = CurvedAnimation(
-      parent: _drift,
-      curve: Curves.easeInOut,
-      reverseCurve: Curves.easeInOut,
-    );
-  }
-
-  @override
-  void dispose() {
-    _eased.dispose();
-    _drift.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final still = reducedMotion(context);
     return DecoratedBox(
       decoration: const BoxDecoration(color: PTColors.screenBg),
       child: Stack(
         fit: .expand,
         clipBehavior: Clip.hardEdge,
         children: [
-          Positioned(
+          const Positioned(
             top: -180,
             left: -120,
-            child: _drifting(
-              0,
-              44,
-              30,
-              1.0,
-              still,
-              const _GlowBlob(size: 640, color: Color(0x387C3AED), blur: 110),
-            ),
+            child: _GlowBlob(size: 640, color: Color(0x387C3AED), blur: 110),
           ),
-          Positioned(
+          const Positioned(
             bottom: -220,
             right: -100,
-            child: _drifting(
-              0.37,
-              38,
-              34,
-              0.78,
-              still,
-              const _GlowBlob(size: 720, color: Color(0x24C084FC), blur: 120),
-            ),
+            child: _GlowBlob(size: 720, color: Color(0x24C084FC), blur: 120),
           ),
-          Positioned(
+          const Positioned(
             top: 270,
             right: 300,
-            child: _drifting(
-              0.71,
-              30,
-              26,
-              1.31,
-              still,
-              const _GlowBlob(size: 280, color: Color(0x296366F1), blur: 90),
-            ),
+            child: _GlowBlob(size: 280, color: Color(0x296366F1), blur: 90),
           ),
-          widget.child,
+          child,
         ],
       ),
-    );
-  }
-
-  Widget _drifting(double phase, double ampX, double ampY, double rate, bool still, Widget blob) {
-    if (still) return blob;
-    return AnimatedBuilder(
-      animation: _eased,
-      child: RepaintBoundary(child: blob),
-      builder: (context, child) {
-        final t = (_eased.value * rate + phase) * 2 * math.pi;
-        return Transform.translate(
-          offset: Offset(math.sin(t) * ampX, math.cos(t * 0.6) * ampY),
-          child: child,
-        );
-      },
     );
   }
 }

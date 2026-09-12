@@ -71,13 +71,13 @@ class RoomScreen extends StatefulWidget {
   const RoomScreen({
     super.key,
     required this.roomId,
-    required this.player,
+    this.player,
     this.initialChatOpen = false,
     this.initialDialogOpen,
   });
 
   final String roomId;
-  final Player player;
+  final Player? player;
   final bool initialChatOpen;
   final String? initialDialogOpen;
 
@@ -86,7 +86,9 @@ class RoomScreen extends StatefulWidget {
 }
 
 class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProviderStateMixin {
-  late final controller = VideoController(widget.player);
+  Player? _ownedPlayer;
+  Player get _player => widget.player ?? _ownedPlayer!;
+  late final VideoController controller;
 
   Room? _room;
   SyncService? _sync;
@@ -357,6 +359,12 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
   @override
   void initState() {
     super.initState();
+    if (widget.player == null) {
+      _ownedPlayer = Player(
+        configuration: PlayerConfiguration(logLevel: MPVLogLevel.warn, libass: isDesktop),
+      );
+    }
+    controller = VideoController(_player);
     if (isDesktop) {
       windowManager.addListener(this);
       // Seed the fullscreen state in case the window was put into fullscreen
@@ -401,7 +409,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     // its streams. Done on entry, not in dispose(): swapping /room/A for
     // /room/B runs the new State's initState *before* the old one's dispose,
     // so clearing on the way out would wipe the room being entered.
-    await widget.player.stop();
+    await _player.stop();
 
     final profile = ProfileService.instance.profile ?? await ProfileService.instance.load();
     if (profile == null) {
@@ -462,7 +470,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     unawaited(_refreshMemberTiers());
 
     final sync = SyncService(
-      MediaKitSyncPlayer(widget.player),
+      MediaKitSyncPlayer(_player),
       room: room,
       profile: profile,
       role: selfMembership.role,
@@ -551,16 +559,16 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
         // Backfill anything said during the outage - broadcasts don't replay.
         if (up && !wasConnected) _reloadChatHistory();
       }),
-      widget.player.stream.playing.listen((playing) {
+      _player.stream.playing.listen((playing) {
         if (_mode == .local) {
           setState(() => _playing = playing);
           _onPlayingChangedForControls(playing);
         }
       }),
-      widget.player.stream.position.listen((position) {
+      _player.stream.position.listen((position) {
         if (_mode == .local) setState(() => _position = playablePosition(position));
       }),
-      widget.player.stream.duration.listen((duration) {
+      _player.stream.duration.listen((duration) {
         if (_mode != .local) return;
         final wasResolved = _duration != Duration.zero;
         setState(() => _duration = duration);
@@ -576,17 +584,17 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
         // this is the local-mode loading -> ready edge.
         _updateReadiness();
       }),
-      widget.player.stream.log.listen(_onPlayerLog),
-      widget.player.stream.error.listen(_onPlayerError),
-      widget.player.stream.buffering.listen((buffering) {
+      _player.stream.log.listen(_onPlayerLog),
+      _player.stream.error.listen(_onPlayerError),
+      _player.stream.buffering.listen((buffering) {
         if (_mode == .local) setState(() => _buffering = buffering);
       }),
-      widget.player.stream.buffer.listen((buffer) {
+      _player.stream.buffer.listen((buffer) {
         if (_isStreamingRemoteSharedMedia && _mode == .local) {
           setState(() => _bufferPosition = buffer);
         }
       }),
-      widget.player.stream.volume.listen((volume) => setState(() => _volume = volume / 100)),
+      _player.stream.volume.listen((volume) => setState(() => _volume = volume / 100)),
     ]);
 
     setState(() {
@@ -629,7 +637,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
       // Members are never auto-prompted for a source - the readiness overlay
       // tells them the host is still choosing.
       if (!(_sync?.isHost ?? false)) return;
-      final hasMedia = widget.player.state.duration != Duration.zero || _youtubeUrl != null;
+      final hasMedia = _player.state.duration != Duration.zero || _youtubeUrl != null;
       if (!hasMedia && !_isModeSelectionDialogOpen && !_isYouTubeUrlDialogOpen) {
         _showModeSelectionDialog();
       }
@@ -685,7 +693,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
         await av.setAudioOutputDevice(resolvedOutput);
       }
       if (_mode == .local) {
-        final playerDevices = widget.player.state.audioDevices;
+        final playerDevices = _player.state.audioDevices;
         final match = playerDevices.where((d) {
           final devDesc = d.description.trim().toLowerCase();
           final targetLabel = resolvedOutput.label.trim().toLowerCase();
@@ -698,7 +706,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
               (targetId.isNotEmpty && devName.contains(targetId));
         }).firstOrNull;
         if (match != null) {
-          unawaited(widget.player.setAudioDevice(match));
+          unawaited(_player.setAudioDevice(match));
           trace(
             'applied default player audio device',
             category: 'media',
@@ -739,6 +747,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     _sync?.dispose();
     _av?.removeListener(_onAvChanged);
     _av?.dispose();
+    _ownedPlayer?.dispose();
     super.dispose();
   }
 
@@ -933,7 +942,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
       }
       _youtubeController?.play();
     } else {
-      widget.player.play();
+      _player.play();
     }
   }
 
@@ -946,7 +955,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
       }
       _youtubeController?.pause();
     } else {
-      widget.player.pause();
+      _player.pause();
     }
   }
 
@@ -958,7 +967,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
       }
       _ytSeekKeepingPlayState(position);
     } else {
-      widget.player.seek(position);
+      _player.seek(position);
     }
   }
 
@@ -981,7 +990,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
         _youtubeController?.seekTo(position);
       }
     } else {
-      widget.player.seek(position);
+      _player.seek(position);
     }
   }
 
@@ -1043,7 +1052,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
         await _handleModeSwitch(.youtube, url);
       } else if (!_urlDialogDismissedRemotely &&
           _mode == .local &&
-          widget.player.state.duration == Duration.zero) {
+          _player.state.duration == Duration.zero) {
         _showModeSelectionDialog(); // cancelled and still idle: re-ask
       }
     }
@@ -1151,10 +1160,10 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
       _ytErrorShownFor = null;
       _youtubeController?.dispose();
       _youtubeController = null;
-      _playing = widget.player.state.playing;
-      _buffering = widget.player.state.buffering;
-      _position = playablePosition(widget.player.state.position);
-      _duration = widget.player.state.duration;
+      _playing = _player.state.playing;
+      _buffering = _player.state.buffering;
+      _position = playablePosition(_player.state.position);
+      _duration = _player.state.duration;
     });
     _sync?.updatePlaybackState('local', null);
     _updateReadiness();
@@ -1633,10 +1642,10 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     _isStreamingRemoteSharedMedia = false;
     _bufferPosition = null;
     try {
-      await widget.player.open(Media(uri), play: false);
+      await _player.open(Media(uri), play: false);
       unawaited(_suppressSecondarySubtitles());
       try {
-        await (widget.player.platform as dynamic)?.setProperty('sub-auto', 'fuzzy');
+        await (_player.platform as dynamic)?.setProperty('sub-auto', 'fuzzy');
       } catch (_) {}
       if (path != null) {
         unawaited(_loadSidecarSubtitles(path));
@@ -1667,7 +1676,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
       _localFileName = fileName;
       _localLoadWatchdog?.cancel();
       _localLoadStalled = false;
-      await widget.player.open(Media(dl.streamUrl.toString()), play: false);
+      await _player.open(Media(dl.streamUrl.toString()), play: false);
       unawaited(_suppressSecondarySubtitles());
       _armLocalLoadWatchdog(fileName);
       if (seekTo != null) unawaited(_seekOnceLoaded(seekTo, fileName));
@@ -1681,7 +1690,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
 
   Future<void> _seekOnceLoaded(Duration position, String name) async {
     try {
-      await widget.player.stream.duration
+      await _player.stream.duration
           .firstWhere((d) => d != Duration.zero)
           .timeout(const Duration(seconds: 15));
     } catch (_) {
@@ -1694,7 +1703,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
       category: 'room',
       data: {'room_id': widget.roomId, 'position_ms': position.inMilliseconds},
     );
-    widget.player.seek(position);
+    _player.seek(position);
   }
 
   Future<void> _resumeFromCanonicalMedia() async {
@@ -1819,18 +1828,18 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     _recoveringStream403 = true;
     try {
       final currentPos = _position;
-      final audioTrack = widget.player.state.track.audio;
-      final subtitleTrack = widget.player.state.track.subtitle;
+      final audioTrack = _player.state.track.audio;
+      final subtitleTrack = _player.state.track.subtitle;
 
       final dl = await _mediaSharingService.fetchDownloadUrl(roomId: widget.roomId);
       if (!mounted || _ended) return;
 
-      await widget.player.open(Media(dl.streamUrl.toString()), play: _playing);
+      await _player.open(Media(dl.streamUrl.toString()), play: _playing);
       if (currentPos > Duration.zero) {
-        widget.player.seek(currentPos);
+        _player.seek(currentPos);
       }
-      widget.player.setAudioTrack(audioTrack);
-      widget.player.setSubtitleTrack(subtitleTrack);
+      _player.setAudioTrack(audioTrack);
+      _player.setSubtitleTrack(subtitleTrack);
     } catch (e, s) {
       reportNonFatal(e, s, during: 'recovering from stream 403');
       _surfaceLocalLoadFailure();
@@ -1905,7 +1914,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
   Future<void> _announceLocalFile(String name) async {
     var duration = Duration.zero;
     try {
-      duration = await widget.player.stream.duration
+      duration = await _player.stream.duration
           .firstWhere((d) => d != Duration.zero)
           .timeout(const Duration(seconds: 10));
     } catch (_) {
@@ -2435,8 +2444,8 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
       }
       _sync?.broadcastSeek(currentPosition, reason: SyncActionReason.transport);
     } else {
-      final currentPosition = widget.player.state.position;
-      widget.player.playOrPause();
+      final currentPosition = _player.state.position;
+      _player.playOrPause();
       _playing ? _sync?.broadcastPause() : _sync?.broadcastPlay();
       if (!_playing) _trackPlaybackStarted();
       _sync?.broadcastSeek(currentPosition, reason: SyncActionReason.transport);
@@ -2456,7 +2465,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
       if (!_ytReady) return false;
       _ytSeekKeepingPlayState(clamped);
     } else {
-      widget.player.seek(clamped);
+      _player.seek(clamped);
     }
     _sync?.broadcastSeek(clamped);
     unawaited(_persistPosition());
@@ -2488,7 +2497,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
       _youtubeController?.setVolume((v * 100).round());
       setState(() => _volume = v);
     } else {
-      widget.player.setVolume(v * 100);
+      _player.setVolume(v * 100);
     }
     _showControls();
   }
@@ -2805,7 +2814,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
       unawaited(_mediaSharingService.abortUpload(roomId: widget.roomId));
     }
     await _sync?.disconnect();
-    await widget.player.stop();
+    await _player.stop();
     if (mounted) _showEndedDialog(title: title, body: body, icon: icon);
   }
 
@@ -3026,7 +3035,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     await _sync?.disconnect();
     // Safe here (unlike dispose): this path always lands on the lobby, never
     // straight into another room.
-    await widget.player.stop();
+    await _player.stop();
     if (AuthService.instance.isSignedIn) {
       unawaited(ProfileService.instance.load());
       unawaited(EntitlementService.instance.refresh());
@@ -3201,7 +3210,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
   }
 
   Future<void> _showTrackChooser({required bool subtitles}) async {
-    final tracks = widget.player.state.tracks;
+    final tracks = _player.state.tracks;
     if (!subtitles && tracks.audio.isEmpty) {
       _snack('No audio tracks in this video.', kind: .info);
       return;
@@ -3216,9 +3225,9 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
           ? ChooserDialog<SubtitleTrack>(
               type: 'Subtitles',
               values: subTracks,
-              selected: widget.player.state.track.subtitle,
+              selected: _player.state.track.subtitle,
               onChosen: (track) async {
-                await widget.player.setSubtitleTrack(track);
+                await _player.setSubtitleTrack(track);
                 unawaited(_suppressSecondarySubtitles());
                 if (dialogContext.mounted) Navigator.of(dialogContext).pop();
               },
@@ -3230,9 +3239,9 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
           : ChooserDialog<AudioTrack>(
               type: 'Audio',
               values: tracks.audio,
-              selected: widget.player.state.track.audio,
+              selected: _player.state.track.audio,
               onChosen: (track) async {
-                await widget.player.setAudioTrack(track);
+                await _player.setAudioTrack(track);
                 if (dialogContext.mounted) Navigator.of(dialogContext).pop();
               },
             ),
@@ -3274,7 +3283,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     if (uri == null) return;
     final name = _basename(response!);
     try {
-      await widget.player.setSubtitleTrack(SubtitleTrack.uri(uri, title: name));
+      await _player.setSubtitleTrack(SubtitleTrack.uri(uri, title: name));
       unawaited(_suppressSecondarySubtitles());
       if (mounted) {
         _snack('Loaded subtitle: $name', kind: .info);
@@ -3306,7 +3315,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
             base.startsWith('${videoBase}_')) {
           trace('found sidecar subtitle', category: 'media', data: {'path': entity.path});
           final track = SubtitleTrack.uri(entity.path, title: p.basename(entity.path));
-          await widget.player.setSubtitleTrack(track);
+          await _player.setSubtitleTrack(track);
           unawaited(_suppressSecondarySubtitles());
           break;
         }
@@ -3318,7 +3327,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
 
   Future<void> _suppressSecondarySubtitles() async {
     try {
-      await (widget.player.platform as dynamic)?.setProperty('secondary-sid', 'no');
+      await (_player.platform as dynamic)?.setProperty('secondary-sid', 'no');
     } catch (_) {}
   }
 
@@ -3593,7 +3602,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
         unawaited(av.setAudioOutputDevice(device));
         unawaited(DevicePreferenceService.instance.setPreferredOutput(device));
         if (_mode == .local) {
-          final playerDevices = widget.player.state.audioDevices;
+          final playerDevices = _player.state.audioDevices;
           final match = playerDevices.where((d) {
             final devDesc = d.description.trim().toLowerCase();
             final targetLabel = device.label.trim().toLowerCase();
@@ -3606,7 +3615,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
                 (targetId.isNotEmpty && devName.contains(targetId));
           }).firstOrNull;
           if (match != null) {
-            unawaited(widget.player.setAudioDevice(match));
+            unawaited(_player.setAudioDevice(match));
             trace(
               'switched player audio device',
               category: 'media',
@@ -3747,7 +3756,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
       fit: .expand,
       children: [
         if (_mode == .local)
-          widget.player.state.duration > Duration.zero || !kDemoMode
+          _player.state.duration > Duration.zero || !kDemoMode
               ? Video(
                   controller: controller,
                   controls: NoVideoControls,

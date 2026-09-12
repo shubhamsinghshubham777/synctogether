@@ -32,7 +32,7 @@ String? roomIdOfPath(String path) =>
 const bool kDemoMode = bool.fromEnvironment('DEMO_MODE', defaultValue: false);
 const bool kDemoRoom = bool.fromEnvironment('DEMO_ROOM', defaultValue: false);
 
-GoRouter buildRouter(Player player) {
+GoRouter buildRouter([Player? player]) {
   return GoRouter(
     initialLocation: kDemoRoom ? '/lobby/room/demo-room-1' : '/lobby',
     refreshListenable: _AuthRefresh(),

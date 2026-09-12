@@ -15,7 +15,6 @@
 #   --flutter, -f                   Launch primary Flutter client (Instance A)
 #   --instance-b, -b                Launch secondary isolated Flutter client (Instance B)
 #   --hookdeck, -w                  Start Hookdeck / Paddle webhook tunnel
-#   --parallels, -p                 Start Parallels host network bridge for Windows VM
 # ==============================================================================
 
 set -eo pipefail
@@ -29,7 +28,6 @@ FUNCTIONS_PID_FILE="$PID_DIR/functions.pid"
 WEBSITE_PID_FILE="$PID_DIR/website.pid"
 TUNNEL_PID_FILE="$PID_DIR/tunnel.pid"
 NGROK_PID_FILE="$PID_DIR/ngrok.pid"
-BRIDGE_PID_FILE="$PID_DIR/bridge.pid"
 LOGS_DIR="/tmp/synctogether-logs"
 mkdir -p "$LOGS_DIR"
 
@@ -37,7 +35,6 @@ FUNCTIONS_LOG="$LOGS_DIR/functions.log"
 WEBSITE_LOG="$LOGS_DIR/website.log"
 TUNNEL_LOG="$LOGS_DIR/tunnel.log"
 NGROK_LOG="$LOGS_DIR/ngrok.log"
-BRIDGE_LOG="$LOGS_DIR/bridge.log"
 
 # Cloudflare Turnstile Always-Pass Testing Keys
 TURNSTILE_TEST_SITE_KEY="1x00000000000000000000AA"
@@ -81,16 +78,7 @@ spin_down() {
   fi
   pkill -f "ngrok http.*54321" 2>/dev/null || true
 
-  # 2. Kill Parallels Host Bridge
-  info "Stopping Parallels host bridge..."
-  if [ -f "$BRIDGE_PID_FILE" ]; then
-    PID=$(cat "$BRIDGE_PID_FILE")
-    kill "$PID" 2>/dev/null || true
-    rm -f "$BRIDGE_PID_FILE"
-  fi
-  pkill -f "parallels-bridge.py" 2>/dev/null || true
-
-  # 3. Kill Next.js website dev server
+  # 2. Kill Next.js website dev server
   info "Stopping Next.js website server..."
   if [ -f "$WEBSITE_PID_FILE" ]; then
     PID=$(cat "$WEBSITE_PID_FILE")
@@ -225,7 +213,6 @@ spin_up() {
   local launch_flutter=false
   local launch_instance_b=false
   local launch_tunnel=false
-  local launch_parallels=false
 
   # Parse all flags
   while [ $# -gt 0 ]; do
@@ -233,7 +220,6 @@ spin_up() {
       --flutter|-f) launch_flutter=true ;;
       --instance-b|-b) launch_instance_b=true ;;
       --hookdeck|--tunnel|-w) launch_tunnel=true ;;
-      --parallels|-p) launch_parallels=true ;;
     esac
     shift
   done
@@ -360,15 +346,6 @@ spin_up() {
     fi
   fi
 
-  # 4b. Optional Parallels Host Bridge
-  if [ "$launch_parallels" = true ]; then
-    info "Starting Parallels host bridge (10.211.55.1 -> 127.0.0.1)..."
-    nohup python3 -u "$REPO_ROOT/scripts/parallels-bridge.py" > "$BRIDGE_LOG" 2>&1 &
-    echo $! > "$BRIDGE_PID_FILE"
-    sleep 0.5
-    success "Parallels host bridge running (Log: $BRIDGE_LOG)"
-  fi
-
   # 5. Dashboard Summary
   echo -e "\n${BOLD}${GREEN}✨ SyncTogether Development Ecosystem is LIVE! ✨${NC}\n"
   echo -e "  🌐 ${BOLD}Website & Billing:${NC}      http://localhost:3000"
@@ -379,9 +356,6 @@ spin_up() {
   echo -e "  📜 ${BOLD}Website Dev Log:${NC}        $WEBSITE_LOG"
   if [ "$launch_tunnel" = true ] && [ "$tunnel_name" != "None" ]; then
     echo -e "  🪝 ${BOLD}Webhook Tunnel Log:${NC}    $TUNNEL_LOG ($tunnel_name)"
-  fi
-  if [ "$launch_parallels" = true ]; then
-    echo -e "  🌉 ${BOLD}Parallels Bridge:${NC}       10.211.55.1 -> 127.0.0.1 (Log: $BRIDGE_LOG)"
   fi
   if [ -f "$NGROK_PID_FILE" ] && ps -p "$(cat "$NGROK_PID_FILE")" > /dev/null 2>&1; then
     echo -e "  🍎 ${BOLD}Apple Auth Tunnel:${NC}     https://${tunnel_domain:-localhost} (-> :54321)"
@@ -461,15 +435,6 @@ status() {
   else
     info "Apple Auth Tunnel:    INACTIVE (set APPLE_AUTH_TUNNEL_DOMAIN in supabase/.env to enable)"
   fi
-
-  # Parallels Bridge
-  if [ -f "$BRIDGE_PID_FILE" ] && ps -p "$(cat "$BRIDGE_PID_FILE")" > /dev/null 2>&1; then
-    success "Parallels Bridge:     RUNNING (PID: $(cat "$BRIDGE_PID_FILE"))"
-  elif pgrep -f "parallels-bridge.py" > /dev/null 2>&1; then
-    success "Parallels Bridge:     RUNNING (External Process)"
-  else
-    info "Parallels Bridge:     INACTIVE (pass --parallels or -p on spin up to enable)"
-  fi
   echo ""
 }
 
@@ -514,8 +479,6 @@ view_logs() {
     tail -f "$TUNNEL_LOG"
   elif [[ "$target" == "ngrok" || "$target" == "apple" || "$target" == "apple-tunnel" ]]; then
     tail -f "$NGROK_LOG"
-  elif [[ "$target" == "bridge" || "$target" == "parallels" ]]; then
-    tail -f "$BRIDGE_LOG"
   else
     echo -e "${CYAN}Tailing Website & Functions logs (Ctrl+C to exit)...${NC}\n"
     tail -f "$WEBSITE_LOG" "$FUNCTIONS_LOG"
@@ -551,7 +514,7 @@ case "$COMMAND" in
     shift
     view_logs "$@"
     ;;
-  --flutter|-f|--instance-b|-b|--hookdeck|--tunnel|-w|--parallels|-p)
+  --flutter|-f|--instance-b|-b|--hookdeck|--tunnel|-w)
     spin_up "$@"
     ;;
   help|-h|--help)
@@ -570,8 +533,7 @@ case "$COMMAND" in
     echo -e "Flags (can be used with 'up' or standalone):"
     echo -e "  --flutter, -f           Launch primary Flutter desktop client"
     echo -e "  --instance-b, -b        Launch secondary isolated Flutter desktop client"
-    echo -e "  --hookdeck, -w          Start Paddle webhook tunnel (Hookdeck or Paddle CLI)"
-    echo -e "  --parallels, -p         Start Parallels host bridge for Windows VM access\n"
+    echo -e "  --hookdeck, -w          Start Paddle webhook tunnel (Hookdeck or Paddle CLI)\n"
     ;;
   *)
     error "Unknown command: $1"

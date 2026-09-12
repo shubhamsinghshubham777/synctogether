@@ -359,9 +359,9 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     super.initState();
     if (isDesktop) {
       windowManager.addListener(this);
-      // The window is already fullscreen by the time the first room opens (the
-      // app launches that way), and the listener only reports *transitions* -
-      // without seeding, Esc would fall through to nothing.
+      // Seed the fullscreen state in case the window was put into fullscreen
+      // (e.g. via keyboard shortcut or OS controls), as WindowListener only
+      // reports subsequent transitions.
       windowManager.isFullScreen().then((value) {
         if (mounted && value != _fullscreen) setState(() => _fullscreen = value);
       });

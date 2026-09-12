@@ -164,7 +164,21 @@ class _TurnstileBodyState extends State<_TurnstileBody> {
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onloadTurnstile" async defer></script>
 <style>
-  body { margin: 0; background: transparent; display: flex; justify-content: center; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    width: 300px;
+    height: 65px;
+    overflow: hidden;
+    background-color: #222222;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+  #cf {
+    width: 300px;
+    height: 65px;
+  }
 </style>
 </head>
 <body>
@@ -239,9 +253,11 @@ function onloadTurnstile() {
             onPressed: () => Navigator.of(context).pop(),
           ),
         ] else ...[
-          ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: SizedBox(height: 80, child: _buildWebView(context)),
+          Center(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: SizedBox(width: 300, height: 65, child: _buildWebView(context)),
+            ),
           ),
           if (_failed)
             PTButton(

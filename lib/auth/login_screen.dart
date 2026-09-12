@@ -465,44 +465,14 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 }
 
-class _Brand extends StatefulWidget {
+class _Brand extends StatelessWidget {
   const _Brand({this.large = false});
 
   final bool large;
 
   @override
-  State<_Brand> createState() => _BrandState();
-}
-
-class _BrandState extends State<_Brand> with SingleTickerProviderStateMixin {
-  // The one breathing element on this screen - the lobby's is its greeting.
-  // Isolated behind a RepaintBoundary so a looping shadow can't dirty the rest
-  // of the card every frame.
-  late final AnimationController _breath = AnimationController(
-    vsync: this,
-    duration: const Duration(seconds: 5),
-  );
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    if (reducedMotion(context)) {
-      _breath.stop();
-      _breath.value = 0;
-    } else if (!_breath.isAnimating) {
-      _breath.repeat(reverse: true);
-    }
-  }
-
-  @override
-  void dispose() {
-    _breath.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final logoSize = widget.large ? 84.0 : 72.0;
+    final logoSize = large ? 84.0 : 72.0;
     return Column(
       mainAxisSize: .min,
       children: [
@@ -510,36 +480,27 @@ class _BrandState extends State<_Brand> with SingleTickerProviderStateMixin {
           scaleFrom: 0.9,
           offset: 0,
           duration: const Duration(milliseconds: 400),
-          child: RepaintBoundary(
-            child: AnimatedBuilder(
-              animation: _breath,
-              builder: (context, child) => Container(
-                width: logoSize,
-                height: logoSize,
-                decoration: BoxDecoration(
-                  gradient: PTColors.brandGradient,
-                  borderRadius: BorderRadius.circular(logoSize * 0.3),
-                  boxShadow: [
-                    BoxShadow(
-                      color: PTColors.primary.withValues(alpha: 0.45 + 0.1 * _breath.value),
-                      blurRadius: 32 + 8 * _breath.value,
-                      offset: const Offset(0, 12),
-                    ),
-                  ],
+          child: Container(
+            width: logoSize,
+            height: logoSize,
+            decoration: BoxDecoration(
+              gradient: PTColors.brandGradient,
+              borderRadius: BorderRadius.circular(logoSize * 0.3),
+              boxShadow: [
+                BoxShadow(
+                  color: PTColors.primary.withValues(alpha: 0.5),
+                  blurRadius: 36,
+                  offset: const Offset(0, 12),
                 ),
-                child: child,
-              ),
-              child: Icon(Icons.play_arrow_rounded, size: logoSize * 0.53, color: Colors.white),
+              ],
             ),
+            child: Icon(Icons.play_arrow_rounded, size: logoSize * 0.53, color: Colors.white),
           ),
         ),
-        SizedBox(height: widget.large ? 26 : 22),
+        SizedBox(height: large ? 26 : 22),
         PTEntrance(
           delay: const Duration(milliseconds: 60),
-          child: Text(
-            'SyncTogether',
-            style: PTText.display.copyWith(fontSize: widget.large ? 32 : 30),
-          ),
+          child: Text('SyncTogether', style: PTText.display.copyWith(fontSize: large ? 32 : 30)),
         ),
         const SizedBox(height: 8),
         PTEntrance(

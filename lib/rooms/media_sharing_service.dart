@@ -421,29 +421,28 @@ class MediaSharingService {
 
     reportProgress('uploading');
 
-    // Process slices in sliding window of 5
-    const windowSize = 5;
-    for (int i = 0; i < pendingSlices.length; i += windowSize) {
-      final batch = pendingSlices.sublist(i, min(i + windowSize, pendingSlices.length));
-      final partNumbers = batch.map((s) => s.partNumber).toList();
+    final client = _httpClientFactory();
+    try {
+      // Process slices in sliding window of 5
+      const windowSize = 5;
+      for (int i = 0; i < pendingSlices.length; i += windowSize) {
+        final batch = pendingSlices.sublist(i, min(i + windowSize, pendingSlices.length));
+        final partNumbers = batch.map((s) => s.partNumber).toList();
 
-      final urlData = await _edgeCaller('part-urls', {
-        'roomId': session.roomId,
-        'uploadId': session.uploadId,
-        'r2Key': session.r2Key,
-        'partNumbers': partNumbers,
-      });
+        final urlData = await _edgeCaller('part-urls', {
+          'roomId': session.roomId,
+          'uploadId': session.uploadId,
+          'r2Key': session.r2Key,
+          'partNumbers': partNumbers,
+        });
 
-      final partsWithUrls = (urlData['parts'] as List).cast<Map<String, dynamic>>();
-      final urlMap = {
-        for (final p in partsWithUrls) (p['partNumber'] as num).toInt(): p['url'] as String,
-      };
+        final partsWithUrls = (urlData['parts'] as List).cast<Map<String, dynamic>>();
+        final urlMap = {
+          for (final p in partsWithUrls) (p['partNumber'] as num).toInt(): p['url'] as String,
+        };
 
-      for (final slice in batch) {
-        final presignedUrl = Uri.parse(urlMap[slice.partNumber]!);
-        final client = _httpClientFactory();
-
-        try {
+        for (final slice in batch) {
+          final presignedUrl = Uri.parse(urlMap[slice.partNumber]!);
           final request = await client.putUrl(presignedUrl);
           request.contentLength = slice.length;
 
@@ -467,31 +466,30 @@ class MediaSharingService {
           await _mediaStore.saveUploadSession(roomId: session.roomId, session: session);
 
           reportProgress('uploading');
-        } finally {
-          client.close();
         }
       }
+
+      // Complete upload: sort parts strictly ascending by partNumber
+      final sortedParts = completed.entries.toList()..sort((a, b) => a.key.compareTo(b.key));
+
+      await _edgeCaller('complete', {
+        'roomId': session.roomId,
+        'uploadId': session.uploadId,
+        'r2Key': session.r2Key,
+        'fileSize': session.fileSize,
+        'parts': sortedParts.map((e) => {'partNumber': e.key, 'etag': e.value}).toList(),
+      });
+
+      await _mediaStore.clearUploadSession(session.roomId);
+      reportProgress('ready');
+
+      return session;
+    } finally {
+      client.close(force: true);
+      try {
+        await WakelockPlus.disable();
+      } catch (_) {}
     }
-
-    // Complete upload: sort parts strictly ascending by partNumber
-    final sortedParts = completed.entries.toList()..sort((a, b) => a.key.compareTo(b.key));
-
-    await _edgeCaller('complete', {
-      'roomId': session.roomId,
-      'uploadId': session.uploadId,
-      'r2Key': session.r2Key,
-      'fileSize': session.fileSize,
-      'parts': sortedParts.map((e) => {'partNumber': e.key, 'etag': e.value}).toList(),
-    });
-
-    await _mediaStore.clearUploadSession(session.roomId);
-    reportProgress('ready');
-
-    try {
-      await WakelockPlus.disable();
-    } catch (_) {}
-
-    return session;
   }
 
   Future<void> abortUpload({required String roomId, int bytesUploaded = 0}) async {
@@ -594,6 +592,7 @@ class MediaSharingService {
     final completed = <int, String>{};
     const windowSize = 5;
 
+    final client = _httpClientFactory();
     try {
       for (int i = 0; i < slices.length; i += windowSize) {
         if (cancelToken?.isCancelled ?? false) {
@@ -621,33 +620,27 @@ class MediaSharingService {
           }
 
           final presignedUrl = Uri.parse(urlMap[slice.partNumber]!);
-          final client = _httpClientFactory();
+          final request = await client.putUrl(presignedUrl);
+          request.contentLength = slice.length;
 
-          try {
-            final request = await client.putUrl(presignedUrl);
-            request.contentLength = slice.length;
+          final stream = file.openRead(slice.startOffset, slice.endOffset);
+          await request.addStream(stream);
 
-            final stream = file.openRead(slice.startOffset, slice.endOffset);
-            await request.addStream(stream);
-
-            final response = await request.close().timeout(const Duration(seconds: 60));
-            if (response.statusCode != HttpStatus.ok) {
-              throw HttpException('S3 part upload failed with HTTP ${response.statusCode}');
-            }
-
-            final etag = sanitizeETag(response.headers.value(HttpHeaders.etagHeader));
-            if (etag.isEmpty) {
-              throw const HttpException('Missing ETag in part upload response');
-            }
-
-            completed[slice.partNumber] = etag;
-            totalUploadedBytes += slice.length;
-
-            session = session.copyWith(completedParts: completed);
-            reportProgress('uploading');
-          } finally {
-            client.close();
+          final response = await request.close().timeout(const Duration(seconds: 60));
+          if (response.statusCode != HttpStatus.ok) {
+            throw HttpException('S3 part upload failed with HTTP ${response.statusCode}');
           }
+
+          final etag = sanitizeETag(response.headers.value(HttpHeaders.etagHeader));
+          if (etag.isEmpty) {
+            throw const HttpException('Missing ETag in part upload response');
+          }
+
+          completed[slice.partNumber] = etag;
+          totalUploadedBytes += slice.length;
+
+          session = session.copyWith(completedParts: completed);
+          reportProgress('uploading');
         }
       }
 
@@ -675,6 +668,7 @@ class MediaSharingService {
       } catch (_) {}
       rethrow;
     } finally {
+      client.close(force: true);
       try {
         await WakelockPlus.disable();
       } catch (_) {}

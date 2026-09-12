@@ -193,12 +193,12 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
   // via WindowListener so Esc/toggle never desync from a native fullscreen.
   bool _fullscreen = false;
 
-  // Floating chrome (topbar + control bar) auto-hides while playing; tap the
-  // video to toggle it manually. Only applies to the overlay layouts
-  // (desktop/landscape) - portrait keeps controls in the column flow.
+  // Floating chrome (topbar + control bar) in overlay layouts (desktop/landscape).
+  // Controls stay visible deterministically until manually collapsed (H or collapse button).
   bool _controlsVisible = true;
-  bool _pointerOverControls = false;
+  bool _cursorVisible = true;
   Timer? _controlsHideTimer;
+  Timer? _cursorHideTimer;
   double _volumeBeforeMute = 1.0;
   final _shortcutFocus = FocusNode();
 
@@ -212,6 +212,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
   // mode_switch beats it): keeps the video area in its loading state instead of
   // showing an empty black frame for the whole state-sync window. One-shot.
   bool _awaitingFirstSource = true;
+  bool _hasPromptedInitialSource = false;
 
   RoomMedia _canonicalMedia = RoomMedia.none;
   String? _localFileName;
@@ -387,14 +388,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
       _chatOpen = true;
       _chatAnim.value = 1.0;
     }
-    _init().then((_) {
-      if (!mounted) return;
-      if (widget.initialDialogOpen == 'media') {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) _showModeSelectionDialog();
-        });
-      }
-    });
+    unawaited(_init());
   }
 
   @override
@@ -628,20 +622,41 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
 
     unawaited(_resumeFromCanonicalMedia());
 
-    // If the state-sync window closes with no media, we're first in - ask
-    // what to watch.
-    _idleSourceTimer = Timer(const Duration(milliseconds: 4500), () {
-      if (!mounted) return;
-      _resolveFirstSource();
-      if (_ended) return;
-      // Members are never auto-prompted for a source - the readiness overlay
-      // tells them the host is still choosing.
-      if (!(_sync?.isHost ?? false)) return;
-      final hasMedia = _player.state.duration != Duration.zero || _youtubeUrl != null;
-      if (!hasMedia && !_isModeSelectionDialogOpen && !_isYouTubeUrlDialogOpen) {
-        _showModeSelectionDialog();
-      }
-    });
+    final isHost = sync.isHost;
+    final hasMedia =
+        _player.state.duration != Duration.zero || _youtubeUrl != null || _canonicalMedia.isSet;
+
+    if ((isHost || widget.initialDialogOpen == 'media') &&
+        !hasMedia &&
+        !_hasPromptedInitialSource) {
+      _hasPromptedInitialSource = true;
+      // Host in an empty room: prompt immediately rather than making the user
+      // stare at "Setting up the room…" for the 4.5s late-joiner sync window.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || _ended) return;
+        if (!_isModeSelectionDialogOpen && !_isYouTubeUrlDialogOpen) {
+          _showModeSelectionDialog();
+        }
+      });
+    } else if (!_hasPromptedInitialSource) {
+      // If the state-sync window closes with no media, we're first in - ask
+      // what to watch.
+      _idleSourceTimer = Timer(const Duration(milliseconds: 4500), () {
+        if (!mounted) return;
+        _resolveFirstSource();
+        if (_ended) return;
+        // Members are never auto-prompted for a source - the readiness overlay
+        // tells them the host is still choosing.
+        if (!(_sync?.isHost ?? false)) return;
+        if (_hasPromptedInitialSource) return;
+        final hasMediaNow =
+            _player.state.duration != Duration.zero || _youtubeUrl != null || _canonicalMedia.isSet;
+        if (!hasMediaNow && !_isModeSelectionDialogOpen && !_isYouTubeUrlDialogOpen) {
+          _hasPromptedInitialSource = true;
+          _showModeSelectionDialog();
+        }
+      });
+    }
 
     if (LiveKitService.isAvailableFor(room.avLevel)) {
       final av = LiveKitService(roomId: widget.roomId, avLevel: room.avLevel);
@@ -727,6 +742,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     _positionWriteTimer?.cancel();
     _idleSourceTimer?.cancel();
     _controlsHideTimer?.cancel();
+    _cursorHideTimer?.cancel();
     _actionToastTimer?.cancel();
     _skipFlashTimer?.cancel();
     _ytBufferFallbackTimer?.cancel();
@@ -1022,6 +1038,8 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
   }
 
   Future<void> _showModeSelectionDialog() async {
+    _hasPromptedInitialSource = true;
+    _idleSourceTimer?.cancel();
     _isModeSelectionDialogOpen = true;
     _updateReadiness();
     if (_awaitingFirstSource) _resolveFirstSource();
@@ -1033,6 +1051,11 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     _isModeSelectionDialogOpen = false;
     _updateReadiness();
     if (!mounted) return;
+
+    if (mode == InitialMode.leave) {
+      await _leaveRoom();
+      return;
+    }
 
     if (mode == InitialMode.local) {
       await _pickVideo();
@@ -1658,9 +1681,23 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
       return;
     }
     trace('local file open issued', category: 'media', data: {'file': name});
+    if (_player.state.duration != Duration.zero) {
+      _duration = _player.state.duration;
+    }
     _localFileName = name;
     _mismatchDismissed = false;
     _armLocalLoadWatchdog(name);
+    if (_sync?.isHost ?? false) {
+      final provisional = RoomMedia(
+        kind: .local,
+        name: name,
+        duration: _duration == Duration.zero ? null : _duration,
+      );
+      _canonicalMedia = provisional;
+      _sync?.setProvisionalCanonicalMedia(provisional);
+      _sync?.updatePlaybackState('local', null);
+    }
+    if (_awaitingFirstSource) _resolveFirstSource();
     unawaited(LocalMediaStore.instance.record(roomId: widget.roomId, name: name, path: path));
     unawaited(_announceLocalFile(name));
     if (seekTo != null) unawaited(_seekOnceLoaded(seekTo, name));
@@ -1994,6 +2031,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
       _computeReadiness(),
       loadedFileName: _mode == .local ? _localFileName : null,
     );
+    _syncGateReveal();
   }
 
   ReadyStatus _computeReadiness() {
@@ -2554,13 +2592,22 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
       case LogicalKeyboardKey.keyM:
         _toggleMute();
       case LogicalKeyboardKey.keyC:
-        handled = _toggleChatFromShortcut();
+        return _toggleChatFromShortcut() ? KeyEventResult.handled : KeyEventResult.ignored;
       case LogicalKeyboardKey.keyV:
-        handled = _toggleCamsFromShortcut();
+        return _toggleCamsFromShortcut() ? KeyEventResult.handled : KeyEventResult.ignored;
       case LogicalKeyboardKey.keyF:
         _toggleFullscreen();
+        return KeyEventResult.handled;
+      case LogicalKeyboardKey.keyH:
+        _toggleControlsVisible();
+        return KeyEventResult.handled;
+      case LogicalKeyboardKey.question:
+      case LogicalKeyboardKey.slash:
+        _showShortcuts();
+        return KeyEventResult.handled;
       case LogicalKeyboardKey.f1:
         _togglePrivacy();
+        return KeyEventResult.handled;
       case LogicalKeyboardKey.f2:
         if (kDebugMode && _mode == .youtube && _youtubeController != null) {
           _youtubeController!.debugToggleAdState();
@@ -2568,6 +2615,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
           if (isAd) {
             _snack('Ad simulated: playback & sync paused', kind: .info);
           }
+          return KeyEventResult.handled;
         } else {
           handled = false;
         }
@@ -2576,10 +2624,13 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
         // chat close → fullscreen exit → let Esc bubble.
         if (_reactOpen) {
           _closeReact();
+          return KeyEventResult.handled;
         } else if (_chatOpen) {
           _toggleChat();
+          return KeyEventResult.handled;
         } else if (_fullscreen) {
           _exitFullscreen();
+          return KeyEventResult.handled;
         } else {
           handled = false;
         }
@@ -2587,27 +2638,45 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
         handled = false;
     }
     if (!handled) return KeyEventResult.ignored;
-    _showControls();
+    if (_controlsVisible) _showControls();
     return KeyEventResult.handled;
   }
 
   // ---------------------------------------------------------------------------
-  // Controls auto-hide (overlay layouts)
+  // Controls visibility & Cinema Mode (overlay layouts)
   // ---------------------------------------------------------------------------
 
   void _showControls() {
-    if (!_controlsVisible) setState(() => _controlsVisible = true);
-    _scheduleControlsHide();
+    if (!_controlsVisible) {
+      setState(() => _controlsVisible = true);
+    }
+    _cursorHideTimer?.cancel();
+    if (!_cursorVisible) {
+      setState(() => _cursorVisible = true);
+    }
   }
 
-  void _scheduleControlsHide() {
-    _controlsHideTimer?.cancel();
-    _controlsHideTimer = Timer(const Duration(seconds: 3), () {
-      if (!mounted || !_playing || _pointerOverControls || !_controlsVisible || _reactOpen) {
-        return;
-      }
-      setState(() => _controlsVisible = false);
-    });
+  void _hideControls() {
+    if (_reactOpen) _closeReact();
+    _cursorHideTimer?.cancel();
+    if (_controlsVisible || _cursorVisible) {
+      setState(() {
+        _controlsVisible = false;
+        _cursorVisible = false;
+      });
+    }
+  }
+
+  void _onMouseMove() {
+    if (!_cursorVisible) {
+      setState(() => _cursorVisible = true);
+    }
+    _cursorHideTimer?.cancel();
+    if (!_controlsVisible) {
+      _cursorHideTimer = Timer(const Duration(seconds: 2), () {
+        if (mounted && !_controlsVisible) setState(() => _cursorVisible = false);
+      });
+    }
   }
 
   void _togglePrivacy() {
@@ -2675,56 +2744,70 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
   }
 
   void _toggleControlsVisible() {
-    // Tapping the video also steals focus from the chat input, so keyboard
-    // shortcuts work again immediately.
+    // Tapping the video or pressing H also steals focus from the chat input,
+    // so keyboard shortcuts work again immediately.
     _shortcutFocus.requestFocus();
     if (_reactOpen) {
       _closeReact();
       return;
     }
     if (_controlsVisible) {
-      _controlsHideTimer?.cancel();
-      setState(() => _controlsVisible = false);
+      _hideControls();
     } else {
       _showControls();
     }
   }
 
   void _onPlayingChangedForControls(bool playing) {
-    if (playing) {
-      _scheduleControlsHide();
-    } else {
+    if (!playing) {
       // Paused: controls stay up - hiding them on a paused frame helps no one.
-      _controlsHideTimer?.cancel();
+      _cursorHideTimer?.cancel();
       if (!_controlsVisible) setState(() => _controlsVisible = true);
+      if (!_cursorVisible) setState(() => _cursorVisible = true);
     }
   }
 
-  /// Fades the floating chrome; a pointer resting on it suspends auto-hide,
-  /// and any press on it restarts the countdown (touch scrubs).
+  /// Fades and slides the floating chrome.
   ///
   /// [fromTop] chrome drifts up as it goes and bottom chrome drifts down, so
-  /// the controls *retreat* off their edge rather than dissolving in place.
+  /// the controls retreat off their edge completely rather than dissolving in place.
   Widget _overlayControls(Widget child, {bool fromTop = false}) {
     return IgnorePointer(
       ignoring: !_controlsVisible,
       child: AnimatedSlide(
-        // Fractions of the child's own height, so the tall control bar and the
-        // thin top row travel a comparable number of pixels.
-        offset: _controlsVisible ? Offset.zero : Offset(0, fromTop ? -0.3 : 0.12),
+        offset: _controlsVisible ? Offset.zero : Offset(0, fromTop ? -1.2 : 1.2),
         duration: PTMotion.functional(context, PTMotion.state),
         curve: _controlsVisible ? PTMotion.enter : PTMotion.exit,
         child: AnimatedOpacity(
           opacity: _controlsVisible ? 1 : 0,
           duration: PTMotion.functional(context, Durations.medium2),
-          child: MouseRegion(
-            opaque: false,
-            onEnter: (_) => _pointerOverControls = true,
-            onExit: (_) {
-              _pointerOverControls = false;
-              _scheduleControlsHide();
-            },
-            child: Listener(onPointerDown: (_) => _showControls(), child: child),
+          child: Listener(onPointerDown: (_) => _showControls(), child: child),
+        ),
+      ),
+    );
+  }
+
+  /// Subtle bottom-right reveal trigger shown when room controls are hidden in Cinema Mode.
+  Widget _showControlsButton() {
+    return AnimatedSlide(
+      offset: !_controlsVisible ? Offset.zero : const Offset(0, 2.5),
+      duration: PTMotion.functional(context, PTMotion.state),
+      curve: !_controlsVisible ? PTMotion.enter : PTMotion.exit,
+      child: IgnorePointer(
+        ignoring: _controlsVisible,
+        child: GlassPanel(
+          radius: 20,
+          opacity: 0.7,
+          blur: 24,
+          baseColor: const Color(0xFF141022),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+          child: PTIconButton(
+            icon: Symbols.keyboard_arrow_up_rounded,
+            glass: false,
+            size: 32,
+            iconSize: 22,
+            tooltip: 'Show controls (H)',
+            onPressed: _showControls,
           ),
         ),
       ),
@@ -2818,18 +2901,21 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     if (mounted) _showEndedDialog(title: title, body: body, icon: icon);
   }
 
-  ({String title, String body, IconData icon})? get _dormancyCopy {
+  ({String title, String body, IconData icon})? get _endedCopy {
     final room = _room;
-    if (room == null || !room.goesDormant) return null;
-    final isHost = _sync?.isHost ?? (room.createdBy == ProfileService.instance.profile?.id);
+    if (room == null) return null;
+    if (room.persistent) {
+      return (
+        title: 'Room saved',
+        body:
+            'Your persistent room is saved in your lobby. You can start another watch party anytime.',
+        icon: Symbols.bookmark_rounded,
+      );
+    }
     return (
-      title: "Room's taking a nap",
-      body: isHost
-          ? "You're out of time for now, but the room is waiting in your lobby - "
-                'pick it back up whenever you like.'
-          : "You're out of time for now. The host can wake this room back up, and "
-                "it'll be waiting in your lobby.",
-      icon: Symbols.bedtime_rounded,
+      title: "That's a wrap!",
+      body: "This watch party has ended. Head back to the lobby to start a fresh room anytime.",
+      icon: Symbols.movie_rounded,
     );
   }
 
@@ -2837,11 +2923,11 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     _ended = true;
     if (!mounted) return;
     if (title == null && body == null) {
-      final dormant = _dormancyCopy;
-      if (dormant != null) {
-        title = dormant.title;
-        body = dormant.body;
-        icon ??= dormant.icon;
+      final ended = _endedCopy;
+      if (ended != null) {
+        title = ended.title;
+        body = ended.body;
+        icon ??= ended.icon;
       }
     }
     final isMobile = layoutOf(context) == .portrait;
@@ -2882,7 +2968,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
                       border: Border.all(color: const Color(0xFFA78BFA).withValues(alpha: 0.4)),
                     ),
                     child: Icon(
-                      icon ?? Symbols.bedtime_rounded,
+                      icon ?? Symbols.movie_rounded,
                       size: 32,
                       fill: 1,
                       color: PTColors.textAccent,
@@ -2924,17 +3010,10 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
                   mainAxisSize: .min,
                   spacing: 10,
                   children: [
-                    if (_canPickBackUp)
-                      PTButton(
-                        label: 'Pick it back up',
-                        icon: Symbols.play_circle_rounded,
-                        loading: resuming,
-                        onPressed: resuming ? null : () => _pickBackUp(dialogContext),
-                      ),
                     PTButton(
                       label: 'Back to lobby',
                       icon: Symbols.home_rounded,
-                      variant: _canPickBackUp ? .secondary : .primary,
+                      variant: .primary,
                       onPressed: () {
                         Navigator.of(dialogContext).pop();
                         if (AuthService.instance.isSignedIn) {
@@ -2969,55 +3048,6 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
       return false;
     }
     return _evictionReason != 'kicked' && _evictionReason != 'deleted';
-  }
-
-  bool get _canPickBackUp {
-    final room = _room;
-    if (room == null || !room.goesDormant) return false;
-    if (!(_sync?.isHost ?? ProfileService.instance.profile?.id == room.createdBy)) return false;
-    return _evictionReason != 'kicked' && _evictionReason != 'deleted';
-  }
-
-  Future<void> _pickBackUp(BuildContext dialogContext) async {
-    final room = _room;
-    if (room == null || _resuming.value) return;
-    _resuming.value = true;
-    try {
-      final limits = EntitlementService.instance.limitsOrFallback;
-      final minutes = room.durationMinutes.clamp(5, limits.maxSessionMinutes);
-      await RoomService.instance.resumeRoom(roomId: widget.roomId, minutes: minutes);
-      if (!mounted) return;
-      if (dialogContext.mounted) Navigator.of(dialogContext).pop();
-      _ended = false;
-      _evictionReason = null;
-      _resumeAttempted = false;
-      _lastWrittenPosition = null;
-      _positionWriteFailures = 0;
-      _localFileName = null;
-      _duration = Duration.zero;
-      _position = Duration.zero;
-      _playing = false;
-      _buffering = false;
-      _gateState = .indeterminate;
-      _awaitingFirstSource = true;
-      for (final s in _subscriptions) {
-        s.cancel();
-      }
-      _subscriptions.clear();
-      _countdownTimer?.cancel();
-      _positionWriteTimer?.cancel();
-      _idleSourceTimer?.cancel();
-      _localLoadWatchdog?.cancel();
-      _ytBufferFallbackTimer?.cancel();
-      setState(() => _loading = true);
-      await _init();
-    } catch (e, s) {
-      final failure = RoomErrorCode.fromError(e);
-      if (failure == .unknown) reportNonFatal(e, s, during: 'resuming a room from its wrap-up');
-      if (mounted) _snack(failure.message);
-    } finally {
-      _resuming.value = false;
-    }
   }
 
   Future<void> _leaveRoom() async {
@@ -3346,8 +3376,8 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
 
   String get _expirySubtitle {
     final room = _room;
-    if (room != null && room.goesDormant) {
-      return 'This room naps at $_endsAtLabel - you can pick it back up later.';
+    if (room != null && room.persistent) {
+      return 'Persistent room · current session ends at $_endsAtLabel.';
     }
     return 'Time to wrap up - this room ends at $_endsAtLabel.';
   }
@@ -3665,6 +3695,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     onVolume: _setVolume,
     onToggleMute: _toggleMute,
     onReact: _sync != null ? _toggleReact : null,
+    onHideControls: _toggleControlsVisible,
   );
 
   @override
@@ -3743,6 +3774,8 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
               if (_skip(const Duration(seconds: -10))) _flashSkip(-1);
             } else if (dx > width * 2 / 3) {
               if (_skip(const Duration(seconds: 10))) _flashSkip(1);
+            } else if (isDesktop) {
+              _toggleFullscreen();
             }
           },
           child: child,
@@ -4121,7 +4154,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
             size: compact ? 26 : 30,
             iconSize: compact ? 15 : 17,
             glass: false,
-            tooltip: 'Keyboard shortcuts',
+            tooltip: 'Keyboard shortcuts (?)',
             onPressed: _showShortcuts,
           ),
           if (kDebugMode && _mode == .youtube && _youtubeController != null)
@@ -4519,15 +4552,15 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
 
   Widget _desktop() {
     return MouseRegion(
-      // Any mouse motion revives the chrome, like every desktop video player.
-      onHover: (_) => _showControls(),
-      cursor: _controlsVisible ? MouseCursor.defer : SystemMouseCursors.none,
+      onHover: (_) => _onMouseMove(),
+      cursor: (_controlsVisible || _cursorVisible) ? MouseCursor.defer : SystemMouseCursors.none,
       child: Stack(
         children: [
           Positioned.fill(
             child: GestureDetector(
               behavior: .opaque,
               onTap: _toggleControlsVisible,
+              onDoubleTap: _toggleFullscreen,
               child: _video(),
             ),
           ),
@@ -4606,7 +4639,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
               curve: _controlsVisible ? PTMotion.enter : PTMotion.exit,
               top: 84,
               right: 24,
-              bottom: _controlsVisible ? (_reactOpen ? 224.0 : 160.0) : 24.0,
+              bottom: _controlsVisible ? (_reactOpen ? 224.0 : 160.0) : 76.0,
               width: 320,
               child: _chatRevealed(
                 offscreen: 320,
@@ -4667,6 +4700,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
               ),
             ),
           ),
+          Positioned(bottom: 24, right: 24, child: _showControlsButton()),
         ],
       ),
     );
@@ -4819,143 +4853,148 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
   }
 
   Widget _landscape() {
-    return Stack(
-      children: [
-        Positioned.fill(
-          child: _skipZones(onTap: _toggleControlsVisible, child: _video()),
-        ),
-        SafeArea(
-          minimum: const EdgeInsets.symmetric(horizontal: 56),
-          child: Stack(
-            children: [
-              Positioned(
-                top: 16,
-                left: 0,
-                right: 0,
-                child: _overlayControls(
-                  fromTop: true,
-                  Row(
-                    crossAxisAlignment: .start,
-                    children: [
-                      Expanded(
-                        child: Align(
-                          alignment: .topLeft,
-                          child: Wrap(
-                            spacing: 8,
-                            runSpacing: 6,
-                            crossAxisAlignment: WrapCrossAlignment.center,
-                            children: [
-                              _roomPill(compact: true),
-                              if (_mediaSharingPill(compact: true) != null)
-                                _mediaSharingPill(compact: true)!,
-                            ],
+    return MouseRegion(
+      onHover: (_) => _onMouseMove(),
+      cursor: (_controlsVisible || _cursorVisible) ? MouseCursor.defer : SystemMouseCursors.none,
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: _skipZones(onTap: _toggleControlsVisible, child: _video()),
+          ),
+          SafeArea(
+            minimum: const EdgeInsets.symmetric(horizontal: 56),
+            child: Stack(
+              children: [
+                Positioned(
+                  top: 16,
+                  left: 0,
+                  right: 0,
+                  child: _overlayControls(
+                    fromTop: true,
+                    Row(
+                      crossAxisAlignment: .start,
+                      children: [
+                        Expanded(
+                          child: Align(
+                            alignment: .topLeft,
+                            child: Wrap(
+                              spacing: 8,
+                              runSpacing: 6,
+                              crossAxisAlignment: WrapCrossAlignment.center,
+                              children: [
+                                _roomPill(compact: true),
+                                if (_mediaSharingPill(compact: true) != null)
+                                  _mediaSharingPill(compact: true)!,
+                              ],
+                            ),
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 12),
-                      _chatToggleButton(),
-                      const SizedBox(width: 10),
-                      PTIconButton(
-                        icon: Symbols.more_vert_rounded,
-                        iconSize: 21,
-                        onPressed: _openOverflowMenu,
-                      ),
-                    ],
+                        const SizedBox(width: 12),
+                        _chatToggleButton(),
+                        const SizedBox(width: 10),
+                        PTIconButton(
+                          icon: Symbols.more_vert_rounded,
+                          iconSize: 21,
+                          onPressed: _openOverflowMenu,
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-              ),
-              if (_av != null && !_privacyHidden && _camsVisible)
-                Positioned(
-                  top: 72,
-                  right: 0,
-                  child: SizedBox(
-                    width: 104,
-                    child: _chatDisplaced(
-                      FacecamRail(
-                        av: _av!,
-                        present: _present,
+                if (_av != null && !_privacyHidden && _camsVisible)
+                  Positioned(
+                    top: 72,
+                    right: 0,
+                    child: SizedBox(
+                      width: 104,
+                      child: _chatDisplaced(
+                        FacecamRail(
+                          av: _av!,
+                          present: _present,
+                          premiumMembers: _premiumMembers,
+                          selfId: _sync?.userId ?? '',
+                          layout: .miniStackRight,
+                          maxTiles: 3,
+                          showNames: _controlsVisible,
+                        ),
+                      ),
+                    ),
+                  ),
+                if (_sync != null)
+                  AnimatedPositioned(
+                    duration: PTMotion.functional(context, PTMotion.state),
+                    curve: _controlsVisible ? PTMotion.enter : PTMotion.exit,
+                    top: 72,
+                    right: 0,
+                    bottom: _controlsVisible ? (_reactOpen ? 190.0 : 138.0) : 74.0,
+                    width: 300,
+                    child: _chatRevealed(
+                      offscreen: 300,
+                      panel: RoomChatPanel(
+                        sync: _sync!,
+                        messages: _messages,
                         premiumMembers: _premiumMembers,
-                        selfId: _sync?.userId ?? '',
-                        layout: .miniStackRight,
-                        maxTiles: 3,
-                        showNames: _controlsVisible,
+                        typingNames: _typingNames,
+                        watchingCount: _present.length,
+                        onClose: _toggleChat,
+                        onSend: _sendChat,
+                        onCopied: _onChatCopied,
+                        onPlaySharedVideo: (_sync?.isHost ?? false) ? _playSharedVideo : null,
+                        onReportMessage: (msg) => _showReportDialog(
+                          targetUser: msg.displayName,
+                          messageSnippet: msg.content,
+                        ),
                       ),
                     ),
                   ),
-                ),
-              if (_sync != null)
-                AnimatedPositioned(
-                  duration: PTMotion.functional(context, PTMotion.state),
-                  curve: _controlsVisible ? PTMotion.enter : PTMotion.exit,
-                  top: 72,
-                  right: 0,
-                  bottom: _controlsVisible ? (_reactOpen ? 190.0 : 138.0) : 16.0,
-                  width: 300,
-                  child: _chatRevealed(
-                    offscreen: 300,
-                    panel: RoomChatPanel(
-                      sync: _sync!,
-                      messages: _messages,
-                      premiumMembers: _premiumMembers,
-                      typingNames: _typingNames,
-                      watchingCount: _present.length,
-                      onClose: _toggleChat,
-                      onSend: _sendChat,
-                      onCopied: _onChatCopied,
-                      onPlaySharedVideo: (_sync?.isHost ?? false) ? _playSharedVideo : null,
-                      onReportMessage: (msg) => _showReportDialog(
-                        targetUser: msg.displayName,
-                        messageSnippet: msg.content,
-                      ),
-                    ),
+                Positioned(top: 66, left: 0, width: 340, child: _bannerStack(spacing: 8)),
+                if (_overlayChat.isNotEmpty)
+                  AnimatedPositioned(
+                    duration: PTMotion.functional(context, PTMotion.state),
+                    curve: _controlsVisible ? PTMotion.enter : PTMotion.exit,
+                    left: 0,
+                    bottom: _controlsVisible ? (_reactOpen ? 190.0 : 138.0) : 16.0,
+                    width: 300,
+                    child: _chatDisplaced(_chatOverlay()),
                   ),
-                ),
-              Positioned(top: 66, left: 0, width: 340, child: _bannerStack(spacing: 8)),
-              if (_overlayChat.isNotEmpty)
-                AnimatedPositioned(
-                  duration: PTMotion.functional(context, PTMotion.state),
-                  curve: _controlsVisible ? PTMotion.enter : PTMotion.exit,
+                Positioned(
+                  bottom: 22,
                   left: 0,
-                  bottom: _controlsVisible ? (_reactOpen ? 190.0 : 138.0) : 16.0,
-                  width: 300,
-                  child: _chatDisplaced(_chatOverlay()),
-                ),
-              Positioned(
-                bottom: 22,
-                left: 0,
-                right: 0,
-                child: _overlayControls(
-                  Column(
-                    mainAxisSize: .min,
-                    children: [
-                      _reactionStrip(compact: true),
-                      RoomControlBar(
-                        playing: _playing,
-                        position: _position,
-                        duration: _duration,
-                        bufferedPosition: _isStreamingRemoteSharedMedia && _mode == .local
-                            ? _bufferPosition
-                            : null,
-                        volume: _volume,
-                        micOn: _av?.micEnabled ?? false,
-                        camOn: _av?.camEnabled ?? false,
-                        avAvailable: _av != null,
-                        camAvailable: _av?.canPublishCamera ?? false,
-                        avEnabled: _present.length >= 2,
-                        actions: _controlActions,
-                        reactOpen: _reactOpen,
-                        transportEnabled: _transportBlockedReason == null,
-                        transportHint: _transportBlockedReason,
-                        compact: true,
-                      ),
-                    ],
+                  right: 0,
+                  child: _overlayControls(
+                    Column(
+                      mainAxisSize: .min,
+                      children: [
+                        _reactionStrip(compact: true),
+                        RoomControlBar(
+                          playing: _playing,
+                          position: _position,
+                          duration: _duration,
+                          bufferedPosition: _isStreamingRemoteSharedMedia && _mode == .local
+                              ? _bufferPosition
+                              : null,
+                          volume: _volume,
+                          micOn: _av?.micEnabled ?? false,
+                          camOn: _av?.camEnabled ?? false,
+                          avAvailable: _av != null,
+                          camAvailable: _av?.canPublishCamera ?? false,
+                          avEnabled: _present.length >= 2,
+                          actions: _controlActions,
+                          reactOpen: _reactOpen,
+                          transportEnabled: _transportBlockedReason == null,
+                          transportHint: _transportBlockedReason,
+                          compact: true,
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-              ),
-            ],
+                Positioned(bottom: 22, right: 0, child: _showControlsButton()),
+              ],
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

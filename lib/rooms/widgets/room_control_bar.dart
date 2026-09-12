@@ -26,6 +26,7 @@ class RoomControlBarActions {
     required this.onVolume,
     required this.onToggleMute,
     this.onReact,
+    this.onHideControls,
   });
 
   final VoidCallback onPlayPause;
@@ -52,6 +53,7 @@ class RoomControlBarActions {
   final ValueChanged<double> onVolume;
   final VoidCallback onToggleMute;
   final VoidCallback? onReact;
+  final VoidCallback? onHideControls;
 }
 
 class RoomControlBar extends StatefulWidget {
@@ -478,6 +480,19 @@ class _RoomControlBarState extends State<RoomControlBar> {
                 ],
               ),
             ),
+            if (actions.onHideControls != null)
+              Padding(
+                padding: const EdgeInsets.only(left: 4),
+                child: PTIconButton(
+                  icon: Symbols.keyboard_arrow_down_rounded,
+                  glass: false,
+                  borderRadius: BorderRadius.circular(12),
+                  size: 36,
+                  iconSize: 22,
+                  tooltip: 'Hide controls (H)',
+                  onPressed: actions.onHideControls,
+                ),
+              ),
           ],
         ),
       ],
@@ -636,6 +651,15 @@ class _RoomControlBarState extends State<RoomControlBar> {
             iconSize: 21,
             tooltip: 'Subtitles',
             onPressed: actions.onSubtitles,
+          ),
+        if (actions.onHideControls != null)
+          PTIconButton(
+            icon: Symbols.keyboard_arrow_down_rounded,
+            glass: false,
+            borderRadius: BorderRadius.circular(12),
+            iconSize: 21,
+            tooltip: 'Hide controls (H)',
+            onPressed: actions.onHideControls,
           ),
       ],
     );

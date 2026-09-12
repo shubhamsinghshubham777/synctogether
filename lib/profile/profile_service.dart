@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:image/image.dart' as img;
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:synctogether/auth/auth_service.dart';
+import 'package:synctogether/diagnostics.dart';
 
 import 'profile_models.dart';
 
@@ -33,6 +35,14 @@ class ProfileService extends ChangeNotifier {
         return _profile;
       }
       await Future.delayed(const Duration(milliseconds: 400));
+    }
+    // If the client has a session token in storage but no profile row exists
+    // after retries, the session is orphaned (e.g. database was reset or account purged).
+    // Evict the stale session so the app safely routes back to sign-in.
+    try {
+      await AuthService.instance.signOut();
+    } catch (e, s) {
+      reportNonFatal(e, s, during: 'signing out orphaned session in ProfileService.load');
     }
     return null;
   }

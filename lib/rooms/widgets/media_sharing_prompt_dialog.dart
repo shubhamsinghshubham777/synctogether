@@ -95,7 +95,7 @@ class _MediaSharingPromptDialogState extends State<_MediaSharingPromptDialog> {
                   child: GestureDetector(
                     onTap: () => setState(() => _rememberChoice = !_rememberChoice),
                     child: Text(
-                      "Remember my choice for future files",
+                      "Remember my choice for future files (you can change this in Profile settings)",
                       style: theme.textTheme.bodySmall,
                     ),
                   ),

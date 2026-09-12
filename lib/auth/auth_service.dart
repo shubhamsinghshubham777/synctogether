@@ -287,10 +287,12 @@ class AuthService {
   Future<void> signOut() async {
     try {
       await _client.auth.signOut();
-    } on AuthException catch (e) {
+    } catch (e) {
       // A revoked/expired session still means "signed out" locally.
-      trace('sign-out fell back to a local sign-out', category: 'auth', data: {'error': e.message});
-      await _client.auth.signOut(scope: SignOutScope.local);
+      trace('sign-out fell back to a local sign-out', category: 'auth', data: {'error': '$e'});
+      try {
+        await _client.auth.signOut(scope: SignOutScope.local);
+      } catch (_) {}
     } finally {
       EntitlementService.instance.clear();
       Analytics.instance.reset();

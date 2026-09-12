@@ -21,6 +21,7 @@ import 'package:synctogether/rooms/local_media_store.dart';
 import 'package:synctogether/rooms/media_sharing_service.dart';
 import 'package:synctogether/rooms/room_models.dart';
 import 'package:synctogether/rooms/room_service.dart';
+import 'package:synctogether/rooms/widgets/ended_room_dialog.dart';
 import 'package:synctogether/rooms/widgets/extend_room_dialog.dart';
 import 'package:synctogether/rooms/widgets/my_rooms_section.dart';
 import 'package:synctogether/updates/update_service.dart';
@@ -50,6 +51,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
   bool _joining = false;
   int _codeShake = 0;
   String? _busyRoomId;
+  bool _clearingEndedRooms = false;
   Timer? _myRoomsPollTimer;
 
   File? _stagedFile;
@@ -340,7 +342,10 @@ class _LobbyScreenState extends State<LobbyScreen> {
           path: file.path,
         );
       }
-      if (mounted) context.go(roomPath(room.id));
+      if (mounted) {
+        final path = file == null ? '${roomPath(room.id)}?dialog=media' : roomPath(room.id);
+        context.go(path);
+      }
     } catch (e, s) {
       final code = RoomErrorCode.fromError(e);
       if (code == .unknown) reportNonFatal(e, s, during: 'creating a room');
@@ -349,6 +354,9 @@ class _LobbyScreenState extends State<LobbyScreen> {
         roomEndedForRetry = await _showGuestLimitDialog() && !isRetry;
       } else if (code == .roomLimitReached) {
         await _showRoomLimitDialog();
+      } else if (code == .notAuthenticated) {
+        _snack(code.message);
+        await AuthService.instance.signOut();
       } else {
         _snack(code.message);
       }
@@ -384,6 +392,9 @@ class _LobbyScreenState extends State<LobbyScreen> {
         _codeKey.currentState?.clear();
         setState(() => _codeShake++);
       }
+      if (failure == .notAuthenticated) {
+        await AuthService.instance.signOut();
+      }
     } finally {
       if (mounted) setState(() => _joining = false);
     }
@@ -398,55 +409,44 @@ class _LobbyScreenState extends State<LobbyScreen> {
         unawaited(EntitlementService.instance.refresh());
       }
     } catch (e, s) {
-      reportNonFatal(e, s, during: 'loading the lobby room list');
+      final failure = RoomErrorCode.fromError(e);
+      if (failure == .notAuthenticated) {
+        await AuthService.instance.signOut();
+      } else {
+        reportNonFatal(e, s, during: 'loading the lobby room list');
+      }
     }
   }
 
   Future<void> _openMyRoom(MyRoom entry) async {
-    if (entry.isLive) {
-      if (entry.isMember) {
-        context.go(roomPath(entry.room.id));
-      } else {
-        await _join(entry.room.code, via: .code);
-      }
+    if (!entry.isLive) {
+      await showGlassDialog<void>(
+        context: context,
+        width: 440,
+        builder: (_) => EndedRoomDialog(
+          room: entry.room,
+          isOwner: entry.isOwner,
+          onStartFresh: () {
+            _nameController.text = entry.room.name;
+            _create();
+          },
+          onUpgrade: () {
+            Analytics.instance.track('upgrade_cta_clicked', {
+              'surface': 'ended_room',
+              'action': 'subscribe',
+            });
+            context.go('/lobby/subscribe?source=ended_room');
+          },
+          onDelete: () => _deleteMyRoom(entry),
+        ),
+      );
       return;
     }
-    if (!entry.isHost) {
-      setState(() => _busyRoomId = entry.room.id);
-      try {
-        final rooms = await RoomService.instance.loadMyRooms();
-        final fresh = rooms.where((r) => r.room.id == entry.room.id).firstOrNull;
-        if (fresh != null && fresh.isLive) {
-          if (mounted) {
-            if (fresh.isMember) {
-              context.go(roomPath(fresh.room.id));
-            } else {
-              await _join(fresh.room.code, via: .code);
-            }
-          }
-          return;
-        }
-      } catch (e, s) {
-        reportNonFatal(e, s, during: 'checking live status for napping room');
-      } finally {
-        if (mounted) setState(() => _busyRoomId = null);
-      }
-      if (mounted) _snack('Only the host can wake this room back up.', kind: .info);
-      return;
-    }
-    final limits = EntitlementService.instance.limitsOrFallback;
-    final minutes = entry.room.durationMinutes.clamp(5, limits.maxSessionMinutes);
-    setState(() => _busyRoomId = entry.room.id);
-    try {
-      final room = await RoomService.instance.resumeRoom(roomId: entry.room.id, minutes: minutes);
-      if (mounted) context.go(roomPath(room.id));
-    } catch (e, s) {
-      final failure = RoomErrorCode.fromError(e);
-      if (failure == .unknown) reportNonFatal(e, s, during: 'resuming a room from the lobby');
-      if (mounted) _snack(failure.message);
-      unawaited(_loadMyRooms());
-    } finally {
-      if (mounted) setState(() => _busyRoomId = null);
+
+    if (entry.isMember) {
+      context.go(roomPath(entry.room.id));
+    } else {
+      await _join(entry.room.code, via: .code);
     }
   }
 
@@ -454,7 +454,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
     final confirmed = await showGlassDialog<bool>(
       context: context,
       width: 420,
-      builder: (_) => DeleteRoomDialog(roomName: entry.room.name, dormant: entry.isDormant),
+      builder: (_) => DeleteRoomDialog(roomName: entry.room.name, isLive: entry.isLive),
     );
     if (confirmed != true || !mounted) return;
     setState(() => _busyRoomId = entry.room.id);
@@ -497,14 +497,64 @@ class _LobbyScreenState extends State<LobbyScreen> {
     );
   }
 
+  Future<void> _clearEndedRooms(List<MyRoom> endedRooms) async {
+    if (endedRooms.isEmpty || _clearingEndedRooms) return;
+    final hasPersistent = RoomService.instance.myRooms.any((r) => r.room.persistent);
+    final confirmed = await showGlassDialog<bool>(
+      context: context,
+      width: 420,
+      builder: (_) =>
+          ClearEndedRoomsDialog(count: endedRooms.length, hasPersistentRooms: hasPersistent),
+    );
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _clearingEndedRooms = true);
+    var succeeded = 0;
+    var failed = 0;
+
+    try {
+      for (final entry in endedRooms) {
+        try {
+          await RoomService.instance.deleteRoom(entry.room.id);
+          await LocalMediaStore.instance.forget(entry.room.id);
+          succeeded++;
+        } catch (e, s) {
+          failed++;
+          final failure = RoomErrorCode.fromError(e);
+          if (failure == .unknown) {
+            reportNonFatal(e, s, during: 'clearing ended room ${entry.room.id}');
+          }
+        }
+      }
+
+      if (mounted) {
+        if (failed == 0) {
+          _snack('Cleared $succeeded ended ${succeeded == 1 ? 'room' : 'rooms'}.', kind: .success);
+        } else if (succeeded > 0) {
+          _snack(
+            'Cleared $succeeded ended ${succeeded == 1 ? 'room' : 'rooms'} ($failed failed).',
+            kind: .info,
+          );
+        } else {
+          _snack('Could not clear ended rooms. Please try again.');
+        }
+      }
+    } finally {
+      if (mounted) setState(() => _clearingEndedRooms = false);
+      unawaited(_loadMyRooms());
+    }
+  }
+
   Widget _myRoomsSection({bool compact = false}) {
     return MyRoomsSection(
       rooms: RoomService.instance.myRooms,
       serverNow: RoomService.instance.serverNow,
       busyRoomId: _busyRoomId,
+      clearingEnded: _clearingEndedRooms,
       compact: compact,
       onOpen: _openMyRoom,
       onDelete: _deleteMyRoom,
+      onClearEnded: _clearEndedRooms,
     );
   }
 

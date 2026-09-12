@@ -2,6 +2,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:synctogether/profile/entitlement_service.dart';
 import 'package:synctogether/profile/profile_models.dart';
 import 'package:synctogether/profile/profile_screen.dart';
@@ -161,6 +162,72 @@ void main() {
       expect(find.text('alex@example.com'), findsOneWidget);
       expect(find.text('Privacy policy'), findsOneWidget);
       expect(find.text('Terms of service'), findsOneWidget);
+    });
+
+    testWidgets('media sharing preference toggle and reset works correctly', (tester) async {
+      tester.view.physicalSize = const Size(1200, 1000);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      SharedPreferences.setMockInitialValues({'pt.media_sharing.remember_choice': true});
+
+      ProfileService.instance.setProfileForTesting(
+        const Profile(
+          id: 'user-1',
+          displayName: 'Alex Smith',
+          isGuest: false,
+          email: 'alex@example.com',
+        ),
+      );
+      EntitlementService.instance.setLimitsForTesting(
+        const TierLimits(
+          tier: 'free',
+          maxLiveRooms: 3,
+          maxMembers: 8,
+          maxSessionMinutes: 180,
+          maxTotalSessionMinutes: 180,
+          avLevel: .video,
+          persistentRoomCap: 1,
+          dormantHours: 24,
+          freeExtensionMinutes: 30,
+          mediaSharing: 'all',
+          mediaSharingWeeklyBytes: 2500000000,
+        ),
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(builder: buildResponsiveWrapper, home: const ProfileScreen()),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Auto-share local videos with room'), findsOneWidget);
+      expect(
+        find.text('Always uploads and shares local videos with room members.'),
+        findsOneWidget,
+      );
+      expect(find.text('Reset to ask every time'), findsOneWidget);
+
+      // Tap Reset to ask every time
+      await tester.tap(find.text('Reset to ask every time'));
+      await tester.pumpAndSettle();
+
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getBool('pt.media_sharing.remember_choice'), isNull);
+      expect(find.text('Reset to ask every time'), findsNothing);
+      expect(
+        find.textContaining('Currently asks every time you pick a local video'),
+        findsOneWidget,
+      );
+
+      // Tap the toggle to enable auto-share
+      await tester.tap(find.text('Auto-share local videos with room'));
+      await tester.pumpAndSettle();
+
+      expect(prefs.getBool('pt.media_sharing.remember_choice'), isTrue);
+      expect(find.text('Reset to ask every time'), findsOneWidget);
     });
   });
 }

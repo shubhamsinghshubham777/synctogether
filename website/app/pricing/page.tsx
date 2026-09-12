@@ -12,7 +12,7 @@ export default function PricingPage() {
   const pricingFaqs = [
     {
       q: "Can I try SyncTogether before paying?",
-      a: "Yes! Both our Guest and Free tiers are 100% free and fully functional. Free tier includes 4-hour sessions, 8 members, voice chat, and 24-hour room memory."
+      a: "Yes! Both our Guest and Free tiers are 100% free and fully functional. Free tier includes 4-hour sessions, 8 members, voice chat, and 2.5 GB weekly media streaming."
     },
     {
       q: "What payment methods do you accept?",

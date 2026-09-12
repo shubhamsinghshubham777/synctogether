@@ -72,7 +72,7 @@ export const PRICING_TIERS = {
       "4-hour session duration",
       "2.5 GB weekly media streaming quota (up to 2.0 GB file)",
       "Low-latency Voice facecams",
-      "Rooms nap for 24h (resumes where you left off)",
+      "Fast room creation & instant invites",
       "Syncs account across all your devices",
     ],
   },
@@ -130,7 +130,7 @@ export const FAQ_ITEMS = [
       },
       {
         q: "Do I need an account to use SyncTogether?",
-        a: "No! You can use SyncTogether as a Guest without creating an account. Guests can create 60-minute rooms with up to 4 members. To get 4-hour rooms, voice chat, cloud media sharing, and room memory, simply sign in with your Google account for free."
+        a: "No! You can use SyncTogether as a Guest without creating an account. Guests can create 60-minute rooms with up to 4 members. To get 4-hour rooms, voice chat, and cloud media sharing, simply sign in with your Google account for free."
       },
       {
         q: "Is SyncTogether free?",
@@ -155,7 +155,7 @@ export const FAQ_ITEMS = [
       },
       {
         q: "What happens when a room expires?",
-        a: "On Free and Guest tiers, rooms have a session timer. When a room expires, chat is cleared and the room naps (dormant state) for 24 hours on Free tier, allowing the host to reopen the file and resume right where everyone left off. Premium rooms never expire."
+        a: "On Free and Guest tiers, rooms have a session timer (60 minutes for Guest, 4 hours for Free). Once a room expires, chat and temporary session data are automatically wiped. To keep permanent rooms that never expire, upgrade to Premium."
       }
     ]
   },

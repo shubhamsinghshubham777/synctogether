@@ -257,10 +257,10 @@ export function PricingTable() {
                 <td className="p-4 sm:p-5 text-amber-300 font-bold">Video + Voice</td>
               </tr>
               <tr>
-                <td className="p-4 sm:p-5 font-semibold text-white">Room Nap & Resume</td>
-                <td className="p-4 sm:p-5 text-gray-500">Deleted immediately</td>
-                <td className="p-4 sm:p-5">Naps for 24 hours</td>
-                <td className="p-4 sm:p-5 text-amber-300 font-bold">Permanent memory</td>
+                <td className="p-4 sm:p-5 font-semibold text-white">Room Persistence & Saved Rooms</td>
+                <td className="p-4 sm:p-5 text-gray-500"><Minus className="w-4 h-4" /></td>
+                <td className="p-4 sm:p-5 text-gray-500"><Minus className="w-4 h-4" /></td>
+                <td className="p-4 sm:p-5 text-amber-300 font-bold">20 persistent rooms</td>
               </tr>
               <tr>
                 <td className="p-4 sm:p-5 font-semibold text-white">Animated Emoji Reactions</td>

@@ -89,6 +89,19 @@ add_compile_definitions(_SILENCE_EXPERIMENTAL_COROUTINE_DEPRECATION_WARNINGS)
 # are plugins whose CMakeLists live in the read-only pub cache.
 add_compile_options(/MP)
 
+# Store FetchContent dependencies (such as sentry-native) on a local drive
+# to avoid git clone packfile locking errors on network/SMB shares.
+if(DEFINED ENV{LOCALAPPDATA})
+  file(TO_CMAKE_PATH "$ENV{LOCALAPPDATA}" _LOCALAPPDATA)
+  set(FETCHCONTENT_BASE_DIR "${_LOCALAPPDATA}/synctogether/cmake_deps" CACHE PATH "Directory for FetchContent dependencies" FORCE)
+endif()
+
+# On Windows ARM64 hosts compiling x64 targets (such as Parallels Desktop on Apple Silicon),
+# Crashpad attempts to invoke marmasm on an x64 target which MSBuild rejects (MSB8076).
+# Use in-process SEH backend for Sentry native crashes on Windows.
+set(ENV{SENTRY_NATIVE_BACKEND} "inproc")
+set(SENTRY_BACKEND "inproc" CACHE STRING "The sentry backend responsible for reporting crashes" FORCE)
+
 # Compilation settings that should be applied to most targets.
 #
 # Be cautious about adding new options here, as plugins use this function by

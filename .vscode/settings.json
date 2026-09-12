@@ -1,5 +1,10 @@
 {
-  "dart.flutterSdkPath": ".fvm/versions/3.44.8",
+  "dart.flutterSdkPath": "~/fvm/versions/3.44.8",
+  "dart.flutterSdkPaths": [
+    "~/fvm/versions",
+    "~/.fvm/versions",
+    ".fvm/versions"
+  ],
   // Prevents the IDE from scanning the directory during global searches
   "search.exclude": {
     "**/.fvm": true

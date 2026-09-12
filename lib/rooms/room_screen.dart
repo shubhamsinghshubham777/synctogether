@@ -3411,13 +3411,15 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     if (renderBox == null || !renderBox.hasSize) return;
     final anchor = renderBox.localToGlobal(Offset.zero) & renderBox.size;
 
+    final prefMic = DevicePreferenceService.instance.preferredMic;
     showDeviceSelectorPopup(
       context: context,
       anchor: anchor,
       title: 'Select Microphone',
       icon: Symbols.mic_rounded,
       enumerateDevices: av.audioInputDevices,
-      selectedDeviceId: av.selectedAudioInputId,
+      selectedDeviceId: av.selectedAudioInputId ?? prefMic?.id,
+      selectedDeviceLabel: av.selectedAudioInputLabel ?? prefMic?.label,
       onDeviceSelected: (device) {
         unawaited(av.setAudioInputDevice(device));
         unawaited(DevicePreferenceService.instance.setPreferredMic(device));
@@ -3433,13 +3435,15 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     if (renderBox == null || !renderBox.hasSize) return;
     final anchor = renderBox.localToGlobal(Offset.zero) & renderBox.size;
 
+    final prefCam = DevicePreferenceService.instance.preferredCam;
     showDeviceSelectorPopup(
       context: context,
       anchor: anchor,
       title: 'Select Camera',
       icon: Symbols.videocam_rounded,
       enumerateDevices: av.videoInputDevices,
-      selectedDeviceId: av.selectedVideoInputId,
+      selectedDeviceId: av.selectedVideoInputId ?? prefCam?.id,
+      selectedDeviceLabel: av.selectedVideoInputLabel ?? prefCam?.label,
       onDeviceSelected: (device) {
         unawaited(av.setVideoInputDevice(device));
         unawaited(DevicePreferenceService.instance.setPreferredCam(device));
@@ -3455,13 +3459,15 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     if (renderBox == null || !renderBox.hasSize) return;
     final anchor = renderBox.localToGlobal(Offset.zero) & renderBox.size;
 
+    final prefOutput = DevicePreferenceService.instance.preferredOutput;
     showDeviceSelectorPopup(
       context: context,
       anchor: anchor,
       title: 'Select Audio Output',
       icon: Symbols.volume_up_rounded,
       enumerateDevices: av.audioOutputDevices,
-      selectedDeviceId: av.selectedAudioOutputId,
+      selectedDeviceId: av.selectedAudioOutputId ?? prefOutput?.id,
+      selectedDeviceLabel: av.selectedAudioOutputLabel ?? prefOutput?.label,
       onDeviceSelected: (device) async {
         unawaited(av.setAudioOutputDevice(device));
         unawaited(DevicePreferenceService.instance.setPreferredOutput(device));

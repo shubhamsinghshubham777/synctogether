@@ -124,16 +124,37 @@ class LiveKitService extends ChangeNotifier {
     return lk.Hardware.instance.audioOutputs();
   }
 
+  lk.MediaDevice? _selectedAudioInput;
+  lk.MediaDevice? get selectedAudioInput => _selectedAudioInput;
   String? get selectedAudioInputId =>
-      _room?.selectedAudioInputDeviceId ?? lk.Hardware.instance.selectedAudioInput?.deviceId;
+      _selectedAudioInput?.deviceId ??
+      _room?.selectedAudioInputDeviceId ??
+      lk.Hardware.instance.selectedAudioInput?.deviceId;
+  String? get selectedAudioInputLabel =>
+      _selectedAudioInput?.label ?? lk.Hardware.instance.selectedAudioInput?.label;
+
+  lk.MediaDevice? _selectedVideoInput;
+  lk.MediaDevice? get selectedVideoInput => _selectedVideoInput;
   String? get selectedVideoInputId =>
-      _room?.selectedVideoInputDeviceId ?? lk.Hardware.instance.selectedVideoInput?.deviceId;
+      _selectedVideoInput?.deviceId ??
+      _room?.selectedVideoInputDeviceId ??
+      lk.Hardware.instance.selectedVideoInput?.deviceId;
+  String? get selectedVideoInputLabel =>
+      _selectedVideoInput?.label ?? lk.Hardware.instance.selectedVideoInput?.label;
+
+  lk.MediaDevice? _selectedAudioOutput;
+  lk.MediaDevice? get selectedAudioOutput => _selectedAudioOutput;
   String? get selectedAudioOutputId =>
-      _room?.selectedAudioOutputDeviceId ?? lk.Hardware.instance.selectedAudioOutput?.deviceId;
+      _selectedAudioOutput?.deviceId ??
+      _room?.selectedAudioOutputDeviceId ??
+      lk.Hardware.instance.selectedAudioOutput?.deviceId;
+  String? get selectedAudioOutputLabel =>
+      _selectedAudioOutput?.label ?? lk.Hardware.instance.selectedAudioOutput?.label;
 
   Stream<List<lk.MediaDevice>> get onDeviceChange => lk.Hardware.instance.onDeviceChange.stream;
 
   Future<void> setAudioInputDevice(lk.MediaDevice device) async {
+    _selectedAudioInput = device;
     var target = device;
     try {
       final webrtcDevices = await lk.Hardware.instance.audioInputs();
@@ -156,6 +177,7 @@ class LiveKitService extends ChangeNotifier {
   }
 
   Future<void> setVideoInputDevice(lk.MediaDevice device) async {
+    _selectedVideoInput = device;
     if (_room != null) {
       await _room!.setVideoInputDevice(device);
     } else {
@@ -165,6 +187,7 @@ class LiveKitService extends ChangeNotifier {
   }
 
   Future<void> setAudioOutputDevice(lk.MediaDevice device) async {
+    _selectedAudioOutput = device;
     var target = device;
     try {
       final webrtcDevices = await lk.Hardware.instance.audioOutputs();

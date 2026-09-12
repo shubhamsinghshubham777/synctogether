@@ -15,6 +15,7 @@ Future<void> showDeviceSelectorPopup({
   required IconData icon,
   required Future<List<lk.MediaDevice>> Function() enumerateDevices,
   required String? selectedDeviceId,
+  String? selectedDeviceLabel,
   required ValueChanged<lk.MediaDevice> onDeviceSelected,
   Stream<List<lk.MediaDevice>>? onDeviceChange,
 }) {
@@ -43,6 +44,7 @@ Future<void> showDeviceSelectorPopup({
                 icon: icon,
                 enumerateDevices: enumerateDevices,
                 selectedDeviceId: selectedDeviceId,
+                selectedDeviceLabel: selectedDeviceLabel,
                 onDeviceSelected: (device) {
                   onDeviceSelected(device);
                   Navigator.of(dialogContext).pop();
@@ -77,6 +79,7 @@ class _DeviceSelectorPanel extends StatefulWidget {
     required this.icon,
     required this.enumerateDevices,
     required this.selectedDeviceId,
+    this.selectedDeviceLabel,
     required this.onDeviceSelected,
     this.onDeviceChange,
   });
@@ -85,6 +88,7 @@ class _DeviceSelectorPanel extends StatefulWidget {
   final IconData icon;
   final Future<List<lk.MediaDevice>> Function() enumerateDevices;
   final String? selectedDeviceId;
+  final String? selectedDeviceLabel;
   final ValueChanged<lk.MediaDevice> onDeviceSelected;
   final Stream<List<lk.MediaDevice>>? onDeviceChange;
 
@@ -125,6 +129,33 @@ class _DeviceSelectorPanelState extends State<_DeviceSelectorPanel> {
         _loading = false;
       });
     }
+  }
+
+  String? _resolveSelectedId() {
+    if (_devices == null || _devices!.isEmpty) return null;
+    final targetId = widget.selectedDeviceId;
+    final targetLabel = widget.selectedDeviceLabel?.trim().toLowerCase();
+
+    // 1. Exact deviceId match
+    if (targetId != null && targetId.isNotEmpty) {
+      final match = _devices!.where((d) => d.deviceId == targetId).firstOrNull;
+      if (match != null) return match.deviceId;
+    }
+
+    // 2. Exact label match (bridges cross-platform ID mismatches e.g. CoreAudio UID vs WebRTC ID on macOS)
+    if (targetLabel != null && targetLabel.isNotEmpty) {
+      final match = _devices!.where((d) => d.label.trim().toLowerCase() == targetLabel).firstOrNull;
+      if (match != null) return match.deviceId;
+
+      // 3. Partial label match
+      final partialMatch = _devices!.where((d) {
+        final dLabel = d.label.trim().toLowerCase();
+        return dLabel.contains(targetLabel) || targetLabel.contains(dLabel);
+      }).firstOrNull;
+      if (partialMatch != null) return partialMatch.deviceId;
+    }
+
+    return targetId;
   }
 
   @override
@@ -175,18 +206,23 @@ class _DeviceSelectorPanelState extends State<_DeviceSelectorPanel> {
             ConstrainedBox(
               constraints: const BoxConstraints(maxHeight: 220),
               child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: .min,
-                  spacing: 4,
-                  children: _devices!.map((device) {
-                    final label = device.label.trim().isEmpty ? 'Default Device' : device.label;
-                    final isSelected = device.deviceId == widget.selectedDeviceId;
-                    return _DeviceRow(
-                      label: label,
-                      isSelected: isSelected,
-                      onTap: () => widget.onDeviceSelected(device),
+                child: Builder(
+                  builder: (context) {
+                    final resolvedSelectedId = _resolveSelectedId();
+                    return Column(
+                      mainAxisSize: .min,
+                      spacing: 4,
+                      children: _devices!.map((device) {
+                        final label = device.label.trim().isEmpty ? 'Default Device' : device.label;
+                        final isSelected = device.deviceId == resolvedSelectedId;
+                        return _DeviceRow(
+                          label: label,
+                          isSelected: isSelected,
+                          onTap: () => widget.onDeviceSelected(device),
+                        );
+                      }).toList(),
                     );
-                  }).toList(),
+                  },
                 ),
               ),
             ),

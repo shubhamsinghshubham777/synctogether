@@ -280,16 +280,16 @@ spin_up() {
 
   # Auto-sync local keys into .env and website/.env.local
   if [ -n "$anon_key" ]; then
-    if [ -f "$REPO_ROOT/.env" ] && grep -q "SUPABASE_PUBLISHABLE_KEY_LOCAL=" "$REPO_ROOT/.env"; then
-      sed -i '' "s|SUPABASE_PUBLISHABLE_KEY_LOCAL=.*|SUPABASE_PUBLISHABLE_KEY_LOCAL=$anon_key|" "$REPO_ROOT/.env"
+    if [ -f "$REPO_ROOT/.env" ] && grep -q "^SUPABASE_PUBLISHABLE_KEY_LOCAL=" "$REPO_ROOT/.env"; then
+      sed -i '' "s|^SUPABASE_PUBLISHABLE_KEY_LOCAL=.*|SUPABASE_PUBLISHABLE_KEY_LOCAL=$anon_key|" "$REPO_ROOT/.env"
     fi
-    if grep -q "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=" "$REPO_ROOT/website/.env.local"; then
-      sed -i '' "s|NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=.*|NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=$anon_key|" "$REPO_ROOT/website/.env.local"
+    if grep -q "^NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=" "$REPO_ROOT/website/.env.local"; then
+      sed -i '' "s|^NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=.*|NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=$anon_key|" "$REPO_ROOT/website/.env.local"
     fi
   fi
   if [ -n "$service_role_key" ]; then
-    if grep -q "SUPABASE_SERVICE_ROLE_KEY=" "$REPO_ROOT/website/.env.local"; then
-      sed -i '' "s|SUPABASE_SERVICE_ROLE_KEY=.*|SUPABASE_SERVICE_ROLE_KEY=$service_role_key|" "$REPO_ROOT/website/.env.local"
+    if grep -q "^SUPABASE_SERVICE_ROLE_KEY=" "$REPO_ROOT/website/.env.local"; then
+      sed -i '' "s|^SUPABASE_SERVICE_ROLE_KEY=.*|SUPABASE_SERVICE_ROLE_KEY=$service_role_key|" "$REPO_ROOT/website/.env.local"
     fi
   fi
   local turnstile_site_key=""
@@ -297,8 +297,8 @@ spin_up() {
     turnstile_site_key=$(grep -E "^TURNSTILE_SITE_KEY=" "$REPO_ROOT/.env" | cut -d '=' -f2- | tr -d ' "' || true)
   fi
   if [ -n "$turnstile_site_key" ] && [ "$turnstile_site_key" != "0x4AAAAAA..." ]; then
-    if grep -q "NEXT_PUBLIC_TURNSTILE_SITE_KEY=" "$REPO_ROOT/website/.env.local"; then
-      sed -i '' "s|NEXT_PUBLIC_TURNSTILE_SITE_KEY=.*|NEXT_PUBLIC_TURNSTILE_SITE_KEY=$turnstile_site_key|" "$REPO_ROOT/website/.env.local"
+    if grep -q "^NEXT_PUBLIC_TURNSTILE_SITE_KEY=" "$REPO_ROOT/website/.env.local"; then
+      sed -i '' "s|^NEXT_PUBLIC_TURNSTILE_SITE_KEY=.*|NEXT_PUBLIC_TURNSTILE_SITE_KEY=$turnstile_site_key|" "$REPO_ROOT/website/.env.local"
     fi
   fi
 

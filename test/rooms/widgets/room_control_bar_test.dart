@@ -444,5 +444,92 @@ void main() {
         await tester.pump();
       },
     );
+
+    testWidgets('shows hide controls button and triggers onHideControls on tap', (tester) async {
+      bool hideTriggered = false;
+      final actions = RoomControlBarActions(
+        onPlayPause: () {},
+        onSeek: (_) {},
+        onSkip: (_) {},
+        onMicToggle: (_) {},
+        onCamToggle: (_) {},
+        onAudioTracks: () {},
+        onSubtitles: () {},
+        onSwitchSource: () {},
+        onOpenFile: () {},
+        onVolume: (_) {},
+        onToggleMute: () {},
+        onHideControls: () => hideTriggered = true,
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: RoomControlBar(
+              playing: false,
+              position: Duration.zero,
+              duration: const Duration(minutes: 10),
+              volume: 1.0,
+              micOn: false,
+              camOn: false,
+              avAvailable: true,
+              actions: actions,
+            ),
+          ),
+        ),
+      );
+
+      final hideFinder = find.byTooltip('Hide controls (H)');
+      expect(hideFinder, findsOneWidget);
+
+      await tester.tap(hideFinder);
+      await tester.pump();
+
+      expect(hideTriggered, isTrue);
+    });
+
+    testWidgets('shows hide controls button in compact mode and triggers on tap', (tester) async {
+      bool hideTriggered = false;
+      final actions = RoomControlBarActions(
+        onPlayPause: () {},
+        onSeek: (_) {},
+        onSkip: (_) {},
+        onMicToggle: (_) {},
+        onCamToggle: (_) {},
+        onAudioTracks: () {},
+        onSubtitles: () {},
+        onSwitchSource: () {},
+        onOpenFile: () {},
+        onVolume: (_) {},
+        onToggleMute: () {},
+        onHideControls: () => hideTriggered = true,
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: RoomControlBar(
+              playing: false,
+              position: Duration.zero,
+              duration: const Duration(minutes: 10),
+              volume: 1.0,
+              micOn: false,
+              camOn: false,
+              avAvailable: true,
+              compact: true,
+              actions: actions,
+            ),
+          ),
+        ),
+      );
+
+      final hideFinder = find.byTooltip('Hide controls (H)');
+      expect(hideFinder, findsOneWidget);
+
+      await tester.tap(hideFinder);
+      await tester.pump();
+
+      expect(hideTriggered, isTrue);
+    });
   });
 }

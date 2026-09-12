@@ -303,21 +303,37 @@ void main() {
 
     test('an unknown state degrades to expired rather than looking usable', () {
       expect(RoomState.fromWire('live'), RoomState.live);
-      expect(RoomState.fromWire('dormant'), RoomState.dormant);
+      expect(RoomState.fromWire('dormant'), RoomState.expired);
       expect(RoomState.fromWire('who knows'), RoomState.expired);
       expect(RoomState.fromWire(null), RoomState.expired);
     });
 
     test('a listing row carries the caller standing alongside the room', () {
       final entry = MyRoom.fromJson(
-        row(const {'state': 'dormant', 'role': 'host', 'member_count': 3, 'is_owner': true}),
+        row(const {'state': 'live', 'role': 'host', 'member_count': 3, 'is_owner': true}),
       );
       expect(entry.room.name, 'Movie night');
-      expect(entry.isDormant, isTrue);
-      expect(entry.isLive, isFalse);
+      expect(entry.isLive, isTrue);
+      expect(entry.isExpired, isFalse);
       expect(entry.isHost, isTrue);
       expect(entry.isOwner, isTrue);
       expect(entry.memberCount, 3);
+    });
+
+    test('an expired listing row reflects expired state', () {
+      final entry = MyRoom.fromJson(
+        row(const {'state': 'expired', 'role': 'host', 'member_count': 1, 'is_owner': true}),
+      );
+      expect(entry.isLive, isFalse);
+      expect(entry.isExpired, isTrue);
+    });
+
+    test('a room creator is always host even when room has 0 watchers', () {
+      final entry = MyRoom.fromJson(
+        row(const {'state': 'live', 'role': 'member', 'member_count': 0, 'is_owner': true}),
+      );
+      expect(entry.isHost, isTrue);
+      expect(entry.isOwner, isTrue);
     });
 
     test('an acting host is not the owner, so deletion stays with the creator', () {
@@ -425,6 +441,13 @@ void main() {
       expect(
         RoomErrorCode.fromError('error: media_sharing_disabled'),
         RoomErrorCode.mediaSharingDisabled,
+      );
+      expect(RoomErrorCode.fromError('error: not_authenticated'), RoomErrorCode.notAuthenticated);
+      expect(
+        RoomErrorCode.fromError(
+          'PostgrestException(message: insert or update on table "rooms" violates foreign key constraint "rooms_created_by_fkey", code: 23503, details: Key (created_by)=(7dee1b5e-186c-4fd8-82e7-b96b32f389c4) is not present in table "profiles"., hint: null)',
+        ),
+        RoomErrorCode.notAuthenticated,
       );
     });
   });

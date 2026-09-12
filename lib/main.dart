@@ -88,21 +88,7 @@ Future<void> _bootstrap() async {
   // the auth stream has an error handler before the first deep link can land.
   AuthService.instance.start();
   runApp(const MainApp());
-  if (isDesktop) unawaited(_initDesktopWindow());
   if (supportsSelfUpdate) unawaited(UpdateService.instance.checkForUpdate());
-}
-
-/// Configures the desktop window on launch: enforces a minimum size to prevent
-/// UI overflow, and maximizes to fill the screen workspace without entering
-/// OS fullscreen (preserving title bars and native window controls).
-Future<void> _initDesktopWindow() async {
-  try {
-    await WidgetsBinding.instance.endOfFrame;
-    await windowManager.setMinimumSize(kDesktopMinWindowSize);
-    await windowManager.maximize();
-  } catch (e, s) {
-    reportNonFatal(e, s, during: 'init desktop window');
-  }
 }
 
 class MainApp extends StatefulWidget {

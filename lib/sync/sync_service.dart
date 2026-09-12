@@ -60,7 +60,17 @@ class SyncService {
   final _presenceController = StreamController<List<PresentMember>>.broadcast();
   Stream<List<PresentMember>> get presenceStream => _presenceController.stream;
   List<PresentMember> _presentMembers = const [];
-  List<PresentMember> get presentMembers => List.unmodifiable(_presentMembers);
+
+  bool _hasLocalReadiness = false;
+
+  List<PresentMember> get _effectivePresentMembers {
+    if (!_hasPresenceSynced) return _presentMembers;
+    if (!_hasLocalReadiness) return _presentMembers;
+    final others = _presentMembers.where((m) => m.userId != userId).toList();
+    return [...others, _selfPresence];
+  }
+
+  List<PresentMember> get presentMembers => List.unmodifiable(_effectivePresentMembers);
 
   bool _hasPresenceSynced = false;
 
@@ -137,16 +147,17 @@ class SyncService {
   GateState get gateState => logic.evaluateGateState(
     hasPresenceSynced: _hasPresenceSynced,
     media: _canonicalMedia,
-    members: _presentMembers,
+    members: _effectivePresentMembers,
     waived: _waived,
     mediaUploadState: _mediaUploadState,
   );
 
   List<PresentMember> get gateBlockers =>
-      logic.gateBlockersOf(_canonicalMedia, _presentMembers, waived: _waived);
+      logic.gateBlockersOf(_canonicalMedia, _effectivePresentMembers, waived: _waived);
 
   /// Everyone not yet ready, waiver or not - what the host is deciding about.
-  List<PresentMember> get gateStragglers => logic.gateBlockersOf(_canonicalMedia, _presentMembers);
+  List<PresentMember> get gateStragglers =>
+      logic.gateBlockersOf(_canonicalMedia, _effectivePresentMembers);
 
   PresentMember? get gateBlocker => gateBlockers.firstOrNull;
 
@@ -464,6 +475,10 @@ class SyncService {
     trace('role changed', category: 'sync', data: {'from': _role, 'to': role});
     _role = role;
     _trackPresence();
+    if (_hasPresenceSynced) {
+      _presenceController.add(_effectivePresentMembers);
+      _evaluateGate();
+    }
   }
 
   /// Own readiness -> presence. Presence carries the gate because it replays to
@@ -477,6 +492,7 @@ class SyncService {
   /// The pair is announced as a whole: omitting [loadedFileName] clears it, so
   /// pass it on every call where a file is open.
   void retrackReadiness(ReadyStatus status, {String? loadedFileName}) {
+    _hasLocalReadiness = true;
     if (_readyStatus == status && _loadedFileName == loadedFileName) return;
     trace(
       _readyStatus == status
@@ -488,6 +504,10 @@ class SyncService {
     _readyStatus = status;
     _loadedFileName = loadedFileName;
     _trackPresence();
+    if (_hasPresenceSynced) {
+      _presenceController.add(_effectivePresentMembers);
+      _evaluateGate();
+    }
     _checkSelfGateSatisfaction();
   }
 
@@ -496,6 +516,9 @@ class SyncService {
     trace('privacy mode ${enabled ? 'on' : 'off'}', category: 'room');
     _privacyMode = enabled;
     _trackPresence();
+    if (_hasPresenceSynced) {
+      _presenceController.add(_effectivePresentMembers);
+    }
   }
 
   bool _selfSatisfiesGate = false;
@@ -547,21 +570,21 @@ class SyncService {
     _hasPresenceSynced = true;
     final prevMembers = _presentMembers;
     _presentMembers = logic.mergePresence(states);
-    _presenceController.add(_presentMembers);
+    _presenceController.add(_effectivePresentMembers);
 
     // Late Joiner Auto-Waiver:
     // When a member joins a live playing room where shared media is ready,
     // authority waives them until they reach ReadyStatus.ready so gate doesn't close.
     if (_isAuthority && _roomPlaying && _canonicalMedia.isSet && _mediaUploadState == 'ready') {
       final prevIds = prevMembers.map((m) => m.userId).toSet();
-      for (final member in _presentMembers) {
+      for (final member in _effectivePresentMembers) {
         if (member.userId != userId && !member.isReady && !prevIds.contains(member.userId)) {
           _waived.add(member.userId);
         }
       }
     }
     // Clear waiver once member is ready
-    for (final member in _presentMembers) {
+    for (final member in _effectivePresentMembers) {
       if (member.isReady && _waived.contains(member.userId)) {
         _waived.remove(member.userId);
       }
@@ -805,6 +828,15 @@ class SyncService {
     _canonicalMedia = media;
     _waived.clear();
     _canonicalMediaController.add(media);
+    _checkSelfGateSatisfaction();
+    _evaluateGate();
+  }
+
+  /// Allows the host/authority to immediately register canonical media locally
+  /// while the database write and network broadcast are in flight.
+  void setProvisionalCanonicalMedia(RoomMedia media) {
+    if (!_isAuthority && !isHost) return;
+    _canonicalMedia = media;
     _checkSelfGateSatisfaction();
     _evaluateGate();
   }
@@ -1111,8 +1143,9 @@ class SyncService {
   PresentMember get _selfPresence => PresentMember(
     userId: userId,
     displayName: profile.displayName,
+    avatarUrl: profile.avatarUrl,
     role: _role,
-    joinedAt: _membershipJoinedAt ?? DateTime.now(),
+    joinedAt: _membershipJoinedAt ?? _presenceJoinedFallback,
     readyStatus: _readyStatus,
     loadedFileName: _loadedFileName,
     privacyMode: _privacyMode,

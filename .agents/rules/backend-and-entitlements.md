@@ -40,7 +40,7 @@ Three tiers: `guest` / `free` / `premium`.
 
 - **Limits are config**: Stored in `tier_limits` table. `effective_tier(uid)` is `guest` (anonymous), `premium` (active subscription), else `free`.
 - **Host owns room properties**: Joiners experience the host's room limits and AV capabilities.
-- **Expiry parks rooms**: `room_state` is `live` / `dormant` / `expired`. `sweep_rooms` cron drives transitions through `retire_room` (`dormant_hours = 0` for guests -> immediate deletion; persistent rooms for premium).
+- **Room state**: `room_state` is `live` or `expired`. Active rooms stay live until their timer expires or host ends them; persistent rooms (premium) stay live indefinitely. `sweep_rooms` cron drives cleanup of expired rooms through `retire_room`.
 - **Extending rooms**: `extend_room` branches on tier config (`max_total_session_minutes`, `free_extension_minutes`), not hardcoded tier strings.
 - **T-5 Expiry Banner**: Must NOT auto-dismiss for the host (it is the only affordance to extend/save the session). Auto-dismisses for members.
 - **Crown & Badges**: Visible badges (`PremiumCrown`, `PTAvatar.premium`) are resolved via `room_member_tiers(p_room_id)` RPC (single roundtrip, membership-gated). Never use presence self-reports for entitlement claims.

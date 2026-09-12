@@ -25,7 +25,7 @@ export default async function ChangelogPage() {
 - **Video & Voice Facecams**: Real-time Video and low-latency Voice facecams integrated directly into rooms.
 - **Persistent Rooms**: Premium hosts can now create named, permanent rooms that never expire.
 - **Animated Lottie Reactions**: 24 expressive Google Noto animated emoji reactions floating dynamically over video.
-- **Room Dormancy & Nap**: Free rooms nap for 24h upon expiration, resuming local file timestamps seamlessly.
+- **Extended Sessions**: Free rooms support continuous 4-hour watch sessions, resuming local file timestamps seamlessly.
 
 ### Performance & Engine
 - Upgraded video playback engine with improved hardware decoding on macOS & Windows.

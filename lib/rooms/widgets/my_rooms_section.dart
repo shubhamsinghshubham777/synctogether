@@ -15,6 +15,8 @@ class MyRoomsSection extends StatelessWidget {
     required this.onOpen,
     required this.onDelete,
     required this.busyRoomId,
+    this.onClearEnded,
+    this.clearingEnded = false,
     this.compact = false,
   });
 
@@ -22,11 +24,15 @@ class MyRoomsSection extends StatelessWidget {
   final DateTime serverNow;
   final ValueChanged<MyRoom> onOpen;
   final ValueChanged<MyRoom> onDelete;
+  final ValueChanged<List<MyRoom>>? onClearEnded;
+  final bool clearingEnded;
   final String? busyRoomId;
   final bool compact;
 
   @override
   Widget build(BuildContext context) {
+    final endedRooms = rooms.where((r) => !r.isLive && !r.room.persistent && r.isOwner).toList();
+
     return GlassPanel(
       radius: compact ? 24 : 26,
       opacity: compact ? 0.55 : 0.5,
@@ -38,7 +44,7 @@ class MyRoomsSection extends StatelessWidget {
         spacing: compact ? 14 : 18,
         children: [
           Row(
-            spacing: 12,
+            spacing: compact ? 8 : 10,
             children: [
               Icon(
                 Symbols.meeting_room_rounded,
@@ -46,17 +52,35 @@ class MyRoomsSection extends StatelessWidget {
                 fill: 1,
                 color: PTColors.textAccent,
               ),
-              Text(
-                'Your rooms',
-                style: compact
-                    ? PTText.cardHeading.copyWith(fontSize: 16)
-                    : PTText.cardHeading.copyWith(fontSize: 18),
+              Text.rich(
+                TextSpan(
+                  children: [
+                    TextSpan(
+                      text: 'Your rooms',
+                      style: compact
+                          ? PTText.cardHeading.copyWith(fontSize: 16)
+                          : PTText.cardHeading.copyWith(fontSize: 18),
+                    ),
+                    TextSpan(
+                      text: ' (${rooms.length})',
+                      style: PTText.mono.copyWith(
+                        fontSize: compact ? 13 : 14,
+                        color: PTColors.white(0.45),
+                      ),
+                    ),
+                  ],
+                ),
               ),
               const Spacer(),
-              Text(
-                '${rooms.length}',
-                style: PTText.mono.copyWith(fontSize: 12, color: PTColors.white(0.4)),
-              ),
+              if (endedRooms.isNotEmpty)
+                _ClearEndedButton(
+                  count: endedRooms.length,
+                  compact: compact,
+                  busy: clearingEnded,
+                  onPressed: onClearEnded != null && !clearingEnded
+                      ? () => onClearEnded!(endedRooms)
+                      : null,
+                ),
             ],
           ),
           Column(
@@ -144,7 +168,7 @@ class _RoomRowState extends State<_RoomRow> {
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(
-                  live ? Symbols.play_circle_rounded : Symbols.bedtime_rounded,
+                  live ? Symbols.play_circle_rounded : Symbols.timer_off_rounded,
                   size: 20,
                   fill: 1,
                   color: live ? PTColors.textAccent : PTColors.white(0.45),
@@ -162,10 +186,14 @@ class _RoomRowState extends State<_RoomRow> {
                           child: Text(
                             room.name,
                             overflow: .ellipsis,
-                            style: PTText.body.copyWith(fontSize: 14, fontWeight: .w600),
+                            style: PTText.body.copyWith(
+                              fontSize: 14,
+                              fontWeight: .w600,
+                              color: live ? PTColors.white(0.95) : PTColors.white(0.65),
+                            ),
                           ),
                         ),
-                        if (entry.isHost)
+                        if (live && entry.isHost)
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                             decoration: BoxDecoration(
@@ -175,6 +203,18 @@ class _RoomRowState extends State<_RoomRow> {
                             child: Text(
                               'Host',
                               style: PTText.mono.copyWith(fontSize: 9, color: PTColors.textAccent),
+                            ),
+                          )
+                        else if (!live)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: PTColors.white(0.08),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              'Ended',
+                              style: PTText.mono.copyWith(fontSize: 9, color: PTColors.white(0.5)),
                             ),
                           ),
                       ],
@@ -219,13 +259,11 @@ class _RoomRowState extends State<_RoomRow> {
   static String _subtitle(MyRoom entry, DateTime serverNow) {
     final room = entry.room;
     final people = '${entry.memberCount} ${entry.memberCount == 1 ? 'watcher' : 'watchers'}';
+    if (room.persistent) return '$people · saved';
     if (entry.isLive) {
       return '$people · ${_left(room.expiresAt.difference(serverNow))} left';
     }
-    if (room.persistent) return '$people · saved';
-    final until = room.resumableUntil;
-    if (until == null) return '$people · napping';
-    return '$people · napping, gone in ${_left(until.difference(serverNow))}';
+    return 'Session ended · Tap for options';
   }
 
   static String _left(Duration d) {
@@ -237,10 +275,10 @@ class _RoomRowState extends State<_RoomRow> {
 }
 
 class DeleteRoomDialog extends StatelessWidget {
-  const DeleteRoomDialog({super.key, required this.roomName, required this.dormant});
+  const DeleteRoomDialog({super.key, required this.roomName, this.isLive = true});
 
   final String roomName;
-  final bool dormant;
+  final bool isLive;
 
   @override
   Widget build(BuildContext context) {
@@ -278,10 +316,10 @@ class DeleteRoomDialog extends StatelessWidget {
                 style: TextStyle(color: PTColors.white(0.85)),
               ),
               TextSpan(
-                text: dormant
-                    ? " goes for good, along with everyone's place in it. There's no undo."
-                    : ' goes for good. Anyone still watching gets sent back to their '
-                          "lobby right away. There's no undo.",
+                text: isLive
+                    ? ' goes for good. Anyone still watching gets sent back to their '
+                          "lobby right away. There's no undo."
+                    : " goes for good. There's no undo.",
               ),
             ],
           ),
@@ -303,6 +341,173 @@ class DeleteRoomDialog extends StatelessWidget {
               Expanded(
                 child: PTButton(
                   label: 'Delete',
+                  variant: .destructive,
+                  height: 48,
+                  onPressed: () => Navigator.of(context).pop(true),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ClearEndedButton extends StatefulWidget {
+  const _ClearEndedButton({
+    required this.count,
+    required this.compact,
+    required this.busy,
+    required this.onPressed,
+  });
+
+  final int count;
+  final bool compact;
+  final bool busy;
+  final VoidCallback? onPressed;
+
+  @override
+  State<_ClearEndedButton> createState() => _ClearEndedButtonState();
+}
+
+class _ClearEndedButtonState extends State<_ClearEndedButton> {
+  bool _hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.busy) {
+      return const Padding(padding: EdgeInsets.symmetric(horizontal: 8), child: PTLoader(size: 16));
+    }
+
+    final tooltip = 'Clear ended rooms (${widget.count})';
+
+    if (widget.compact) {
+      return PTIconButton(
+        icon: Symbols.delete_sweep_rounded,
+        size: 32,
+        iconSize: 18,
+        glass: false,
+        tooltip: tooltip,
+        onPressed: widget.onPressed,
+      );
+    }
+
+    final enabled = widget.onPressed != null;
+
+    return MouseRegion(
+      cursor: enabled ? SystemMouseCursors.click : MouseCursor.defer,
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: Tooltip(
+        message: tooltip,
+        child: PTPressable(
+          enabled: enabled,
+          onTap: widget.onPressed,
+          child: AnimatedContainer(
+            duration: PTMotion.functional(context, PTMotion.hover),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: PTColors.white(_hovered ? 0.1 : 0.05),
+              border: Border.all(color: PTColors.white(_hovered ? 0.18 : 0.1)),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Row(
+              mainAxisSize: .min,
+              spacing: 6,
+              children: [
+                Icon(
+                  Symbols.delete_sweep_rounded,
+                  size: 16,
+                  color: PTColors.white(_hovered ? 0.9 : 0.65),
+                ),
+                Text(
+                  'Clear ended',
+                  style: PTText.mono.copyWith(
+                    fontSize: 12,
+                    color: PTColors.white(_hovered ? 0.95 : 0.75),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class ClearEndedRoomsDialog extends StatelessWidget {
+  const ClearEndedRoomsDialog({super.key, required this.count, this.hasPersistentRooms = false});
+
+  final int count;
+  final bool hasPersistentRooms;
+
+  @override
+  Widget build(BuildContext context) {
+    final roomLabel = count == 1 ? 'room' : 'rooms';
+
+    return Column(
+      mainAxisSize: .min,
+      crossAxisAlignment: .start,
+      spacing: 12,
+      children: [
+        Row(
+          spacing: 13,
+          children: [
+            Container(
+              width: 46,
+              height: 46,
+              decoration: BoxDecoration(
+                color: PTColors.dangerBorder.withValues(alpha: 0.12),
+                border: Border.all(color: PTColors.dangerBorder.withValues(alpha: 0.3)),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: const Icon(
+                Symbols.delete_sweep_rounded,
+                size: 24,
+                fill: 1,
+                color: PTColors.danger,
+              ),
+            ),
+            Expanded(child: Text('Clear $count ended $roomLabel?', style: PTText.cardHeading)),
+          ],
+        ),
+        Text.rich(
+          TextSpan(
+            children: [
+              TextSpan(
+                text:
+                    'This will permanently delete $count ended $roomLabel from your lobby '
+                    'and free up room space. There is no undo.',
+              ),
+              if (hasPersistentRooms) ...[
+                const TextSpan(text: '\n\n'),
+                TextSpan(
+                  text: 'Your saved persistent rooms will stay safe and untouched.',
+                  style: TextStyle(color: PTColors.textAccent, fontWeight: .w500),
+                ),
+              ],
+            ],
+          ),
+          style: PTText.body.copyWith(fontSize: 14, color: PTColors.white(0.6), height: 1.55),
+        ),
+        Padding(
+          padding: const EdgeInsets.only(top: 8),
+          child: Row(
+            spacing: 11,
+            children: [
+              Expanded(
+                child: PTButton(
+                  label: 'Keep them',
+                  variant: .secondary,
+                  height: 48,
+                  onPressed: () => Navigator.of(context).pop(false),
+                ),
+              ),
+              Expanded(
+                child: PTButton(
+                  label: 'Clear $count $roomLabel',
                   variant: .destructive,
                   height: 48,
                   onPressed: () => Navigator.of(context).pop(true),

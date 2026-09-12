@@ -1,5 +1,5 @@
 begin;
-select plan(55);
+select plan(56);
 
 create function pg_temp.mk_user(p_guest boolean default false) returns uuid
 language plpgsql as $$
@@ -180,8 +180,8 @@ end $$;
 select is(
   (select public.room_state(r) from public.rooms r
    where r.id = (select v from t where k = 'free_room')),
-  'dormant',
-  'a free room past its expiry is dormant even before sweep_rooms runs');
+  'expired',
+  'a free room past its expiry is expired');
 
 do $$
 begin
@@ -191,24 +191,31 @@ end $$;
 select is(
   (select public.room_state(r) from public.rooms r
    where r.id = (select v from t where k = 'free_room')),
-  'dormant',
-  'a free room past its expiry goes dormant rather than dying');
+  'expired',
+  'a free room past its expiry stays expired');
 
 select ok(
   (select resumable_until from public.rooms where id = (select v from t where k = 'free_room'))
     > now() + interval '23 hours',
-  'a dormant free room stays resumable for a day');
+  'a retired free room stays resumable for a day');
+
+do $$ begin perform pg_temp.act_as((select v from t where k = 'free')); end $$;
+
+select is(
+  (select state from public.list_my_rooms() where id = (select v from t where k = 'free_room')),
+  'expired',
+  'a recently expired room is listed for its creator with state expired');
 
 select is(
   (select count(*) from public.messages where room_id = (select v from t where k = 'free_room')),
   0::bigint,
-  'chat is session-scoped: dormancy wipes the transcript');
+  'chat is session-scoped: retirement wipes the transcript');
 
 select is(
   (select count(*) from public.room_members
    where room_id = (select v from t where k = 'free_room')),
   1::bigint,
-  'dormancy keeps the membership, so the room can be resumed and rejoined');
+  'retirement keeps the membership until room cleanup');
 
 select is(
   (select count(*) from public.rooms where id = (select v from t where k = 'guest_room')),
@@ -218,15 +225,15 @@ select is(
 select is(
   (select public.room_state(r) || ':' || r.persistent::text from public.rooms r
    where r.id = (select v from t where k = 'premium_room')),
-  'dormant:true',
-  'a persistent room stays dormant with no resumable deadline');
+  'live:true',
+  'a persistent room stays live');
 
 do $$ begin perform pg_temp.act_as((select v from t where k = 'premium')); end $$;
 
 select throws_ok(
   $$ select public.join_room((select v from c where k = 'free_code')) $$,
-  'room_dormant',
-  'a dormant room has to be resumed before anyone can join it');
+  'room_ended',
+  'an expired room cannot be joined');
 
 do $$ begin perform pg_temp.act_as((select v from t where k = 'free')); end $$;
 
@@ -244,13 +251,13 @@ select is(
   (select public.room_state(r) from public.rooms r
    where r.id = (select v from t where k = 'free_room')),
   'live',
-  'resuming a dormant room brings it back to life');
+  'resuming brings it back to life');
 
 select is(
   (select coalesce(ended_at::text, '-') || coalesce(resumable_until::text, '-')
    from public.rooms where id = (select v from t where k = 'free_room')),
   '--',
-  'resuming clears both the end stamp and the dormancy deadline');
+  'resuming clears both the end stamp and the resumable deadline');
 
 do $$ begin perform pg_temp.act_as((select v from t where k = 'premium')); end $$;
 

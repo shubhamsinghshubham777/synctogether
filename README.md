@@ -116,7 +116,7 @@ Release builds and installer artifacts are built via GitHub Actions (`.github/wo
 |---|---|
 | `lib/ui/` | Violet glass design system: tokens (`PTColors`, `PTText`), buttons, inputs, loaders (`PTLoader`), dialogs |
 | `lib/auth/`, `lib/profile/` | Authentication flows, Turnstile captcha bridge, user profiles, entitlement management |
-| `lib/rooms/` | Lobby, room screen, participant grid, dormancy/resume engine, room service |
+| `lib/rooms/` | Lobby, room screen, participant grid, room lifecycle & service |
 | `lib/sync/` | Lockstep synchronization engine (`SyncService`, `SyncBackend`, `SyncLogic`) |
 | `lib/av/` | LiveKit SFU audio/video connection & facecam tiles |
 | `lib/updates/` | Desktop self-update service (Sparkle / WinSparkle appcast parser, silent background updater) |

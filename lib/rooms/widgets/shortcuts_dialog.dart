@@ -27,11 +27,13 @@ class ShortcutsDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final view = <_Shortcut>[
+      const _Shortcut(['H'], 'Show or hide room controls'),
       const _Shortcut(['C'], 'Show or hide the chat panel'),
       if (facecams) const _Shortcut(['V'], 'Show or hide the facecams'),
       if (isDesktop) const _Shortcut(['F'], 'Enter or exit fullscreen'),
       const _Shortcut(['F1'], 'Privacy mode - black out the room, mute mic and cam'),
       if (kDebugMode) const _Shortcut(['F2'], 'Debug: Simulate / toggle YouTube ad'),
+      const _Shortcut(['?'], 'Show keyboard shortcuts'),
       const _Shortcut(['Esc'], 'Close the reaction strip, then chat, then fullscreen'),
     ];
 

@@ -40,7 +40,7 @@ enum RoomState {
 
   static RoomState fromWire(String? value) => switch (value) {
     'live' => .live,
-    'dormant' => .dormant,
+    'dormant' => .expired,
     _ => .expired,
   };
 }
@@ -120,7 +120,7 @@ class Room {
 
   bool get hasMedia => mediaKind != .none;
 
-  bool get goesDormant => persistent || dormantHours > 0;
+  bool get goesDormant => persistent;
 
   Room copyWith({
     String? id,
@@ -242,9 +242,10 @@ class MyRoom {
   final bool isOwner;
   final bool isMember;
 
-  bool get isHost => role == 'host';
+  bool get isHost => role == 'host' || isOwner;
   bool get isLive => state == .live;
-  bool get isDormant => state == .dormant;
+  bool get isExpired => state == .expired;
+  bool get isDormant => false;
 
   factory MyRoom.fromJson(Map<String, dynamic> json) => MyRoom(
     room: Room.fromJson(json),
@@ -339,7 +340,7 @@ class RoomMember {
 /// Friendly-copy mapping for RPC errors (design voice - no raw codes).
 enum RoomErrorCode {
   roomNotFound('room_not_found', "Hmm, we couldn't find a room with that code."),
-  roomDormant('room_dormant', 'That room is napping - the host has to wake it up first.'),
+  roomDormant('room_dormant', 'That room has already ended.'),
   roomEnded('room_ended', 'That room has already ended.'),
   roomFull('room_full', "This room is full - there's no space for one more."),
   roomBanned('room_banned', "The host removed you from this room, so you can't rejoin."),
@@ -376,6 +377,7 @@ enum RoomErrorCode {
     'media_sharing_disabled',
     'Media sharing is temporarily undergoing maintenance.',
   ),
+  notAuthenticated('not_authenticated', 'Your session has expired. Please sign in again.'),
   unknown('unknown', "Something went sideways. Give it another try.");
 
   const RoomErrorCode(this.code, this.message);
@@ -385,6 +387,11 @@ enum RoomErrorCode {
 
   static RoomErrorCode fromError(Object error) {
     final text = error.toString();
+    if (text.contains('rooms_created_by_fkey') ||
+        text.contains('is not present in table "profiles"') ||
+        text.contains('not_authenticated')) {
+      return notAuthenticated;
+    }
     for (final value in values) {
       if (text.contains(value.code)) return value;
     }

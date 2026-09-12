@@ -74,7 +74,7 @@ export function TierPreviewSection() {
                 <Check className="w-3.5 h-3.5 text-purple-400" /> Voice Facecams
               </li>
               <li className="flex items-center gap-2">
-                <Check className="w-3.5 h-3.5 text-purple-400" /> 24h Room Dormancy Sleep
+                <Check className="w-3.5 h-3.5 text-purple-400" /> 4-Hour Watch Sessions
               </li>
             </ul>
           </GlassPanel>

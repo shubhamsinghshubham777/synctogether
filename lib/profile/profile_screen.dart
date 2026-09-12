@@ -5,6 +5,7 @@ import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_symbols_icons/symbols.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:synctogether/analytics_consent.dart';
 import 'package:synctogether/auth/auth_service.dart';
 import 'package:synctogether/av/av_settings_dialog.dart';
@@ -35,6 +36,7 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   bool _uploadingAvatar = false;
+  bool? _mediaSharingRememberedChoice;
 
   @override
   void initState() {
@@ -45,6 +47,29 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (EntitlementService.instance.limits == null) {
       EntitlementService.instance.load();
     }
+    _loadMediaSharingPreference();
+  }
+
+  Future<void> _loadMediaSharingPreference() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
+    setState(() {
+      _mediaSharingRememberedChoice = prefs.getBool('pt.media_sharing.remember_choice');
+    });
+  }
+
+  Future<void> _setMediaSharingPreference(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('pt.media_sharing.remember_choice', value);
+    if (!mounted) return;
+    setState(() => _mediaSharingRememberedChoice = value);
+  }
+
+  Future<void> _resetMediaSharingPreference() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('pt.media_sharing.remember_choice');
+    if (!mounted) return;
+    setState(() => _mediaSharingRememberedChoice = null);
   }
 
   Future<void> _pickAvatar() async {
@@ -542,6 +567,39 @@ class _ProfileScreenState extends State<ProfileScreen> {
               'Sign in for a free 2.5 GB weekly streaming quota.',
               style: PTText.finePrint.copyWith(color: PTColors.white(0.5)),
             ),
+          if (limits.canShareMedia) ...[
+            const Divider(height: 20),
+            PTToggleRow(
+              icon: Symbols.cloud_sync_rounded,
+              title: 'Auto-share local videos with room',
+              subtitle: _mediaSharingRememberedChoice == null
+                  ? 'Currently asks every time you pick a local video. Toggle on to always upload and share, or off to always play locally.'
+                  : (_mediaSharingRememberedChoice!
+                        ? 'Always uploads and shares local videos with room members.'
+                        : 'Always plays local videos locally without uploading.'),
+              value: _mediaSharingRememberedChoice ?? false,
+              onChanged: (enabled) => _setMediaSharingPreference(enabled),
+            ),
+            if (_mediaSharingRememberedChoice != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 2, left: 52),
+                child: Row(
+                  children: [
+                    PTPressable(
+                      onTap: _resetMediaSharingPreference,
+                      child: Text(
+                        'Reset to ask every time',
+                        style: PTText.caption.copyWith(
+                          color: PTColors.textAccent,
+                          decoration: TextDecoration.underline,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+          ],
         ],
       ),
     );

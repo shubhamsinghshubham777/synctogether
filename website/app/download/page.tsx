@@ -16,6 +16,8 @@ export const metadata: Metadata = {
     "Download the latest version of SyncTogether standalone desktop app for macOS (Apple Silicon & Intel) and Windows 10/11.",
 };
 
+export const revalidate = 3600; // ISR hourly
+
 export default async function DownloadPage() {
   const release = await getLatestRelease();
 

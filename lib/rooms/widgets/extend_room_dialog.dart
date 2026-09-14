@@ -156,6 +156,7 @@ class PremiumTeaseDialog extends StatelessWidget {
     this.onSignIn,
     this.onSignInApple,
     this.desktopOverride,
+    this.appleStoreBuildOverride,
   });
 
   final String headline;
@@ -166,8 +167,10 @@ class PremiumTeaseDialog extends StatelessWidget {
   final VoidCallback? onSignIn;
   final VoidCallback? onSignInApple;
   final bool? desktopOverride;
+  final bool? appleStoreBuildOverride;
 
   bool get _isDesktop => desktopOverride ?? isDesktop;
+  bool get _isAppleStore => appleStoreBuildOverride ?? isAppleStoreBuild;
 
   @override
   Widget build(BuildContext context) {
@@ -233,6 +236,19 @@ class PremiumTeaseDialog extends StatelessWidget {
   }
 
   Widget _teaseActions(BuildContext context) {
+    if (_isAppleStore) {
+      return Align(
+        alignment: Alignment.centerRight,
+        child: PTButton(
+          label: 'Got it',
+          variant: .secondary,
+          height: 48,
+          expand: false,
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+      );
+    }
+
     if (_isDesktop) {
       return Row(
         spacing: 11,

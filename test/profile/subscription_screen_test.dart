@@ -53,5 +53,27 @@ void main() {
       expect(find.text('Subscriptions are managed on our website.'), findsOneWidget);
       expect(find.text('Refresh status'), findsOneWidget);
     });
+
+    testWidgets(
+      'apple store build hides Go Premium button and suppresses external website steering text',
+      (tester) async {
+        await tester.pumpWidget(
+          _wrap(
+            const SubscriptionScreen(
+              desktopOverride: true,
+              storeBuildOverride: true,
+              appleStoreBuildOverride: true,
+            ),
+          ),
+        );
+        await tester.pump(const Duration(milliseconds: 100));
+
+        expect(find.text('SyncTogether Premium'), findsOneWidget);
+        expect(find.text('Go Premium'), findsNothing);
+        expect(find.text('Subscriptions are managed on our website.'), findsNothing);
+        expect(find.text('Sign in to your account to access your subscription.'), findsOneWidget);
+        expect(find.text('Refresh status'), findsOneWidget);
+      },
+    );
   });
 }

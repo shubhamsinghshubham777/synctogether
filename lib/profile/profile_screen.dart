@@ -380,20 +380,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 Text(
                   isPrem
                       ? 'Video facecams, 24h rooms & more'
+                      : isAppleStoreBuild
+                      ? 'Session-based watch rooms and voice chat'
                       : 'Upgrade for video facecams & persistent rooms',
                   style: PTText.finePrint.copyWith(color: PTColors.white(0.55)),
                 ),
               ],
             ),
           ),
-          PTButton(
-            label: isPrem ? 'Manage' : 'Go Premium',
-            variant: isPrem ? .secondary : .primary,
-            icon: isPrem ? Symbols.arrow_forward_rounded : Symbols.crown_rounded,
-            height: 38,
-            expand: false,
-            onPressed: () => context.go('/lobby/subscribe?source=profile'),
-          ),
+          if (isPrem || !isAppleStoreBuild)
+            PTButton(
+              label: isPrem ? 'Manage' : 'Go Premium',
+              variant: isPrem ? .secondary : .primary,
+              icon: isPrem ? Symbols.arrow_forward_rounded : Symbols.crown_rounded,
+              height: 38,
+              expand: false,
+              onPressed: () => context.go('/lobby/subscribe?source=profile'),
+            ),
         ],
       ),
     );

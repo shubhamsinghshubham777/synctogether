@@ -3044,6 +3044,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
   }
 
   bool get _canShowPremiumUpsell {
+    if (isAppleStoreBuild) return false;
     if (EntitlementService.instance.isPremium || !AuthService.instance.isSignedIn) {
       return false;
     }
@@ -3669,7 +3670,13 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     onMicToggle: (v) => _toggleFacecam('mic', v),
     onCamToggle: (v) => _toggleFacecam('cam', v),
     onCamLocked: (_av?.canPublishCamera == false && !EntitlementService.instance.isPremium)
-        ? () => context.push('/lobby/subscribe?source=camera_lock')
+        ? () {
+            if (isAppleStoreBuild) {
+              _snack('Video facecams are not enabled for this room.');
+              return;
+            }
+            context.push('/lobby/subscribe?source=camera_lock');
+          }
         : null,
     onMicDeviceSelect: isDesktop && _av != null ? _showMicDeviceSelector : null,
     onCamDeviceSelect: isDesktop && _av != null ? _showCamDeviceSelector : null,
@@ -4529,7 +4536,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
       reactions: available.take(kBaseReactionCount).toList(growable: false),
       hasMore: available.length > kBaseReactionCount,
       onMore: _showReactionPicker,
-      showLockedMore: !isPremium,
+      showLockedMore: !isAppleStoreBuild && !isPremium,
       onLockedMore: () {
         setState(() => _reactOpen = false);
         context.push('/lobby/subscribe?source=reaction_lock');

@@ -8,6 +8,7 @@ Future<void> _open(
   VoidCallback? onUpgrade,
   VoidCallback? onNotify,
   bool? desktopOverride,
+  bool? appleStoreBuildOverride,
 }) async {
   await tester.pumpWidget(
     MaterialApp(
@@ -27,6 +28,7 @@ Future<void> _open(
                     onUpgrade: onUpgrade,
                     onSignIn: onSignIn,
                     desktopOverride: desktopOverride,
+                    appleStoreBuildOverride: appleStoreBuildOverride,
                   ),
                 ),
               ),
@@ -86,6 +88,22 @@ void main() {
       expect(find.text('Close'), findsOneWidget);
 
       await tester.tap(find.text('Close'));
+      await tester.pumpAndSettle();
+      expect(find.byType(PremiumTeaseDialog), findsNothing);
+    });
+
+    testWidgets('renders clean Got it button on Apple Store builds without upsells or steering', (
+      tester,
+    ) async {
+      await _open(tester, desktopOverride: true, appleStoreBuildOverride: true);
+
+      expect(find.text('Sign in with Google'), findsNothing);
+      expect(find.text('Go Premium'), findsNothing);
+      expect(find.text('Maybe later'), findsNothing);
+      expect(find.text('Subscriptions are managed on our website.'), findsNothing);
+      expect(find.text('Got it'), findsOneWidget);
+
+      await tester.tap(find.text('Got it'));
       await tester.pumpAndSettle();
       expect(find.byType(PremiumTeaseDialog), findsNothing);
     });

@@ -25,11 +25,18 @@ String get accountUrl =>
     kDebugMode ? 'http://localhost:3000/account' : 'https://synctogether.app/account';
 
 class SubscriptionScreen extends StatefulWidget {
-  const SubscriptionScreen({super.key, this.source, this.desktopOverride, this.storeBuildOverride});
+  const SubscriptionScreen({
+    super.key,
+    this.source,
+    this.desktopOverride,
+    this.storeBuildOverride,
+    this.appleStoreBuildOverride,
+  });
 
   final String? source;
   final bool? desktopOverride;
   final bool? storeBuildOverride;
+  final bool? appleStoreBuildOverride;
 
   @override
   State<SubscriptionScreen> createState() => _SubscriptionScreenState();
@@ -42,6 +49,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> with WidgetsBin
 
   bool get _isDesktop => widget.desktopOverride ?? isDesktop;
   bool get _isStore => widget.storeBuildOverride ?? isStoreBuild;
+  bool get _isAppleStore => widget.appleStoreBuildOverride ?? isAppleStoreBuild;
   bool get _canShowCheckout => _isDesktop && !_isStore;
 
   @override
@@ -387,6 +395,35 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> with WidgetsBin
       );
     }
 
+    if (_isAppleStore) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+        decoration: BoxDecoration(
+          color: PTColors.white(0.04),
+          border: Border.all(color: PTColors.white(0.08)),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Column(
+          crossAxisAlignment: .stretch,
+          spacing: 12,
+          children: [
+            Text(
+              'Sign in to your account to access your subscription.',
+              textAlign: TextAlign.center,
+              style: PTText.body.copyWith(fontSize: 13.5, color: PTColors.white(0.85)),
+            ),
+            PTButton(
+              label: 'Refresh status',
+              icon: Symbols.refresh_rounded,
+              variant: .secondary,
+              height: 40,
+              onPressed: _pollForSubscription,
+            ),
+          ],
+        ),
+      );
+    }
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
       decoration: BoxDecoration(
@@ -449,6 +486,35 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> with WidgetsBin
             style: PTText.finePrint.copyWith(color: PTColors.white(0.4)),
           ),
         ],
+      );
+    }
+
+    if (_isAppleStore) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+        decoration: BoxDecoration(
+          color: PTColors.white(0.04),
+          border: Border.all(color: PTColors.white(0.08)),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Column(
+          crossAxisAlignment: .stretch,
+          spacing: 12,
+          children: [
+            Text(
+              'Your SyncTogether Premium subscription is active across all your devices.',
+              textAlign: TextAlign.center,
+              style: PTText.body.copyWith(fontSize: 13.5, color: PTColors.white(0.85)),
+            ),
+            PTButton(
+              label: 'Refresh status',
+              icon: Symbols.refresh_rounded,
+              variant: .secondary,
+              height: 40,
+              onPressed: _pollForSubscription,
+            ),
+          ],
+        ),
       );
     }
 

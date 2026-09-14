@@ -11,6 +11,17 @@ bool get isDesktop => !kIsWeb && _desktopPlatforms.contains(defaultTargetPlatfor
 /// manages background updates directly.
 const isStoreBuild = bool.fromEnvironment('STORE_BUILD', defaultValue: false);
 
+/// True on Apple platforms when built with `--dart-define=STORE_BUILD=true`
+/// (e.g. Mac App Store or iOS App Store). Under Apple App Store guidelines
+/// 2.1(b) and 3.1.3(b), external upsells, web checkout links, and "Go Premium"
+/// buttons must be suppressed unless Apple In-App Purchase is configured.
+/// Non-Apple store distributions (such as Microsoft Store) are not subject to these
+/// restrictions.
+bool get isAppleStoreBuild =>
+    !kIsWeb &&
+    isStoreBuild &&
+    (defaultTargetPlatform == TargetPlatform.macOS || defaultTargetPlatform == TargetPlatform.iOS);
+
 /// Whether WebViews should be served content via a loopback [HttpServer].
 ///
 /// False only on macOS Store builds: the App Sandbox requires

@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:synctogether/auth/auth_service.dart';
 import 'package:synctogether/diagnostics.dart';
+import 'package:synctogether/platform.dart';
 import 'package:synctogether/profile/entitlement_service.dart';
 import 'package:synctogether/profile/profile_models.dart';
 import 'package:synctogether/profile/profile_service.dart';
@@ -341,22 +342,26 @@ class MediaQuotaDialogBody extends StatelessWidget {
                       Row(
                         spacing: 10,
                         children: [
-                          Expanded(
-                            child: PTButton(
-                              label: 'Go Premium (Unlimited)',
-                              icon: Symbols.crown_rounded,
-                              variant: .secondary,
-                              onPressed: () {
-                                Navigator.of(context).pop();
-                                context.push('/lobby/subscribe?source=quota_dialog');
-                              },
+                          if (!isAppleStoreBuild)
+                            Expanded(
+                              child: PTButton(
+                                label: 'Go Premium (Unlimited)',
+                                icon: Symbols.crown_rounded,
+                                variant: .secondary,
+                                onPressed: () {
+                                  Navigator.of(context).pop();
+                                  context.push('/lobby/subscribe?source=quota_dialog');
+                                },
+                              ),
                             ),
-                          ),
-                          PTButton(
-                            label: 'Got it',
-                            variant: .secondary,
-                            expand: false,
-                            onPressed: () => Navigator.of(context).pop(),
+                          Expanded(
+                            flex: isAppleStoreBuild ? 1 : 0,
+                            child: PTButton(
+                              label: 'Got it',
+                              variant: .secondary,
+                              expand: isAppleStoreBuild,
+                              onPressed: () => Navigator.of(context).pop(),
+                            ),
                           ),
                         ],
                       ),
@@ -365,7 +370,7 @@ class MediaQuotaDialogBody extends StatelessWidget {
                 : Row(
                     spacing: 10,
                     children: [
-                      if (!isPrem) ...[
+                      if (!isPrem && !isAppleStoreBuild) ...[
                         Expanded(
                           child: PTButton(
                             label: quotaContext?.reason == .singleFileLimitExceeded
@@ -442,13 +447,19 @@ class _ContextualBlockageCard extends StatelessWidget {
         titleText = isPrem ? 'Video Exceeds Premium File Limit' : 'Video Exceeds Free File Limit';
         bodyText = isPrem
             ? 'SyncTogether Premium supports videos up to 10.0 GB per file. Please select a video within this limit.'
+            : isAppleStoreBuild
+            ? 'Free accounts can upload videos up to 2.0 GB per file. Please select a video within this limit.'
             : 'Free accounts can upload videos up to 2.0 GB per file. Upgrade to SyncTogether Premium for files up to 10.0 GB with zero weekly caps.';
       case .weeklyQuotaExceeded:
         badgeText = 'WEEKLY QUOTA EXCEEDED';
         badgeIcon = Symbols.speed_rounded;
         titleText = 'Insufficient Weekly Quota';
         bodyText = isPrem
-            ? 'This video exceeds the allowable upload quota. Upgrade or wait for your quota to recharge.'
+            ? (isAppleStoreBuild
+                  ? 'This video exceeds the allowable upload quota. Please wait for your quota to recharge.'
+                  : 'This video exceeds the allowable upload quota. Upgrade or wait for your quota to recharge.')
+            : isAppleStoreBuild
+            ? 'This video requires more quota than your remaining 7-day balance. Please wait for your rolling quota to recharge.'
             : 'This video requires more quota than your remaining 7-day balance. Upgrade to SyncTogether Premium for unlimited sharing, or wait for your rolling quota to recharge.';
       case .guestBlocked:
         badgeText = 'SIGN-IN REQUIRED';

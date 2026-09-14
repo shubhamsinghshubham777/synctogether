@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
+import 'package:synctogether/platform.dart';
 import 'package:synctogether/rooms/room_models.dart';
 import 'package:synctogether/ui/buttons.dart';
 import 'package:synctogether/ui/pt_theme.dart';
@@ -12,6 +13,7 @@ class EndedRoomDialog extends StatelessWidget {
     required this.onUpgrade,
     required this.onDelete,
     this.isOwner = true,
+    this.appleStoreBuildOverride,
   });
 
   final Room room;
@@ -19,6 +21,9 @@ class EndedRoomDialog extends StatelessWidget {
   final VoidCallback onUpgrade;
   final VoidCallback onDelete;
   final bool isOwner;
+  final bool? appleStoreBuildOverride;
+
+  bool get _isAppleStore => appleStoreBuildOverride ?? isAppleStoreBuild;
 
   @override
   Widget build(BuildContext context) {
@@ -57,30 +62,34 @@ class EndedRoomDialog extends StatelessWidget {
           ],
         ),
         Text(
-          'Free watch rooms are session-based and close once the party wraps up. '
-          'You can start a fresh room anytime, or upgrade to Premium to keep rooms saved permanently with dedicated invite links.',
+          _isAppleStore
+              ? 'Free watch rooms are session-based and close once the party wraps up. '
+                    'You can start a fresh room anytime.'
+              : 'Free watch rooms are session-based and close once the party wraps up. '
+                    'You can start a fresh room anytime, or upgrade to Premium to keep rooms saved permanently with dedicated invite links.',
           style: PTText.body.copyWith(fontSize: 13.5, color: PTColors.white(0.65), height: 1.5),
         ),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          decoration: BoxDecoration(
-            color: PTColors.primary.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: const Color(0xFFA78BFA).withValues(alpha: 0.2)),
-          ),
-          child: Row(
-            spacing: 10,
-            children: [
-              const Icon(Symbols.workspace_premium_rounded, size: 20, color: PTColors.textAccent),
-              Expanded(
-                child: Text(
-                  'Premium keeps up to 20 rooms saved forever.',
-                  style: PTText.body.copyWith(fontSize: 12.5, color: PTColors.white(0.85)),
+        if (!_isAppleStore)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: BoxDecoration(
+              color: PTColors.primary.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: const Color(0xFFA78BFA).withValues(alpha: 0.2)),
+            ),
+            child: Row(
+              spacing: 10,
+              children: [
+                const Icon(Symbols.workspace_premium_rounded, size: 20, color: PTColors.textAccent),
+                Expanded(
+                  child: Text(
+                    'Premium keeps up to 20 rooms saved forever.',
+                    style: PTText.body.copyWith(fontSize: 12.5, color: PTColors.white(0.85)),
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
         Padding(
           padding: const EdgeInsets.only(top: 4),
           child: Column(
@@ -101,18 +110,19 @@ class EndedRoomDialog extends StatelessWidget {
                       },
                     ),
                   ),
-                  Expanded(
-                    child: PTButton(
-                      label: 'Get Premium',
-                      icon: Symbols.workspace_premium_rounded,
-                      variant: .secondary,
-                      height: 44,
-                      onPressed: () {
-                        Navigator.of(context).pop();
-                        onUpgrade();
-                      },
+                  if (!_isAppleStore)
+                    Expanded(
+                      child: PTButton(
+                        label: 'Get Premium',
+                        icon: Symbols.workspace_premium_rounded,
+                        variant: .secondary,
+                        height: 44,
+                        onPressed: () {
+                          Navigator.of(context).pop();
+                          onUpgrade();
+                        },
+                      ),
                     ),
-                  ),
                 ],
               ),
               if (isOwner)

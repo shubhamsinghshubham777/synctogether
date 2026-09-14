@@ -16,6 +16,8 @@ import {
   Sparkles,
 } from "lucide-react";
 
+export const revalidate = 3600; // ISR hourly
+
 export default async function HomePage() {
   const release = await getLatestRelease();
   const displayTag = release.name || `v${release.version || "0.11.0"}`;

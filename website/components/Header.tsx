@@ -310,7 +310,7 @@ export function Header() {
                   size="md"
                   className="w-full"
                 >
-                  Sign In with Google
+                  Sign In
                 </PTButton>
                 <PTButton
                   href="/download"

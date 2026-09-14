@@ -180,7 +180,7 @@ export function PricingTable() {
           name={PRICING_TIERS.free.name}
           badge={PRICING_TIERS.free.badge}
           price="$0"
-          periodText="with Google sign-in"
+          periodText="with free account"
           description={PRICING_TIERS.free.description}
           features={PRICING_TIERS.free.features}
           ctaText={PRICING_TIERS.free.cta}

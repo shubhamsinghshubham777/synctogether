@@ -1549,9 +1549,7 @@ class _GuestLimitDialogBody extends StatelessWidget {
                 text: roomName,
                 style: TextStyle(color: PTColors.white(0.85)),
               ),
-              const TextSpan(
-                text: ' is still running - end it first, or sign in with Google to host more.',
-              ),
+              const TextSpan(text: ' is still running - end it first, or sign in to host more.'),
             ],
           ),
           style: PTText.body.copyWith(fontSize: 14, color: PTColors.white(0.6), height: 1.55),

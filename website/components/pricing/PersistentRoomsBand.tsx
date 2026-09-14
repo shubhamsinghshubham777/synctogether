@@ -53,7 +53,7 @@ export function PersistentRoomsBand() {
           <ul className="flex flex-wrap gap-x-5 gap-y-2 text-xs font-mono text-gray-400">
             <li>{limits.rooms} persistent rooms</li>
             <li>Custom names</li>
-            <li>Naps after {limits.dormantHours}h quiet</li>
+            <li>Never expires</li>
           </ul>
         </div>
       </div>

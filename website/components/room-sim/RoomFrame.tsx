@@ -283,15 +283,14 @@ export function RoomFrame({
             }`}
           >
             <FacecamTile
-              surface={surface}
-              avatar="/avatars/av-02.avif"
+              avatar="/avatars/av-02-cam.avif"
               name={fidelity === "full" ? "Shubham Singh" : undefined}
               premium
             />
             <FacecamTile
-              surface={surface}
-              avatar="/avatars/av-01.avif"
+              avatar="/avatars/av-01-cam.avif"
               name={fidelity === "full" ? "Guest-0397" : undefined}
+              muted
             />
           </div>
         </div>
@@ -430,45 +429,48 @@ export function RoomFrame({
 }
 
 function FacecamTile({
-  surface,
   avatar,
   name,
   premium,
+  muted,
 }: {
-  surface: string;
-  /** Avatar art, shown in place of a live feed while the camera is off. */
+  /** The -cam crop, which fills the tile as the camera feed itself. */
   avatar: string;
   name?: string;
   premium?: boolean;
+  muted?: boolean;
 }) {
   return (
     <div
-      className={`w-28 sm:w-32 h-16 sm:h-[4.5rem] rounded-xl ${surface} border ${
+      className={`w-28 sm:w-32 h-16 sm:h-[4.5rem] rounded-xl border ${
         premium ? "border-[#C4A8FF]" : "border-white/10"
-      } relative overflow-hidden flex flex-col items-center justify-center p-1.5`}
+      } relative overflow-hidden bg-[#1A1430]`}
     >
-      <div className="relative">
-        {/* Fixed 28px in every frame, so the two files decode once and the scaled-down
-            secondaries reuse them rather than pulling a second srcset candidate. */}
-        <Image
-          src={avatar}
-          alt=""
-          width={28}
-          height={28}
-          className="w-7 h-7 rounded-full object-cover bg-[#1A1430]"
+      {/* Fixed 128px in every frame, so the two files decode once and the scaled-down
+          secondaries reuse them rather than pulling a second srcset candidate. */}
+      <Image src={avatar} alt="" fill sizes="128px" className="object-cover" />
+      {/* Scrim only under the label - a full-tile wash would dull the feed it sits on. */}
+      <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/75 to-transparent" />
+
+      {premium && (
+        <Crown
+          className="w-3 h-3 text-amber-400 fill-amber-400 absolute top-1 left-1 drop-shadow"
+          aria-label="Premium Host"
         />
-        {premium && (
-          <Crown className="w-3 h-3 text-amber-400 fill-amber-400 absolute -top-1 -right-1 drop-shadow" aria-label="Premium Host" />
-        )}
-      </div>
-      {name && (
-        <div className="mt-1 flex items-center gap-1 text-[9px] font-medium text-white/75">
-          <span>{name}</span>
-          <VideoOff className="w-2 h-2 text-white/40" />
-        </div>
       )}
-      <div className="absolute top-1 right-1 w-3.5 h-3.5 rounded-full bg-[#2A1414]/90 border border-red-500/40 text-red-400 flex items-center justify-center">
-        <MicOff className="w-2 h-2" />
+      {name && (
+        <span className="absolute bottom-1 left-1.5 text-[9px] font-medium text-white/90 drop-shadow">
+          {name}
+        </span>
+      )}
+      <div
+        className={`absolute top-1 right-1 w-3.5 h-3.5 rounded-full border flex items-center justify-center ${
+          muted
+            ? "bg-[#2A1414]/90 border-red-500/40 text-red-400"
+            : "bg-black/50 border-white/25 text-white/85"
+        }`}
+      >
+        {muted ? <MicOff className="w-2 h-2" /> : <Mic className="w-2 h-2" />}
       </div>
     </div>
   );

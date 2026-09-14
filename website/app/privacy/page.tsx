@@ -75,6 +75,12 @@ export default function PrivacyPage() {
       privacyUrl: "https://vercel.com/legal/privacy-policy",
     },
     {
+      name: "Apple Inc.",
+      purpose: "Sign in with Apple single sign-on authentication.",
+      location: "United States / Global",
+      privacyUrl: "https://www.apple.com/legal/privacy/",
+    },
+    {
       name: "Google LLC",
       purpose: "Google OAuth 2.0 single sign-on authentication and YouTube IFrame video player embeds.",
       location: "United States / Global",
@@ -150,7 +156,7 @@ export default function PrivacyPage() {
               <strong className="text-white text-base block">A. Account &amp; Identity Data</strong>
               <ul className="space-y-1.5 text-gray-400 list-disc list-inside">
                 <li>
-                  <strong className="text-gray-200">Google OAuth Sign-In:</strong> When you sign in using Google OAuth, we receive and store your email address, full display name, and avatar image URL provided by Google.
+                  <strong className="text-gray-200">Account Authentication (Google, Apple, or Email):</strong> When you sign in using Google OAuth or Sign in with Apple, we receive and store your email address and display name/avatar if provided. When you sign in using email OTP, we store your email address and generate a secure passwordless login token.
                 </li>
                 <li>
                   <strong className="text-gray-200">Guest Authentication:</strong> If you use SyncTogether as a Guest without an account, we generate a temporary random anonymous identifier (e.g. <code>Guest-a1b2</code>). Guest sessions use Cloudflare Turnstile tokens to verify human interaction and prevent automated abuse.

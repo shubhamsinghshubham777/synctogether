@@ -3393,7 +3393,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
           surface: 'room_expiry',
           headline: 'Sign in for more time',
           body:
-              'Guest rooms run for an hour and stop there. Sign in with Google - it '
+              'Guest rooms run for an hour and stop there. Sign in - it '
               'takes a moment, it costs nothing, and this session carries over.',
           perks: const [
             'Rooms that run for four hours, not one',

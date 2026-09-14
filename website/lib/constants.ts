@@ -130,7 +130,7 @@ export const FAQ_ITEMS = [
       },
       {
         q: "Do I need an account to use SyncTogether?",
-        a: "No! You can use SyncTogether as a Guest without creating an account. Guests can create 60-minute rooms with up to 4 members. To get 4-hour rooms, voice chat, and cloud media sharing, simply sign in with your Google account for free."
+        a: "No! You can use SyncTogether as a Guest without creating an account. Guests can create 60-minute rooms with up to 4 members. To get 4-hour rooms, voice chat, and cloud media sharing, simply sign in with a free account (Google, Apple, or Email)."
       },
       {
         q: "Is SyncTogether free?",
@@ -168,7 +168,7 @@ export const FAQ_ITEMS = [
       },
       {
         q: "How do I subscribe?",
-        a: "Sign in with your Google account on our website (/auth), visit the Pricing page (/pricing), and select either Monthly or Annual billing. Payments are processed securely (Credit/Debit Cards, PayPal, Apple Pay, Google Pay, and UPI in India)."
+        a: "Sign in to your account on our website (/auth), visit the Pricing page (/pricing), and select either Monthly or Annual billing. Payments are processed securely (Credit/Debit Cards, PayPal, Apple Pay, Google Pay, and UPI in India)."
       },
       {
         q: "Can I cancel anytime?",
@@ -180,7 +180,7 @@ export const FAQ_ITEMS = [
       },
       {
         q: "I paid on the website but my desktop app still shows Free. What should I do?",
-        a: "Ensure you are signed in with the same Google account in both the desktop app and on the website. Subscriptions update automatically within seconds. If it doesn't appear, restart the app or click 'Sync profile' in your app profile screen."
+        a: "Ensure you are signed in with the same account in both the desktop app and on the website. Subscriptions update automatically within seconds. If it doesn't appear, restart the app or click 'Sync profile' in your app profile screen."
       }
     ]
   },

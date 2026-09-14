@@ -42,7 +42,7 @@ export default function TermsPage() {
             2. User Accounts &amp; Identities
           </h2>
           <p>
-            You may use SyncTogether as a Guest without registration, or authenticate using Google OAuth. You agree to maintain the security of your account and take full responsibility for all activities occurring under your identity.
+            You may use SyncTogether as a Guest without registration, or authenticate using Google OAuth, Sign in with Apple, or Email sign-in. You agree to maintain the security of your account and take full responsibility for all activities occurring under your identity.
           </p>
         </section>
 

@@ -12,7 +12,7 @@ void main() {
       EntitlementService.instance.setLimitsForTesting(null);
     });
 
-    testWidgets('renders guest view with Google sign-in and Go Premium CTAs', (tester) async {
+    testWidgets('renders guest view with sign-in and Go Premium CTAs', (tester) async {
       ProfileService.instance.setProfileForTesting(
         const Profile(id: 'guest-1', displayName: 'Guest-1234', isGuest: true),
       );

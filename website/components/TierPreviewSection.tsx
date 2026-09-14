@@ -63,7 +63,7 @@ export function TierPreviewSection() {
                 Free
               </span>
               <span className="text-xs font-mono text-purple-300 font-bold">
-                Google Auth
+                Free Account
               </span>
             </div>
             <p className="text-xs text-gray-400">

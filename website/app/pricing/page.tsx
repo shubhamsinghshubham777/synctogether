@@ -24,7 +24,7 @@ export default function PricingPage() {
     },
     {
       q: "Do I need an account to subscribe?",
-      a: "Yes, you must sign in with your Google account on the website to purchase Premium. This ensures your purchase links directly to your SyncTogether desktop app identity."
+      a: "Yes, you must sign in to an account (Google, Apple, or Email) on the website to purchase Premium. This ensures your purchase links directly to your SyncTogether desktop app identity."
     },
     {
       q: "What happens to my rooms if my subscription expires?",

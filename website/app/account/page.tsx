@@ -595,7 +595,7 @@ function AccountDashboard() {
                 <span className="font-bold text-white">
                   {(entitlement?.persistent_room_cap ?? 0) > 0
                     ? `${entitlement?.persistent_room_cap}`
-                    : "0 (24h nap)"}
+                    : "0 (24h to resume)"}
                 </span>
               </li>
             </ul>

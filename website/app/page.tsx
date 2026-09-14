@@ -185,11 +185,12 @@ export default async function HomePage() {
               <Clock className="w-6 h-6" />
             </div>
             <h3 className="text-xl font-bold text-white font-[family-name:var(--font-space-grotesk)]">
-              Rooms That Nap
+              Rooms You Can Reopen
             </h3>
             <p className="text-sm text-gray-400 leading-relaxed">
               Need a break? Your room saves its media timestamp and reopens
-              seamlessly. Free rooms nap for 24h; Premium rooms persist forever.
+              right where you stopped. Free rooms stay resumable for 24h after
+              they end; Premium rooms never expire at all.
             </p>
           </GlassPanel>
 

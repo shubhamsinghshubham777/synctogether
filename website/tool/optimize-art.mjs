@@ -26,3 +26,31 @@ for (const { dir, sizes, quality } of JOBS) {
     console.log(`removed source ${file}`);
   }
 }
+
+// The avatar art is composed for a circular mask - outside the circle it is pure
+// white, so it cannot simply be stretched into a rectangular facecam tile. Derive a
+// wide crop that stays *inside* that circle instead: the largest 16:9 rectangle
+// inscribed in a 256px circle is 222x125, raised 14px because a head-and-shoulders
+// portrait puts the face above centre. Runs off the committed .avif rather than the
+// discarded source, so it stays reproducible after the sources are unlinked.
+// Only the two the facecam rail actually renders as a feed - the rest of the set is
+// used circle-masked and needs no crop, and generating unused art just orphans it.
+const CAM = { width: 222, height: 125, lift: 14, out: [444, 250] };
+const CAM_SUBJECTS = ["av-01", "av-02"];
+
+for (const name of CAM_SUBJECTS) {
+  const src = join("public/avatars", `${name}.avif`);
+  const meta = await sharp(src).metadata();
+  const dest = join("public/avatars", `${name}-cam.avif`);
+  await sharp(src)
+    .extract({
+      left: Math.round((meta.width - CAM.width) / 2),
+      top: Math.round((meta.height - CAM.height) / 2) - CAM.lift,
+      width: CAM.width,
+      height: CAM.height,
+    })
+    .resize(CAM.out[0], CAM.out[1])
+    .avif({ quality: 55, effort: 6 })
+    .toFile(dest);
+  console.log(`wrote ${dest}`);
+}

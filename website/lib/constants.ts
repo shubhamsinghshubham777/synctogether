@@ -7,7 +7,7 @@ export const SITE_CONFIG = {
   supportEmail: "support@synctogether.app",
   githubRepo: "https://github.com/shubhamsinghshubham777/synctogether",
   creatorName: "Shubham Singh",
-  creatorGithub: "https://github.com/shubhamsinghshubham777",
+  creatorLinkedIn: "https://www.linkedin.com/in/shubhamsinghshubham777/",
 };
 
 export const PRICING_TIERS = {

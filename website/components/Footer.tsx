@@ -157,7 +157,7 @@ export function Footer() {
             <span className="inline-flex items-center gap-1">
               Made with <Heart className="w-3 h-3 text-rose-500 fill-rose-500" /> by{" "}
               <a
-                href={SITE_CONFIG.creatorGithub}
+                href={SITE_CONFIG.creatorLinkedIn}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-purple-300 hover:text-white underline underline-offset-4 decoration-purple-400/50 hover:decoration-purple-200 font-medium transition-all"

@@ -25,7 +25,7 @@ This Next.js 16 application serves as the marketing site, downloads portal, lega
 
 ### Design System & Styling
 - Styled with Tailwind CSS v4 with dark violet glassmorphism tokens matching the Flutter app.
-- Shared components in `components/`: `PTButton`, `GlassPanel`, `PlanCard`, `PricingTable`, `Header`, `Footer`, `HeroSyncSimulator`.
+- Shared components in `components/`: `PTButton`, `GlassPanel`, `PlanCard`, `PricingTable`, `Header`, `Footer`. The homepage hero lives in `components/hero/` and drives the room mockups in `components/room-sim/`.
 
 ### Testing & Verification
 - Unit test suite in `tests/` tests webhook signature verification, deduplication, and deactivation logic.

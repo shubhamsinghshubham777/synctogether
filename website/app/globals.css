@@ -39,6 +39,17 @@
     font-family: var(--font-outfit), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     overflow-x: hidden;
   }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.001ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.001ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
 }
 
 /* Glassmorphism primitives */
@@ -165,4 +176,158 @@
 
 .animate-float {
   animation: float 5s ease-in-out infinite;
+}
+
+/* One-shot lock pulse on entering sync - transform + opacity only, never loops */
+@keyframes lock-pulse {
+  0% { transform: scale(1); opacity: 0.9; }
+  40% { transform: scale(1.06); opacity: 0.6; }
+  100% { transform: scale(1.1); opacity: 0; }
+}
+
+.animate-lock-pulse {
+  animation: lock-pulse 500ms ease-out 1;
+}
+
+/* Reaction playground particles - transform + opacity only */
+@keyframes reaction-float {
+  0% { transform: translateY(0) scale(0.6); opacity: 0; }
+  15% { transform: translateY(-10px) scale(1); opacity: 1; }
+  100% { transform: translateY(-90px) scale(1); opacity: 0; }
+}
+
+.animate-reaction-float {
+  animation: reaction-float 2.2s ease-out forwards;
+}
+
+@keyframes reaction-appear {
+  0% { opacity: 0; }
+  15% { opacity: 1; }
+  85% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+.animate-reaction-appear {
+  animation: reaction-appear 2.2s ease-in-out forwards;
+}
+
+/* Tier Configurator avatar chips - mount only, transform + opacity */
+@keyframes chip-in {
+  0% { transform: scale(0.5); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.animate-chip-in {
+  animation: chip-in 200ms ease-out;
+}
+
+/* Tier Configurator - custom glass range slider.
+   --pct (0-100, unitless) paints the fill via background, never an animated
+   width; only the thumb's transform/box-shadow transition on hover/active. */
+.pt-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 10px;
+  border-radius: 999px;
+  background: linear-gradient(
+    to right,
+    var(--pt-primary) 0%,
+    var(--pt-gradient-mid) calc(var(--pct) * 1%),
+    rgba(255, 255, 255, 0.1) calc(var(--pct) * 1%),
+    rgba(255, 255, 255, 0.1) 100%
+  );
+  outline: none;
+  cursor: pointer;
+}
+
+.pt-slider::-webkit-slider-runnable-track {
+  background: transparent;
+  height: 10px;
+  border-radius: 999px;
+}
+
+.pt-slider::-moz-range-track {
+  background: transparent;
+  height: 10px;
+  border-radius: 999px;
+}
+
+.pt-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  margin-top: -7px; /* centers the 24px thumb on the 10px track: (10 - 24) / 2 */
+  background: radial-gradient(circle at 35% 30%, #ffffff, var(--pt-gradient-end) 55%, var(--pt-primary));
+  border: 2px solid rgba(255, 255, 255, 0.85);
+  box-shadow: 0 0 0 4px rgba(139, 92, 246, 0.25), 0 2px 10px rgba(0, 0, 0, 0.5);
+  transition: transform 150ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 150ms ease;
+}
+
+.pt-slider::-moz-range-thumb {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #ffffff, var(--pt-gradient-end) 55%, var(--pt-primary));
+  border: 2px solid rgba(255, 255, 255, 0.85);
+  box-shadow: 0 0 0 4px rgba(139, 92, 246, 0.25), 0 2px 10px rgba(0, 0, 0, 0.5);
+  transition: transform 150ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 150ms ease;
+}
+
+.pt-slider:hover::-webkit-slider-thumb {
+  transform: scale(1.12);
+  box-shadow: 0 0 0 6px rgba(139, 92, 246, 0.35), 0 2px 14px rgba(0, 0, 0, 0.6);
+}
+.pt-slider:hover::-moz-range-thumb {
+  transform: scale(1.12);
+  box-shadow: 0 0 0 6px rgba(139, 92, 246, 0.35), 0 2px 14px rgba(0, 0, 0, 0.6);
+}
+
+.pt-slider:active::-webkit-slider-thumb {
+  transform: scale(1.28);
+}
+.pt-slider:active::-moz-range-thumb {
+  transform: scale(1.28);
+}
+
+.pt-slider:focus-visible::-webkit-slider-thumb {
+  box-shadow: 0 0 0 4px rgba(139, 92, 246, 0.25), 0 0 0 7px rgba(201, 184, 255, 0.5), 0 2px 10px rgba(0, 0, 0, 0.5);
+}
+.pt-slider:focus-visible::-moz-range-thumb {
+  box-shadow: 0 0 0 4px rgba(139, 92, 246, 0.25), 0 0 0 7px rgba(201, 184, 255, 0.5), 0 2px 10px rgba(0, 0, 0, 0.5);
+}
+
+/* Microsoft Store badge - Fluent-style dark surface. Its hover glow is
+   Microsoft blue rather than the site's violet, so the badge reads as a store
+   badge sitting on the card instead of another brand button. */
+.ms-store-badge {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.07) 0%, rgba(255, 255, 255, 0.02) 100%),
+    #0A0913;
+  transition: background 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+    border-color 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.ms-store-badge:hover {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.11) 0%, rgba(255, 255, 255, 0.03) 100%),
+    #110F1F;
+  border-color: rgba(255, 255, 255, 0.3);
+  box-shadow: 0 0 26px rgba(0, 164, 239, 0.22);
+}
+
+.ms-store-badge__accent {
+  background: linear-gradient(90deg, #F25022 0%, #7FBA00 34%, #00A4EF 67%, #FFB900 100%);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.ms-store-badge:hover .ms-store-badge__accent,
+.ms-store-badge:focus-visible .ms-store-badge__accent {
+  transform: scaleX(1);
 }

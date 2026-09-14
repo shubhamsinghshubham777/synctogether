@@ -24,7 +24,7 @@ export default function FAQPage() {
   };
 
   return (
-    <div className="relative py-12 md:py-20 px-4 sm:px-6 lg:px-8 max-w-4xl mx-auto space-y-16">
+    <div className="relative py-10 md:py-14 px-4 sm:px-6 lg:px-8 max-w-4xl mx-auto space-y-12 md:space-y-14">
       {/* JSON-LD Schema */}
       <script
         type="application/ld+json"

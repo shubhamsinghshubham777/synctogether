@@ -10,7 +10,7 @@ export function TierPreviewSection() {
   const { monthlyFormatted, isLoading } = usePricing();
 
   return (
-    <section id="features" className="relative py-20 bg-[#0A0814] border-t border-purple-500/10">
+    <section id="tiers" className="relative py-12 md:py-16 bg-[#0A0814] border-t border-purple-500/10">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 mb-12">
           <div>
@@ -71,7 +71,7 @@ export function TierPreviewSection() {
             </p>
             <ul className="text-xs text-gray-300 space-y-2 pt-2 border-t border-white/5">
               <li className="flex items-center gap-2">
-                <Check className="w-3.5 h-3.5 text-purple-400" /> Voice Facecams
+                <Check className="w-3.5 h-3.5 text-purple-400" /> Voice Chat
               </li>
               <li className="flex items-center gap-2">
                 <Check className="w-3.5 h-3.5 text-purple-400" /> 4-Hour Watch Sessions

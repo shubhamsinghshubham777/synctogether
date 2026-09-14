@@ -226,106 +226,145 @@ export function Header() {
         {/* Mobile Menu Toggle Button */}
         <button
           onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          className="md:hidden p-2 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-300 hover:text-white"
+          className="md:hidden p-2 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-300 hover:text-white transition-colors duration-200"
           aria-label="Toggle Navigation Menu"
+          aria-expanded={mobileMenuOpen}
+          aria-controls="mobile-nav"
         >
-          {mobileMenuOpen ? (
-            <X className="w-6 h-6" />
-          ) : (
-            <Menu className="w-6 h-6" />
-          )}
+          {/* Both glyphs stay mounted so the swap can cross-fade */}
+          <span className="relative block w-6 h-6">
+            <Menu
+              className={`absolute inset-0 w-6 h-6 transition-all duration-300 ease-out ${
+                mobileMenuOpen
+                  ? "opacity-0 rotate-90 scale-75"
+                  : "opacity-100 rotate-0 scale-100"
+              }`}
+            />
+            <X
+              className={`absolute inset-0 w-6 h-6 transition-all duration-300 ease-out ${
+                mobileMenuOpen
+                  ? "opacity-100 rotate-0 scale-100"
+                  : "opacity-0 -rotate-90 scale-75"
+              }`}
+            />
+          </span>
         </button>
       </div>
 
-      {/* Mobile Navigation Drawer */}
-      {mobileMenuOpen && (
-        <div className="md:hidden bg-[#0F0D1C]/95 backdrop-blur-2xl border-b border-purple-500/20 px-6 py-6 space-y-4 animate-in fade-in slide-in-from-top-4 duration-200 shadow-2xl">
-          <nav className="flex flex-col space-y-3">
-            {navLinks.map((link) => (
-              <Link
-                key={link.name}
-                href={link.href}
-                onClick={() => setMobileMenuOpen(false)}
-                className="text-base font-medium text-gray-200 hover:text-[#C9B8FF] py-2 border-b border-white/5"
-              >
-                {link.name}
-              </Link>
-            ))}
-          </nav>
-
-          <div className="pt-4 border-t border-purple-500/20 flex flex-col gap-3">
-            {user ? (
-              <>
+      {/* Mobile Navigation Drawer - always mounted so it can animate both ways.
+          Height rides on grid-template-rows (0fr -> 1fr) rather than max-height,
+          so the travel matches the real content height whatever the auth state.
+          Nothing above the blurred panel animates opacity: an ancestor with
+          opacity < 1 becomes a backdrop root and the backdrop-filter would blur
+          an empty layer mid-transition. `inert` keeps the collapsed links out
+          of the tab order: they stay mounted for the animation, and
+          pointer-events alone would not stop a keyboard tabbing into a
+          zero-height panel. */}
+      <div
+        id="mobile-nav"
+        aria-hidden={!mobileMenuOpen}
+        inert={!mobileMenuOpen}
+        className={`md:hidden grid overflow-hidden transition-[grid-template-rows] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+          mobileMenuOpen
+            ? "grid-rows-[1fr]"
+            : "grid-rows-[0fr] pointer-events-none"
+        }`}
+      >
+        <div className="min-h-0">
+          <div
+            className={`bg-[#0F0D1C]/95 backdrop-blur-2xl border-b border-purple-500/20 px-6 py-6 space-y-4 shadow-2xl transition-all duration-300 ease-out ${
+              mobileMenuOpen
+                ? "opacity-100 translate-y-0 delay-75"
+                : "opacity-0 -translate-y-2"
+            }`}
+          >
+            <nav className="flex flex-col space-y-3">
+              {navLinks.map((link) => (
                 <Link
-                  href="/account"
+                  key={link.name}
+                  href={link.href}
                   onClick={() => setMobileMenuOpen(false)}
-                  className={`flex items-center justify-between p-3 rounded-xl bg-[#161226] border ${
-                    isPremium ? "border-amber-400/30" : "border-purple-400/20"
-                  }`}
+                  className="text-base font-medium text-gray-200 hover:text-[#C9B8FF] py-2 border-b border-white/5"
                 >
-                  <div className="flex items-center gap-3">
-                    {user.user_metadata?.avatar_url ? (
-                      <Image
-                        src={user.user_metadata.avatar_url}
-                        alt={user.user_metadata?.full_name || "Profile"}
-                        width={32}
-                        height={32}
-                        className={`w-8 h-8 rounded-full border ${
-                          isPremium ? "border-amber-400/40" : "border-purple-400/30"
-                        }`}
-                      />
-                    ) : (
-                      <UserIcon className="w-5 h-5 text-purple-400" />
-                    )}
-                    <div className="flex flex-col">
-                      <span className="text-sm font-semibold text-white">
-                        {user.user_metadata?.full_name || "My Account"}
-                      </span>
-                      <span className="text-xs text-gray-400">{user.email}</span>
-                    </div>
-                  </div>
-                  {isPremium && (
-                    <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-amber-400/20 text-amber-300 border border-amber-400/30">
-                      ★ Premium
-                    </span>
-                  )}
+                  {link.name}
                 </Link>
-                {!isPremium && (
+              ))}
+            </nav>
+
+            <div className="pt-4 border-t border-purple-500/20 flex flex-col gap-3">
+              {user ? (
+                <>
+                  <Link
+                    href="/account"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className={`flex items-center justify-between p-3 rounded-xl bg-[#161226] border ${
+                      isPremium ? "border-amber-400/30" : "border-purple-400/20"
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      {user.user_metadata?.avatar_url ? (
+                        <Image
+                          src={user.user_metadata.avatar_url}
+                          alt={user.user_metadata?.full_name || "Profile"}
+                          width={32}
+                          height={32}
+                          className={`w-8 h-8 rounded-full border ${
+                            isPremium ? "border-amber-400/40" : "border-purple-400/30"
+                          }`}
+                        />
+                      ) : (
+                        <UserIcon className="w-5 h-5 text-purple-400" />
+                      )}
+                      <div className="flex flex-col">
+                        <span className="text-sm font-semibold text-white">
+                          {user.user_metadata?.full_name || "My Account"}
+                        </span>
+                        <span className="text-xs text-gray-400">{user.email}</span>
+                      </div>
+                    </div>
+                    {isPremium && (
+                      <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-amber-400/20 text-amber-300 border border-amber-400/30">
+                        ★ Premium
+                      </span>
+                    )}
+                  </Link>
+                  {!isPremium && (
+                    <PTButton
+                      href="/pricing"
+                      variant="gold"
+                      size="md"
+                      className="w-full"
+                      leftIcon={<Sparkles className="w-4 h-4" />}
+                    >
+                      Upgrade to Premium
+                    </PTButton>
+                  )}
+                </>
+              ) : (
+                <>
                   <PTButton
-                    href="/pricing"
-                    variant="gold"
+                    href="/auth"
+                    variant="outline"
                     size="md"
                     className="w-full"
-                    leftIcon={<Sparkles className="w-4 h-4" />}
                   >
-                    Upgrade to Premium
+                    Sign In
                   </PTButton>
-                )}
-              </>
-            ) : (
-              <>
-                <PTButton
-                  href="/auth"
-                  variant="outline"
-                  size="md"
-                  className="w-full"
-                >
-                  Sign In
-                </PTButton>
-                <PTButton
-                  href="/download"
-                  variant="primary"
-                  size="md"
-                  className="w-full"
-                  leftIcon={<Download className="w-4 h-4" />}
-                >
-                  Download Free App
-                </PTButton>
-              </>
-            )}
+                  <PTButton
+                    href="/download"
+                    variant="primary"
+                    size="md"
+                    className="w-full"
+                    leftIcon={<Download className="w-4 h-4" />}
+                  >
+                    Download Free App
+                  </PTButton>
+                </>
+              )}
+            </div>
           </div>
         </div>
-      )}
+      </div>
     </header>
   );
 }

@@ -1,24 +1,19 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { PRICING_TIERS } from "@/lib/constants";
 import { PlanCard } from "./PlanCard";
 import { GlassPanel } from "./GlassPanel";
 import { LocationDebugSwitcher } from "./LocationDebugSwitcher";
-import { openPaddleCheckout } from "./PaddleCheckout";
-import { createClient } from "@/lib/supabase/client";
 import { usePricing } from "@/lib/usePricing";
+import { usePremiumCheckout } from "@/lib/usePremiumCheckout";
 import { Check, Minus, Loader2 } from "lucide-react";
-import type { User } from "@supabase/supabase-js";
 
 export function PricingTable() {
   const [billingCycle, setBillingCycle] = useState<"monthly" | "annual">("annual");
-  const [user, setUser] = useState<User | null>(null);
-  const [isPremium, setIsPremium] = useState(false);
-  const [isLoadingCheckout, setIsLoadingCheckout] = useState(false);
   const router = useRouter();
-  const supabase = createClient();
+  const { user, isPremium, isLoadingCheckout, goPremium } = usePremiumCheckout();
   const {
     monthlyFormatted,
     annualFormatted,
@@ -29,82 +24,13 @@ export function PricingTable() {
     isLoading: isPriceLoading,
   } = usePricing();
 
-  useEffect(() => {
-    let ignore = false;
-    async function checkAuth() {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (ignore) return;
-      setUser(user);
-      if (user) {
-        try {
-          const { data: entData } = await supabase.rpc("my_entitlement");
-          if (ignore) return;
-          if (entData) {
-            const ent = Array.isArray(entData) ? entData[0] : entData;
-            setIsPremium(ent?.tier === "premium");
-          } else {
-            const { data: sub } = await supabase
-              .from("subscriptions")
-              .select("tier, current_period_end")
-              .eq("user_id", user.id)
-              .maybeSingle();
-            if (ignore) return;
-            if (sub?.tier === "premium") {
-              const isExpired =
-                sub.current_period_end &&
-                new Date(sub.current_period_end) < new Date();
-              setIsPremium(!isExpired);
-            }
-          }
-        } catch {
-          if (!ignore) setIsPremium(false);
-        }
-      }
-    }
-    checkAuth();
-    return () => {
-      ignore = true;
-    };
-  }, [supabase]);
-
   const handleSelectPlan = async (tierKey: string) => {
     if (tierKey === "guest" || tierKey === "free") {
       router.push("/download");
       return;
     }
-
     if (tierKey === "premium") {
-      if (isPremium) {
-        router.push("/account");
-        return;
-      }
-
-      if (!user) {
-        router.push("/auth?redirect=/pricing");
-        return;
-      }
-
-      setIsLoadingCheckout(true);
-      try {
-        const priceId =
-          billingCycle === "annual"
-            ? process.env.NEXT_PUBLIC_PADDLE_ANNUAL_PRICE_ID ||
-              process.env.PADDLE_ANNUAL_PRICE_ID ||
-              "pri_annual_default"
-            : process.env.NEXT_PUBLIC_PADDLE_MONTHLY_PRICE_ID ||
-              process.env.PADDLE_MONTHLY_PRICE_ID ||
-              "pri_monthly_default";
-
-        await openPaddleCheckout({
-          priceId,
-          userId: user.id,
-          userEmail: user.email,
-        });
-      } finally {
-        setIsLoadingCheckout(false);
-      }
+      await goPremium(billingCycle);
     }
   };
 

@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 
 import { AppleLogo, WindowsLogo } from "@/components/Icons";
+import { MicrosoftStoreBadge } from "@/components/MicrosoftStoreBadge";
 
 export const metadata: Metadata = {
   title: "Download SyncTogether for macOS and Windows",
@@ -22,7 +23,7 @@ export default async function DownloadPage() {
   const release = await getLatestRelease();
 
   return (
-    <div className="relative py-12 md:py-20 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto space-y-16">
+    <div className="relative py-10 md:py-14 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto space-y-12 md:space-y-14">
       {/* Background Ambient Glow */}
       <div className="glow-blob-purple top-10 left-1/2 -translate-x-1/2 opacity-30" />
 
@@ -114,6 +115,17 @@ export default async function DownloadPage() {
             >
               Download Windows (.exe)
             </PTButton>
+
+            <div className="flex items-center gap-3" aria-hidden="true">
+              <span className="h-px flex-1 bg-gradient-to-r from-transparent to-white/10" />
+              <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-gray-500">
+                or
+              </span>
+              <span className="h-px flex-1 bg-gradient-to-l from-transparent to-white/10" />
+            </div>
+
+            <MicrosoftStoreBadge className="w-full justify-center" />
+
             <p className="text-[11px] text-center text-gray-400">
               Windows 10 / 11 with WebView2 runtime
             </p>

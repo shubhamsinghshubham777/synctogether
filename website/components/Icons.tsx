@@ -28,6 +28,26 @@ export function WindowsLogo({ className }: IconProps) {
   );
 }
 
+/**
+ * Microsoft's four-square brand mark, in the official brand colors.
+ * Deliberately not `currentColor` - the squares are the logo.
+ */
+export function MicrosoftLogo({ className }: IconProps) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 23 23"
+      fill="none"
+      aria-hidden="true"
+    >
+      <path d="M0 0h11v11H0z" fill="#F25022" />
+      <path d="M12 0h11v11H12z" fill="#7FBA00" />
+      <path d="M0 12h11v11H0z" fill="#00A4EF" />
+      <path d="M12 12h11v11H12z" fill="#FFB900" />
+    </svg>
+  );
+}
+
 export function SyncTogetherIcon({ className }: IconProps) {
   return (
     <svg

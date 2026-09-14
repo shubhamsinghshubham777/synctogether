@@ -2,10 +2,11 @@ export const SITE_CONFIG = {
   name: "SyncTogether",
   tagline: "Synchronized media playback with real-time video, chat, and reactions.",
   description:
-    "Watch local video files or YouTube in perfect sync with your friends. Features private rooms, low-latency facecams, animated emoji reactions, and persistent room memory.",
+    "Watch local video files or YouTube in perfect sync with the people you watch with. Features private rooms, low-latency facecams, animated emoji reactions, and persistent room memory.",
   url: process.env.NEXT_PUBLIC_SITE_URL || "https://synctogether.app",
   supportEmail: "support@synctogether.app",
   githubRepo: "https://github.com/shubhamsinghshubham777/synctogether",
+  microsoftStoreUrl: "https://apps.microsoft.com/detail/9P1BZTSXHDFS",
   creatorName: "Shubham Singh",
   creatorLinkedIn: "https://www.linkedin.com/in/shubhamsinghshubham777/",
 };
@@ -143,7 +144,7 @@ export const FAQ_ITEMS = [
     questions: [
       {
         q: "How do I create and join a room?",
-        a: "Launch SyncTogether and click 'Create Room'. You will receive a unique 6-character room code (e.g. `X7K9P2`) and an invite link (`synctogether://join/X7K9P2`). Share it with your friends, and they can join instantly by entering the code or clicking the link."
+        a: "Launch SyncTogether and click 'Create Room'. You will receive a unique 6-character room code (e.g. `X7K9P2`) and an invite link (`synctogether://join/X7K9P2`). Share it with the people you watch with, and they can join instantly by entering the code or clicking the link."
       },
       {
         q: "What media formats are supported?",

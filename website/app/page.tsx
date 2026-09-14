@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { PTButton } from "@/components/PTButton";
 import { GlassPanel } from "@/components/GlassPanel";
-import { HeroSyncSimulator } from "@/components/HeroSyncSimulator";
+import { HeroStage } from "@/components/hero/HeroStage";
+import { TrustStrip } from "@/components/TrustStrip";
+import { ReactionPlayground } from "@/components/ReactionPlayground";
 import { TierPreviewSection } from "@/components/TierPreviewSection";
 import { getLatestRelease } from "@/lib/github";
 import {
@@ -29,7 +31,7 @@ export default async function HomePage() {
       <div className="glow-blob-cyan top-96 -left-40 opacity-25" />
 
       {/* 1. HERO SECTION */}
-      <section className="relative pt-12 pb-20 md:pt-20 md:pb-28 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto text-center space-y-8">
+      <section className="relative pt-10 pb-12 md:pt-16 md:pb-16 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto text-center space-y-8">
         {/* Release / Intro Pill */}
         <Link
           href="/changelog"
@@ -47,45 +49,24 @@ export default async function HomePage() {
             <span className="text-gradient-brand">millisecond sync.</span>
           </h1>
           <p className="text-lg sm:text-xl text-gray-300 max-w-2xl mx-auto leading-relaxed font-[family-name:var(--font-outfit)]">
-            Synchronize your local media files or YouTube streams with friends.
-            Featuring ultra-low latency voice &amp; video facecams, real-time chat,
-            and persistent room memory.
+            Synchronize your local media files or YouTube streams with the
+            people you watch with. Featuring ultra-low latency voice &amp;
+            video facecams, real-time chat, and persistent room memory.
           </p>
         </div>
 
-        {/* Dual Download CTAs */}
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-2">
-          <PTButton
-            href="/download"
-            variant="primary"
-            size="lg"
-            leftIcon={<Download className="w-5 h-5" />}
-          >
-            Download for macOS
-          </PTButton>
-          <PTButton
-            href="/download"
-            variant="secondary"
-            size="lg"
-            leftIcon={<Download className="w-5 h-5" />}
-          >
-            Download for Windows
-          </PTButton>
-        </div>
-        <p className="text-xs text-gray-400 font-mono">
-          Free to use • No account required for guests • Direct standalone installer
-        </p>
-
-        {/* Interactive Simulated Experience */}
-        <div className="pt-8 md:pt-12">
-          <HeroSyncSimulator />
+        {/* Interactive Sync Simulator + Download CTA */}
+        <div className="pt-2 md:pt-4">
+          <HeroStage />
         </div>
       </section>
 
+      <TrustStrip />
+
       {/* 2. HOW IT WORKS */}
-      <section className="relative py-20 bg-[#090812] border-y border-purple-500/10">
+      <section className="relative py-12 md:py-16 bg-[#090812] border-y border-purple-500/10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center max-w-2xl mx-auto mb-16 space-y-3">
+          <div className="text-center max-w-2xl mx-auto mb-10 md:mb-12 space-y-3">
             <h2 className="text-xs font-bold uppercase tracking-widest text-purple-400 font-mono">
               Simple 3-Step Setup
             </h2>
@@ -122,7 +103,7 @@ export default async function HomePage() {
                 <code className="text-xs text-purple-300 bg-purple-950/80 px-1 py-0.5 rounded">
                   synctogether://
                 </code>{" "}
-                invite link to your friends.
+                invite link to the people you watch with.
               </p>
             </GlassPanel>
 
@@ -144,8 +125,8 @@ export default async function HomePage() {
       </section>
 
       {/* 3. CORE FEATURES */}
-      <section id="features" className="relative py-24 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
-        <div className="text-center max-w-3xl mx-auto mb-16 space-y-3">
+      <section id="features" className="relative py-12 md:py-16 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+        <div className="text-center max-w-3xl mx-auto mb-10 md:mb-12 space-y-3">
           <h2 className="text-xs font-bold uppercase tracking-widest text-purple-400 font-mono">
             Engineered for Media Enthusiasts
           </h2>
@@ -178,8 +159,9 @@ export default async function HomePage() {
               Voice &amp; Video Facecams
             </h3>
             <p className="text-sm text-gray-400 leading-relaxed">
-              Ultra-low latency real-time facecams. See and hear your friends with
-              smooth real-time video, active speaker detection, and low CPU overhead.
+              Ultra-low latency real-time facecams. See and hear the people
+              you watch with, with smooth real-time video, active speaker
+              detection, and low CPU overhead.
             </p>
           </GlassPanel>
 
@@ -220,8 +202,8 @@ export default async function HomePage() {
               Zero Friction Guest Access
             </h3>
             <p className="text-sm text-gray-400 leading-relaxed">
-              Your friends don&apos;t need to register or sign in to join your
-              watch party. One click enters them into the room instantly.
+              Whoever you watch with doesn&apos;t need to register or sign in
+              to join your room. One click enters them instantly.
             </p>
           </GlassPanel>
 
@@ -231,13 +213,20 @@ export default async function HomePage() {
               <ShieldCheck className="w-6 h-6" />
             </div>
             <h3 className="text-xl font-bold text-white font-[family-name:var(--font-space-grotesk)]">
-              100% Private &amp; Direct
+              Private by Default
             </h3>
             <p className="text-sm text-gray-400 leading-relaxed">
-              Your files never upload to our servers. File names, directory
-              paths, and video buffers remain strictly on your local machine.
+              Your files stay on your device - nothing uploads unless you
+              choose to share. File paths never leave your machine, and chat
+              is wiped when the room closes.
             </p>
           </GlassPanel>
+        </div>
+
+        {/* Reaction Playground */}
+        <div className="mt-12 text-center space-y-6">
+          <p className="text-sm text-gray-400">Tap one. See it float.</p>
+          <ReactionPlayground />
         </div>
       </section>
 
@@ -245,8 +234,8 @@ export default async function HomePage() {
       <TierPreviewSection />
 
       {/* 5. BOTTOM DOWNLOAD CTA */}
-      <section className="relative py-24 px-4 sm:px-6 lg:px-8 max-w-5xl mx-auto text-center">
-        <GlassPanel glow="purple" className="py-16 px-8 sm:px-12 space-y-8 border-purple-400/30">
+      <section className="relative py-12 md:py-16 px-4 sm:px-6 lg:px-8 max-w-5xl mx-auto text-center">
+        <GlassPanel glow="purple" className="py-12 md:py-14 px-8 sm:px-12 space-y-8 border-purple-400/30">
           <div className="space-y-3 max-w-2xl mx-auto">
             <h2 className="text-3xl sm:text-5xl font-extrabold text-white font-[family-name:var(--font-space-grotesk)]">
               Ready to watch together?

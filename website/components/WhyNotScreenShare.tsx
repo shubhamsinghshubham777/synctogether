@@ -30,7 +30,7 @@ const ROWS: { aspect: string; sharing: string; ours: string }[] = [
   {
     aspect: "Turning up late",
     sharing: "Rewind for everybody, or they miss what they missed.",
-    ours: "They land on the exact frame the room is on, and nobody had to stop.",
+    ours: "They land right where the room is playing, and nobody had to stop.",
   },
 ];
 

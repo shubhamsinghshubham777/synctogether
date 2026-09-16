@@ -29,7 +29,7 @@ export default async function ChangelogPage() {
 
 ### Performance & Engine
 - Upgraded video playback engine with improved hardware decoding on macOS & Windows.
-- Clock-skew resistant server time synchronization for millisecond-accurate play/pause events.`,
+- Clock-skew resistant server time synchronization for synchronized, drift-corrected play/pause events.`,
       html_url: "https://github.com/shubhamsinghshubham777/synctogether/releases",
     },
     {

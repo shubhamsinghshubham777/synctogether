@@ -132,6 +132,15 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
   double _volume = 1.0;
 
   final _messages = <ChatMessage>[];
+  final Set<String> _blockedUsers = <String>{};
+
+  List<ChatMessage> get _visibleMessages => _blockedUsers.isEmpty
+      ? _messages
+      : _messages
+            .where(
+              (m) => !_blockedUsers.contains(m.displayName) && !_blockedUsers.contains(m.senderId),
+            )
+            .toList();
   List<String> _typingNames = const [];
   bool _chatOpen = false;
   int _unread = 0;
@@ -324,7 +333,12 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
       return;
     }
     if (kind == 'cam' && on && !av.canPublishCamera) {
-      _snack('Cameras are a premium thing - this room is voice only.', kind: .info);
+      _snack(
+        isAppleStoreBuild
+            ? 'This room is set up as voice only.'
+            : 'Cameras are a premium thing - this room is voice only.',
+        kind: .info,
+      );
       return;
     }
     if (on) _facecamUsed = true;
@@ -2321,6 +2335,20 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
             'Reports are reviewed promptly. You can also email us directly at support@synctogether.app.',
             style: PTText.finePrint.copyWith(color: PTColors.white(0.5)),
           ),
+          if (targetUser != null && !_blockedUsers.contains(targetUser)) ...[
+            const SizedBox(height: 12),
+            PTButton(
+              label: 'Block $targetUser',
+              icon: Symbols.block_rounded,
+              variant: .secondary,
+              height: 40,
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+                setState(() => _blockedUsers.add(targetUser));
+                _snack('$targetUser has been blocked. Their messages are now hidden.', kind: .info);
+              },
+            ),
+          ],
           const SizedBox(height: 18),
           Row(
             spacing: 12,
@@ -4652,7 +4680,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
                 offscreen: 320,
                 panel: RoomChatPanel(
                   sync: _sync!,
-                  messages: _messages,
+                  messages: _visibleMessages,
                   premiumMembers: _premiumMembers,
                   typingNames: _typingNames,
                   watchingCount: _present.length,
@@ -4835,7 +4863,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
                   child: _sync != null
                       ? RoomChatPanel(
                           sync: _sync!,
-                          messages: _messages,
+                          messages: _visibleMessages,
                           premiumMembers: _premiumMembers,
                           typingNames: _typingNames,
                           watchingCount: _present.length,
@@ -4939,7 +4967,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
                       offscreen: 300,
                       panel: RoomChatPanel(
                         sync: _sync!,
-                        messages: _messages,
+                        messages: _visibleMessages,
                         premiumMembers: _premiumMembers,
                         typingNames: _typingNames,
                         watchingCount: _present.length,

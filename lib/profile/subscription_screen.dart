@@ -452,7 +452,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> with WidgetsBin
             ],
           ),
           Text(
-            'Once subscribed on synctogether.app, your account automatically unlocks all premium features across all your devices.',
+            'Once activated, your account automatically unlocks all features across all your devices.',
             style: PTText.finePrint.copyWith(color: PTColors.white(0.55), height: 1.4),
           ),
           PTButton(

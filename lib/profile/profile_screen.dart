@@ -11,6 +11,7 @@ import 'package:synctogether/auth/auth_service.dart';
 import 'package:synctogether/av/av_settings_dialog.dart';
 import 'package:synctogether/diagnostics.dart';
 import 'package:synctogether/platform.dart';
+import 'package:synctogether/profile/camera_capture_dialog.dart';
 import 'package:synctogether/profile/entitlement_service.dart';
 import 'package:synctogether/profile/media_quota_dialog.dart';
 import 'package:synctogether/profile/profile_models.dart';
@@ -70,6 +71,67 @@ class _ProfileScreenState extends State<ProfileScreen> {
     await prefs.remove('pt.media_sharing.remember_choice');
     if (!mounted) return;
     setState(() => _mediaSharingRememberedChoice = null);
+  }
+
+  Future<void> _showAvatarOptions() async {
+    final choice = await showGlassDialog<String>(
+      context: context,
+      width: 320,
+      padding: const EdgeInsets.all(20),
+      builder: (dialogContext) => Column(
+        mainAxisSize: .min,
+        crossAxisAlignment: .stretch,
+        children: [
+          Row(
+            mainAxisAlignment: .spaceBetween,
+            children: [
+              Text('Profile Photo', style: PTText.cardHeading.copyWith(fontSize: 16)),
+              PTIconButton(
+                icon: Symbols.close_rounded,
+                size: 28,
+                iconSize: 16,
+                onPressed: () => Navigator.of(dialogContext).pop(),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          PTButton(
+            label: 'Take photo with camera',
+            icon: Symbols.photo_camera_rounded,
+            variant: .primary,
+            height: 42,
+            onPressed: () => Navigator.of(dialogContext).pop('camera'),
+          ),
+          const SizedBox(height: 10),
+          PTButton(
+            label: 'Choose image file',
+            icon: Symbols.folder_open_rounded,
+            variant: .secondary,
+            height: 42,
+            onPressed: () => Navigator.of(dialogContext).pop('file'),
+          ),
+        ],
+      ),
+    );
+
+    if (choice == 'camera') {
+      if (!mounted) return;
+      final bytes = await showCameraCaptureDialog(context);
+      if (bytes != null && mounted) {
+        setState(() => _uploadingAvatar = true);
+        try {
+          await ProfileService.instance.uploadAvatar(bytes);
+          if (mounted) _snack('Profile photo updated!', kind: .success);
+        } catch (e, s) {
+          reportNonFatal(e, s, during: 'uploading camera avatar');
+          if (mounted) _snack("Couldn't update your photo - try a different image.");
+        } finally {
+          if (mounted) setState(() => _uploadingAvatar = false);
+        }
+      }
+    } else if (choice == 'file') {
+      await _pickAvatar();
+    }
   }
 
   Future<void> _pickAvatar() async {
@@ -340,6 +402,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Widget _subscriptionSection() {
+    if (isAppleStoreBuild) return const SizedBox.shrink();
     final isPrem = EntitlementService.instance.isPremium;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -533,7 +596,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
           if (isPrem)
             Text(
-              'Unlimited weekly uploads active with your Premium subscription.',
+              isAppleStoreBuild
+                  ? 'Unlimited weekly uploads active on your account.'
+                  : 'Unlimited weekly uploads active with your Premium subscription.',
               style: PTText.finePrint.copyWith(color: PTColors.white(0.6)),
             )
           else if (!isGuest) ...[
@@ -853,7 +918,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           child: MouseRegion(
             cursor: SystemMouseCursors.click,
             child: PTPressable(
-              onTap: _uploadingAvatar ? null : _pickAvatar,
+              onTap: _uploadingAvatar ? null : _showAvatarOptions,
               child: Container(
                 width: 34,
                 height: 34,
@@ -909,7 +974,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
               ),
             ),
-            if (EntitlementService.instance.isPremium) const PremiumBadge(),
+            if (!isAppleStoreBuild && EntitlementService.instance.isPremium) const PremiumBadge(),
           ],
         ),
         Text(sinceLabel, style: PTText.caption.copyWith(fontWeight: .w400)),

@@ -33,7 +33,7 @@
 	<key>SUEnableAutomaticChecks</key>
 	<false/>
 	<key>NSCameraUsageDescription</key>
-	<string>SyncTogether uses your camera for facecams during watch parties.</string>
+	<string>SyncTogether uses your camera for taking profile photos and video facecams during watch parties.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>SyncTogether uses your microphone for voice chat during watch parties.</string>
 	<key>CFBundleURLTypes</key>

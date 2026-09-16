@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import { useIsClient } from "@/lib/useIsClient";
 import { usePricing } from "@/lib/usePricing";
 import { COUNTRY_CURRENCY_MAP, isLocalEnvironment } from "@/lib/pricing";
 import { Globe, MapPin, ChevronDown, Check } from "lucide-react";
@@ -10,15 +11,12 @@ interface LocationDebugSwitcherProps {
 }
 
 export function LocationDebugSwitcher({ className = "" }: LocationDebugSwitcherProps) {
-  const [isLocal, setIsLocal] = useState(false);
+  // Reads window.location, so it must not run until the client render.
+  const isLocal = useIsClient() && isLocalEnvironment();
   const { countryCode, currencyCode, isMocked, mockCountry, setMockCountry } =
     usePricing();
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    setIsLocal(isLocalEnvironment());
-  }, []);
 
   // Close dropdown on outside click
   useEffect(() => {

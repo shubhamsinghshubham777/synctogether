@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect, useRef, useTransition } from "react";
+import { useState, useEffect, useRef, useCallback, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { RefreshCw, Copy, Check } from "lucide-react";
 import { PTButton } from "@/components/PTButton";
+import { useIsClient } from "@/lib/useIsClient";
 
 interface ControlsProps {
   timestamp: string;
@@ -13,23 +14,22 @@ interface ControlsProps {
 export function InternalMetricsControls({ timestamp, data }: ControlsProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
-  const [mounted, setMounted] = useState<boolean>(false);
+  // Gates locale-formatted timestamps, which differ between server and client.
+  const mounted = useIsClient();
   const [autoRefresh, setAutoRefresh] = useState<boolean>(true);
   const [copied, setCopied] = useState<boolean>(false);
   const [secondsRemaining, setSecondsRemaining] = useState<number>(30);
   const secondsRef = useRef<number>(30);
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  const triggerRefresh = () => {
+  // Memoised so the countdown effect below can depend on it without re-arming
+  // the interval on every render. router and startTransition are both stable.
+  const triggerRefresh = useCallback(() => {
     secondsRef.current = 30;
     setSecondsRemaining(30);
     startTransition(() => {
       router.refresh();
     });
-  };
+  }, [router]);
 
   // Auto-refresh countdown every 30 seconds
   useEffect(() => {
@@ -45,7 +45,7 @@ export function InternalMetricsControls({ timestamp, data }: ControlsProps) {
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [autoRefresh]);
+  }, [autoRefresh, triggerRefresh]);
 
   const handleManualRefresh = () => {
     triggerRefresh();

@@ -11,21 +11,15 @@ import { ProductionCredentialsError } from "@/lib/supabase/admin";
 import { GlassPanel } from "@/components/GlassPanel";
 import { InternalMetricsControls } from "./InternalMetricsControls";
 import {
-  Users,
   Download,
   Eye,
   Activity,
-  DollarSign,
   Tv,
   Crown,
   Share2,
-  Calendar,
   Layers,
-  ArrowRight,
   TrendingUp,
-  Clock,
   Sparkles,
-  Server,
   Compass,
   Database,
   HardDrive,

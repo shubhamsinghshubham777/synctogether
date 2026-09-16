@@ -13,30 +13,23 @@ import 'package:synctogether/rooms/room_service.dart';
 import 'package:synctogether/sync/sync_service.dart';
 
 /// Mock user & session representing the local user.
-final mockCurrentUser = User.fromJson({
-  'id': 'user-alex',
-  'aud': 'authenticated',
-  'role': 'authenticated',
-  'email': 'alex@synctogether.app',
-  'email_confirmed_at': '2026-01-01T00:00:00Z',
-  'app_metadata': {},
-  'user_metadata': {'full_name': 'Alex Rivers'},
-  'created_at': '2026-01-01T00:00:00Z',
-  'updated_at': '2026-01-01T00:00:00Z',
-});
+final mockCurrentUser = User(
+  id: 'user-alex',
+  aud: 'authenticated',
+  role: 'authenticated',
+  email: 'alex@synctogether.app',
+  emailConfirmedAt: '2026-01-01T00:00:00Z',
+  appMetadata: const <String, dynamic>{},
+  userMetadata: const <String, dynamic>{'full_name': 'Alex Rivers'},
+  createdAt: '2026-01-01T00:00:00Z',
+  updatedAt: '2026-01-01T00:00:00Z',
+);
 
-final mockCurrentSession = Session.fromJson({
-  'access_token': 'mock-access-token',
-  'token_type': 'bearer',
-  'user': {
-    'id': 'user-alex',
-    'aud': 'authenticated',
-    'email': 'alex@synctogether.app',
-    'app_metadata': {},
-    'user_metadata': {'full_name': 'Alex Rivers'},
-    'created_at': '2026-01-01T00:00:00Z',
-  },
-});
+final mockCurrentSession = Session(
+  accessToken: 'mock-access-token',
+  tokenType: 'bearer',
+  user: mockCurrentUser,
+);
 
 const mockCurrentProfile = Profile(
   id: 'user-alex',

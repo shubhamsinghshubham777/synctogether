@@ -55,6 +55,17 @@ void main() {
       },
     );
 
+    test('MockAuthService provides properly typed user and session', () {
+      final authService = AuthService.instance;
+      expect(authService.user, isNotNull);
+      expect(authService.user!.id, 'user-alex');
+      expect(authService.user!.email, 'alex@synctogether.app');
+      expect(authService.user!.userMetadata?['full_name'], 'Alex Rivers');
+      expect(authService.session, isNotNull);
+      expect(authService.session!.accessToken, 'mock-access-token');
+      expect(authService.session!.user.email, 'alex@synctogether.app');
+    });
+
     test('MockAuthService handles signOut and deleteAccount cleanly', () async {
       final authService = AuthService.instance;
       expect(authService.isSignedIn, isTrue);
@@ -123,28 +134,25 @@ void main() {
       av.dispose();
     });
 
-    testWidgets('PTAvatar resolves local file paths and handles errors safely', (tester) async {
-      final tempFile = File('${Directory.systemTemp.path}/test_avatar.jpg');
-      await tempFile.writeAsBytes(_generateTestJpg());
+    test('resolveAvatarImage safely maps local paths, file URIs, assets, and web URLs', () {
+      expect(resolveAvatarImage('/path/to/avatar.jpg'), isA<FileImage>());
+      expect(resolveAvatarImage('file:///path/to/avatar.jpg'), isA<FileImage>());
+      expect(resolveAvatarImage('assets/store/movie_still.jpg'), isA<AssetImage>());
+      expect(resolveAvatarImage('https://example.com/avatar.jpg'), isA<NetworkImage>());
+    });
 
+    testWidgets('PTAvatar renders fallback letters and custom presence', (tester) async {
       await tester.pumpWidget(
-        MaterialApp(
+        const MaterialApp(
           home: Scaffold(
-            body: PTAvatar(
-              userId: 'user-alex',
-              displayName: 'Alex Rivers',
-              avatarUrl: tempFile.path,
-            ),
+            body: PTAvatar(userId: 'user-alex', displayName: 'Alex Rivers', presence: true),
           ),
         ),
       );
       await tester.pump();
 
       expect(find.byType(PTAvatar), findsOneWidget);
-
-      try {
-        tempFile.deleteSync();
-      } catch (_) {}
+      expect(find.text('A'), findsOneWidget);
     });
   });
 }

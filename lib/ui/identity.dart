@@ -8,7 +8,8 @@ import 'package:material_symbols_icons/symbols.dart';
 import 'pt_motion.dart';
 import 'pt_theme.dart';
 
-ImageProvider _resolveAvatarImage(String url) {
+@visibleForTesting
+ImageProvider resolveAvatarImage(String url) {
   if (url.startsWith('file://')) {
     return FileImage(File(Uri.parse(url).toFilePath()));
   }
@@ -59,7 +60,7 @@ class PTAvatar extends StatelessWidget {
         border: ringColor != null ? Border.all(color: ringColor!, width: 2) : null,
         image: avatarUrl != null
             ? DecorationImage(
-                image: _resolveAvatarImage(avatarUrl!),
+                image: resolveAvatarImage(avatarUrl!),
                 fit: .cover,
                 onError: (_, _) {},
               )

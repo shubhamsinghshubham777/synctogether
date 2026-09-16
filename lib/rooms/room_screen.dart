@@ -1768,18 +1768,6 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     _resumeAttempted = true;
     final held = resumeSeekPosition(held: _room?.mediaPosition, mediaDuration: media.duration);
 
-    if (kDemoMode || LiveKitService.isMockMode) {
-      _resolveFirstSource();
-      _idleSourceTimer?.cancel();
-      _localFileName = media.name ?? 'Cosmic_Voyage_CC_4K.mp4';
-      _duration = media.duration ?? const Duration(hours: 2, minutes: 49, seconds: 3);
-      _position = _room?.mediaPosition ?? const Duration(hours: 1, minutes: 24, seconds: 18);
-      _playing = true;
-      _updateReadiness();
-      setState(() {});
-      return;
-    }
-
     if (media.kind == .youtube) {
       final url = media.url;
       if (url == null || _youtubeUrl != null) return;
@@ -1791,6 +1779,18 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
       _resolveFirstSource();
       _switchToYouTubeMode(url);
       if (held != null && !(_sync?.hasReceivedInitialState ?? false)) _pendingYtSeek = held;
+      return;
+    }
+
+    if (kDemoMode || LiveKitService.isMockMode) {
+      _resolveFirstSource();
+      _idleSourceTimer?.cancel();
+      _localFileName = media.name ?? 'Cosmic_Voyage_CC_4K.mp4';
+      _duration = media.duration ?? const Duration(hours: 2, minutes: 49, seconds: 3);
+      _position = _room?.mediaPosition ?? const Duration(hours: 1, minutes: 24, seconds: 18);
+      _playing = true;
+      _updateReadiness();
+      setState(() {});
       return;
     }
 
@@ -2115,7 +2115,10 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
   /// "Loading" forever while the host (whose player keeps emitting) went ready.
   void _armYouTubeReadyFallback() {
     _ytBufferFallbackTimer?.cancel();
-    _ytBufferFallbackTimer = Timer(const Duration(seconds: 10), () {
+    final delay = (kDemoMode || LiveKitService.isMockMode)
+        ? const Duration(milliseconds: 600)
+        : const Duration(seconds: 10);
+    _ytBufferFallbackTimer = Timer(delay, () {
       if (!mounted || _ytBufferReady) return;
       if (_youtubeController?.isAdPlaying == true) {
         // Still in ad, do not falsely declare readiness while an ad is running;

@@ -101,13 +101,25 @@ void main() {
       expect(created.name, 'Reviewer Room');
       expect(roomService.myRooms.first.room.id, created.id);
 
-      // Delete room in mock mode
+      // Leave room does not remove it from myRooms
+      await roomService.leaveRoom(mockRoomOne.id);
+      expect(roomService.myRooms.any((r) => r.room.id == mockRoomOne.id), isTrue);
+
+      // Delete room in mock mode removes it
       await roomService.deleteRoom(created.id);
       expect(roomService.myRooms.any((r) => r.room.id == created.id), isFalse);
 
       // Join room by code
       final joined = await roomService.joinRoom('X7K9P2');
       expect(joined.id, mockRoomOne.id);
+    });
+
+    test('MockEntitlementService follows the free tier 2.5 GB quota', () {
+      final entitlements = MockEntitlementService();
+      expect(entitlements.isPremium, isFalse);
+      expect(entitlements.tier, 'free');
+      expect(entitlements.limitsOrFallback.mediaSharingWeeklyBytes, 2684354560);
+      expect(entitlements.limitsOrFallback.mediaSharing, 'limited');
     });
 
     test('LiveKitService mock mode provides safe device getters and operations', () async {

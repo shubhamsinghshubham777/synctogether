@@ -256,16 +256,16 @@ class MockProfileService extends ProfileService {
 class MockEntitlementService extends EntitlementService {
   static const mockTierLimits = TierLimits(
     tier: kFreeTier,
-    maxLiveRooms: 8,
-    maxMembers: 16,
-    maxSessionMinutes: 600,
-    maxTotalSessionMinutes: 600,
+    maxLiveRooms: 4,
+    maxMembers: 8,
+    maxSessionMinutes: 240,
+    maxTotalSessionMinutes: 240,
     avLevel: .video,
-    persistentRoomCap: 5,
-    dormantHours: 72,
-    freeExtensionMinutes: 120,
-    mediaSharing: 'full',
-    mediaSharingWeeklyBytes: 10737418240,
+    persistentRoomCap: 0,
+    dormantHours: 24,
+    freeExtensionMinutes: 0,
+    mediaSharing: 'limited',
+    mediaSharingWeeklyBytes: 2684354560,
   );
 
   @override
@@ -442,7 +442,6 @@ class MockRoomService extends RoomService {
 
   @override
   Future<void> leaveRoom(String roomId) async {
-    _rooms.removeWhere((r) => r.room.id == roomId);
     if (_mockCurrentRoom?.id == roomId) _mockCurrentRoom = null;
     notifyListeners();
   }

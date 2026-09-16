@@ -74,7 +74,12 @@ class _CameraCaptureDialogState extends State<CameraCaptureDialog> {
 
       final Map<String, dynamic> videoConstraints = {'width': 720, 'height': 720};
       if (targetDeviceId != null && targetDeviceId.isNotEmpty) {
+        // macOS and Web accept 'deviceId' directly
         videoConstraints['deviceId'] = targetDeviceId;
+        // Windows WebRTC C++ (DirectShow/Media Foundation) queries 'sourceId' inside 'optional'
+        videoConstraints['optional'] = [
+          {'sourceId': targetDeviceId},
+        ];
       } else {
         videoConstraints['facingMode'] = 'user';
       }
@@ -89,6 +94,21 @@ class _CameraCaptureDialogState extends State<CameraCaptureDialog> {
           track.stop();
         }
         await stream.dispose();
+        return;
+      }
+
+      if (stream.getVideoTracks().isEmpty) {
+        for (final track in stream.getTracks()) {
+          track.stop();
+        }
+        await stream.dispose();
+        if (mounted) {
+          setState(() {
+            _initializing = false;
+            _error =
+                'No camera device detected on this system. You can choose an image file instead.';
+          });
+        }
         return;
       }
 
@@ -142,7 +162,14 @@ class _CameraCaptureDialogState extends State<CameraCaptureDialog> {
     final stream = _stream;
     if (stream == null || _capturing) return;
     final videoTracks = stream.getVideoTracks();
-    if (videoTracks.isEmpty) return;
+    if (videoTracks.isEmpty) {
+      if (mounted) {
+        setState(() {
+          _error = 'No active camera feed to capture from.';
+        });
+      }
+      return;
+    }
 
     setState(() => _capturing = true);
     try {

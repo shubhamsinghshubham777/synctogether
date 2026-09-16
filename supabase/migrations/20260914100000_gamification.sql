@@ -84,7 +84,13 @@ create index watch_ledger_user_day_idx on public.watch_ledger (user_id, day desc
 create table public.watch_day_rooms (
   user_id      uuid not null references public.profiles (id) on delete cascade,
   day          date not null,
-  room_id      uuid not null references public.rooms (id) on delete cascade,
+  -- No foreign key, for the same reason `recaps.room_id` has none: this is a
+  -- ledger of what somebody watched, and somebody *else* deleting the room must
+  -- not rewrite it. It is also the durable proof of membership `create_recap`
+  -- falls back on once `room_members` has gone, which is exactly the exit path
+  -- - host deletes the room, member is offered the card - where a cascade here
+  -- turned the share into `not_a_member`. `sweep_rewards` prunes it by age.
+  room_id      uuid not null,
   seconds      int  not null default 0 check (seconds >= 0),
   peak_members int  not null default 0,
   was_host     boolean not null default false,
@@ -205,7 +211,14 @@ create index user_achievements_user_idx on public.user_achievements (user_id, un
 create table public.recaps (
   id         text primary key,
   owner_id   uuid not null references public.profiles (id) on delete cascade,
-  room_id    uuid references public.rooms (id) on delete set null,
+  -- Deliberately NOT a foreign key. A recap is a public URL with a 90-day life
+  -- of its own; a room is deleted the moment its host says so. With an FK,
+  -- `on delete cascade` would kill a link somebody had already posted, and
+  -- `on delete set null` both broke the dedupe index (nulls never collide, so a
+  -- second share would bank the counters twice) and made sharing the recap of a
+  -- just-deleted room fail outright on the insert - which is precisely the exit
+  -- path that offers the card.
+  room_id    uuid not null,
   created_at timestamptz not null default now(),
   day        date not null default (now() at time zone 'utc')::date,
   expires_at timestamptz not null,
@@ -487,8 +500,14 @@ begin
 
   -- The anchor moves on every call, refused or not: a refused minute must not
   -- become a credited minute the moment the room qualifies again.
+  -- `for update` is what makes the anchor read-modify-write atomic. Without it
+  -- two concurrent calls (a retried request, two windows of the same account in
+  -- the same room) both read the same `last_at` and both credit the interval.
+  -- A row that does not exist yet cannot be locked, but that path grants zero
+  -- seconds anyway, so it is safe.
   select last_at into v_last from public.watch_heartbeats
-    where user_id = v_uid and room_id = p_room_id;
+    where user_id = v_uid and room_id = p_room_id
+    for update;
   insert into public.watch_heartbeats (user_id, room_id, last_at)
   values (v_uid, p_room_id, now())
   on conflict (user_id, room_id) do update set last_at = now();
@@ -546,7 +565,7 @@ begin
       'longest_streak',  coalesce(v_r.longest_streak, 0),
       'freezes',         coalesce(v_r.freezes_available, 0),
       'streak_frozen',   false,
-      'day_qualified',   v_today_seconds >= (public.reward_setting('streak_min_minutes', 20) * 60),
+      'day_qualified',   v_today_seconds >= (public.reward_setting('streak_min_minutes', 10) * 60),
       'unlocked',        '[]'::jsonb);
   end if;
 
@@ -613,8 +632,8 @@ begin
   -- Freeze refill is lazy: no cron, and therefore no "which timezone does the
   -- cron think it is" bug.
   v_freeze_quota := (case when v_tier = 'premium'
-    then public.reward_setting('freezes_per_week_premium', 2)
-    else public.reward_setting('freezes_per_week', 1) end)::int;
+    then public.reward_setting('freezes_per_week_premium', 3)
+    else public.reward_setting('freezes_per_week', 2) end)::int;
   if v_r.freezes_refreshed is null or (v_day - v_r.freezes_refreshed) >= 7 then
     v_r.freezes_available := v_freeze_quota;
     v_r.freezes_refreshed := v_day;
@@ -628,7 +647,7 @@ begin
     end if;
   end if;
 
-  v_streak_min_seconds := (public.reward_setting('streak_min_minutes', 20) * 60)::int;
+  v_streak_min_seconds := (public.reward_setting('streak_min_minutes', 10) * 60)::int;
   if (v_today_seconds + v_grant) >= v_streak_min_seconds
      and v_r.last_credited_day is distinct from v_day then
     v_gap := case when v_r.last_credited_day is null then null
@@ -768,7 +787,7 @@ as $$
      where p.public_profile
        and l.day >= public.reward_period_start('week')
        and l.points > 0
-  ) >= public.reward_setting('leaderboard_min_participants', 200);
+  ) >= public.reward_setting('leaderboard_min_participants', 30);
 $$;
 
 create or replace function public.leaderboard(
@@ -924,8 +943,8 @@ begin
       'last_day', v_r.last_credited_day,
       'last_freeze_day', v_r.last_freeze_used_day,
       'seconds_today', v_secs,
-      'min_minutes', public.reward_setting('streak_min_minutes', 20)::int,
-      'qualified_today', v_secs >= (public.reward_setting('streak_min_minutes', 20) * 60)),
+      'min_minutes', public.reward_setting('streak_min_minutes', 10)::int,
+      'qualified_today', v_secs >= (public.reward_setting('streak_min_minutes', 10) * 60)),
     'totals', jsonb_build_object(
       'seconds', coalesce(v_r.total_seconds, 0),
       'sessions', coalesce(v_r.total_sessions, 0),
@@ -954,7 +973,7 @@ begin
                         where p.public_profile
                           and l.day >= public.reward_period_start('week')
                           and l.points > 0),
-      'min_required', public.reward_setting('leaderboard_min_participants', 200)::int),
+      'min_required', public.reward_setting('leaderboard_min_participants', 30)::int),
     'achievements', (
       select coalesce(jsonb_agg(jsonb_build_object(
                'id', a.id, 'title', a.title, 'description', a.description,
@@ -1140,6 +1159,7 @@ declare
   v_metrics jsonb;
   v_unlocked jsonb := '[]'::jsonb;
   v_emoji text;
+  v_earned int;
 begin
   if v_uid is null then raise exception 'not_authenticated'; end if;
   if public.effective_tier(v_uid) = 'guest' then
@@ -1166,10 +1186,25 @@ begin
   into v_host;
 
   v_secs  := greatest(0, least(coalesce(p_seconds, 0), 86400));
+
+  -- `reactions_sent` and `messages_sent` are the only achievement metrics a
+  -- client supplies rather than the server computing, and "Hype Machine" (500
+  -- reactions) and "Chatterbox" (1,000 messages) sit exactly at the per-share
+  -- caps - so a single crafted call unlocked both. The counters are therefore
+  -- additionally rated against the seconds this account was *credited* in this
+  -- room, which comes from `watch_day_rooms` and cannot be argued with. An
+  -- honest session is nowhere near the rate ceiling (a 90-minute sitting allows
+  -- ~1,080 reactions, so the config cap is what binds); a fabricated one has no
+  -- credited seconds and therefore banks nothing.
+  select coalesce(sum(seconds), 0) into v_earned
+    from public.watch_day_rooms where user_id = v_uid and room_id = p_room_id;
+
   v_msgs  := greatest(0, least(coalesce(p_messages, 0),
-                               public.reward_setting('recap_max_messages', 1000)::int));
+                               public.reward_setting('recap_max_messages', 1000)::int,
+                               v_earned / 3));
   v_rx    := greatest(0, least(coalesce(p_reactions, 0),
-                               public.reward_setting('recap_max_reactions', 500)::int));
+                               public.reward_setting('recap_max_reactions', 500)::int,
+                               v_earned / 5));
   v_modes := array(select unnest(coalesce(p_modes, '{}')) intersect select unnest(array['local','youtube']));
   v_emoji := case when char_length(coalesce(p_top_emoji, '')) between 1 and 8
                   then p_top_emoji else null end;
@@ -1652,7 +1687,7 @@ declare
   v_end   date := (date_trunc('month', (now() at time zone 'utc')) - interval '1 day')::date;
   v_id    text := to_char(v_start, 'YYYY-MM');
 begin
-  if not public.reward_flag('seasons_enabled', true) then
+  if not public.reward_flag('seasons_enabled', false) then
     return;
   end if;
   if exists (select 1 from public.seasons where id = v_id and closed_at is not null) then
@@ -1671,7 +1706,7 @@ begin
       from public.watch_ledger l
       join public.profiles p on p.id = l.user_id
      where p.public_profile and l.day between v_start and v_end and l.points > 0
-  ) >= public.reward_setting('leaderboard_min_participants', 200) then
+  ) >= public.reward_setting('leaderboard_min_participants', 30) then
     insert into public.season_awards (season_id, user_id, rank, points)
     select v_id, x.user_id, x.rn::int, x.pts
       from (

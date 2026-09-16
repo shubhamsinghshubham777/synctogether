@@ -48,8 +48,25 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
   void initState() {
     super.initState();
     Analytics.instance.track('leaderboard_viewed', {'scope': _scope.wire});
-    unawaited(RewardsService.instance.load());
+    unawaited(RewardsService.instance.load().then((_) => _trackUpsellShown()));
     unawaited(_reload());
+  }
+
+  /// Fired once per visit, and deliberately *not* from `build`.
+  ///
+  /// The guest upsell here is an inline card rather than a dialog, so there is
+  /// no "shown" moment to hang it off - and a `build` call site would report it
+  /// on every frame. Without it this surface emitted clicks with no
+  /// impressions, which leaves the conversion rate uncomputable and makes the
+  /// pair pointless. The visit itself is human-caused; the card is only its
+  /// consequence.
+  bool _upsellTracked = false;
+
+  void _trackUpsellShown() {
+    if (_upsellTracked || !mounted) return;
+    if (!RewardsService.instance.state.isGuest) return;
+    _upsellTracked = true;
+    Analytics.instance.track('upgrade_cta_shown', {'surface': 'leaderboard'});
   }
 
   Future<void> _reload() async {
@@ -120,7 +137,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
               children: [
                 PTIconButton(
                   icon: Symbols.arrow_back_rounded,
-                  iconSize: compact ? 20 : 20,
+                  iconSize: 20,
                   size: compact ? 44 : 42,
                   onPressed: () => context.go('/lobby'),
                 ),

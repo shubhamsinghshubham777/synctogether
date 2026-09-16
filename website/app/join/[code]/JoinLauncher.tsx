@@ -27,8 +27,9 @@ export function JoinLauncher({ code }: { code: string }) {
     const onHidden = () => {
       if (document.visibilityState === "hidden") settle("handed-off");
     };
+    const onBlur = () => settle("handed-off");
     document.addEventListener("visibilitychange", onHidden);
-    window.addEventListener("blur", () => settle("handed-off"));
+    window.addEventListener("blur", onBlur);
 
     // Assigning rather than opening a window: a popup blocker will not stop a
     // same-tab scheme navigation, and a blocked popup looks like a dead link.
@@ -38,6 +39,7 @@ export function JoinLauncher({ code }: { code: string }) {
     return () => {
       window.clearTimeout(timer);
       document.removeEventListener("visibilitychange", onHidden);
+      window.removeEventListener("blur", onBlur);
     };
   }, [code]);
 

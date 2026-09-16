@@ -149,6 +149,27 @@ List<PresentMember> gateBlockersOf(
   Set<String> waived = const {},
 }) => media.isSet ? members.where((m) => !memberClearsGate(m, media, waived)).toList() : const [];
 
+/// Who the room is *actually being held up by* right now.
+///
+/// Narrower than [gateBlockersOf] on purpose, and the narrowing is the whole
+/// point: at room entry, and for the seconds after any media change, *nobody*
+/// has the file open yet, and calling all of them blockers would mean every
+/// session was held up by everyone. That is what made the "never held the gate"
+/// award - and the achievement built on it - unreachable.
+///
+/// Somebody is holding the gate only when at least one other present member has
+/// already cleared it, i.e. there is somebody waiting on them.
+Set<String> gateHolderIds(
+  RoomMedia media,
+  List<PresentMember> members, {
+  Set<String> waived = const {},
+}) {
+  if (!media.isSet || members.length < 2) return const {};
+  final blockers = gateBlockersOf(media, members, waived: waived);
+  if (blockers.isEmpty || blockers.length == members.length) return const {};
+  return {for (final m in blockers) m.userId};
+}
+
 /// What the gate derives from a state change. Only the authority acts on it,
 /// else the room gets one pause per member.
 enum GateTransition { pause, resume }

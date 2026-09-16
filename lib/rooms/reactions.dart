@@ -191,13 +191,11 @@ class ComboTracker {
     return group.senders.length >= threshold ? group.senders.length : null;
   }
 
-  /// Windows are short, so a stale group is only ever a few map entries - but a
-  /// long session with the whole extended set would otherwise keep every emoji
-  /// it ever saw.
-  void _prune(DateTime now) {
-    if (_groups.length <= kAllReactions.length) return;
-    _groups.removeWhere((_, group) => now.difference(group.startedAt) > window);
-  }
+  /// Windows are short and the emoji are allow-listed, so this is bounded by
+  /// the manifest either way - it just keeps a long session from holding a
+  /// stale group for every emoji the room ever sent.
+  void _prune(DateTime now) =>
+      _groups.removeWhere((_, group) => now.difference(group.startedAt) > window);
 
   void reset() => _groups.clear();
 }

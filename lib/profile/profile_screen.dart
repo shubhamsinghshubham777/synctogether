@@ -59,8 +59,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
       EntitlementService.instance.load();
     }
     _loadMediaSharingPreference();
-    unawaited(RewardsService.instance.load());
+    unawaited(RewardsService.instance.load().then((_) => _trackHandleUpsellShown()));
     unawaited(RewardsService.instance.loadReferrals());
+  }
+
+  /// Once per visit, and never from `build`: the handle field is inline, so
+  /// rendering it is not an event and a `build` call site would fire on every
+  /// frame. Without it the `handle` surface reported clicks with no
+  /// impressions, and a conversion rate needs both halves.
+  bool _handleUpsellTracked = false;
+
+  void _trackHandleUpsellShown() {
+    if (_handleUpsellTracked || !mounted) return;
+    final state = RewardsService.instance.state;
+    if (state.isPremium || state.handle != null) return;
+    _handleUpsellTracked = true;
+    Analytics.instance.track('upgrade_cta_shown', {'surface': 'handle'});
+  }
+
+  @override
+  void dispose() {
+    _handleDisplay?.dispose();
+    super.dispose();
   }
 
   Future<void> _loadMediaSharingPreference() async {
@@ -614,8 +634,33 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  TextEditingController? _handleDisplay;
+  String? _handleDisplayText;
+
+  /// Owned by the State, and rebuilt only when the text actually changes.
+  ///
+  /// Both branches of the handle field are read-only displays behind a
+  /// `PTPressable`, and a `TextEditingController` minted inline is a
+  /// `ChangeNotifier` allocated and abandoned on every rebuild - of which this
+  /// screen has plenty, since it rebuilds on three separate services. Assigning
+  /// `.text` on a shared controller is the other wrong answer: that notifies
+  /// its listeners, and doing it from `build` is a `markNeedsBuild` during
+  /// build. A handle changes at most once per visit, so minting a fresh one on
+  /// the change is both cheap and quiet. The superseded controller is disposed
+  /// after the frame, once the field has let go of it.
+  TextEditingController _handleController(String text) {
+    final current = _handleDisplay;
+    if (current != null && _handleDisplayText == text) return current;
+    if (current != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => current.dispose());
+    }
+    _handleDisplayText = text;
+    return _handleDisplay = TextEditingController(text: text);
+  }
+
   Widget _handleField(RewardState state) {
     final handle = state.handle;
+    final controller = _handleController(handle == null ? '' : '@$handle');
     // A handle is permanent, globally unique and first-come, which makes it the
     // one thing here worth squatting - so it is the Premium perk. Being *on*
     // the board is free; having a page of your own is not.
@@ -630,7 +675,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         },
         child: IgnorePointer(
           child: PTTextField(
-            controller: TextEditingController(),
+            controller: controller,
             label: 'Public handle',
             hint: 'Premium - gives you a page at synctogether.app/u/you',
             enabled: false,
@@ -644,7 +689,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       child: IgnorePointer(
         child: PTTextField(
           key: ValueKey('handle-$handle'),
-          controller: TextEditingController(text: handle == null ? '' : '@$handle'),
+          controller: controller,
           label: 'Public handle',
           hint: 'Pick one to get a shareable page',
           enabled: false,
@@ -703,6 +748,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (value == null || value.trim().isEmpty) return;
     try {
       await RewardsService.instance.claimHandle(value);
+      // The one thing Premium actually buys in this whole feature. Whether
+      // anybody claims one is the question that decides if handles - and the
+      // public pages built on them - were worth shipping. The handle itself is
+      // deliberately not a property: it is a name somebody chose, and it tells
+      // the funnel nothing that the event alone does not.
+      Analytics.instance.track('handle_claimed');
       if (mounted) _snack('Handle claimed.', kind: .success);
     } on RewardsFailure catch (failure) {
       if (mounted) _snack(failure.message);

@@ -1,5 +1,5 @@
 begin;
-select plan(51);
+select plan(55);
 
 create function pg_temp.mk_user(p_guest boolean default false) returns uuid
 language plpgsql as $$
@@ -225,6 +225,13 @@ do $$
 declare v_res jsonb; v_again jsonb;
 begin
   perform pg_temp.act_as((select v from t where k = 'me'));
+  -- A real ninety-minute sitting: the client-reported reaction and message
+  -- counts are rated against credited watch time, so the fixture has to have
+  -- some. At this length the *config* caps are what bind, which is what these
+  -- assertions are about.
+  insert into public.watch_day_rooms (user_id, day, room_id, seconds)
+  values ((select v from t where k = 'me'), (now() at time zone 'utc')::date,
+          (select v from t where k = 'room'), 5400);
   v_res := public.create_recap(
     (select v from t where k = 'room'), 5400, 3, 42, 9000, '🎉',
     array['local', 'sneaky_mode'], true, true,
@@ -421,6 +428,85 @@ select is(
   public.delete_recap((select id from owned_recap)),
   false,
   'deleting it twice reports honestly rather than pretending');
+
+-- ---------------------------------------------------------------------------
+-- A recap outlives the room it describes
+--
+-- The share is offered on the way *out*, and one of the ways out is the host
+-- deleting the room. `recaps.room_id` therefore carries no foreign key: with
+-- one, this insert failed outright and the card the user had just been shown
+-- refused to share.
+-- ---------------------------------------------------------------------------
+
+do $$
+declare
+  v_host uuid := (select v from t where k = 'me');
+  v_mate uuid := (select v from t where k = 'friend');
+  v_room public.rooms;
+  v_id   uuid;
+  v_res  jsonb;
+begin
+  perform pg_temp.act_as(v_host);
+  v_room := public.create_room('Deleted later', 240);
+  v_id := v_room.id;
+  perform pg_temp.act_as(v_mate);
+  perform public.join_room(v_room.code);
+  perform pg_temp.act_as(v_host);
+  -- The ledger row is the durable proof of membership the RPC falls back on
+  -- once `room_members` has gone with the room.
+  insert into public.watch_day_rooms (user_id, day, room_id, seconds)
+  values (v_host, (now() at time zone 'utc')::date, v_id, 600);
+  delete from public.rooms where id = v_id;
+  v_res := public.create_recap(v_id, 900, 2);
+  create temp table orphan_recap as select v_res ->> 'id' as id, v_id as room;
+end $$;
+
+select is(
+  (select jsonb_typeof(public.public_recap(id) -> 'seconds') from orphan_recap),
+  'number',
+  'a session in a room that has since been deleted can still be shared');
+
+select is(
+  (select payload ->> 'room_name' from public.recaps
+    where id = (select id from orphan_recap)),
+  null,
+  'and it names no room, because there is no longer a room row to name');
+
+-- ---------------------------------------------------------------------------
+-- The two client-supplied counters are rated against credited watch time
+--
+-- `reactions_sent` and `messages_sent` are the only achievement metrics the
+-- client reports rather than the server computing, and the badge thresholds sit
+-- exactly at the per-share caps - so one crafted call used to bank both.
+-- ---------------------------------------------------------------------------
+
+do $$
+declare
+  v_liar uuid := pg_temp.mk_user();
+  v_mate uuid := pg_temp.mk_user();
+  v_room public.rooms;
+begin
+  perform pg_temp.act_as(v_liar);
+  v_room := public.create_room('Nothing happened here', 240);
+  perform pg_temp.act_as(v_mate);
+  perform public.join_room(v_room.code);
+  perform pg_temp.act_as(v_liar);
+  -- No credited seconds at all: nobody watched anything.
+  perform public.create_recap(v_room.id, 86400, 2, 1000, 500);
+  create temp table liar as select v_liar as id;
+end $$;
+
+select is(
+  (select reactions_sent + messages_sent from public.user_rewards
+    where user_id = (select id from liar)),
+  0,
+  'a share claiming a thousand messages banks nothing without the watch time to match');
+
+select is(
+  (select count(*)::int from public.user_achievements
+    where user_id = (select id from liar) and achievement_id in ('hype_man', 'chatterbox')),
+  0,
+  'so the two badges that sit on those counters cannot be bought with one RPC call');
 
 select * from finish();
 rollback;

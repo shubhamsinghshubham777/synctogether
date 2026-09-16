@@ -59,9 +59,16 @@ class PTAvatar extends StatelessWidget {
   Widget build(BuildContext context) {
     final letter = displayName.isEmpty ? '?' : displayName.characters.first.toUpperCase();
 
+    // A frame is drawn *inside* [size], so the photo itself shrinks to make
+    // room for the ring. A framed avatar that came out larger than an unframed
+    // one made every list holding both - the readiness roster, the member
+    // sheet, a chat thread - sit unevenly, and pushed it past any parent that
+    // sized it tightly. `PTAvatar(size: n)` occupies n either way.
+    final inner = frame == null ? size : size * 0.84;
+
     Widget avatar = Container(
-      width: size,
-      height: size,
+      width: inner,
+      height: inner,
       decoration: BoxDecoration(
         gradient: avatarUrl == null ? PTColors.avatarGradientFor(userId) : null,
         shape: .circle,
@@ -80,7 +87,7 @@ class PTAvatar extends StatelessWidget {
               letter,
               style: TextStyle(
                 fontFamily: PTFonts.body,
-                fontSize: size * 0.38,
+                fontSize: inner * 0.38,
                 fontWeight: .w600,
                 color: Colors.white,
               ),
@@ -88,12 +95,13 @@ class PTAvatar extends StatelessWidget {
           : null,
     );
 
-    final frame = this.frame;
-    if (frame != null) {
+    if (frame case final frame?) {
       // A ring, not a halo: this renders in chat bubbles and facecam tiles as
       // well as the lobby, so it has to stay one cheap decoration deep.
       avatar = Container(
-        padding: EdgeInsets.all(size * 0.055),
+        width: size,
+        height: size,
+        padding: EdgeInsets.all(size * 0.05),
         decoration: BoxDecoration(
           shape: .circle,
           gradient: frameGradient(frame),
@@ -102,7 +110,7 @@ class PTAvatar extends StatelessWidget {
           ],
         ),
         child: Container(
-          padding: EdgeInsets.all(size * 0.035),
+          padding: EdgeInsets.all(size * 0.03),
           decoration: const BoxDecoration(shape: .circle, color: PTColors.avatarRing),
           child: avatar,
         ),

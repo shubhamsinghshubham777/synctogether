@@ -1007,9 +1007,12 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     for (final member in present) {
       final tally = _tally(member.userId, member.displayName);
       if (!_firstPresenceSeen) tally.presentAtStart = true;
-      if (sync != null && !sync.memberSatisfiesGate(member)) {
-        _gateBlockers.add(member.userId);
-      }
+    }
+    // Only the people somebody is *waiting on* - see `gateHolderIds`. Counting
+    // every not-yet-ready member would name the whole room on entry and after
+    // every media change, which is not what "held everyone up" means.
+    if (sync != null) {
+      _gateBlockers.addAll(gateHolderIds(sync.canonicalMedia, present));
     }
     _firstPresenceSeen = true;
     // Don't wait on the member fetch: readiness/online changes should land in

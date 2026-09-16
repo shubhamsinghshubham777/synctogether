@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
+import '../../analytics.dart';
 import '../../ui/banners.dart';
 import '../../ui/buttons.dart';
 import '../../ui/glass.dart';
@@ -55,6 +56,13 @@ class _SharedRecapsState extends State<_SharedRecaps> {
   Future<void> _delete(SharedRecap recap) async {
     setState(() => _deleting.add(recap.id));
     final gone = await RewardsService.instance.deleteSharedRecap(recap.id);
+    if (gone) {
+      // The counter-signal to `recap_shared`, and the only one there is. A
+      // share that gets taken back is not a share, and taking back the ones
+      // that were actually being opened says something different again - which
+      // is why the view count travels with it.
+      Analytics.instance.track('recap_deleted', {'views': recap.views});
+    }
     if (!mounted) return;
     setState(() {
       _deleting.remove(recap.id);
@@ -180,6 +188,12 @@ class _RecapRow extends StatelessWidget {
             tooltip: 'Copy link',
             onPressed: () async {
               await Clipboard.setData(ClipboardData(text: recapUrl(recap.id)));
+              // The same event as the first share, on purpose: splitting it
+              // would split the one funnel this feature is judged by. The
+              // surface is what separates "shared on the way out" from "went
+              // looking for the link again", and the second is the stronger
+              // signal of the two.
+              Analytics.instance.track('recap_shared', {'surface': 'manage'});
               if (context.mounted) {
                 showPTSnack(context, 'Link copied.', kind: .success);
               }

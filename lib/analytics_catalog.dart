@@ -238,11 +238,28 @@ const kAnalyticsEvents = <AnalyticsEventDoc>[
     properties: ['which frame'],
   ),
   AnalyticsEventDoc(
+    event: 'recap_deleted',
+    group: .rewards,
+    what: 'You took a shared recap back down.',
+    why:
+        'A share that gets deleted is not a share - this is what keeps the '
+        'previous number honest.',
+    properties: ['how many times it had been opened'],
+  ),
+  AnalyticsEventDoc(
     event: 'profile_shared',
     group: .rewards,
     what: 'You shared your public profile link.',
     why: 'Whether profile pages bring anybody new in.',
     properties: ['where you shared it from'],
+  ),
+  AnalyticsEventDoc(
+    event: 'handle_claimed',
+    group: .rewards,
+    what: 'You claimed your public handle.',
+    why:
+        'Whether the one thing Premium adds here is worth having. The handle '
+        'itself is not sent.',
   ),
 
   // --- Premium -------------------------------------------------------------

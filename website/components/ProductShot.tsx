@@ -30,10 +30,6 @@ export function ProductShot() {
             className="w-full h-auto"
             priority={false}
           />
-          <div
-            aria-hidden
-            className="pointer-events-none absolute inset-0 [background:linear-gradient(to_right,var(--pt-canvas),transparent_12%,transparent_88%,var(--pt-canvas)),linear-gradient(to_bottom,var(--pt-canvas),transparent_10%,transparent_82%,var(--pt-canvas))]"
-          />
         </div>
       </div>
     </section>

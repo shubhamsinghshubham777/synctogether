@@ -531,5 +531,98 @@ void main() {
 
       expect(hideTriggered, isTrue);
     });
+
+    testWidgets('shows fullscreen button and toggles fullscreen state', (tester) async {
+      bool fullscreenTriggered = false;
+      final actions = RoomControlBarActions(
+        onPlayPause: () {},
+        onSeek: (_) {},
+        onSkip: (_) {},
+        onMicToggle: (_) {},
+        onCamToggle: (_) {},
+        onAudioTracks: () {},
+        onSubtitles: () {},
+        onSwitchSource: () {},
+        onOpenFile: () {},
+        onVolume: (_) {},
+        onToggleMute: () {},
+        onFullscreenToggle: () => fullscreenTriggered = true,
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: RoomControlBar(
+              playing: false,
+              position: Duration.zero,
+              duration: const Duration(minutes: 10),
+              volume: 1.0,
+              micOn: false,
+              camOn: false,
+              avAvailable: true,
+              fullscreen: false,
+              actions: actions,
+            ),
+          ),
+        ),
+      );
+
+      final fsFinder = find.byTooltip('Fullscreen (F)');
+      expect(fsFinder, findsOneWidget);
+      expect(find.widgetWithIcon(PTIconButton, Symbols.fullscreen_rounded), findsOneWidget);
+
+      await tester.tap(fsFinder);
+      await tester.pump();
+
+      expect(fullscreenTriggered, isTrue);
+    });
+
+    testWidgets('shows exit fullscreen button when fullscreen is true in compact mode', (
+      tester,
+    ) async {
+      bool fullscreenTriggered = false;
+      final actions = RoomControlBarActions(
+        onPlayPause: () {},
+        onSeek: (_) {},
+        onSkip: (_) {},
+        onMicToggle: (_) {},
+        onCamToggle: (_) {},
+        onAudioTracks: () {},
+        onSubtitles: () {},
+        onSwitchSource: () {},
+        onOpenFile: () {},
+        onVolume: (_) {},
+        onToggleMute: () {},
+        onFullscreenToggle: () => fullscreenTriggered = true,
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: RoomControlBar(
+              playing: false,
+              position: Duration.zero,
+              duration: const Duration(minutes: 10),
+              volume: 1.0,
+              micOn: false,
+              camOn: false,
+              avAvailable: true,
+              compact: true,
+              fullscreen: true,
+              actions: actions,
+            ),
+          ),
+        ),
+      );
+
+      final exitFsFinder = find.byTooltip('Exit fullscreen (F)');
+      expect(exitFsFinder, findsOneWidget);
+      expect(find.widgetWithIcon(PTIconButton, Symbols.fullscreen_exit_rounded), findsOneWidget);
+
+      await tester.tap(exitFsFinder);
+      await tester.pump();
+
+      expect(fullscreenTriggered, isTrue);
+    });
   });
 }

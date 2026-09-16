@@ -207,6 +207,61 @@ check_prereqs() {
 }
 
 # ------------------------------------------------------------------------------
+# Repair Local Email Templates
+# ------------------------------------------------------------------------------
+# Kong serves supabase/templates/*.html to GoTrue over an internal :8088 declared
+# in a custom nginx template. `supabase functions serve` reloads Kong, and the
+# reload regenerates nginx.conf from Kong's *default* template - :8088 vanishes,
+# GoTrue's fetch is refused, and it silently falls back to its built-in magic-link
+# mail, which carries a link and no {{ .Token }}. That is the "local sign-in email
+# has no OTP code" bug. Restarting the container re-applies the custom template;
+# every Kong route lives in the on-disk declarative config, so nothing is lost.
+repair_email_templates() {
+  local project_id kong auth url
+  project_id=$(grep -E '^project_id' "$REPO_ROOT/supabase/config.toml" | cut -d'"' -f2)
+  kong="supabase_kong_${project_id}"
+  auth="supabase_auth_${project_id}"
+  url="http://${kong}:8088/email/magic_link.html"
+
+  # GoTrue is the only consumer that matters, so probe from inside it.
+  email_templates_reachable() {
+    docker exec "$auth" wget -q -O /dev/null "$url" >/dev/null 2>&1
+  }
+
+  if ! docker ps --format '{{.Names}}' | grep -qx "$kong"; then
+    return 0
+  fi
+
+  # The reload lands when the Edge Functions runtime comes up and Kong re-routes
+  # to it, so wait for that to answer before judging :8088 - probing earlier just
+  # sees the healthy port Kong is about to drop.
+  local count=0
+  while ! curl -sf -o /dev/null "http://127.0.0.1:54321/functions/v1/_internal/health" && [ $count -lt 30 ]; do
+    sleep 1
+    count=$((count+1))
+  done
+
+  if email_templates_reachable; then
+    return 0
+  fi
+
+  info "Email template server was dropped by a Kong reload - restarting Kong..."
+  docker restart "$kong" >/dev/null 2>&1 || true
+
+  local count=0
+  while ! email_templates_reachable && [ $count -lt 20 ]; do
+    sleep 1
+    count=$((count+1))
+  done
+
+  if email_templates_reachable; then
+    success "Email templates restored (sign-in emails carry the 6-digit OTP again)."
+  else
+    warn "Email templates still unreachable at $url - local sign-in emails will show a link instead of an OTP code."
+  fi
+}
+
+# ------------------------------------------------------------------------------
 # Spin Up
 # ------------------------------------------------------------------------------
 spin_up() {
@@ -309,6 +364,9 @@ spin_up() {
   nohup supabase functions serve --env-file "$REPO_ROOT/supabase/functions/.env" > "$FUNCTIONS_LOG" 2>&1 &
   echo $! > "$FUNCTIONS_PID_FILE"
   success "Edge Functions running (Log: $FUNCTIONS_LOG)"
+
+  # 2b. Repair the email template server, which the Edge Functions boot knocks out.
+  repair_email_templates
 
   # 3. Start Next.js Website & Billing Portal
   info "Starting Next.js Website & Billing Portal..."

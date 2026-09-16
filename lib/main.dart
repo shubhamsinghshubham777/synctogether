@@ -15,6 +15,10 @@ import 'package:synctogether/env.dart';
 import 'package:synctogether/mock/mock_dependencies.dart';
 import 'package:synctogether/mock/store_capture.dart';
 import 'package:synctogether/platform.dart';
+import 'package:synctogether/rewards/rewards_models.dart';
+import 'package:synctogether/rewards/rewards_service.dart';
+import 'package:synctogether/rewards/unlock_log.dart';
+import 'package:synctogether/rewards/widgets/unlock_toast.dart';
 import 'package:synctogether/rooms/room_models.dart';
 import 'package:synctogether/rooms/room_service.dart';
 import 'package:synctogether/tls.dart';
@@ -100,6 +104,11 @@ class MainApp extends StatefulWidget {
 
 class _MainAppState extends State<MainApp> with WidgetsBindingObserver {
   late final router = buildRouter();
+
+  /// Captured once. `RewardsService.unlocks` hands out a fresh view object per
+  /// call, so reading it inside `build` would resubscribe the host every frame -
+  /// the same trap the room's reaction stream documents.
+  late final Stream<Achievement> _unlocks = RewardsService.instance.unlocks;
   final _appLinks = AppLinks();
   StreamSubscription<Uri>? _linkSub;
   StreamSubscription<String>? _authFailureSub;
@@ -201,6 +210,31 @@ class _MainAppState extends State<MainApp> with WidgetsBindingObserver {
     super.dispose();
   }
 
+  /// The one place a *render* is allowed to emit a product event.
+  ///
+  /// By the letter of the analytics doctrine this is a render, like a crown:
+  /// nobody caused it at that moment. It is allowed because, unlike a crown, it
+  /// is a discrete, server-authoritative, once-ever fact - and because it is
+  /// deduped per account on this device, so a reconnect, a reinstall or a second
+  /// device cannot count it twice. It is never emitted by an observer watching
+  /// somebody else's unlock, and never re-emitted.
+  ///
+  /// The host lives here rather than in the lobby because the room is a *nested*
+  /// route: the lobby stays mounted underneath it, and a host down there would
+  /// announce badges to a screen nobody can see.
+  void _onBadgeShown(Achievement achievement) {
+    unawaited(
+      UnlockLog.instance.markAnnounced(achievement.id).then((fresh) {
+        if (!fresh) return;
+        Analytics.instance.track('achievement_unlocked', {
+          'id': achievement.id,
+          'grade': achievement.grade.name,
+        });
+        unawaited(RewardsService.instance.markSeen([achievement.id]));
+      }),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp.router(
@@ -215,7 +249,16 @@ class _MainAppState extends State<MainApp> with WidgetsBindingObserver {
       // it, so an invite that arrives during the splash is not lost.
       builder: (context, child) => RepaintBoundary(
         key: storeCaptureBoundaryKey,
-        child: buildResponsiveWrapper(context, PTSplash(child: child ?? const SizedBox.shrink())),
+        child: buildResponsiveWrapper(
+          context,
+          PTSplash(
+            child: UnlockToastHost(
+              stream: _unlocks,
+              onShown: _onBadgeShown,
+              child: child ?? const SizedBox.shrink(),
+            ),
+          ),
+        ),
       ),
     );
   }

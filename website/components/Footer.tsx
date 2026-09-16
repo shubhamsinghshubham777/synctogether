@@ -89,6 +89,11 @@ export function Footer() {
             </h4>
             <ul className="space-y-2.5 text-sm text-gray-400">
               <li>
+                <Link href="/leaderboard" className="hover:text-white transition-colors">
+                  Leaderboard
+                </Link>
+              </li>
+              <li>
                 <Link href="/faq" className="hover:text-white transition-colors">
                   Frequently Asked Questions
                 </Link>

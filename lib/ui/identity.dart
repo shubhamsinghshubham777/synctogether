@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
+import '../rewards/rewards_models.dart';
 import 'pt_motion.dart';
 import 'pt_theme.dart';
 
@@ -35,6 +36,7 @@ class PTAvatar extends StatelessWidget {
     this.presence,
     this.ringColor,
     this.premium = false,
+    this.frame,
   });
 
   final String userId;
@@ -47,13 +49,26 @@ class PTAvatar extends StatelessWidget {
   final Color? ringColor;
   final bool premium;
 
+  /// An earned cosmetic ring. Opt-in like [premium], and for the same reason:
+  /// letting the widget look the frame up itself would make it untestable and
+  /// rebuild it on every unrelated notify. Whoever builds the avatar owns the
+  /// lookup.
+  final AvatarFrame? frame;
+
   @override
   Widget build(BuildContext context) {
     final letter = displayName.isEmpty ? '?' : displayName.characters.first.toUpperCase();
 
+    // A frame is drawn *inside* [size], so the photo itself shrinks to make
+    // room for the ring. A framed avatar that came out larger than an unframed
+    // one made every list holding both - the readiness roster, the member
+    // sheet, a chat thread - sit unevenly, and pushed it past any parent that
+    // sized it tightly. `PTAvatar(size: n)` occupies n either way.
+    final inner = frame == null ? size : size * 0.84;
+
     Widget avatar = Container(
-      width: size,
-      height: size,
+      width: inner,
+      height: inner,
       decoration: BoxDecoration(
         gradient: avatarUrl == null ? PTColors.avatarGradientFor(userId) : null,
         shape: .circle,
@@ -72,13 +87,35 @@ class PTAvatar extends StatelessWidget {
               letter,
               style: TextStyle(
                 fontFamily: PTFonts.body,
-                fontSize: size * 0.38,
+                fontSize: inner * 0.38,
                 fontWeight: .w600,
                 color: Colors.white,
               ),
             )
           : null,
     );
+
+    if (frame case final frame?) {
+      // A ring, not a halo: this renders in chat bubbles and facecam tiles as
+      // well as the lobby, so it has to stay one cheap decoration deep.
+      avatar = Container(
+        width: size,
+        height: size,
+        padding: EdgeInsets.all(size * 0.05),
+        decoration: BoxDecoration(
+          shape: .circle,
+          gradient: frameGradient(frame),
+          boxShadow: [
+            BoxShadow(color: frameGlow(frame).withValues(alpha: 0.35), blurRadius: size * 0.22),
+          ],
+        ),
+        child: Container(
+          padding: EdgeInsets.all(size * 0.03),
+          decoration: const BoxDecoration(shape: .circle, color: PTColors.avatarRing),
+          child: avatar,
+        ),
+      );
+    }
 
     if (presence != null || premium) {
       avatar = Stack(
@@ -103,6 +140,50 @@ class PTAvatar extends StatelessWidget {
     return avatar;
   }
 }
+
+/// Frame palettes. Colours come from [PTColors] wherever one already carries the
+/// meaning - gold is the premium gold, not a second gold.
+LinearGradient frameGradient(AvatarFrame frame) => switch (frame) {
+  AvatarFrame.ember => const LinearGradient(
+    begin: .topLeft,
+    end: .bottomRight,
+    colors: [Color(0xFFFBBF24), Color(0xFFF97316)],
+  ),
+  AvatarFrame.halo => const LinearGradient(
+    begin: .topLeft,
+    end: .bottomRight,
+    colors: [Color(0xFF38BDF8), Color(0xFF818CF8)],
+  ),
+  AvatarFrame.pulse => const LinearGradient(
+    begin: .topLeft,
+    end: .bottomRight,
+    colors: [PTColors.gradientEnd, PTColors.primary],
+  ),
+  AvatarFrame.aurora => const LinearGradient(
+    begin: .topLeft,
+    end: .bottomRight,
+    colors: [Color(0xFF4ADE80), Color(0xFF22D3EE), Color(0xFFA855F7)],
+  ),
+  AvatarFrame.laurel => const LinearGradient(
+    begin: .topLeft,
+    end: .bottomRight,
+    colors: [Color(0xFFE9D5A1), Color(0xFFB08D57)],
+  ),
+  AvatarFrame.aurum => const LinearGradient(
+    begin: .topLeft,
+    end: .bottomRight,
+    colors: [PTColors.premium, PTColors.premiumBorder],
+  ),
+};
+
+Color frameGlow(AvatarFrame frame) => switch (frame) {
+  AvatarFrame.ember => const Color(0xFFF97316),
+  AvatarFrame.halo => const Color(0xFF38BDF8),
+  AvatarFrame.pulse => PTColors.primary,
+  AvatarFrame.aurora => const Color(0xFF22D3EE),
+  AvatarFrame.laurel => const Color(0xFFB08D57),
+  AvatarFrame.aurum => PTColors.premium,
+};
 
 class PremiumCrown extends StatelessWidget {
   const PremiumCrown({super.key, this.size = 36});

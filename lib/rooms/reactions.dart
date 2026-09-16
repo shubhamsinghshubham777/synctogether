@@ -142,3 +142,67 @@ List<PTReaction> reactionsForTier(String? tier) =>
 
 bool reactionAllowedForTier(String? emoji, String? tier) =>
     emoji != null && reactionsForTier(tier).any((r) => r.emoji == emoji);
+
+// ---------------------------------------------------------------------------
+// Combos
+// ---------------------------------------------------------------------------
+
+/// How long a room has to agree before a burst stops counting as one moment.
+const kComboWindow = Duration(seconds: 3);
+
+/// Distinct senders needed before a burst reads as the room agreeing rather
+/// than three people happening to tap. Two is just a pair; three is a room.
+const kComboThreshold = 3;
+
+/// Past this the tile stops growing. A combo is a flourish over playing video,
+/// not a takeover.
+const kComboVisualCap = 7;
+
+/// Notices when a room agrees: three or more *different* people sending the same
+/// emoji inside [kComboWindow].
+///
+/// Pure and clock-injected, so the behaviour is testable without a room. It
+/// holds no timers and allocates nothing per frame - this rides the existing
+/// ephemeral reaction path, which already carries play/pause/seek, and it must
+/// stay as cheap as the thing it decorates.
+class ComboTracker {
+  ComboTracker({this.window = kComboWindow, this.threshold = kComboThreshold});
+
+  final Duration window;
+  final int threshold;
+
+  final _groups = <String, _ComboGroup>{};
+
+  /// The combo size when [senderId] pushes this emoji to the threshold or past
+  /// it, else null.
+  ///
+  /// Escalates rather than firing once: the third, fourth and fifth distinct
+  /// person each report, so a room that keeps agreeing keeps growing. The same
+  /// person tapping ten times reports nothing - a combo is agreement, not
+  /// enthusiasm.
+  int? observe({required String emoji, required String senderId, required DateTime at}) {
+    final group = _groups[emoji];
+    if (group == null || at.difference(group.startedAt) > window) {
+      _groups[emoji] = _ComboGroup(startedAt: at, senders: {senderId});
+      _prune(at);
+      return null;
+    }
+    if (!group.senders.add(senderId)) return null;
+    return group.senders.length >= threshold ? group.senders.length : null;
+  }
+
+  /// Windows are short and the emoji are allow-listed, so this is bounded by
+  /// the manifest either way - it just keeps a long session from holding a
+  /// stale group for every emoji the room ever sent.
+  void _prune(DateTime now) =>
+      _groups.removeWhere((_, group) => now.difference(group.startedAt) > window);
+
+  void reset() => _groups.clear();
+}
+
+class _ComboGroup {
+  _ComboGroup({required this.startedAt, required this.senders});
+
+  final DateTime startedAt;
+  final Set<String> senders;
+}

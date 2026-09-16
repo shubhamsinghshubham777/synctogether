@@ -8,8 +8,6 @@ description: >-
 
 Bumps `version:` in `pubspec.yaml`, commits and pushes to `main`, and dispatches the build and publishing workflows.
 
-> [!IMPORTANT]
-> **Do NOT create or push a git tag locally** - the workflow's `release` job tags the commit itself as `v<version>_<run_id>`.
 
 ## Release Targets
 
@@ -33,7 +31,7 @@ Bumps `version:` in `pubspec.yaml`, commits and pushes to `main`, and dispatches
    ```bash
    git tag --sort=-creatordate | head -1
    ```
-   Extract the version (e.g. `0.4.0` from `v0.4.0_123456`).
+   Extract the version (e.g. `1.6.3` from `v1.6.3`).
 
 3. **Decide new version & target mode**:
    - Parse any target mode (`direct`, `stores`, `all`) and explicit version/bump type passed by the user.

@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:synctogether/analytics.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../rewards/rewards_models.dart';
 import 'room_models.dart';
 
 enum RoomJoinSource { code, deeplink }
@@ -263,14 +264,26 @@ class RoomService extends ChangeNotifier {
     return rows.map<RoomMember>((r) => RoomMember.fromJson(r)).toList();
   }
 
-  Future<Map<String, String>> fetchMemberTiers(String roomId) async {
+  /// Tier *and* earned avatar frame for every member, in one round trip.
+  ///
+  /// Both are cosmetic facts about other people, and both must come from the
+  /// server rather than from presence: presence is self-reported, so a client
+  /// could claim any crown or any frame, and the presence budget has the whole
+  /// channel riding on it.
+  Future<RoomMemberCosmetics> fetchMemberTiers(String roomId) async {
     final rows = await _client.rpc('room_member_tiers', params: {'p_room_id': roomId});
-    if (rows is! List) return const {};
-    return {
-      for (final row in rows.cast<Map<String, dynamic>>())
-        if (row['user_id'] is String && row['tier'] is String)
-          row['user_id'] as String: row['tier'] as String,
-    };
+    if (rows is! List) return RoomMemberCosmetics.none;
+    final tiers = <String, String>{};
+    final frames = <String, AvatarFrame>{};
+    for (final row in rows.cast<Map<String, dynamic>>()) {
+      final userId = row['user_id'];
+      if (userId is! String) continue;
+      if (row['tier'] case final String tier) tiers[userId] = tier;
+      if (AvatarFrame.fromWire(row['frame'] as String?) case final frame?) {
+        frames[userId] = frame;
+      }
+    }
+    return RoomMemberCosmetics(tiers: tiers, frames: frames);
   }
 
   void noteRoomExited() {

@@ -58,18 +58,22 @@ export function TierConfigurator() {
                 {people}
               </span>
             </label>
-            <input
-              id="pt-people-range"
-              type="range"
-              min={2}
-              max={16}
-              step={1}
-              value={people}
-              onChange={(e) => setPeople(Number(e.target.value))}
-              aria-valuetext={`${people} people`}
-              className="pt-slider"
-              style={{ "--pct": peoplePct } as CSSProperties}
-            />
+            <div className="pt-slider-wrap" style={{ "--pct": peoplePct } as CSSProperties}>
+              <div className="pt-slider-track" />
+              <div className="pt-slider-fill" />
+              <input
+                id="pt-people-range"
+                type="range"
+                min={2}
+                max={16}
+                step={1}
+                value={people}
+                onChange={(e) => setPeople(Number(e.target.value))}
+                aria-valuetext={`${people} people`}
+                className="pt-slider"
+              />
+              <div className="pt-slider-thumb" />
+            </div>
           </div>
 
           <div className="rounded-2xl bg-white/[0.03] border border-white/10 p-5 space-y-4">
@@ -82,18 +86,22 @@ export function TierConfigurator() {
                 {formatSession(hours)}
               </span>
             </label>
-            <input
-              id="pt-hours-range"
-              type="range"
-              min={1}
-              max={24}
-              step={1}
-              value={hours}
-              onChange={(e) => setHours(Number(e.target.value))}
-              aria-valuetext={formatSession(hours)}
-              className="pt-slider"
-              style={{ "--pct": hoursPct } as CSSProperties}
-            />
+            <div className="pt-slider-wrap" style={{ "--pct": hoursPct } as CSSProperties}>
+              <div className="pt-slider-track" />
+              <div className="pt-slider-fill" />
+              <input
+                id="pt-hours-range"
+                type="range"
+                min={1}
+                max={24}
+                step={1}
+                value={hours}
+                onChange={(e) => setHours(Number(e.target.value))}
+                aria-valuetext={formatSession(hours)}
+                className="pt-slider"
+              />
+              <div className="pt-slider-thumb" />
+            </div>
           </div>
         </div>
 
@@ -121,11 +129,6 @@ export function TierConfigurator() {
             const isCheapest = key === cheapest;
             const membersShort = tier.limits.members < people;
             const sessionShort = tier.limits.totalSessionMinutes < minutes;
-            const reason = membersShort
-              ? `${tier.name} rooms hold ${tier.limits.members}.`
-              : sessionShort
-                ? `${tier.name} sessions run ${formatTierSession(tier.limits.totalSessionMinutes)}.`
-                : null;
             const priceLabel =
               key === "premium" ? (isPriceLoading ? "…" : `${monthlyFormatted}/mo`) : "Free";
 
@@ -165,16 +168,21 @@ export function TierConfigurator() {
                   </span>
                 </div>
 
-                {/* A dimmed card has to say why in words - the red number alone is
-                    invisible to a screen reader and ambiguous to everyone else. */}
-                {reason ? (
-                  <p className="text-[11px] text-red-300/80 leading-snug">{reason}</p>
-                ) : isCheapest && key === "premium" ? (
-                  // The emotional line leads; the number stays in the list above.
-                  <p className="text-[11px] text-[color:var(--pt-premium)]/90 leading-snug">
-                    Your room is still there when you come back.
-                  </p>
-                ) : null}
+                {/* One line, same two sentences, on every card at every setting -
+                    a card with an extra sentence is a card of a different height,
+                    and one that appears and disappears as the sliders move reflows
+                    all three. The red is what carries "this is the limit you just
+                    crossed", spelled out in words because the red number above it
+                    is invisible to a screen reader. */}
+                <p className="text-[11px] leading-snug">
+                  <span className={membersShort ? "text-red-300/80" : "text-gray-500"}>
+                    {tier.name} rooms hold {tier.limits.members}.
+                  </span>{" "}
+                  <span className={sessionShort ? "text-red-300/80" : "text-gray-500"}>
+                    Sessions run {formatTierSession(tier.limits.totalSessionMinutes)}.
+                  </span>
+                </p>
+
               </div>
             );
           })}

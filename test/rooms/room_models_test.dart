@@ -92,7 +92,12 @@ void main() {
 
     test('builds the invite link from the code', () {
       final room = Room.fromJson(_minimalRow());
-      expect(room.inviteLink, 'synctogether://join/ABC123');
+      // The scheme link is still there for in-ecosystem hand-offs, but what a
+      // share carries is the web one - a custom scheme does not linkify in any
+      // of the places people actually paste invites.
+      expect(room.appInviteLink, 'synctogether://join/ABC123');
+      expect(room.inviteLink, endsWith('/join/ABC123'));
+      expect(room.inviteLink, startsWith('http'));
     });
   });
 

@@ -12,6 +12,8 @@ import 'profile/profile_screen.dart';
 import 'profile/profile_service.dart';
 import 'profile/subscription_screen.dart';
 import 'platform.dart';
+import 'rewards/leaderboard_screen.dart';
+import 'rewards/rewards_service.dart';
 import 'rooms/lobby_screen.dart';
 import 'rooms/room_screen.dart';
 import 'rooms/room_service.dart';
@@ -56,6 +58,10 @@ GoRouter buildRouter([Player? player]) {
           GoRoute(
             path: 'profile',
             pageBuilder: (context, state) => _sharedAxis(state, const ProfileScreen()),
+          ),
+          GoRoute(
+            path: 'leaderboard',
+            pageBuilder: (context, state) => _sharedAxis(state, const LeaderboardScreen()),
           ),
           GoRoute(
             path: 'subscribe',
@@ -172,9 +178,11 @@ class _AuthRefresh extends ChangeNotifier {
         case AuthChangeEvent.userUpdated:
           ProfileService.instance.load();
           EntitlementService.instance.load();
+          RewardsService.instance.load();
         case AuthChangeEvent.signedOut:
           ProfileService.instance.clear();
           EntitlementService.instance.clear();
+          RewardsService.instance.clear();
           RoomService.instance.clear();
         default:
           break;

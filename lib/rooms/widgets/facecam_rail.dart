@@ -10,6 +10,8 @@ import 'package:synctogether/ui/identity.dart';
 import 'package:synctogether/ui/pt_motion.dart';
 import 'package:synctogether/ui/pt_theme.dart';
 
+import '../../rewards/rewards_models.dart';
+
 const bool kDemoMode = bool.fromEnvironment('DEMO_MODE', defaultValue: false);
 
 enum FacecamLayout { railLeft, stripTop, miniStackRight }
@@ -31,6 +33,7 @@ class FacecamRail extends StatefulWidget {
     this.maxTiles = 4,
     this.showNames = true,
     this.premiumMembers = const {},
+    this.memberFrames = const {},
   });
 
   final LiveKitService av;
@@ -41,6 +44,7 @@ class FacecamRail extends StatefulWidget {
   final int maxTiles;
   final bool showNames;
   final Set<String> premiumMembers;
+  final Map<String, AvatarFrame> memberFrames;
 
   @override
   State<FacecamRail> createState() => _FacecamRailState();
@@ -108,6 +112,7 @@ class _FacecamRailState extends State<FacecamRail> {
                 member: member,
                 isSelf: member.userId == widget.selfId,
                 premium: widget.premiumMembers.contains(member.userId),
+                frame: widget.memberFrames[member.userId],
                 av: widget.av,
                 compact: widget.layout != .railLeft,
                 showNames: widget.showNames,
@@ -169,6 +174,7 @@ class _FacecamTile extends StatelessWidget {
     required this.member,
     required this.isSelf,
     required this.premium,
+    this.frame,
     required this.av,
     required this.compact,
     required this.showNames,
@@ -177,6 +183,7 @@ class _FacecamTile extends StatelessWidget {
   final PresentMember member;
   final bool isSelf;
   final bool premium;
+  final AvatarFrame? frame;
   final LiveKitService av;
   final bool compact;
   final bool showNames;
@@ -275,6 +282,7 @@ class _FacecamTile extends StatelessWidget {
                           displayName: member.displayName,
                           size: 24,
                           premium: premium,
+                          frame: frame,
                         )
                       : Column(
                           mainAxisSize: .min,
@@ -285,6 +293,7 @@ class _FacecamTile extends StatelessWidget {
                               displayName: member.displayName,
                               size: 40,
                               premium: premium,
+                              frame: frame,
                             ),
                             Row(
                               mainAxisSize: .min,

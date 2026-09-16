@@ -104,6 +104,7 @@ class _Particle {
     required this.wobbleAmplitude,
     required this.wobbleTurns,
     required this.scale,
+    this.combo = 0,
   });
 
   final PTReaction reaction;
@@ -114,6 +115,12 @@ class _Particle {
   final double wobbleAmplitude;
   final double wobbleTurns;
   final double scale;
+
+  /// Distinct senders behind this one, when the room agreed. Zero for an
+  /// ordinary reaction.
+  final int combo;
+
+  bool get isCombo => combo >= kComboThreshold;
 }
 
 class _ReactionOverlayState extends State<ReactionOverlay> with SingleTickerProviderStateMixin {
@@ -124,6 +131,7 @@ class _ReactionOverlayState extends State<ReactionOverlay> with SingleTickerProv
   final _clock = ValueNotifier<Duration>(Duration.zero);
 
   StreamSubscription<ReactionEvent>? _subscription;
+  final _combos = ComboTracker();
   bool _still = false;
 
   Duration get _life => _still ? _stillLifetime : _lifetime;
@@ -164,6 +172,12 @@ class _ReactionOverlayState extends State<ReactionOverlay> with SingleTickerProv
     final reaction = reactionForEmoji(event.emoji);
     if (reaction == null) return;
 
+    // A real clock, not the ticker's: the ticker stops whenever the list
+    // empties, so its elapsed time restarts from zero and could never measure
+    // the gap between two bursts.
+    final combo =
+        _combos.observe(emoji: event.emoji, senderId: event.senderId, at: DateTime.now()) ?? 0;
+
     if (!_ticker.isActive) {
       _clock.value = Duration.zero;
       _ticker.start();
@@ -174,13 +188,21 @@ class _ReactionOverlayState extends State<ReactionOverlay> with SingleTickerProv
       _particles.add(
         _Particle(
           reaction: reaction,
-          name: event.displayName,
+          // A combo belongs to the room, so it stops being attributed to
+          // whoever happened to complete it.
+          name: combo > 0 ? '$combo at once' : event.displayName,
           spawnedAt: _clock.value,
-          lane: _random.nextDouble(),
+          // Combos take the middle rather than a random lane - the point is
+          // that everyone agreed, and a shared moment off in a corner reads as
+          // one more reaction.
+          lane: combo > 0 ? 0.5 : _random.nextDouble(),
           wobblePhase: _random.nextDouble() * 2 * math.pi,
-          wobbleAmplitude: 10 + _random.nextDouble() * 12,
+          wobbleAmplitude: combo > 0 ? 4 : 10 + _random.nextDouble() * 12,
           wobbleTurns: 1.3 + _random.nextDouble(),
-          scale: 0.9 + _random.nextDouble() * 0.2,
+          scale: combo > 0
+              ? 1.5 + 0.12 * (math.min(combo, kComboVisualCap) - kComboThreshold)
+              : 0.9 + _random.nextDouble() * 0.2,
+          combo: combo,
         ),
       );
     });
@@ -265,7 +287,8 @@ class _ReactionOverlayState extends State<ReactionOverlay> with SingleTickerProv
                 textAlign: .center,
                 style: PTText.caption.copyWith(
                   fontSize: widget.compact ? 11 : 12,
-                  color: PTColors.white(0.85),
+                  fontWeight: particle.isCombo ? .w700 : .w500,
+                  color: particle.isCombo ? PTColors.textAccent : PTColors.white(0.85),
                   shadows: const [
                     Shadow(color: Color(0xCC000000), blurRadius: 6, offset: Offset(0, 1)),
                   ],

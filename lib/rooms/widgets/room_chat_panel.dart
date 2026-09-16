@@ -13,6 +13,8 @@ import 'package:synctogether/ui/identity.dart';
 import 'package:synctogether/ui/pt_motion.dart';
 import 'package:synctogether/ui/pt_theme.dart';
 
+import '../../rewards/rewards_models.dart';
+
 class RoomChatPanel extends StatefulWidget {
   const RoomChatPanel({
     super.key,
@@ -27,6 +29,7 @@ class RoomChatPanel extends StatefulWidget {
     this.onReportMessage,
     this.embedded = false,
     this.premiumMembers = const {},
+    this.memberFrames = const {},
   });
 
   final SyncService sync;
@@ -39,6 +42,7 @@ class RoomChatPanel extends StatefulWidget {
   final void Function(String videoId, String sharedBy)? onPlaySharedVideo;
   final ValueChanged<ChatMessage>? onReportMessage;
   final Set<String> premiumMembers;
+  final Map<String, AvatarFrame> memberFrames;
 
   /// Embedded (mobile portrait) skips its own glass shell + close button.
   final bool embedded;
@@ -226,6 +230,7 @@ class _RoomChatPanelState extends State<RoomChatPanel> {
                   message: message,
                   own: message.senderId == widget.sync.userId,
                   premium: widget.premiumMembers.contains(message.senderId),
+                  frame: widget.memberFrames[message.senderId],
                   onCopied: widget.onCopied,
                   onPlaySharedVideo: widget.onPlaySharedVideo,
                   onReport: widget.onReportMessage,
@@ -353,6 +358,7 @@ class _MessageRow extends StatefulWidget {
     required this.message,
     required this.own,
     required this.premium,
+    this.frame,
     required this.onCopied,
     required this.onPlaySharedVideo,
     this.onReport,
@@ -361,6 +367,7 @@ class _MessageRow extends StatefulWidget {
   final ChatMessage message;
   final bool own;
   final bool premium;
+  final AvatarFrame? frame;
   final VoidCallback onCopied;
   final void Function(String videoId, String sharedBy)? onPlaySharedVideo;
   final ValueChanged<ChatMessage>? onReport;
@@ -518,6 +525,7 @@ class _MessageRowState extends State<_MessageRow> {
           displayName: message.displayName,
           size: 28,
           premium: widget.premium,
+          frame: widget.frame,
         ),
         Flexible(
           child: Column(

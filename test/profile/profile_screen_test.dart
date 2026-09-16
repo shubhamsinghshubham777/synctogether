@@ -211,7 +211,11 @@ void main() {
       );
       expect(find.text('Reset to ask every time'), findsOneWidget);
 
-      // Tap Reset to ask every time
+      // The profile screen scrolls, and the sections above this one grow as
+      // features land - so scroll to the control rather than assuming it is on
+      // screen at whatever height the test viewport happens to be.
+      await tester.ensureVisible(find.text('Reset to ask every time'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Reset to ask every time'));
       await tester.pumpAndSettle();
 
@@ -224,6 +228,8 @@ void main() {
       );
 
       // Tap the toggle to enable auto-share
+      await tester.ensureVisible(find.text('Auto-share local videos with room'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Auto-share local videos with room'));
       await tester.pumpAndSettle();
 

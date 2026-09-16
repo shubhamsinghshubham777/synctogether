@@ -10,6 +10,8 @@ import 'package:synctogether/ui/identity.dart';
 import 'package:synctogether/ui/pt_motion.dart';
 import 'package:synctogether/ui/pt_theme.dart';
 
+import '../../rewards/rewards_models.dart';
+
 /// Everything the overflow menu renders, as one snapshot.
 ///
 /// The menu is a Navigator route, so it lives in a sibling subtree of
@@ -27,6 +29,7 @@ class RoomMenuData {
     required this.selfIsHost,
     this.canAssignHost = false,
     this.premiumMembers = const {},
+    this.memberFrames = const {},
   });
 
   static const empty = RoomMenuData(
@@ -47,6 +50,7 @@ class RoomMenuData {
   final bool selfIsHost;
   final bool canAssignHost;
   final Set<String> premiumMembers;
+  final Map<String, AvatarFrame> memberFrames;
 
   /// Derived rather than passed alongside, so "who is online" and "who is
   /// ready" can never disagree.
@@ -222,6 +226,7 @@ class _OverflowMenuPanelState extends State<_OverflowMenuPanel> {
                   for (final member in data.members)
                     _MemberRow(
                       premium: data.premiumMembers.contains(member.userId),
+                      frame: data.memberFrames[member.userId],
                       key: ValueKey(member.userId),
                       member: member,
                       online: onlineIds.contains(member.userId),
@@ -307,6 +312,7 @@ class _MemberRow extends StatelessWidget {
     super.key,
     required this.member,
     required this.premium,
+    this.frame,
     required this.online,
     required this.isSelf,
     required this.media,
@@ -317,6 +323,7 @@ class _MemberRow extends StatelessWidget {
 
   final RoomMember member;
   final bool premium;
+  final AvatarFrame? frame;
   final bool online;
   final bool isSelf;
   final RoomMedia media;
@@ -343,6 +350,7 @@ class _MemberRow extends StatelessWidget {
               size: 34,
               presence: online,
               premium: premium,
+              frame: frame,
             ),
             Expanded(
               child: Text.rich(

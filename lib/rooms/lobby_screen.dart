@@ -21,6 +21,9 @@ import 'package:synctogether/profile/profile_service.dart';
 import 'package:synctogether/rooms/local_media_store.dart';
 import 'package:synctogether/rooms/media_sharing_service.dart';
 import 'package:synctogether/rooms/room_models.dart';
+import 'package:synctogether/rewards/rewards_logic.dart';
+import 'package:synctogether/rewards/rewards_service.dart';
+import 'package:synctogether/rewards/widgets/streak_chip.dart';
 import 'package:synctogether/rooms/room_service.dart';
 import 'package:synctogether/rooms/widgets/ended_room_dialog.dart';
 import 'package:synctogether/rooms/widgets/extend_room_dialog.dart';
@@ -79,6 +82,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
         setState(() => _durationMinutes = _durationCap);
       }),
     );
+    unawaited(RewardsService.instance.load());
     unawaited(_loadMyRooms());
     _myRoomsPollTimer = Timer.periodic(const Duration(seconds: 15), (_) {
       if (mounted && RoomService.instance.currentRoom == null) {
@@ -674,6 +678,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
             UpdateService.instance,
             RoomService.instance,
             EntitlementService.instance,
+            RewardsService.instance,
           ]),
           builder: (context, _) => PTResponsive(
             desktop: (_) => _desktop(),
@@ -694,6 +699,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
             children: [
               const _Wordmark(),
               const Spacer(),
+              if (_showStreakChip) ...[_streakChip(), const SizedBox(width: 12)],
               if (_showQuotaChip) ...[_mediaQuotaChip(), const SizedBox(width: 12)],
               if (_showPremiumChip) ...[_premiumChip(), const SizedBox(width: 12)],
               _profilePill(),
@@ -781,6 +787,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
                 children: [
                   const _Wordmark(compact: true),
                   const Spacer(),
+                  if (_showStreakChip) ...[_streakChip(compact: true), const SizedBox(width: 8)],
                   if (_showQuotaChip) ...[_mediaQuotaChip(compact: true), const SizedBox(width: 8)],
                   if (_showPremiumChip) ...[_premiumChip(), const SizedBox(width: 8)],
                   _avatarButton(),
@@ -829,6 +836,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
                   child: _Greeting(style: PTText.panelHeading, align: .centerLeft),
                 ),
                 const SizedBox(width: 8),
+                if (_showStreakChip) ...[_streakChip(compact: true), const SizedBox(width: 8)],
                 if (_showQuotaChip) ...[_mediaQuotaChip(compact: true), const SizedBox(width: 8)],
                 if (_showPremiumChip) ...[_premiumChip(), const SizedBox(width: 8)],
                 _avatarButton(size: 36),
@@ -933,6 +941,28 @@ class _LobbyScreenState extends State<LobbyScreen> {
   bool get _showQuotaChip {
     final profile = ProfileService.instance.profile;
     return profile != null && !profile.isGuest;
+  }
+
+  /// Guests get a dimmed one rather than none. A guest cannot hold a streak -
+  /// the account is purged in three days - but they also cannot discover a
+  /// reason to sign in from a chip that is not there, and the board it opens is
+  /// where that offer actually lives.
+  bool get _showStreakChip {
+    final profile = ProfileService.instance.profile;
+    if (profile == null) return false;
+    return profile.isGuest || RewardsService.instance.loaded;
+  }
+
+  Widget _streakChip({bool compact = false}) {
+    final guest = ProfileService.instance.profile?.isGuest ?? false;
+    final streak = RewardsService.instance.state.streak;
+    return StreakChip(
+      streak: streak,
+      compact: compact,
+      locked: guest,
+      atRisk: !guest && streakAtRisk(streak, DateTime.now()),
+      onTap: () => context.go('/lobby/leaderboard'),
+    );
   }
 
   Widget _premiumChip() {

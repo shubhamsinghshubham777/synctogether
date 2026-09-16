@@ -1,4 +1,6 @@
 import 'package:synctogether/profile/profile_models.dart';
+import 'package:synctogether/rewards/rewards_models.dart';
+import 'package:synctogether/rewards/rewards_service.dart';
 
 const kRoomDurationCapMinutes = 240;
 
@@ -221,8 +223,21 @@ class Room {
     );
   }
 
-  String get inviteLink => 'synctogether://join/$code';
+  /// The scheme link. Resolves instantly for anybody who already has the app,
+  /// and is the right thing to hand to a teammate in a chat *inside* the
+  /// ecosystem - but it does not linkify on X, Instagram, WhatsApp or Discord,
+  /// shows no preview card, and is a dead end for somebody who has not
+  /// installed anything yet. That is why it is no longer what Copy invite
+  /// copies.
+  String get appInviteLink => 'synctogether://join/$code';
+
+  /// What a share actually carries: a web page that hands the code to an
+  /// installed app and offers the download when nothing answers.
+  String get inviteLink => shareableInviteLink(code);
 }
+
+/// One definition of the web base, shared with the recap and profile links.
+String shareableInviteLink(String code) => '$rewardsSiteBase/join/${code.toUpperCase()}';
 
 class MyRoom {
   const MyRoom({
@@ -351,6 +366,21 @@ class RoomMember {
           : null,
     );
   }
+}
+
+/// Everything cosmetic the room knows about other members, from one call to
+/// `room_member_tiers`. Crowns and frames travel together because they are the
+/// same kind of fact and the same round trip - splitting them would double the
+/// traffic on a path that refetches whenever an unresolved user id appears.
+class RoomMemberCosmetics {
+  const RoomMemberCosmetics({this.tiers = const {}, this.frames = const {}});
+
+  static const none = RoomMemberCosmetics();
+
+  final Map<String, String> tiers;
+  final Map<String, AvatarFrame> frames;
+
+  bool get isEmpty => tiers.isEmpty && frames.isEmpty;
 }
 
 /// Friendly-copy mapping for RPC errors (design voice - no raw codes).

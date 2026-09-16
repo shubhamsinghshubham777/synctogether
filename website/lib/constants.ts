@@ -125,7 +125,7 @@ export const FAQ_ITEMS = [
     questions: [
       {
         q: "What is SyncTogether?",
-        a: "SyncTogether is a dedicated desktop application (macOS & Windows) for synchronizing media playback across devices. Whether you are watching a local MP4/MKV movie or a YouTube video, play, pause, seek, and audio tracks stay synchronized down to the millisecond across all participants."
+        a: "SyncTogether is a dedicated desktop application (macOS & Windows) for synchronizing media playback across devices. Whether you are watching a local MP4/MKV movie or a YouTube video, play, pause, seek, and audio tracks stay in lockstep across every participant, with automatic drift correction if a machine falls behind."
       },
       {
         q: "What platforms does SyncTogether support?",

@@ -11,6 +11,7 @@ import 'package:synctogether/profile/profile_service.dart';
 import 'package:synctogether/rooms/room_models.dart';
 import 'package:synctogether/rooms/room_service.dart';
 import 'package:synctogether/sync/sync_service.dart';
+import 'package:synctogether/rewards/rewards_models.dart';
 
 /// Mock user & session representing the local user.
 final mockCurrentUser = User(
@@ -334,12 +335,16 @@ class MockRoomService extends RoomService {
   Future<List<RoomMember>> fetchMembers(String roomId) async => mockMembersList;
 
   @override
-  Future<Map<String, String>> fetchMemberTiers(String roomId) async => {
-    'user-alex': 'free',
-    'user-sarah': 'free',
-    'user-david': 'free',
-    'user-elena': 'guest',
-  };
+  @override
+  Future<RoomMemberCosmetics> fetchMemberTiers(String roomId) async => const RoomMemberCosmetics(
+    tiers: {
+      'user-alex': 'free',
+      'user-sarah': 'free',
+      'user-david': 'free',
+      'user-elena': 'guest',
+    },
+    frames: {'user-alex': AvatarFrame.aurora, 'user-sarah': AvatarFrame.halo},
+  );
 
   @override
   Future<void> syncServerTime() async {}

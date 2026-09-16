@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:fast_file_picker/fast_file_picker.dart';
@@ -6,8 +7,17 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:synctogether/analytics.dart';
 import 'package:synctogether/analytics_consent.dart';
+import 'package:synctogether/analytics_disclosure_dialog.dart';
 import 'package:synctogether/auth/auth_service.dart';
+import 'package:synctogether/rewards/rewards_logic.dart';
+import 'package:synctogether/rewards/rewards_models.dart';
+import 'package:synctogether/rewards/rewards_service.dart';
+import 'package:synctogether/rewards/unlock_log.dart';
+import 'package:synctogether/rewards/widgets/badge_shelf.dart';
+import 'package:synctogether/rewards/widgets/season_trophies.dart';
+import 'package:synctogether/rewards/widgets/shared_recaps_dialog.dart';
 import 'package:synctogether/av/av_settings_dialog.dart';
 import 'package:synctogether/diagnostics.dart';
 import 'package:synctogether/platform.dart';
@@ -49,6 +59,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
       EntitlementService.instance.load();
     }
     _loadMediaSharingPreference();
+    unawaited(RewardsService.instance.load());
+    unawaited(RewardsService.instance.loadReferrals());
   }
 
   Future<void> _loadMediaSharingPreference() async {
@@ -244,6 +256,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
     if (confirmed == true) {
       try {
+        // The badge log is device-local, so it has to be cleared here: a second
+        // account on this machine must not inherit the first one's
+        // announcements and silently lose its own `achievement_unlocked`.
+        await UnlockLog.instance.clear();
         await AuthService.instance.deleteAccount();
       } catch (e, s) {
         // Account deletion has known server-side failure modes (a hosted room
@@ -262,7 +278,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return Scaffold(
       body: AmbientBackground(
         child: ListenableBuilder(
-          listenable: Listenable.merge([ProfileService.instance, EntitlementService.instance]),
+          listenable: Listenable.merge([
+            ProfileService.instance,
+            EntitlementService.instance,
+            RewardsService.instance,
+          ]),
           builder: (context, _) {
             final profile = ProfileService.instance.profile;
             if (profile == null) {
@@ -480,6 +500,256 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  Widget _rewardsSection() {
+    final rewards = RewardsService.instance;
+    final state = rewards.state;
+    final streak = state.streak;
+    return Column(
+      crossAxisAlignment: .start,
+      spacing: 14,
+      children: [
+        Row(
+          children: [
+            Expanded(child: Text('Watching', style: PTText.panelHeading)),
+            PTButton(
+              label: 'Leaderboard',
+              variant: .secondary,
+              icon: Symbols.trophy_rounded,
+              height: 34,
+              expand: false,
+              onPressed: () => context.go('/lobby/leaderboard'),
+            ),
+          ],
+        ),
+        Row(
+          spacing: 10,
+          children: [
+            Expanded(
+              child: _statTile(
+                Symbols.local_fire_department_rounded,
+                '${streak.current}',
+                streak.current == 1 ? 'day streak' : 'day streak',
+              ),
+            ),
+            Expanded(
+              child: _statTile(
+                Symbols.schedule_rounded,
+                formatWatchHours(state.totals.watched),
+                'watched',
+              ),
+            ),
+            Expanded(
+              child: _statTile(
+                Symbols.diversity_3_rounded,
+                '${state.totals.coWatchers}',
+                'watched with',
+              ),
+            ),
+          ],
+        ),
+        if (rewards.referrals > 0)
+          Text(
+            '${rewards.referrals} ${rewards.referrals == 1 ? 'person' : 'people'} '
+            'joined SyncTogether through one of your rooms.',
+            style: PTText.finePrint.copyWith(fontSize: 12, color: PTColors.textAccent),
+          ),
+        if (state.seasons.isNotEmpty) SeasonTrophies(seasons: state.seasons),
+        BadgeShelf(state: state, crossAxisCount: 4),
+        PTToggleRow(
+          icon: Symbols.trophy_rounded,
+          title: 'Show me on leaderboards',
+          subtitle:
+              'Your name, avatar, streak and rank become visible to people you '
+              'watch with and on the public board. What you watch, who with, and '
+              'anything you type stays private either way.',
+          value: state.publicProfile,
+          onChanged: (value) {
+            Analytics.instance.track('leaderboard_opt_in', {'on': value});
+            unawaited(RewardsService.instance.setPublicProfile(value));
+          },
+        ),
+        if (state.publicProfile) _handleField(state),
+        if (state.availableFrames.isNotEmpty) _framePicker(state),
+        Row(
+          children: [
+            Flexible(
+              child: PTPressable(
+                onTap: () => showSharedRecapsDialog(context),
+                child: Text(
+                  'Manage shared recaps',
+                  style: PTText.caption.copyWith(
+                    color: PTColors.textAccent,
+                    decoration: TextDecoration.underline,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _statTile(IconData icon, String value, String label) {
+    return GlassPanel(
+      radius: 14,
+      opacity: 0.4,
+      blur: 16,
+      shadow: false,
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
+      child: Column(
+        spacing: 3,
+        children: [
+          Icon(icon, size: 16, fill: 1, color: PTColors.textAccent),
+          Text(value, style: PTText.cardHeading.copyWith(fontSize: 17)),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: .ellipsis,
+            style: PTText.finePrint.copyWith(fontSize: 10.5),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _handleField(RewardState state) {
+    final handle = state.handle;
+    // A handle is permanent, globally unique and first-come, which makes it the
+    // one thing here worth squatting - so it is the Premium perk. Being *on*
+    // the board is free; having a page of your own is not.
+    if (!state.isPremium && handle == null) {
+      return PTPressable(
+        onTap: () {
+          Analytics.instance.track('upgrade_cta_clicked', {
+            'surface': 'handle',
+            'action': 'notify',
+          });
+          context.go('/lobby/subscribe?source=handle');
+        },
+        child: IgnorePointer(
+          child: PTTextField(
+            controller: TextEditingController(),
+            label: 'Public handle',
+            hint: 'Premium - gives you a page at synctogether.app/u/you',
+            enabled: false,
+            suffixIcon: const Icon(Symbols.crown_rounded, size: 18, color: PTColors.premium),
+          ),
+        ),
+      );
+    }
+    return PTPressable(
+      onTap: () => unawaited(_editHandle(state)),
+      child: IgnorePointer(
+        child: PTTextField(
+          key: ValueKey('handle-$handle'),
+          controller: TextEditingController(text: handle == null ? '' : '@$handle'),
+          label: 'Public handle',
+          hint: 'Pick one to get a shareable page',
+          enabled: false,
+          suffixIcon: Icon(Symbols.edit_rounded, size: 18, color: PTColors.white(0.4)),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _editHandle(RewardState state) async {
+    final controller = TextEditingController(text: state.handle ?? '');
+    final value = await showGlassDialog<String>(
+      context: context,
+      width: 400,
+      builder: (dialogContext) => Column(
+        mainAxisSize: .min,
+        crossAxisAlignment: .start,
+        spacing: 16,
+        children: [
+          Text('Pick a handle', style: PTText.cardHeading),
+          Text(
+            'This becomes synctogether.app/u/yourhandle - a page with your streak '
+            'and badges on it that you can link to.',
+            style: PTText.caption,
+          ),
+          PTTextField(
+            controller: controller,
+            hint: 'yourhandle',
+            autofocus: true,
+            maxLength: 20,
+            onSubmitted: (v) => Navigator.of(dialogContext).pop(v),
+          ),
+          Row(
+            mainAxisAlignment: .end,
+            spacing: 11,
+            children: [
+              PTButton(
+                label: 'Cancel',
+                variant: .secondary,
+                height: 46,
+                expand: false,
+                onPressed: () => Navigator.of(dialogContext).pop(),
+              ),
+              PTButton(
+                label: 'Save',
+                height: 46,
+                expand: false,
+                onPressed: () => Navigator.of(dialogContext).pop(controller.text),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (value == null || value.trim().isEmpty) return;
+    try {
+      await RewardsService.instance.claimHandle(value);
+      if (mounted) _snack('Handle claimed.', kind: .success);
+    } on RewardsFailure catch (failure) {
+      if (mounted) _snack(failure.message);
+    }
+  }
+
+  Widget _framePicker(RewardState state) {
+    final profile = ProfileService.instance.profile;
+    final frames = state.availableFrames.toList()..sort((a, b) => a.index.compareTo(b.index));
+    return Column(
+      crossAxisAlignment: .start,
+      spacing: 10,
+      children: [
+        Text('Avatar frame', style: PTText.caption),
+        Wrap(
+          spacing: 12,
+          runSpacing: 12,
+          children: [
+            for (final frame in [null, ...frames])
+              PTPressable(
+                onTap: () => unawaited(_equip(frame)),
+                child: Opacity(
+                  opacity: state.equippedFrame == frame ? 1 : 0.5,
+                  child: PTAvatar(
+                    userId: profile?.id ?? '',
+                    displayName: profile?.displayName ?? '?',
+                    avatarUrl: profile?.avatarUrl,
+                    frame: frame,
+                    size: 40,
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Future<void> _equip(AvatarFrame? frame) async {
+    try {
+      await RewardsService.instance.equipFrame(frame);
+      Analytics.instance.track('frame_equipped', {'frame': frame?.name ?? 'none'});
+    } on RewardsFailure catch (failure) {
+      if (mounted) _snack(failure.message);
+    }
+  }
+
   Widget _privacySection() {
     return Column(
       crossAxisAlignment: .start,
@@ -487,15 +757,64 @@ class _ProfileScreenState extends State<ProfileScreen> {
       children: [
         ListenableBuilder(
           listenable: AnalyticsConsent.instance,
-          builder: (context, _) => PTToggleRow(
-            icon: Symbols.insights_rounded,
-            title: 'Share usage data',
-            subtitle:
-                'Anonymous counts of things like rooms created and features used, so we know '
-                'what to build next. Never your chats, file names or links.',
-            value: !AnalyticsConsent.instance.optedOut,
-            onChanged: (shareData) => AnalyticsConsent.instance.setOptedOut(!shareData),
-          ),
+          builder: (context, _) {
+            final sharing = !AnalyticsConsent.instance.optedOut;
+            return Column(
+              crossAxisAlignment: .start,
+              spacing: 10,
+              children: [
+                PTToggleRow(
+                  icon: Symbols.insights_rounded,
+                  title: 'Share usage data',
+                  subtitle:
+                      'Counts of things like rooms created and features used, so we know what '
+                      'to build next. Never your chats, file names or links. Turning this off '
+                      'also pauses streaks, badges and leaderboards - they are built from the '
+                      'same records, and a switch that leaves some of it running would not be '
+                      'much of a switch.',
+                  value: sharing,
+                  onChanged: (shareData) => AnalyticsConsent.instance.setOptedOut(!shareData),
+                ),
+                Padding(
+                  padding: const EdgeInsets.only(left: 52),
+                  child: Row(
+                    children: [
+                      // Flexible, not a bare child: the indent leaves ~350px at
+                      // phone width, which this label sits right on the edge of,
+                      // and a longer translation would overflow outright.
+                      Flexible(
+                        child: PTPressable(
+                          onTap: () => showAnalyticsDisclosure(context),
+                          child: Text(
+                            'See exactly what we collect',
+                            style: PTText.caption.copyWith(
+                              color: PTColors.textAccent,
+                              decoration: TextDecoration.underline,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (!sharing)
+                  Container(
+                    padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+                    decoration: BoxDecoration(
+                      color: PTColors.white(0.04),
+                      border: Border.all(color: PTColors.white(0.09)),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      'Nothing is being collected. Your streak is paused where it was, not '
+                      'lost - turn this back on and it picks up from the next session.',
+                      style: PTText.finePrint.copyWith(fontSize: 12, height: 1.45),
+                    ),
+                  ),
+              ],
+            );
+          },
         ),
         Wrap(
           spacing: 12,
@@ -730,6 +1049,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       children: [
         _identityHeader(profile, vertical: header == .column),
         _subscriptionSection(),
+        _rewardsSection(),
         _mediaQuotaSection(),
         _audioVideoSection(),
         _nameField(profile),
@@ -745,7 +1065,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
               label: 'Log out',
               icon: Symbols.logout_rounded,
               variant: .secondary,
-              onPressed: AuthService.instance.signOut,
+              onPressed: () {
+                unawaited(UnlockLog.instance.clear());
+                AuthService.instance.signOut();
+              },
             ),
             PTButton(
               label: 'Delete account',

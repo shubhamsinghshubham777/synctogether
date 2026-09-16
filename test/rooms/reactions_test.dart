@@ -9,6 +9,7 @@ final _root = Directory.current;
 File _repoFile(String relative) => File('${_root.path}/$relative');
 
 void main() {
+  _comboTests();
   group('kReactions', () {
     test('is non-empty and has unique emoji, codepoints and labels', () {
       expect(kReactions, isNotEmpty);
@@ -225,6 +226,92 @@ void main() {
         expect(reaction.isBundled, isFalse, reason: reaction.emoji);
         expect(reaction.digest, hasLength(64), reason: reaction.emoji);
       }
+    });
+  });
+}
+
+void _comboTests() {
+  group('ComboTracker', () {
+    final t0 = DateTime(2026, 5, 20, 21);
+
+    test('two people is a pair, not a room', () {
+      final tracker = ComboTracker();
+      expect(tracker.observe(emoji: '🎉', senderId: 'a', at: t0), isNull);
+      expect(
+        tracker.observe(emoji: '🎉', senderId: 'b', at: t0.add(const Duration(seconds: 1))),
+        isNull,
+      );
+    });
+
+    test('three different people inside the window is a combo', () {
+      final tracker = ComboTracker();
+      tracker.observe(emoji: '🎉', senderId: 'a', at: t0);
+      tracker.observe(emoji: '🎉', senderId: 'b', at: t0.add(const Duration(seconds: 1)));
+      expect(
+        tracker.observe(emoji: '🎉', senderId: 'c', at: t0.add(const Duration(seconds: 2))),
+        3,
+      );
+    });
+
+    test('it escalates as more people join in', () {
+      final tracker = ComboTracker();
+      tracker.observe(emoji: '🎉', senderId: 'a', at: t0);
+      tracker.observe(emoji: '🎉', senderId: 'b', at: t0);
+      expect(tracker.observe(emoji: '🎉', senderId: 'c', at: t0), 3);
+      expect(tracker.observe(emoji: '🎉', senderId: 'd', at: t0), 4);
+      expect(tracker.observe(emoji: '🎉', senderId: 'e', at: t0), 5);
+    });
+
+    test('one person tapping ten times is enthusiasm, not agreement', () {
+      final tracker = ComboTracker();
+      for (var i = 0; i < 10; i++) {
+        expect(
+          tracker.observe(
+            emoji: '🎉',
+            senderId: 'a',
+            at: t0.add(Duration(milliseconds: i * 100)),
+          ),
+          isNull,
+        );
+      }
+    });
+
+    test('a slow trickle past the window never combos', () {
+      final tracker = ComboTracker();
+      expect(tracker.observe(emoji: '🎉', senderId: 'a', at: t0), isNull);
+      expect(
+        tracker.observe(emoji: '🎉', senderId: 'b', at: t0.add(const Duration(seconds: 5))),
+        isNull,
+      );
+      expect(
+        tracker.observe(emoji: '🎉', senderId: 'c', at: t0.add(const Duration(seconds: 10))),
+        isNull,
+      );
+    });
+
+    test('a lapsed window starts a fresh group rather than accumulating', () {
+      final tracker = ComboTracker();
+      tracker.observe(emoji: '🎉', senderId: 'a', at: t0);
+      tracker.observe(emoji: '🎉', senderId: 'b', at: t0);
+      final later = t0.add(const Duration(seconds: 30));
+      expect(tracker.observe(emoji: '🎉', senderId: 'c', at: later), isNull);
+      tracker.observe(emoji: '🎉', senderId: 'd', at: later);
+      expect(tracker.observe(emoji: '🎉', senderId: 'e', at: later), 3);
+    });
+
+    test('different emoji are counted separately', () {
+      final tracker = ComboTracker();
+      tracker.observe(emoji: '🎉', senderId: 'a', at: t0);
+      tracker.observe(emoji: '😂', senderId: 'b', at: t0);
+      expect(tracker.observe(emoji: '👏', senderId: 'c', at: t0), isNull);
+    });
+
+    test('reset forgets everything, as a room change should', () {
+      final tracker = ComboTracker();
+      tracker.observe(emoji: '🎉', senderId: 'a', at: t0);
+      tracker.observe(emoji: '🎉', senderId: 'b', at: t0);
+      tracker.reset();
+      expect(tracker.observe(emoji: '🎉', senderId: 'c', at: t0), isNull);
     });
   });
 }

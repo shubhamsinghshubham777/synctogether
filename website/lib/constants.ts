@@ -111,6 +111,8 @@ export const PRICING_TIERS = {
       "Video + Voice facecams",
       "24 animated Lottie reaction emoji",
       "Persistent rooms (never expire or delete)",
+      "Public profile page at synctogether.app/u/yourhandle",
+      "Extra streak freeze, so a busy week doesn't cost you",
       "Host's Premium perks shared with all room members",
       "Priority customer support",
     ],
@@ -144,7 +146,7 @@ export const FAQ_ITEMS = [
     questions: [
       {
         q: "How do I create and join a room?",
-        a: "Launch SyncTogether and click 'Create Room'. You will receive a unique 6-character room code (e.g. `X7K9P2`) and an invite link (`synctogether://join/X7K9P2`). Share it with the people you watch with, and they can join instantly by entering the code or clicking the link."
+        a: "Launch SyncTogether and click 'Create Room'. You will receive a unique 6-character room code (e.g. `X7K9P2`) and an invite link (`https://synctogether.app/join/X7K9P2`). Share it anywhere - the link opens the app for anyone who has it, and offers the download to anyone who does not, with the code kept for them."
       },
       {
         q: "What media formats are supported?",
@@ -165,7 +167,7 @@ export const FAQ_ITEMS = [
     questions: [
       {
         q: "What do I get with SyncTogether Premium?",
-        a: "Premium unlocks 20 persistent rooms, up to 16 participants per room, up to 24-hour sessions, crystal-clear Voice & Video facecams, 24 animated emoji reactions, and persistent room memory."
+        a: "Premium unlocks 20 persistent rooms, up to 16 participants per room, up to 24-hour sessions, crystal-clear Voice & Video facecams, 24 animated emoji reactions, persistent room memory, a claimable @handle with your own public profile page, and an extra streak freeze so a busy week doesn't break your run."
       },
       {
         q: "How do I subscribe?",
@@ -191,6 +193,22 @@ export const FAQ_ITEMS = [
       {
         q: "What data does SyncTogether collect?",
         a: "We collect your Google profile (email and display name) for authentication, or assign an anonymous ID for guests. In Local Sync mode, your full disk paths and video files never leave your device (only the basic filename and duration are synced for alignment). In Cloud Media Sharing mode, uploaded files are encrypted and purged when the room ends. Chat messages and reactions are automatically wiped when rooms close."
+      },
+      {
+        q: "What are streaks, badges and the leaderboard?",
+        a: "SyncTogether counts the time you spend watching with other people. Twenty minutes in a room with somebody makes the day count towards your streak, and badges unlock along the way. Points are one a minute watched together (capped daily), plus a bonus for each different person you watch with, multiplied by your streak - so watching 40 minutes every day beats twelve hours on one Saturday. Watching alone earns nothing, and neither does a room left open, because the point is time spent together. Guests do not collect streaks: guest accounts are wiped after a few days, so a streak held on one would not survive the week."
+      },
+      {
+        q: "Does the leaderboard show my name to strangers?",
+        a: "Only if you turn it on. Leaderboards and public profile pages are opt-in from Profile in the desktop app, and turning it on publishes your display name, avatar, streak, rank and badges - nothing about what you watched, who you watched it with, or anything you typed. Turning it off removes you immediately. You can see your own rank privately either way."
+      },
+      {
+        q: "What is in a shared recap, and who can see it?",
+        a: "A recap is a page you can post anywhere: how long the session ran, how many reactions and messages there were, and a few silly awards. It never includes what you watched - no file names, no links, no chat. Anyone else in the room who has not turned on a public profile appears as an anonymous avatar with no name. Recap links are unguessable, hidden from search engines, and expire after 90 days."
+      },
+      {
+        q: "Does Premium buy a better leaderboard position?",
+        a: "No, and it never will. Premium gets an extra streak freeze (so a busy week costs you less), exclusive avatar frames, and a claimable @handle with its own public profile page - but not a single extra point. Appearing on a board and ranking on it are both free. A board you can buy your way up is not worth climbing."
       },
       {
         q: "Can I opt out of analytics?",

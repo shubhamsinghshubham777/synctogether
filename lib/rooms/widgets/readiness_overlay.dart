@@ -8,6 +8,8 @@ import 'package:synctogether/ui/identity.dart';
 import 'package:synctogether/ui/pt_motion.dart';
 import 'package:synctogether/ui/pt_theme.dart';
 
+import '../../rewards/rewards_models.dart';
+
 /// What one member's readiness looks like in the roster.
 class ReadinessChipStyle {
   const ReadinessChipStyle(this.label, this.color);
@@ -57,6 +59,7 @@ class ReadinessOverlay extends StatelessWidget {
     this.compact = false,
     this.reveal = 1,
     this.premiumMembers = const {},
+    this.memberFrames = const {},
     this.uploadProgressWidget,
   });
 
@@ -76,6 +79,7 @@ class ReadinessOverlay extends StatelessWidget {
   final bool compact;
   final double reveal;
   final Set<String> premiumMembers;
+  final Map<String, AvatarFrame> memberFrames;
 
   @override
   Widget build(BuildContext context) {
@@ -153,6 +157,7 @@ class ReadinessOverlay extends StatelessWidget {
                                 member: member,
                                 media: media,
                                 premium: premiumMembers.contains(member.userId),
+                                frame: memberFrames[member.userId],
                                 isSelf: member.userId == selfId,
                                 compact: compact,
                                 // Reserve the kick column on every row, not just the
@@ -200,6 +205,7 @@ class _MemberStatusRow extends StatelessWidget {
     required this.member,
     required this.media,
     required this.premium,
+    this.frame,
     required this.isSelf,
     required this.compact,
     required this.reserveKickSlot,
@@ -209,6 +215,7 @@ class _MemberStatusRow extends StatelessWidget {
   final PresentMember member;
   final RoomMedia media;
   final bool premium;
+  final AvatarFrame? frame;
   final bool isSelf;
   final bool compact;
   final bool reserveKickSlot;
@@ -230,6 +237,7 @@ class _MemberStatusRow extends StatelessWidget {
             avatarUrl: member.avatarUrl,
             size: 30,
             premium: premium,
+            frame: frame,
           ),
           Expanded(
             child: Text.rich(

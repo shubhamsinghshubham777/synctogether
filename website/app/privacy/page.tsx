@@ -19,6 +19,7 @@ import {
   RefreshCw,
   Scale,
   UserCheck,
+  Trophy,
 } from "lucide-react";
 
 export const metadata: Metadata = {
@@ -332,6 +333,67 @@ export default function PrivacyPage() {
                 Used solely to capture and stream your video facecam when video is explicitly enabled by you in a room.
               </p>
             </div>
+          </div>
+        </section>
+
+        {/* 5b. Streaks, badges and leaderboards */}
+        <section className="space-y-4">
+          <h2 className="text-xl sm:text-2xl font-bold text-white font-[family-name:var(--font-space-grotesk)] flex items-center gap-2.5">
+            <Trophy className="w-5 h-5 text-purple-400 shrink-0" />
+            <span>5b. Streaks, Badges, Leaderboards &amp; Shared Recaps</span>
+          </h2>
+          <p className="text-gray-300">
+            SyncTogether records how much time you spend watching <em>with other people</em>,
+            so it can show you a streak, award badges and rank you on a leaderboard.
+            This is the only part of the product that can publish anything about you,
+            and it is off until you turn it on.
+          </p>
+          <div className="space-y-3 text-gray-400">
+            <p>
+              <span className="text-white font-semibold">What is recorded.</span> Minutes
+              credited per day, which rooms they were in, which accounts you shared those
+              rooms with, and the badges you have crossed. We never record what you
+              watched: no file names, no file paths, no YouTube links or video IDs, and
+              no chat content. Guest sessions record nothing at all.
+            </p>
+            <p>
+              <span className="text-white font-semibold">What becomes public, and only
+              if you say so.</span> Leaderboards and public profile pages are strictly
+              opt-in, from Profile in the desktop app. Turning it on publishes your
+              display name, avatar, current streak, rank and badges. Turning it off
+              removes you from every board and hides your profile page immediately. Your
+              own rank stays visible privately either way, so the choice is an informed
+              one rather than a blind one.
+            </p>
+            <p>
+              <span className="text-white font-semibold">Shared recaps.</span> When a
+              session ends you may share a recap page. It carries session counts (minutes,
+              reactions, messages) and the people who were there - but anyone in that room
+              who has not opted into a public profile appears as an anonymous avatar with
+              no name. Recap URLs are unguessable, excluded from search engines, and
+              deleted automatically after 90 days.
+            </p>
+            <p>
+              <span className="text-white font-semibold">Public pages carry no account
+              identifiers.</span> Avatars on shared pages are keyed to a one-way hash, not
+              to your user ID.
+            </p>
+            <p>
+              <span className="text-white font-semibold">One switch, not two.</span>{" "}
+              Turning off &ldquo;Share usage data&rdquo; in the desktop app stops product
+              analytics <em>and</em> the watch records that streaks, badges and
+              leaderboards are built from. They are the same records, so one switch
+              governs both - a control that quietly left half of it running would not be
+              much of a control. The app says so on the switch itself, and lists every
+              single event it would otherwise send.
+            </p>
+            <p>
+              <span className="text-white font-semibold">Deletion.</span> Deleting your
+              account removes your ledger, streak, badges, co-watch history and every
+              recap you created, along with everything else described in this policy. You
+              can also delete any individual shared recap at any time, from Profile in the
+              app - the link stops working for everyone immediately.
+            </p>
           </div>
         </section>
 

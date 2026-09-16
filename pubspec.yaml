@@ -59,6 +59,9 @@ flutter:
     # the OS's, for machines whose own root store cannot complete our chains.
     - assets/ca/cacert.pem
     - assets/emoji/
+    # Achievement and season art. Generated, then keyed from the flat-black
+    # renders by tool/process_badge_art.py - edit the script, never the PNGs.
+    - assets/badges/
     - assets/store/
   fonts:
     - family: Space Grotesk

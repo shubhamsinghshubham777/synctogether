@@ -34,6 +34,10 @@ import 'package:synctogether/profile/profile_service.dart';
 import 'package:synctogether/rooms/local_media_store.dart';
 import 'package:synctogether/rooms/media_sharing_service.dart';
 import 'package:synctogether/rooms/reactions.dart';
+import 'package:synctogether/rewards/rewards_logic.dart';
+import 'package:synctogether/rewards/rewards_models.dart';
+import 'package:synctogether/rewards/rewards_service.dart';
+import 'package:synctogether/rewards/widgets/recap_card.dart';
 import 'package:synctogether/rooms/room_models.dart';
 import 'package:synctogether/rooms/room_service.dart';
 import 'package:synctogether/rooms/widgets/extend_room_dialog.dart';
@@ -96,6 +100,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
   List<RoomMember> _members = const [];
   List<PresentMember> _present = const [];
   Set<String> _premiumMembers = const {};
+  Map<String, AvatarFrame> _memberFrames = const {};
   Set<String> _resolvedTierIds = const {};
   bool _tierFetchInFlight = false;
   bool _loading = true;
@@ -322,6 +327,40 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
   bool _sessionReported = false;
   bool _playbackTracked = false;
 
+  /// Per-member counters for the end-of-session recap.
+  ///
+  /// Everything here is already flowing past this screen - chat, reactions and
+  /// user-initiated transport all carry a sender id - so the awards cost one
+  /// increment each rather than any new traffic. Nothing about *what* was
+  /// watched is kept, and none of it leaves the device unless the user shares.
+  final _tallies = <String, MemberTally>{};
+
+  /// Anyone who has held the readiness gate shut at least once this session.
+  /// "Rock Solid" is the absence of a name from this set.
+  final _gateBlockers = <String>{};
+
+  final _emojiCounts = <String, int>{};
+
+  /// Set by the heartbeat when it fires in the small hours, so the award is
+  /// keyed to the user's own clock rather than the server's.
+  bool _crossedTwoAm = false;
+
+  bool _recapOffered = false;
+  SessionRecap? _pendingRecap;
+  Map<String, RecapPerson> _recapPeople = const {};
+  String _recapSelfId = '';
+  bool _firstPresenceSeen = false;
+  HeartbeatOutcome? _lastHeartbeatOutcome;
+
+  MemberTally _tally(String userId, String displayName) {
+    final tally = _tallies.putIfAbsent(
+      userId,
+      () => MemberTally(userId: userId, displayName: displayName),
+    );
+    if (displayName.isNotEmpty) tally.displayName = displayName;
+    return tally;
+  }
+
   void _toggleFacecam(String kind, bool on) {
     final av = _av;
     if (av == null) return;
@@ -360,6 +399,10 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     final start = _sessionStart;
     if (_sessionReported || start == null) return;
     _sessionReported = true;
+    // Captured here, not at the exit: this is the one point both `_leaveRoom`
+    // and `_evictSelf` funnel through *before* the sync channel is torn down,
+    // so it is the last moment presence still says who was in the room.
+    _captureRecap(DateTime.now().difference(start));
     Analytics.instance.track('watch_session_ended', {
       'minutes': DateTime.now().difference(start).inSeconds / 60,
       'peak_members': _peakMembers,
@@ -369,6 +412,119 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
       'facecam_used': _facecamUsed,
       'room_id': widget.roomId,
     });
+  }
+
+  void _captureRecap(Duration length) {
+    final sync = _sync;
+    if (sync == null) return;
+    if (!sessionWorthRecapping(
+      length: length,
+      peakMembers: _peakMembers,
+      isGuest: ProfileService.instance.profile?.isGuest ?? true,
+    )) {
+      return;
+    }
+
+    final selfId = sync.userId;
+    for (final member in _present) {
+      _tally(member.userId, member.displayName).presentAtEnd = true;
+    }
+    for (final tally in _tallies.values) {
+      tally.gateHolds = _gateBlockers.contains(tally.userId) ? 1 : 0;
+    }
+    // Only self's camera is knowable from here - LiveKit publication state for
+    // other members is not mirrored onto presence, and putting it there would
+    // burn the presence budget for a joke award.
+    if (_tallies[selfId] case final self?) self.cameraOn = _facecamUsed;
+
+    final people = <String, RecapPerson>{};
+    for (final member in _members) {
+      people[member.userId] = RecapPerson(
+        userId: member.userId,
+        displayName: member.displayName,
+        avatarUrl: member.profile?.avatarUrl,
+      );
+    }
+    for (final member in _present) {
+      people[member.userId] = RecapPerson(
+        userId: member.userId,
+        displayName: member.displayName,
+        avatarUrl: member.avatarUrl,
+      );
+    }
+
+    final participants = <String>{
+      ..._members.map((m) => m.userId),
+      ..._present.map((m) => m.userId),
+      ..._tallies.keys,
+    }..remove(selfId);
+
+    _recapSelfId = selfId;
+    _recapPeople = people;
+    _pendingRecap = SessionRecap(
+      roomId: widget.roomId,
+      length: length,
+      peakMembers: _peakMembers,
+      messages: _messagesSent,
+      reactions: _reactionsSent,
+      modes: _modesUsed,
+      facecamUsed: _facecamUsed,
+      cleanGate: !_gateBlockers.contains(selfId),
+      participantIds: participants.toList(),
+      superlatives: superlativesFor(
+        tallies: _tallies.values,
+        sessionLength: length,
+        crossedTwoAm: _crossedTwoAm,
+        hostId: _members.where((m) => m.isHost).firstOrNull?.userId,
+      ),
+      topEmoji: _topEmoji,
+    );
+  }
+
+  /// The one moment this feature actually asks for a share. Shown on the way out
+  /// rather than over the video, and only for a session worth talking about -
+  /// offering a card for four minutes alone is how a delightful thing becomes
+  /// an annoying one.
+  Future<void> _maybeShowRecap() async {
+    final recap = _pendingRecap;
+    if (recap == null || _recapOffered || !mounted) return;
+    _recapOffered = true;
+    _pendingRecap = null;
+    Analytics.instance.track('recap_shown', {
+      'room_id': recap.roomId,
+      'minutes': recap.length.inSeconds / 60,
+      'peak_members': recap.peakMembers,
+    });
+    final shared = await showRecapDialog(
+      context: context,
+      recap: recap,
+      people: _recapPeople,
+      selfId: _recapSelfId,
+    );
+    if (shared) Analytics.instance.track('recap_shared', {'surface': 'room_exit'});
+  }
+
+  /// Rides the existing 60 s position-write tick rather than adding a timer.
+  /// Everything that decides whether a second is earned happens server-side;
+  /// this only reports the user's own calendar day and hour, both of which the
+  /// RPC range-checks.
+  Future<void> _recordWatchProgress() async {
+    if (_ended || !mounted) return;
+    final now = DateTime.now();
+    if (now.hour >= 2 && now.hour < 5) _crossedTwoAm = true;
+    final result = await RewardsService.instance.recordProgress(widget.roomId, now: now);
+    if (result.outcome == _lastHeartbeatOutcome) return;
+    // A transition, never a tick: the reason a room stopped earning is exactly
+    // the breadcrumb worth having, and repeating it every minute would evict
+    // the trail that matters.
+    _lastHeartbeatOutcome = result.outcome;
+    if (!result.credited) {
+      trace(
+        'watch progress not credited',
+        category: 'rewards',
+        data: {'room_id': widget.roomId, 'reason': result.outcome.name},
+      );
+    }
   }
 
   @override
@@ -499,12 +655,17 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
 
     _subscriptions.addAll([
       sync.chatMessages.listen((message) {
+        _tally(message.senderId, message.displayName).messages++;
         setState(() {
           _messages.add(message);
           if (!_chatOpen) _unread++;
         });
         if (!_chatOpen && !_privacyHidden) _pushOverlayChat(message);
       }),
+      // A second listener on the same broadcast stream. Subscribed here rather
+      // than in build for the reason the overlay's own capture documents: the
+      // getter hands out a fresh view object per call.
+      sync.reactionsStream.listen(_tallyReaction),
       sync.typingStream.listen((names) => setState(() => _typingNames = names)),
       sync.presenceStream.listen(_onPresenceChanged),
       sync.remoteActions.listen(_onRemoteAction),
@@ -623,10 +784,10 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
 
     _countdownTimer = Timer.periodic(const Duration(seconds: 1), (_) => _tickCountdown());
     _tickCountdown();
-    _positionWriteTimer = Timer.periodic(
-      const Duration(seconds: 60),
-      (_) => unawaited(_persistPosition()),
-    );
+    _positionWriteTimer = Timer.periodic(const Duration(seconds: 60), (_) {
+      unawaited(_persistPosition());
+      unawaited(_recordWatchProgress());
+    });
 
     unawaited(
       EntitlementService.instance.load().then((_) {
@@ -795,17 +956,23 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     if (seen.difference(_resolvedTierIds).isEmpty) return;
     _tierFetchInFlight = true;
     try {
-      final tiers = await RoomService.instance.fetchMemberTiers(widget.roomId);
+      final cosmetics = await RoomService.instance.fetchMemberTiers(widget.roomId);
       if (!mounted) return;
-      final premium = premiumMembersFrom(tiers);
+      final premium = premiumMembersFrom(cosmetics.tiers);
       trace(
         'member tiers resolved',
         category: 'room',
-        data: {'room_id': widget.roomId, 'members': tiers.length, 'premium': premium.length},
+        data: {
+          'room_id': widget.roomId,
+          'members': cosmetics.tiers.length,
+          'premium': premium.length,
+          'frames': cosmetics.frames.length,
+        },
       );
       setState(() {
-        _resolvedTierIds = tiers.keys.toSet();
+        _resolvedTierIds = cosmetics.tiers.keys.toSet();
         _premiumMembers = premium;
+        _memberFrames = cosmetics.frames;
       });
     } catch (e, s) {
       reportNonFatal(e, s, during: 'loading member tiers for room ${widget.roomId}');
@@ -815,6 +982,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
   }
 
   Future<void> _onPresenceChanged(List<PresentMember> present) async {
+    final sync = _sync;
     final prevCount = _present.length;
     setState(() => _present = present);
     final av = _av;
@@ -836,6 +1004,14 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     unawaited(_refreshMemberTiers());
     _syncGateReveal();
     if (present.length > _peakMembers) _peakMembers = present.length;
+    for (final member in present) {
+      final tally = _tally(member.userId, member.displayName);
+      if (!_firstPresenceSeen) tally.presentAtStart = true;
+      if (sync != null && !sync.memberSatisfiesGate(member)) {
+        _gateBlockers.add(member.userId);
+      }
+    }
+    _firstPresenceSeen = true;
     // Don't wait on the member fetch: readiness/online changes should land in
     // an open menu immediately, even if the round-trip is slow or fails.
     _publishMenuData();
@@ -882,6 +1058,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
             members: _members,
             present: _present,
             premiumMembers: _premiumMembers,
+            memberFrames: _memberFrames,
             media: _canonicalMedia,
             transportLock: sync?.transportLock ?? false,
             selfId: sync?.userId ?? '',
@@ -895,6 +1072,9 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
         _present.where((m) => m.userId == action.senderId).firstOrNull?.displayName ??
         _members.where((m) => m.userId == action.senderId).firstOrNull?.displayName ??
         'Someone';
+    // `remoteActions` is user-initiated only - gate pauses and drift correction
+    // never reach here - which is exactly the distinction "The Pauser" needs.
+    _tally(action.senderId, name).transportActions++;
     _showActionToast(switch (action.kind) {
       RemoteActionKind.seek => '$name jumped to ${_clock(action.position ?? Duration.zero)}',
       RemoteActionKind.play => '$name resumed the video',
@@ -2502,6 +2682,9 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
   void _playPause() {
     if (_blockTransport()) return;
     _showControls();
+    if (_sync?.userId case final selfId?) {
+      _tally(selfId, ProfileService.instance.profile?.displayName ?? 'You').transportActions++;
+    }
     if (_mode == .youtube) {
       final controller = _youtubeController;
       if (controller == null || !_ytReady) return;
@@ -2792,6 +2975,26 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     _reactionsSent++;
   }
 
+  /// One place for both halves of the reaction tally: the stream carries the
+  /// local echo as well as everyone else's, so self needs no separate branch.
+  void _tallyReaction(ReactionEvent event) {
+    _tally(event.senderId, event.displayName).reactions++;
+    _emojiCounts.update(event.emoji, (n) => n + 1, ifAbsent: () => 1);
+  }
+
+  /// The session's most-sent emoji, for the recap's one flourish.
+  String? get _topEmoji {
+    String? best;
+    var bestCount = 0;
+    for (final entry in _emojiCounts.entries) {
+      if (entry.value > bestCount) {
+        bestCount = entry.value;
+        best = entry.key;
+      }
+    }
+    return best;
+  }
+
   void _toggleControlsVisible() {
     // Tapping the video or pressing H also steals focus from the chat input,
     // so keyboard shortcuts work again immediately.
@@ -3074,13 +3277,15 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
                       label: 'Back to lobby',
                       icon: Symbols.home_rounded,
                       variant: .primary,
-                      onPressed: () {
+                      onPressed: () async {
                         Navigator.of(dialogContext).pop();
                         if (AuthService.instance.isSignedIn) {
                           unawaited(ProfileService.instance.load());
                           unawaited(EntitlementService.instance.refresh());
+                          unawaited(RewardsService.instance.refresh());
                         }
-                        context.go('/lobby');
+                        await _maybeShowRecap();
+                        if (mounted) context.go('/lobby');
                       },
                     ),
                     if (_canShowPremiumUpsell)
@@ -3130,7 +3335,9 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     if (AuthService.instance.isSignedIn) {
       unawaited(ProfileService.instance.load());
       unawaited(EntitlementService.instance.refresh());
+      unawaited(RewardsService.instance.refresh());
     }
+    await _maybeShowRecap();
     if (mounted) context.go('/lobby');
   }
 
@@ -3232,6 +3439,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     final message = await _sync?.sendChat(text);
     if (message == null) return;
     _messagesSent++;
+    _tally(message.senderId, message.displayName).messages++;
     if (mounted) setState(() => _messages.add(message));
   }
 
@@ -4057,6 +4265,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
                   headline: _gateHeadline,
                   members: _present,
                   premiumMembers: _premiumMembers,
+                  memberFrames: _memberFrames,
                   media: _canonicalMedia,
                   selfId: _sync?.userId ?? '',
                   selfIsHost: _sync?.isHost ?? false,
@@ -4509,6 +4718,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
           displayName: message.displayName,
           size: 26,
           premium: _premiumMembers.contains(message.senderId),
+          frame: _memberFrames[message.senderId],
         ),
         Flexible(
           child: Container(
@@ -4684,6 +4894,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
                 av: _av!,
                 present: _present,
                 premiumMembers: _premiumMembers,
+                memberFrames: _memberFrames,
                 selfId: _sync?.userId ?? '',
                 layout: .railLeft,
                 showNames: _controlsVisible,
@@ -4714,6 +4925,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
                   sync: _sync!,
                   messages: _visibleMessages,
                   premiumMembers: _premiumMembers,
+                  memberFrames: _memberFrames,
                   typingNames: _typingNames,
                   watchingCount: _present.length,
                   onClose: _toggleChat,
@@ -4845,6 +5057,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
                 av: _av!,
                 present: _present,
                 premiumMembers: _premiumMembers,
+                memberFrames: _memberFrames,
                 selfId: _sync?.userId ?? '',
                 layout: .stripTop,
               ),
@@ -4897,6 +5110,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
                           sync: _sync!,
                           messages: _visibleMessages,
                           premiumMembers: _premiumMembers,
+                          memberFrames: _memberFrames,
                           typingNames: _typingNames,
                           watchingCount: _present.length,
                           onClose: () {},
@@ -4979,6 +5193,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
                           av: _av!,
                           present: _present,
                           premiumMembers: _premiumMembers,
+                          memberFrames: _memberFrames,
                           selfId: _sync?.userId ?? '',
                           layout: .miniStackRight,
                           maxTiles: 3,
@@ -5001,6 +5216,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
                         sync: _sync!,
                         messages: _visibleMessages,
                         premiumMembers: _premiumMembers,
+                        memberFrames: _memberFrames,
                         typingNames: _typingNames,
                         watchingCount: _present.length,
                         onClose: _toggleChat,

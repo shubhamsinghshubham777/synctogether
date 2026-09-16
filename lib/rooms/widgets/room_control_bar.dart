@@ -27,6 +27,7 @@ class RoomControlBarActions {
     required this.onToggleMute,
     this.onReact,
     this.onHideControls,
+    this.onFullscreenToggle,
   });
 
   final VoidCallback onPlayPause;
@@ -54,6 +55,7 @@ class RoomControlBarActions {
   final VoidCallback onToggleMute;
   final VoidCallback? onReact;
   final VoidCallback? onHideControls;
+  final VoidCallback? onFullscreenToggle;
 }
 
 class RoomControlBar extends StatefulWidget {
@@ -71,6 +73,7 @@ class RoomControlBar extends StatefulWidget {
     this.avEnabled = true,
     required this.actions,
     this.compact = false,
+    this.fullscreen = false,
     this.reactOpen = false,
     this.transportEnabled = true,
     this.transportHint,
@@ -91,6 +94,7 @@ class RoomControlBar extends StatefulWidget {
   final bool avEnabled;
   final RoomControlBarActions actions;
   final bool compact;
+  final bool fullscreen;
   final bool reactOpen;
 
   /// Affordance only - the real enforcement lives at RoomScreen's
@@ -493,6 +497,21 @@ class _RoomControlBarState extends State<RoomControlBar> {
                   onPressed: actions.onHideControls,
                 ),
               ),
+            if (actions.onFullscreenToggle != null)
+              Padding(
+                padding: const EdgeInsets.only(left: 4),
+                child: PTIconButton(
+                  icon: widget.fullscreen
+                      ? Symbols.fullscreen_exit_rounded
+                      : Symbols.fullscreen_rounded,
+                  glass: false,
+                  borderRadius: BorderRadius.circular(12),
+                  size: 36,
+                  iconSize: 22,
+                  tooltip: widget.fullscreen ? 'Exit fullscreen (F)' : 'Fullscreen (F)',
+                  onPressed: actions.onFullscreenToggle,
+                ),
+              ),
           ],
         ),
       ],
@@ -660,6 +679,15 @@ class _RoomControlBarState extends State<RoomControlBar> {
             iconSize: 21,
             tooltip: 'Hide controls (H)',
             onPressed: actions.onHideControls,
+          ),
+        if (actions.onFullscreenToggle != null)
+          PTIconButton(
+            icon: widget.fullscreen ? Symbols.fullscreen_exit_rounded : Symbols.fullscreen_rounded,
+            glass: false,
+            borderRadius: BorderRadius.circular(12),
+            iconSize: 21,
+            tooltip: widget.fullscreen ? 'Exit fullscreen (F)' : 'Fullscreen (F)',
+            onPressed: actions.onFullscreenToggle,
           ),
       ],
     );

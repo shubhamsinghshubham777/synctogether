@@ -3974,6 +3974,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     onToggleMute: _toggleMute,
     onReact: _sync != null ? _toggleReact : null,
     onHideControls: _toggleControlsVisible,
+    onFullscreenToggle: isDesktop ? _toggleFullscreen : null,
   );
 
   @override
@@ -4974,6 +4975,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
                     camAvailable: _av?.canPublishCamera ?? false,
                     avEnabled: _present.length >= 2,
                     actions: _controlActions,
+                    fullscreen: _fullscreen,
                     reactOpen: _reactOpen,
                     transportEnabled: _transportBlockedReason == null,
                     transportHint: _transportBlockedReason,
@@ -5085,6 +5087,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
                   camAvailable: _av?.canPublishCamera ?? false,
                   avEnabled: _present.length >= 2,
                   actions: _controlActions,
+                  fullscreen: _fullscreen,
                   reactOpen: _reactOpen,
                   transportEnabled: _transportBlockedReason == null,
                   transportHint: _transportBlockedReason,
@@ -5266,6 +5269,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
                           camAvailable: _av?.canPublishCamera ?? false,
                           avEnabled: _present.length >= 2,
                           actions: _controlActions,
+                          fullscreen: _fullscreen,
                           reactOpen: _reactOpen,
                           transportEnabled: _transportBlockedReason == null,
                           transportHint: _transportBlockedReason,

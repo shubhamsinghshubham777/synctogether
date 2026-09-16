@@ -30,7 +30,7 @@ SyncTogether is a modern cross-platform application for synchronized media playb
 
 ## Key Features
 
-- **Strict Lockstep Sync** - Millisecond-level synchronization with readiness gates, host drift-correction heartbeats, and authority-answered state recovery for late joiners.
+- **Strict Lockstep Sync** - Coordinated playback in lockstep with readiness gates, host drift-correction heartbeats, and authority-answered state recovery for late joiners.
 - **Two Playback Modes** - Local video files (via `media_kit` hardware-accelerated rendering with file hash mismatch warnings) and YouTube (via internal loopback IFrame bridge).
 - **Voice & Video Facecams** - Multi-participant live AV tiles powered by LiveKit SFU mesh with dynamic mic/camera controls.
 - **Persisted Chat & Quick Reactions** - In-room chat history, typing indicators, and Google Noto animated emoji reactions.

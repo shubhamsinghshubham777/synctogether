@@ -88,7 +88,7 @@ export default async function ProfilePage({
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <StatTile
           value={`${card.streak}`}
-          label={card.streak === 1 ? "day streak" : "day streak"}
+          label="day streak"
           accent="text-[#FB923C]"
         />
         <StatTile value={`${card.hours}h`} label="watched" />

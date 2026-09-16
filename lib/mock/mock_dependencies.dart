@@ -335,7 +335,6 @@ class MockRoomService extends RoomService {
   Future<List<RoomMember>> fetchMembers(String roomId) async => mockMembersList;
 
   @override
-  @override
   Future<RoomMemberCosmetics> fetchMemberTiers(String roomId) async => const RoomMemberCosmetics(
     tiers: {'user-alex': 'free', 'user-sarah': 'free', 'user-david': 'free', 'user-elena': 'guest'},
     frames: {'user-alex': AvatarFrame.aurora, 'user-sarah': AvatarFrame.halo},

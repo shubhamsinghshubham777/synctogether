@@ -126,7 +126,6 @@ class StreakState {
   final DateTime? lastFreezeDay;
 
   Duration get today => Duration(seconds: secondsToday);
-  Duration get required => Duration(minutes: minMinutes);
 
   factory StreakState.fromJson(Map<String, dynamic> json) => StreakState(
     current: (json['current'] as num?)?.toInt() ?? 0,
@@ -166,7 +165,6 @@ class RewardTotals {
   final int lifetimePoints;
 
   Duration get watched => Duration(seconds: seconds);
-  Duration get longestSession => Duration(seconds: longestSessionSeconds);
 
   factory RewardTotals.fromJson(Map<String, dynamic> json) => RewardTotals(
     seconds: (json['seconds'] as num?)?.toInt() ?? 0,

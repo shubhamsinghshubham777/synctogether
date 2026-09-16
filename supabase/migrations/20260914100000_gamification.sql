@@ -1436,37 +1436,6 @@ as $$
   end;
 $$;
 
-create or replace function public.public_profile_card(p_handle text)
-returns jsonb
-language sql stable security definer set search_path = ''
-as $$
-  select jsonb_build_object(
-    'handle', p.handle,
-    'name', p.display_name,
-    'avatar', p.avatar_url,
-    'frame', p.equipped_frame,
-    'premium', public.effective_tier(p.id) = 'premium',
-    'joined', to_char(p.created_at at time zone 'utc', 'YYYY-MM-DD'),
-    'streak', public.effective_streak(ur.current_streak, ur.last_credited_day,
-                                      ur.freezes_available, (now() at time zone 'utc')::date),
-    'longest_streak', coalesce(ur.longest_streak, 0),
-    'hours', round(coalesce(ur.total_seconds, 0) / 3600.0, 1),
-    'sessions', coalesce(ur.total_sessions, 0),
-    'co_watchers', coalesce(ur.distinct_co_watchers, 0),
-    'points_week', (select coalesce(sum(points), 0) from public.watch_ledger
-                     where user_id = p.id and day >= public.reward_period_start('week')),
-    'badges', coalesce((
-      select jsonb_agg(jsonb_build_object('id', a.id, 'title', a.title,
-                                          'icon', a.icon, 'grade', a.grade)
-             order by a.sort)
-        from public.user_achievements ua
-        join public.achievements a on a.id = ua.achievement_id
-       where ua.user_id = p.id), '[]'::jsonb))
-    from public.profiles p
-    left join public.user_rewards ur on ur.user_id = p.id
-   where lower(p.handle) = lower(trim(coalesce(p_handle, ''))) and p.public_profile;
-$$;
-
 create or replace function public.public_wrapped(p_handle text, p_year int)
 returns jsonb
 language sql stable security definer set search_path = ''
@@ -1553,7 +1522,6 @@ revoke execute on function
   public.my_referrals(),
   public.public_recap(text),
   public.public_leaderboard(text, int),
-  public.public_profile_card(text),
   public.public_wrapped(text, int),
   public.sweep_rewards()
 from public, anon, authenticated;
@@ -1577,7 +1545,6 @@ to authenticated;
 grant execute on function
   public.public_recap(text),
   public.public_leaderboard(text, int),
-  public.public_profile_card(text),
   public.public_wrapped(text, int)
 to service_role;
 
@@ -1747,11 +1714,8 @@ revoke execute on function public.close_seasons(), public.my_season_awards()
   from public, anon, authenticated;
 grant execute on function public.my_season_awards() to authenticated;
 
--- `language sql` bodies are validated when the function is created, so this
--- redefinition has to come after `season_awards` exists - patching the earlier
--- definition in place fails the migration. (`my_rewards` is plpgsql, whose body
--- is not resolved until it runs, which is why its call to `my_season_awards`
--- above is fine.)
+-- `language sql` bodies are validated when the function is created, so
+-- `public_profile_card` is defined here after `season_awards` exists.
 create or replace function public.public_profile_card(p_handle text)
 returns jsonb
 language sql stable security definer set search_path = ''

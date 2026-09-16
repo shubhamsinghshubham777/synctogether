@@ -548,7 +548,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               child: _statTile(
                 Symbols.local_fire_department_rounded,
                 '${streak.current}',
-                streak.current == 1 ? 'day streak' : 'day streak',
+                'day streak',
               ),
             ),
             Expanded(

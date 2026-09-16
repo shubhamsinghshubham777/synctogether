@@ -70,7 +70,7 @@ class ProfileService extends ChangeNotifier {
   Future<void> uploadAvatar(Uint8List bytes) async {
     final uid = _client.auth.currentUser!.id;
 
-    final jpeg = await compute(_processAvatar, bytes);
+    final jpeg = await compute(processAvatar, bytes);
     await _client.storage
         .from('avatars')
         .uploadBinary(
@@ -87,7 +87,7 @@ class ProfileService extends ChangeNotifier {
   }
 }
 
-Uint8List _processAvatar(Uint8List bytes) {
+Uint8List processAvatar(Uint8List bytes) {
   var decoded = img.decodeImage(bytes);
   if (decoded == null) {
     throw const FormatException('unsupported_image');

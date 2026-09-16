@@ -263,54 +263,104 @@ class LiveKitService extends ChangeNotifier {
   }
 
   Future<List<lk.MediaDevice>> audioInputDevices() async {
-    if (defaultTargetPlatform == TargetPlatform.macOS) {
-      final devices = MacOSAudioDevices.getAudioInputs();
-      if (devices.isNotEmpty) return devices;
+    if (isMockMode) {
+      return const [lk.MediaDevice('mock-mic-1', 'Default Microphone', 'audioinput', null)];
     }
-    return lk.Hardware.instance.audioInputs();
+    if (defaultTargetPlatform == TargetPlatform.macOS) {
+      try {
+        final devices = MacOSAudioDevices.getAudioInputs();
+        if (devices.isNotEmpty) return devices;
+      } catch (_) {}
+    }
+    try {
+      return await lk.Hardware.instance.audioInputs();
+    } catch (e, s) {
+      reportNonFatal(e, s, during: 'audioInputDevices');
+      return const [];
+    }
   }
 
-  Future<List<lk.MediaDevice>> videoInputDevices() => lk.Hardware.instance.videoInputs();
+  Future<List<lk.MediaDevice>> videoInputDevices() async {
+    if (isMockMode) {
+      return const [lk.MediaDevice('mock-cam-1', 'FaceTime HD Camera', 'videoinput', null)];
+    }
+    try {
+      return await lk.Hardware.instance.videoInputs();
+    } catch (e, s) {
+      reportNonFatal(e, s, during: 'videoInputDevices');
+      return const [];
+    }
+  }
 
   Future<List<lk.MediaDevice>> audioOutputDevices() async {
-    if (defaultTargetPlatform == TargetPlatform.macOS) {
-      final devices = MacOSAudioDevices.getAudioOutputs();
-      if (devices.isNotEmpty) return devices;
+    if (isMockMode) {
+      return const [lk.MediaDevice('mock-out-1', 'Default Speaker', 'audiooutput', null)];
     }
-    return lk.Hardware.instance.audioOutputs();
+    if (defaultTargetPlatform == TargetPlatform.macOS) {
+      try {
+        final devices = MacOSAudioDevices.getAudioOutputs();
+        if (devices.isNotEmpty) return devices;
+      } catch (_) {}
+    }
+    try {
+      return await lk.Hardware.instance.audioOutputs();
+    } catch (e, s) {
+      reportNonFatal(e, s, during: 'audioOutputDevices');
+      return const [];
+    }
   }
 
   lk.MediaDevice? _selectedAudioInput;
-  lk.MediaDevice? get selectedAudioInput => _selectedAudioInput;
+  lk.MediaDevice? get selectedAudioInput =>
+      _selectedAudioInput ??
+      (isMockMode
+          ? const lk.MediaDevice('mock-mic-1', 'Default Microphone', 'audioinput', null)
+          : null);
   String? get selectedAudioInputId =>
       _selectedAudioInput?.deviceId ??
       _room?.selectedAudioInputDeviceId ??
-      lk.Hardware.instance.selectedAudioInput?.deviceId;
+      (isMockMode ? 'mock-mic-1' : lk.Hardware.instance.selectedAudioInput?.deviceId);
   String? get selectedAudioInputLabel =>
-      _selectedAudioInput?.label ?? lk.Hardware.instance.selectedAudioInput?.label;
+      _selectedAudioInput?.label ??
+      (isMockMode ? 'Default Microphone' : lk.Hardware.instance.selectedAudioInput?.label);
 
   lk.MediaDevice? _selectedVideoInput;
-  lk.MediaDevice? get selectedVideoInput => _selectedVideoInput;
+  lk.MediaDevice? get selectedVideoInput =>
+      _selectedVideoInput ??
+      (isMockMode
+          ? const lk.MediaDevice('mock-cam-1', 'FaceTime HD Camera', 'videoinput', null)
+          : null);
   String? get selectedVideoInputId =>
       _selectedVideoInput?.deviceId ??
       _room?.selectedVideoInputDeviceId ??
-      lk.Hardware.instance.selectedVideoInput?.deviceId;
+      (isMockMode ? 'mock-cam-1' : lk.Hardware.instance.selectedVideoInput?.deviceId);
   String? get selectedVideoInputLabel =>
-      _selectedVideoInput?.label ?? lk.Hardware.instance.selectedVideoInput?.label;
+      _selectedVideoInput?.label ??
+      (isMockMode ? 'FaceTime HD Camera' : lk.Hardware.instance.selectedVideoInput?.label);
 
   lk.MediaDevice? _selectedAudioOutput;
-  lk.MediaDevice? get selectedAudioOutput => _selectedAudioOutput;
+  lk.MediaDevice? get selectedAudioOutput =>
+      _selectedAudioOutput ??
+      (isMockMode
+          ? const lk.MediaDevice('mock-out-1', 'Default Speaker', 'audiooutput', null)
+          : null);
   String? get selectedAudioOutputId =>
       _selectedAudioOutput?.deviceId ??
       _room?.selectedAudioOutputDeviceId ??
-      lk.Hardware.instance.selectedAudioOutput?.deviceId;
+      (isMockMode ? 'mock-out-1' : lk.Hardware.instance.selectedAudioOutput?.deviceId);
   String? get selectedAudioOutputLabel =>
-      _selectedAudioOutput?.label ?? lk.Hardware.instance.selectedAudioOutput?.label;
+      _selectedAudioOutput?.label ??
+      (isMockMode ? 'Default Speaker' : lk.Hardware.instance.selectedAudioOutput?.label);
 
-  Stream<List<lk.MediaDevice>> get onDeviceChange => lk.Hardware.instance.onDeviceChange.stream;
+  Stream<List<lk.MediaDevice>> get onDeviceChange =>
+      isMockMode ? const Stream.empty() : lk.Hardware.instance.onDeviceChange.stream;
 
   Future<void> setAudioInputDevice(lk.MediaDevice device) async {
     _selectedAudioInput = device;
+    if (isMockMode) {
+      notifyListeners();
+      return;
+    }
     var target = device;
     try {
       final webrtcDevices = await lk.Hardware.instance.audioInputs();
@@ -324,26 +374,42 @@ class LiveKitService extends ChangeNotifier {
       if (match != null) target = match;
     } catch (_) {}
 
-    if (_room != null) {
-      await _room!.setAudioInputDevice(target);
-    } else {
-      await lk.Hardware.instance.selectAudioInput(target);
+    try {
+      if (_room != null) {
+        await _room!.setAudioInputDevice(target);
+      } else {
+        await lk.Hardware.instance.selectAudioInput(target);
+      }
+    } catch (e, s) {
+      reportNonFatal(e, s, during: 'setting audio input device ${device.label}');
     }
     notifyListeners();
   }
 
   Future<void> setVideoInputDevice(lk.MediaDevice device) async {
     _selectedVideoInput = device;
-    if (_room != null) {
-      await _room!.setVideoInputDevice(device);
-    } else {
-      lk.Hardware.instance.selectedVideoInput = device;
+    if (isMockMode) {
+      notifyListeners();
+      return;
+    }
+    try {
+      if (_room != null) {
+        await _room!.setVideoInputDevice(device);
+      } else {
+        lk.Hardware.instance.selectedVideoInput = device;
+      }
+    } catch (e, s) {
+      reportNonFatal(e, s, during: 'setting video input device ${device.label}');
     }
     notifyListeners();
   }
 
   Future<void> setAudioOutputDevice(lk.MediaDevice device) async {
     _selectedAudioOutput = device;
+    if (isMockMode) {
+      notifyListeners();
+      return;
+    }
     var target = device;
     try {
       final webrtcDevices = await lk.Hardware.instance.audioOutputs();
@@ -357,10 +423,14 @@ class LiveKitService extends ChangeNotifier {
       if (match != null) target = match;
     } catch (_) {}
 
-    if (_room != null) {
-      await _room!.setAudioOutputDevice(target);
-    } else {
-      await lk.Hardware.instance.selectAudioOutput(target);
+    try {
+      if (_room != null) {
+        await _room!.setAudioOutputDevice(target);
+      } else {
+        await lk.Hardware.instance.selectAudioOutput(target);
+      }
+    } catch (e, s) {
+      reportNonFatal(e, s, during: 'setting audio output device ${device.label}');
     }
     notifyListeners();
   }

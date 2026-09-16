@@ -208,10 +208,11 @@ class _FacecamTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final participant = _participant;
     final videoTrack = _videoTrack(participant);
-    final mockAsset = kDemoMode ? _mockFacecamAsset(member.userId) : null;
+    final isMockOrDemo = kDemoMode || LiveKitService.isMockMode;
+    final mockAsset = isMockOrDemo ? _mockFacecamAsset(member.userId) : null;
     final hasVideo = videoTrack != null || mockAsset != null;
     final micOff = _micOff(participant);
-    final speaking = participant?.isSpeaking ?? (kDemoMode && member.userId == 'user-sarah');
+    final speaking = participant?.isSpeaking ?? (isMockOrDemo && member.userId == 'user-sarah');
 
     final height = compact ? 58.0 : 112.0;
     final radius = compact ? 13.0 : 16.0;
@@ -396,7 +397,8 @@ class _FacecamTile extends StatelessWidget {
               right: compact ? 5 : 7,
               child: AnimatedScale(
                 scale:
-                    (micOff && participant != null) || (kDemoMode && member.userId == 'user-david')
+                    (micOff && participant != null) ||
+                        (isMockOrDemo && member.userId == 'user-david')
                     ? 1
                     : 0,
                 duration: PTMotion.functional(context, PTMotion.state),

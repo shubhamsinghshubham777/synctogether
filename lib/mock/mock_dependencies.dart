@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:synctogether/auth/auth_service.dart';
 import 'package:synctogether/av/livekit_service.dart';
@@ -66,13 +68,14 @@ final mockRoomTwo = Room(
   createdBy: 'user-alex',
   durationMinutes: 120,
   maxMembers: 8,
-  avLevel: .voice,
-  mediaKind: .local,
-  mediaName: 'Big_Buck_Bunny_1080p.mp4',
-  mediaDuration: const Duration(minutes: 24, seconds: 10),
+  avLevel: .video,
+  mediaKind: .youtube,
+  mediaName: 'Big Buck Bunny',
+  mediaUrl: 'https://www.youtube.com/watch?v=aqz-KE-bpKQ',
+  mediaDuration: const Duration(minutes: 10, seconds: 34),
   persistent: true,
-  createdAt: DateTime.now().subtract(const Duration(hours: 5)),
-  expiresAt: DateTime.now().add(const Duration(hours: 19)),
+  createdAt: DateTime.now().subtract(const Duration(hours: 1)),
+  expiresAt: DateTime.now().add(const Duration(hours: 1)),
 );
 
 final mockRoomThree = Room(
@@ -83,12 +86,13 @@ final mockRoomThree = Room(
   durationMinutes: 180,
   maxMembers: 8,
   avLevel: .voice,
-  mediaKind: .local,
-  mediaName: 'Tears_of_Steel_4K.mkv',
-  mediaDuration: const Duration(hours: 2, minutes: 5),
+  mediaKind: .youtube,
+  mediaName: 'Tears of Steel',
+  mediaUrl: 'https://www.youtube.com/watch?v=R6MlUcmOul8',
+  mediaDuration: const Duration(minutes: 12, seconds: 14),
   persistent: true,
-  createdAt: DateTime.now().subtract(const Duration(days: 1)),
-  expiresAt: DateTime.now().add(const Duration(hours: 12)),
+  createdAt: DateTime.now().subtract(const Duration(hours: 2)),
+  expiresAt: DateTime.now().add(const Duration(hours: 2)),
 );
 
 final mockMembersList = [
@@ -185,39 +189,80 @@ final mockChatMessagesList = [
 ];
 
 class MockAuthService extends AuthService {
-  @override
-  Session? get session => mockCurrentSession;
+  bool _signedIn = true;
+  final _authController = StreamController<AuthState>.broadcast();
 
   @override
-  User? get user => mockCurrentUser;
+  Session? get session => _signedIn ? mockCurrentSession : null;
 
   @override
-  bool get isSignedIn => true;
+  User? get user => _signedIn ? mockCurrentUser : null;
+
+  @override
+  bool get isSignedIn => _signedIn;
 
   @override
   bool get isGuest => false;
 
   @override
-  Stream<AuthState> get onAuthStateChange => const Stream.empty();
+  Stream<AuthState> get onAuthStateChange => _authController.stream;
 
   @override
   Stream<String> get failures => const Stream.empty();
 
   @override
   void start() {}
+
+  @override
+  Future<void> signOut() async {
+    _signedIn = false;
+    _authController.add(const AuthState(AuthChangeEvent.signedOut, null));
+    ProfileService.instance.clear();
+    EntitlementService.instance.clear();
+    LiveKitService.isMockMode = false;
+  }
+
+  @override
+  Future<void> deleteAccount() async {
+    await signOut();
+  }
 }
 
 class MockProfileService extends ProfileService {
-  @override
-  Profile? get profile => mockCurrentProfile;
+  Profile _mockProfile = mockCurrentProfile;
 
   @override
-  Future<Profile?> load() async => mockCurrentProfile;
+  Profile? get profile => _mockProfile;
+
+  @override
+  Future<Profile?> load() async => _mockProfile;
+
+  @override
+  Future<void> updateDisplayName(String name) async {
+    _mockProfile = _mockProfile.copyWith(displayName: name.trim());
+    notifyListeners();
+  }
+
+  @override
+  Future<void> uploadAvatar(Uint8List bytes) async {
+    final jpeg = await compute(processAvatar, bytes);
+    final tempDir = Directory.systemTemp;
+    final file = File('${tempDir.path}/demo_avatar_${DateTime.now().millisecondsSinceEpoch}.jpg');
+    await file.writeAsBytes(jpeg);
+    _mockProfile = _mockProfile.copyWith(avatarUrl: file.path);
+    notifyListeners();
+  }
+
+  @override
+  void clear() {
+    _mockProfile = mockCurrentProfile;
+    notifyListeners();
+  }
 }
 
 class MockEntitlementService extends EntitlementService {
   static const mockTierLimits = TierLimits(
-    tier: kPremiumTier,
+    tier: kFreeTier,
     maxLiveRooms: 8,
     maxMembers: 16,
     maxSessionMinutes: 600,
@@ -240,7 +285,7 @@ class MockEntitlementService extends EntitlementService {
   String get tier => mockTierLimits.tier;
 
   @override
-  bool get isPremium => true;
+  bool get isPremium => false;
 
   @override
   Future<TierLimits?> load() async => mockTierLimits;
@@ -261,7 +306,7 @@ class MockRoomService extends RoomService {
     ),
     MyRoom(
       room: mockRoomTwo,
-      state: .dormant,
+      state: .live,
       role: 'host',
       memberCount: 3,
       isOwner: true,
@@ -269,7 +314,7 @@ class MockRoomService extends RoomService {
     ),
     MyRoom(
       room: mockRoomThree,
-      state: .dormant,
+      state: .live,
       role: 'host',
       memberCount: 6,
       isOwner: true,
@@ -297,8 +342,8 @@ class MockRoomService extends RoomService {
 
   @override
   Future<Map<String, String>> fetchMemberTiers(String roomId) async => {
-    'user-alex': 'premium',
-    'user-sarah': 'premium',
+    'user-alex': 'free',
+    'user-sarah': 'free',
     'user-david': 'free',
     'user-elena': 'guest',
   };
@@ -321,12 +366,37 @@ class MockRoomService extends RoomService {
     required int durationMinutes,
     String? stagedId,
   }) async {
-    return mockRoomOne;
+    final newRoom = Room(
+      id: 'demo-room-${DateTime.now().millisecondsSinceEpoch}',
+      name: name.trim().isEmpty ? 'Watch Party Room' : name.trim(),
+      code: 'R${(10000 + (DateTime.now().millisecond % 90000)).toString()}',
+      createdBy: 'user-alex',
+      durationMinutes: durationMinutes,
+      maxMembers: 8,
+      avLevel: .video,
+      mediaKind: .none,
+      createdAt: DateTime.now(),
+      expiresAt: DateTime.now().add(Duration(minutes: durationMinutes)),
+    );
+    _rooms.insert(
+      0,
+      MyRoom(
+        room: newRoom,
+        state: .live,
+        role: 'host',
+        memberCount: 1,
+        isOwner: true,
+        isMember: true,
+      ),
+    );
+    notifyListeners();
+    return newRoom;
   }
 
   @override
   Future<Room> joinRoom(String code, {RoomJoinSource via = RoomJoinSource.code}) async {
-    return mockRoomOne;
+    final match = _rooms.where((r) => r.room.code.toUpperCase() == code.toUpperCase()).firstOrNull;
+    return match?.room ?? mockRoomOne;
   }
 
   @override
@@ -337,7 +407,77 @@ class MockRoomService extends RoomService {
     Duration? duration,
     String? url,
   }) async {
-    return mockRoomOne;
+    final r = await fetchRoom(roomId);
+    final updated = r!.copyWith(
+      mediaKind: kind,
+      mediaName: name,
+      mediaDuration: duration,
+      mediaUrl: url,
+      mediaUpdatedAt: DateTime.now(),
+    );
+    final index = _rooms.indexWhere((m) => m.room.id == roomId);
+    if (index != -1) {
+      _rooms[index] = _rooms[index].copyWith(room: updated);
+      notifyListeners();
+    }
+    return updated;
+  }
+
+  Room? _mockCurrentRoom;
+
+  @override
+  Room? get currentRoom => _mockCurrentRoom;
+
+  @override
+  Future<void> deleteRoom(String roomId) async {
+    _rooms.removeWhere((r) => r.room.id == roomId);
+    if (_mockCurrentRoom?.id == roomId) _mockCurrentRoom = null;
+    notifyListeners();
+  }
+
+  @override
+  Future<Room> endRoom(String roomId) async {
+    final r = await fetchRoom(roomId);
+    final updated = r!.copyWith(endedAt: DateTime.now());
+    final index = _rooms.indexWhere((m) => m.room.id == roomId);
+    if (index != -1) {
+      _rooms[index] = _rooms[index].copyWith(room: updated, state: RoomState.expired);
+      notifyListeners();
+    }
+    return updated;
+  }
+
+  @override
+  Future<void> leaveRoom(String roomId) async {
+    _rooms.removeWhere((r) => r.room.id == roomId);
+    if (_mockCurrentRoom?.id == roomId) _mockCurrentRoom = null;
+    notifyListeners();
+  }
+
+  @override
+  Future<Room> setTransportLock({required String roomId, required bool locked}) async {
+    final r = await fetchRoom(roomId);
+    final updated = r!.copyWith(transportLock: locked);
+    final index = _rooms.indexWhere((m) => m.room.id == roomId);
+    if (index != -1) {
+      _rooms[index] = _rooms[index].copyWith(room: updated);
+      notifyListeners();
+    }
+    return updated;
+  }
+
+  @override
+  Future<bool> updateMediaPosition({required String roomId, required Duration position}) async {
+    return true;
+  }
+
+  @override
+  Future<void> kickMember({
+    required String roomId,
+    required String userId,
+    required bool allowRejoin,
+  }) async {
+    mockMembersList.removeWhere((m) => m.userId == userId);
   }
 }
 
@@ -425,7 +565,7 @@ class MockSyncBackend implements SyncBackend {
   }
 
   @override
-  Future<Room?> fetchRoom(String roomId) async => room;
+  Future<Room?> fetchRoom(String roomId) async => RoomService.instance.fetchRoom(roomId);
 
   @override
   Future<List<ChatMessage>> loadChatHistory(String roomId) async => chatHistory;

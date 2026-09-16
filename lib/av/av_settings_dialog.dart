@@ -7,6 +7,7 @@ import 'package:livekit_client/livekit_client.dart' as lk;
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:synctogether/av/device_preference_service.dart';
+import 'package:synctogether/av/livekit_service.dart';
 import 'package:synctogether/av/macos_audio_devices.dart';
 import 'package:synctogether/ui/buttons.dart';
 import 'package:synctogether/ui/glass.dart';
@@ -106,40 +107,48 @@ class _AvSettingsDialogContentState extends State<_AvSettingsDialogContent> {
       }
 
       List<lk.MediaDevice> inputs;
-      if (widget.enumerateAudioInputs != null) {
-        inputs = await widget.enumerateAudioInputs!();
-      } else if (Platform.isMacOS) {
-        inputs = MacOSAudioDevices.getAudioInputs();
-        if (inputs.isEmpty) {
-          inputs = await lk.Hardware.instance.audioInputs();
-        }
-      } else {
-        inputs = [];
-        for (var i = 0; i < 4; i++) {
-          inputs = await lk.Hardware.instance.audioInputs();
-          if (inputs.isNotEmpty) break;
-          await Future.delayed(const Duration(milliseconds: 300));
-        }
-      }
-
-      final videos = widget.enumerateVideoInputs != null
-          ? await widget.enumerateVideoInputs!()
-          : await lk.Hardware.instance.videoInputs();
-
+      List<lk.MediaDevice> videos;
       List<lk.MediaDevice> outputs;
-      if (widget.enumerateAudioOutputs != null) {
-        outputs = await widget.enumerateAudioOutputs!();
-      } else if (Platform.isMacOS) {
-        outputs = MacOSAudioDevices.getAudioOutputs();
-        if (outputs.isEmpty) {
-          outputs = await lk.Hardware.instance.audioOutputs();
-        }
+
+      if (LiveKitService.isMockMode) {
+        inputs = const [lk.MediaDevice('mock-mic-1', 'Default Microphone', 'audioinput', null)];
+        videos = const [lk.MediaDevice('mock-cam-1', 'FaceTime HD Camera', 'videoinput', null)];
+        outputs = const [lk.MediaDevice('mock-out-1', 'Default Speaker', 'audiooutput', null)];
       } else {
-        outputs = [];
-        for (var i = 0; i < 4; i++) {
-          outputs = await lk.Hardware.instance.audioOutputs();
-          if (outputs.isNotEmpty) break;
-          await Future.delayed(const Duration(milliseconds: 300));
+        if (widget.enumerateAudioInputs != null) {
+          inputs = await widget.enumerateAudioInputs!();
+        } else if (Platform.isMacOS) {
+          inputs = MacOSAudioDevices.getAudioInputs();
+          if (inputs.isEmpty) {
+            inputs = await lk.Hardware.instance.audioInputs();
+          }
+        } else {
+          inputs = [];
+          for (var i = 0; i < 4; i++) {
+            inputs = await lk.Hardware.instance.audioInputs();
+            if (inputs.isNotEmpty) break;
+            await Future.delayed(const Duration(milliseconds: 300));
+          }
+        }
+
+        videos = widget.enumerateVideoInputs != null
+            ? await widget.enumerateVideoInputs!()
+            : await lk.Hardware.instance.videoInputs();
+
+        if (widget.enumerateAudioOutputs != null) {
+          outputs = await widget.enumerateAudioOutputs!();
+        } else if (Platform.isMacOS) {
+          outputs = MacOSAudioDevices.getAudioOutputs();
+          if (outputs.isEmpty) {
+            outputs = await lk.Hardware.instance.audioOutputs();
+          }
+        } else {
+          outputs = [];
+          for (var i = 0; i < 4; i++) {
+            outputs = await lk.Hardware.instance.audioOutputs();
+            if (outputs.isNotEmpty) break;
+            await Future.delayed(const Duration(milliseconds: 300));
+          }
         }
       }
 
@@ -270,6 +279,11 @@ class _AvSettingsDialogContentState extends State<_AvSettingsDialogContent> {
   Future<void> _playTestSound() async {
     if (_isPlayingTestSound) return;
     setState(() => _isPlayingTestSound = true);
+    if (LiveKitService.isMockMode) {
+      await Future.delayed(const Duration(milliseconds: 600));
+      if (mounted) setState(() => _isPlayingTestSound = false);
+      return;
+    }
     try {
       if (widget.onTestSound != null) {
         await widget.onTestSound!(_selectedOutput);

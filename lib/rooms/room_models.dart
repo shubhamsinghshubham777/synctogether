@@ -247,6 +247,22 @@ class MyRoom {
   bool get isExpired => state == .expired;
   bool get isDormant => false;
 
+  MyRoom copyWith({
+    Room? room,
+    RoomState? state,
+    String? role,
+    int? memberCount,
+    bool? isOwner,
+    bool? isMember,
+  }) => MyRoom(
+    room: room ?? this.room,
+    state: state ?? this.state,
+    role: role ?? this.role,
+    memberCount: memberCount ?? this.memberCount,
+    isOwner: isOwner ?? this.isOwner,
+    isMember: isMember ?? this.isMember,
+  );
+
   factory MyRoom.fromJson(Map<String, dynamic> json) => MyRoom(
     room: Room.fromJson(json),
     state: RoomState.fromWire(json['state'] as String?),

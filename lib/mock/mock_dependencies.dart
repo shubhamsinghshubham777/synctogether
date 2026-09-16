@@ -45,14 +45,14 @@ const mockCurrentProfile = Profile(
 
 final mockRoomOne = Room(
   id: 'demo-room-1',
-  name: 'Interstellar Movie Night',
+  name: 'Cosmic Voyage Screening',
   code: 'X7K9P2',
   createdBy: 'user-alex',
   durationMinutes: 150,
   maxMembers: 8,
   avLevel: .video,
   mediaKind: .local,
-  mediaName: 'Interstellar.2014.2160p.UHD.mkv',
+  mediaName: 'Cosmic_Voyage_CC_4K.mp4',
   mediaDuration: const Duration(hours: 2, minutes: 49, seconds: 3),
   persistent: true,
   createdAt: DateTime.now().subtract(const Duration(minutes: 84)),
@@ -61,14 +61,14 @@ final mockRoomOne = Room(
 
 final mockRoomTwo = Room(
   id: 'demo-room-2',
-  name: 'Cyberpunk Anime Night',
+  name: 'Open Source Animation Showcase',
   code: 'K4M8Y1',
   createdBy: 'user-alex',
   durationMinutes: 120,
   maxMembers: 8,
   avLevel: .voice,
   mediaKind: .local,
-  mediaName: 'Edgerunners_Ep04_1080p.mp4',
+  mediaName: 'Big_Buck_Bunny_1080p.mp4',
   mediaDuration: const Duration(minutes: 24, seconds: 10),
   persistent: true,
   createdAt: DateTime.now().subtract(const Duration(hours: 5)),
@@ -77,14 +77,14 @@ final mockRoomTwo = Room(
 
 final mockRoomThree = Room(
   id: 'demo-room-3',
-  name: 'Studio Ghibli Favorites',
+  name: 'Indie Short Film Night',
   code: 'N9P2L5',
   createdBy: 'user-alex',
   durationMinutes: 180,
   maxMembers: 8,
   avLevel: .voice,
   mediaKind: .local,
-  mediaName: 'Spirited_Away_Remaster.mkv',
+  mediaName: 'Tears_of_Steel_4K.mkv',
   mediaDuration: const Duration(hours: 2, minutes: 5),
   persistent: true,
   createdAt: DateTime.now().subtract(const Duration(days: 1)),
@@ -129,7 +129,7 @@ final mockPresentList = [
     role: 'host',
     joinedAt: DateTime.now().subtract(const Duration(minutes: 84)),
     readyStatus: .ready,
-    loadedFileName: 'Interstellar.2014.2160p.UHD.mkv',
+    loadedFileName: 'Cosmic_Voyage_CC_4K.mp4',
   ),
   PresentMember(
     userId: 'user-sarah',
@@ -137,7 +137,7 @@ final mockPresentList = [
     role: 'member',
     joinedAt: DateTime.now().subtract(const Duration(minutes: 75)),
     readyStatus: .ready,
-    loadedFileName: 'Interstellar.2014.2160p.UHD.mkv',
+    loadedFileName: 'Cosmic_Voyage_CC_4K.mp4',
   ),
   PresentMember(
     userId: 'user-david',
@@ -145,7 +145,7 @@ final mockPresentList = [
     role: 'member',
     joinedAt: DateTime.now().subtract(const Duration(minutes: 60)),
     readyStatus: .ready,
-    loadedFileName: 'Interstellar.2014.2160p.UHD.mkv',
+    loadedFileName: 'Cosmic_Voyage_CC_4K.mp4',
   ),
   PresentMember(
     userId: 'user-elena',
@@ -153,7 +153,7 @@ final mockPresentList = [
     role: 'guest',
     joinedAt: DateTime.now().subtract(const Duration(minutes: 40)),
     readyStatus: .ready,
-    loadedFileName: 'Interstellar.2014.2160p.UHD.mkv',
+    loadedFileName: 'Cosmic_Voyage_CC_4K.mp4',
   ),
 ];
 
@@ -173,7 +173,7 @@ final mockChatMessagesList = [
   ChatMessage(
     senderId: 'user-alex',
     displayName: 'Alex Rivers',
-    content: 'Wait for the wormhole transition at 01:25:00... pure chills.',
+    content: 'Wait for the orbital sequence at 01:25:00... pure chills.',
     sentAt: DateTime.now().subtract(const Duration(minutes: 1)),
   ),
   ChatMessage(

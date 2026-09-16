@@ -60,7 +60,7 @@ GoRouter buildRouter([Player? player]) {
           GoRoute(
             path: 'subscribe',
             redirect: (context, state) {
-              if (isAppleStoreBuild && !EntitlementService.instance.isPremium) {
+              if (isAppleStoreBuild) {
                 return '/lobby';
               }
               return null;

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:material_symbols_icons/symbols.dart';
 import 'package:synctogether/profile/entitlement_service.dart';
 import 'package:synctogether/profile/profile_models.dart';
 import 'package:synctogether/profile/profile_screen.dart';
@@ -228,6 +229,40 @@ void main() {
 
       expect(prefs.getBool('pt.media_sharing.remember_choice'), isTrue);
       expect(find.text('Reset to ask every time'), findsOneWidget);
+    });
+
+    testWidgets('tapping avatar opens options dialog with camera and file choices', (tester) async {
+      tester.view.physicalSize = const Size(1200, 1000);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      ProfileService.instance.setProfileForTesting(
+        const Profile(
+          id: 'user-1',
+          displayName: 'Alex Smith',
+          isGuest: false,
+          email: 'alex@example.com',
+        ),
+      );
+      EntitlementService.instance.setLimitsForTesting(TierLimits.fallback);
+
+      await tester.pumpWidget(
+        MaterialApp(builder: buildResponsiveWrapper, home: const ProfileScreen()),
+      );
+      await tester.pumpAndSettle();
+
+      final avatarCameraBtn = find.byIcon(Symbols.photo_camera_rounded);
+      expect(avatarCameraBtn, findsOneWidget);
+
+      await tester.tap(avatarCameraBtn);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Profile Photo'), findsOneWidget);
+      expect(find.text('Take photo with camera'), findsOneWidget);
+      expect(find.text('Choose image file'), findsOneWidget);
     });
   });
 }

@@ -55,6 +55,12 @@ function AccountDashboard() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const isSubscribedRedirect = searchParams.get("subscribed") === "true";
+  // Pulled out as primitives so the loader below depends on the two params it
+  // actually reads, rather than on the whole searchParams object - which would
+  // re-run the account fetch and re-open the realtime channel on any query
+  // string change.
+  const errorDescriptionParam = searchParams.get("error_description");
+  const errorParam = searchParams.get("error");
   const supabase = createClient();
 
   useEffect(() => {
@@ -122,7 +128,11 @@ function AccountDashboard() {
           if (typeof window !== "undefined") {
             const rawHash = window.location.hash ? (window.location.hash.startsWith("#") ? window.location.hash.slice(1) : window.location.hash) : "";
             const hashParams = new URLSearchParams(rawHash);
-            const errDesc = hashParams.get("error_description") || hashParams.get("error") || searchParams.get("error_description") || searchParams.get("error");
+            const errDesc =
+              hashParams.get("error_description") ||
+              hashParams.get("error") ||
+              errorDescriptionParam ||
+              errorParam;
             if (errDesc) {
               target += `&error=${encodeURIComponent(errDesc.replace(/\+/g, " "))}` + (window.location.hash || "");
             }
@@ -209,7 +219,7 @@ function AccountDashboard() {
         supabase.removeChannel(channel);
       }
     };
-  }, [router, supabase]);
+  }, [router, supabase, errorDescriptionParam, errorParam]);
 
   useEffect(() => {
     if (!isSubscribedRedirect) return;

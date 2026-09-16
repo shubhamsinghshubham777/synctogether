@@ -14,7 +14,7 @@ import 'package:synctogether/ui/pt_theme.dart';
 Future<Uint8List?> showCameraCaptureDialog(BuildContext context) {
   return showGlassDialog<Uint8List>(
     context: context,
-    width: 380,
+    width: 400,
     padding: const EdgeInsets.all(24),
     builder: (dialogContext) => const CameraCaptureDialog(),
   );
@@ -33,34 +33,90 @@ class _CameraCaptureDialogState extends State<CameraCaptureDialog> {
   bool _initializing = true;
   bool _capturing = false;
   String? _error;
+  List<rtc.MediaDeviceInfo> _cameras = const [];
+  String? _selectedCameraId;
 
   @override
   void initState() {
     super.initState();
-    _startCamera();
+    _initAndStart();
   }
 
-  Future<void> _startCamera() async {
+  Future<void> _initAndStart() async {
     try {
       await _renderer.initialize();
+      await _startCamera();
+    } catch (e, s) {
+      reportNonFatal(e, s, during: 'initializing renderer for camera capture');
+      if (mounted) {
+        setState(() {
+          _initializing = false;
+          _error = 'Could not initialize video renderer.';
+        });
+      }
+    }
+  }
+
+  Future<void> _stopStream() async {
+    final stream = _stream;
+    if (stream != null) {
+      for (final track in stream.getTracks()) {
+        track.stop();
+      }
+      await stream.dispose();
+      _stream = null;
+    }
+  }
+
+  Future<void> _startCamera([String? targetDeviceId]) async {
+    try {
+      await _stopStream();
+
+      final Map<String, dynamic> videoConstraints = {'width': 720, 'height': 720};
+      if (targetDeviceId != null && targetDeviceId.isNotEmpty) {
+        videoConstraints['deviceId'] = targetDeviceId;
+      } else {
+        videoConstraints['facingMode'] = 'user';
+      }
+
       final stream = await rtc.navigator.mediaDevices.getUserMedia({
         'audio': false,
-        'video': {'facingMode': 'user', 'width': 720, 'height': 720},
+        'video': videoConstraints,
       });
+
       if (!mounted) {
         for (final track in stream.getTracks()) {
           track.stop();
         }
         await stream.dispose();
-        await _renderer.dispose();
         return;
       }
+
       _stream = stream;
       _renderer.srcObject = stream;
-      setState(() {
-        _initializing = false;
-        _error = null;
-      });
+
+      // Enumerate camera devices after permission is granted
+      List<rtc.MediaDeviceInfo> videoDevices = const [];
+      try {
+        final devices = await rtc.navigator.mediaDevices.enumerateDevices();
+        videoDevices = devices.where((d) => d.kind == 'videoinput').toList();
+      } catch (e, s) {
+        reportNonFatal(e, s, during: 'enumerating video input devices');
+      }
+
+      String? activeId = targetDeviceId;
+      if (activeId == null || !videoDevices.any((d) => d.deviceId == activeId)) {
+        activeId = videoDevices.firstOrNull?.deviceId;
+      }
+
+      if (mounted) {
+        setState(() {
+          _cameras = videoDevices;
+          _selectedCameraId = activeId;
+          _initializing = false;
+          _error = null;
+        });
+      }
     } catch (e, s) {
       reportNonFatal(e, s, during: 'starting camera for profile photo');
       if (mounted) {
@@ -71,6 +127,15 @@ class _CameraCaptureDialogState extends State<CameraCaptureDialog> {
         });
       }
     }
+  }
+
+  Future<void> _onCameraChanged(String? newDeviceId) async {
+    if (newDeviceId == null || newDeviceId == _selectedCameraId || _capturing) return;
+    setState(() {
+      _initializing = true;
+      _selectedCameraId = newDeviceId;
+    });
+    await _startCamera(newDeviceId);
   }
 
   Future<void> _capturePhoto() async {
@@ -132,8 +197,8 @@ class _CameraCaptureDialogState extends State<CameraCaptureDialog> {
         const SizedBox(height: 20),
         Center(
           child: Container(
-            width: 260,
-            height: 260,
+            width: 250,
+            height: 250,
             decoration: BoxDecoration(
               shape: .circle,
               color: PTColors.dialogGlassBase,
@@ -149,6 +214,7 @@ class _CameraCaptureDialogState extends State<CameraCaptureDialog> {
             child: ClipOval(child: _buildCameraPreview()),
           ),
         ),
+        if (_cameras.isNotEmpty) ...[const SizedBox(height: 16), _buildCameraSelector()],
         if (_error != null) ...[
           const SizedBox(height: 16),
           Container(
@@ -190,6 +256,56 @@ class _CameraCaptureDialogState extends State<CameraCaptureDialog> {
           ],
         ),
       ],
+    );
+  }
+
+  Widget _buildCameraSelector() {
+    final currentId = _selectedCameraId ?? _cameras.firstOrNull?.deviceId;
+    final hasMatch = _cameras.any((c) => c.deviceId == currentId);
+    final value = hasMatch ? currentId : _cameras.firstOrNull?.deviceId;
+
+    return Container(
+      height: 44,
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      decoration: BoxDecoration(
+        color: PTColors.white(0.05),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: PTColors.white(0.1)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Symbols.videocam_rounded, size: 18, color: PTColors.textAccent),
+          const SizedBox(width: 10),
+          Expanded(
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<String>(
+                isExpanded: true,
+                value: value,
+                dropdownColor: const Color(0xFF1B172C),
+                icon: const Icon(
+                  Symbols.keyboard_arrow_down_rounded,
+                  size: 18,
+                  color: PTColors.textAccent,
+                ),
+                style: PTText.body.copyWith(fontSize: 13, color: Colors.white),
+                items: [
+                  for (int i = 0; i < _cameras.length; i++)
+                    DropdownMenuItem<String>(
+                      value: _cameras[i].deviceId,
+                      child: Text(
+                        _cameras[i].label.trim().isNotEmpty ? _cameras[i].label : 'Camera ${i + 1}',
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                ],
+                onChanged: _capturing || _initializing || _cameras.length <= 1
+                    ? null
+                    : _onCameraChanged,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 

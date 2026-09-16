@@ -155,6 +155,12 @@ final mockPresentList = [
   ),
 ];
 
+/// Keep every line **media-agnostic**. These are what the store screenshots
+/// capture, and the footage behind them changes: a line naming what is on
+/// screen ("this cosmic sequence") or pointing at a timestamp ("at 01:25:00")
+/// goes stale the moment the demo plays something else, and reads as fake when
+/// it contradicts the transport bar in the same frame. Praise the picture, the
+/// sync or the company - never the plot.
 final mockChatMessagesList = [
   ChatMessage(
     senderId: 'user-david',
@@ -165,13 +171,13 @@ final mockChatMessagesList = [
   ChatMessage(
     senderId: 'user-sarah',
     displayName: 'Sarah Chen',
-    content: 'The color grading in this cosmic sequence is unbelievable!',
+    content: 'The color grading in this shot is unbelievable!',
     sentAt: DateTime.now().subtract(const Duration(minutes: 2)),
   ),
   ChatMessage(
     senderId: 'user-alex',
     displayName: 'Alex Rivers',
-    content: 'Wait for the orbital sequence at 01:25:00... pure chills.',
+    content: 'Okay nobody scrub, this next bit is the best part.',
     sentAt: DateTime.now().subtract(const Duration(minutes: 1)),
   ),
   ChatMessage(

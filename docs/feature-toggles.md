@@ -115,6 +115,39 @@ update public.app_settings
 | `free_tier_max_file_bytes` | 2 GB | Largest single file a free account may upload. |
 | `premium_max_file_bytes` | 10 GB | Same, for Premium. |
 
+Changing either cap here is only half the job - `EntitlementService.mediaSharingMaxSizeBytes`
+inlines the same two numbers as a client-side pre-check, so an edit that is not
+mirrored there leaves the app refusing a file the server would have taken (or
+offering one it will reject). The weekly allowance lives in `tier_limits` above,
+not here.
+
+---
+
+## 3b. `app_settings` — R2 cleanup
+
+```sql
+select value from public.app_settings where key = 'r2_cleanup';
+```
+
+| Field | Ships as | What it does |
+|---|---|---|
+| `enabled` | `true` | Master switch for the deletion sweeper. |
+| `endpoint_url` | **`null`** | Full URL of the `cleanup-r2` Edge Function. |
+| `service_role_key` | **`null`** | Bearer token the cron calls it with. |
+
+**Two of these ship NULL, so nothing is collected until an operator fills them
+in.** The `invoke-r2-cleanup` cron runs every 5 minutes, finds no endpoint, and
+returns quietly; `invoke_r2_cleanup` only ever `raise warning`s, so a
+misconfiguration is silent by design. Everything still *enqueues* correctly to
+`pending_r2_deletions` in the meantime - the rows simply accumulate, and the
+objects stay in the bucket and keep costing money. Check the queue depth rather
+than assuming, and note that `cleanup-r2` permanently drops a row once
+`attempts >= 5`, so a key that keeps failing is leaked deliberately:
+
+```sql
+select count(*), max(attempts) from public.pending_r2_deletions;
+```
+
 ---
 
 ## 4. Dart defines — whole subsystems

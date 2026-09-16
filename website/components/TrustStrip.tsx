@@ -4,7 +4,7 @@ import { SITE_CONFIG } from "@/lib/constants";
 import { getPublicStats } from "@/lib/public-metrics";
 
 const ITEMS: { icon: typeof GitBranch; label: string; href?: string }[] = [
-  { icon: GitBranch, label: "Open source", href: SITE_CONFIG.githubRepo },
+  { icon: GitBranch, label: "Source available", href: SITE_CONFIG.githubRepo },
   { icon: HardDrive, label: "Private by default" },
   { icon: ShieldCheck, label: "Signed & notarized" },
   { icon: RefreshCw, label: "Automatic updates" },

@@ -10,34 +10,34 @@ dependencies:
   app_links: 7.2.1
   clock: 1.1.2
   collection: 1.19.1
-  crypto: 3.0.6
-  fast_file_picker: 0.4.8
+  crypto: 3.0.7
+  fast_file_picker: 1.0.2
   file_selector: 1.1.0
   flutter:
     sdk: flutter
   flutter_inappwebview: 6.1.5
-  flutter_webrtc: 1.4.0
+  flutter_webrtc: 1.6.2+hotfix.3
   go_router: 17.3.0
-  image: 4.9.1
-  livekit_client: 2.8.1
+  image: 4.10.1
+  livekit_client: 2.13.0
   lottie: 3.5.1
   material_symbols_icons: 4.2960.0
   media_kit: 1.2.6
   media_kit_video: 2.0.1
   media_kit_libs_video: 1.0.7
-  mime: 2.0.0
-  package_info_plus: 9.0.1
+  mime: 2.1.0
+  package_info_plus: 10.2.1
   path: 1.9.1
-  path_provider: 2.1.5
+  path_provider: 2.1.6
   responsive_framework: 1.5.1
-  sentry_flutter: 9.25.0
+  sentry_flutter: 9.30.0
   shared_preferences: 2.5.5
   sign_in_with_apple: 8.2.0
   storage_space: 1.2.0
-  supabase_flutter: 2.16.0
+  supabase_flutter: 2.17.2
   url_launcher: 6.3.2
   uuid: 4.6.0
-  wakelock_plus: 1.4.0
+  wakelock_plus: 1.8.0
   window_manager: 0.5.2
 
 dev_dependencies:
@@ -46,7 +46,7 @@ dev_dependencies:
     sdk: flutter
   flutter_launcher_icons: 0.14.4
   flutter_lints: 6.0.0
-  inno_bundle: 0.11.2
+  inno_bundle: 0.12.0
   msix: 3.18.0
 
 flutter:

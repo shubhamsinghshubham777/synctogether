@@ -1,10 +1,26 @@
 import 'dart:async';
+import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import 'pt_motion.dart';
 import 'pt_theme.dart';
+
+ImageProvider _resolveAvatarImage(String url) {
+  if (url.startsWith('file://')) {
+    return FileImage(File(Uri.parse(url).toFilePath()));
+  }
+  if (url.startsWith('/') ||
+      (!kIsWeb && defaultTargetPlatform == TargetPlatform.windows && url.contains(r':\'))) {
+    return FileImage(File(url));
+  }
+  if (url.startsWith('assets/')) {
+    return AssetImage(url);
+  }
+  return NetworkImage(url);
+}
 
 /// Gradient avatar with the per-user fixed gradient; falls back to the first
 /// letter of the display name when there is no photo.
@@ -42,7 +58,11 @@ class PTAvatar extends StatelessWidget {
         shape: .circle,
         border: ringColor != null ? Border.all(color: ringColor!, width: 2) : null,
         image: avatarUrl != null
-            ? DecorationImage(image: NetworkImage(avatarUrl!), fit: .cover)
+            ? DecorationImage(
+                image: _resolveAvatarImage(avatarUrl!),
+                fit: .cover,
+                onError: (_, _) {},
+              )
             : null,
       ),
       alignment: .center,

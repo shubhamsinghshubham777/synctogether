@@ -697,52 +697,56 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     final av = _av;
     if (av == null || !mounted) return;
 
-    final prefService = DevicePreferenceService.instance;
-    await prefService.init();
+    try {
+      final prefService = DevicePreferenceService.instance;
+      await prefService.init();
 
-    // 1. Microphone
-    final audioInputs = await av.audioInputDevices();
-    final resolvedMic = prefService.resolveDevice(audioInputs, prefService.preferredMic);
-    if (resolvedMic != null && resolvedMic.deviceId != av.selectedAudioInputId) {
-      await av.setAudioInputDevice(resolvedMic);
-    }
-
-    // 2. Camera
-    final videoInputs = await av.videoInputDevices();
-    final resolvedCam = prefService.resolveDevice(videoInputs, prefService.preferredCam);
-    if (resolvedCam != null && resolvedCam.deviceId != av.selectedVideoInputId) {
-      await av.setVideoInputDevice(resolvedCam);
-    }
-
-    // 3. Audio Output (routes to LiveKit and media_kit player in local mode)
-    final audioOutputs = await av.audioOutputDevices();
-    final resolvedOutput = prefService.resolveDevice(audioOutputs, prefService.preferredOutput);
-    if (resolvedOutput != null) {
-      if (resolvedOutput.deviceId != av.selectedAudioOutputId) {
-        await av.setAudioOutputDevice(resolvedOutput);
+      // 1. Microphone
+      final audioInputs = await av.audioInputDevices();
+      final resolvedMic = prefService.resolveDevice(audioInputs, prefService.preferredMic);
+      if (resolvedMic != null && resolvedMic.deviceId != av.selectedAudioInputId) {
+        await av.setAudioInputDevice(resolvedMic);
       }
-      if (_mode == .local) {
-        final playerDevices = _player.state.audioDevices;
-        final match = playerDevices.where((d) {
-          final devDesc = d.description.trim().toLowerCase();
-          final targetLabel = resolvedOutput.label.trim().toLowerCase();
-          final devName = d.name.trim().toLowerCase();
-          final targetId = resolvedOutput.deviceId.trim().toLowerCase();
-          return (devDesc.isNotEmpty &&
-                  (devDesc == targetLabel ||
-                      targetLabel.contains(devDesc) ||
-                      devDesc.contains(targetLabel))) ||
-              (targetId.isNotEmpty && devName.contains(targetId));
-        }).firstOrNull;
-        if (match != null) {
-          unawaited(_player.setAudioDevice(match));
-          trace(
-            'applied default player audio device',
-            category: 'media',
-            data: {'device': match.name, 'label': resolvedOutput.label},
-          );
+
+      // 2. Camera
+      final videoInputs = await av.videoInputDevices();
+      final resolvedCam = prefService.resolveDevice(videoInputs, prefService.preferredCam);
+      if (resolvedCam != null && resolvedCam.deviceId != av.selectedVideoInputId) {
+        await av.setVideoInputDevice(resolvedCam);
+      }
+
+      // 3. Audio Output (routes to LiveKit and media_kit player in local mode)
+      final audioOutputs = await av.audioOutputDevices();
+      final resolvedOutput = prefService.resolveDevice(audioOutputs, prefService.preferredOutput);
+      if (resolvedOutput != null) {
+        if (resolvedOutput.deviceId != av.selectedAudioOutputId) {
+          await av.setAudioOutputDevice(resolvedOutput);
+        }
+        if (_mode == .local) {
+          final playerDevices = _player.state.audioDevices;
+          final match = playerDevices.where((d) {
+            final devDesc = d.description.trim().toLowerCase();
+            final targetLabel = resolvedOutput.label.trim().toLowerCase();
+            final devName = d.name.trim().toLowerCase();
+            final targetId = resolvedOutput.deviceId.trim().toLowerCase();
+            return (devDesc.isNotEmpty &&
+                    (devDesc == targetLabel ||
+                        targetLabel.contains(devDesc) ||
+                        devDesc.contains(targetLabel))) ||
+                (targetId.isNotEmpty && devName.contains(targetId));
+          }).firstOrNull;
+          if (match != null) {
+            unawaited(_player.setAudioDevice(match));
+            trace(
+              'applied default player audio device',
+              category: 'media',
+              data: {'device': match.name, 'label': resolvedOutput.label},
+            );
+          }
         }
       }
+    } catch (e, s) {
+      reportNonFatal(e, s, during: 'applying preferred AV devices');
     }
   }
 
@@ -1764,12 +1768,14 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     _resumeAttempted = true;
     final held = resumeSeekPosition(held: _room?.mediaPosition, mediaDuration: media.duration);
 
-    if (kDemoMode) {
+    if (kDemoMode || LiveKitService.isMockMode) {
       _resolveFirstSource();
       _idleSourceTimer?.cancel();
+      _localFileName = media.name ?? 'Cosmic_Voyage_CC_4K.mp4';
       _duration = media.duration ?? const Duration(hours: 2, minutes: 49, seconds: 3);
       _position = _room?.mediaPosition ?? const Duration(hours: 1, minutes: 24, seconds: 18);
       _playing = true;
+      _updateReadiness();
       setState(() {});
       return;
     }
@@ -2510,6 +2516,14 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
       }
       _sync?.broadcastSeek(currentPosition, reason: SyncActionReason.transport);
     } else {
+      if (LiveKitService.isMockMode && _player.state.duration == Duration.zero) {
+        setState(() => _playing = !_playing);
+        _playing ? _sync?.broadcastPlay() : _sync?.broadcastPause();
+        if (_playing) _trackPlaybackStarted();
+        _sync?.broadcastSeek(_position, reason: SyncActionReason.transport);
+        unawaited(_persistPosition());
+        return;
+      }
       final currentPosition = _player.state.position;
       _player.playOrPause();
       _playing ? _sync?.broadcastPause() : _sync?.broadcastPlay();
@@ -2531,7 +2545,11 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
       if (!_ytReady) return false;
       _ytSeekKeepingPlayState(clamped);
     } else {
-      _player.seek(clamped);
+      if (LiveKitService.isMockMode && _player.state.duration == Duration.zero) {
+        setState(() => _position = clamped);
+      } else {
+        _player.seek(clamped);
+      }
     }
     _sync?.broadcastSeek(clamped);
     unawaited(_persistPosition());
@@ -2856,6 +2874,17 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
         _sync?.broadcastRoomEnded();
       }
       _onRoomEnded(reason: 'expiry');
+    }
+    if (LiveKitService.isMockMode &&
+        _playing &&
+        _mode == .local &&
+        _player.state.duration == Duration.zero) {
+      setState(() {
+        _position += const Duration(seconds: 1);
+        if (_duration != Duration.zero && _position > _duration) {
+          _position = Duration.zero;
+        }
+      });
     }
   }
 
@@ -3824,7 +3853,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
       fit: .expand,
       children: [
         if (_mode == .local)
-          _player.state.duration > Duration.zero || !kDemoMode
+          _player.state.duration > Duration.zero || (!kDemoMode && !LiveKitService.isMockMode)
               ? Video(
                   controller: controller,
                   controls: NoVideoControls,

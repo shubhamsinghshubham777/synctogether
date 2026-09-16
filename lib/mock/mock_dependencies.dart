@@ -159,7 +159,7 @@ final mockChatMessagesList = [
   ChatMessage(
     senderId: 'user-david',
     displayName: 'David Kim',
-    content: 'Audio and video are locked in down to the millisecond!',
+    content: 'Audio and video are locked in for everyone!',
     sentAt: DateTime.now().subtract(const Duration(minutes: 3)),
   ),
   ChatMessage(

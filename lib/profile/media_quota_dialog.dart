@@ -96,14 +96,14 @@ class MediaQuotaDialogBody extends StatelessWidget {
                     children: [
                       Text('Media Sharing Quota', style: PTText.cardHeading),
                       Text(
-                        isPrem
+                        isPrem && !isAppleStoreBuild
                             ? 'Unlimited with Premium'
                             : isGuest
                             ? 'Sign in to unlock weekly quota'
                             : '${Profile.formatBytes(remainingBytes)} of ${Profile.formatBytes(weeklyLimit)} remaining',
                         style: PTText.caption.copyWith(
                           fontSize: 12,
-                          color: isPrem
+                          color: isPrem && !isAppleStoreBuild
                               ? PTColors.textAccent
                               : remainingBytes < 1024 * 1024 * 1024 && !isGuest
                               ? PTColors.warning
@@ -131,7 +131,7 @@ class MediaQuotaDialogBody extends StatelessWidget {
                   if (quotaContext != null) _ContextualBlockageCard(quotaContext: quotaContext!),
 
                   // Live Meter Card
-                  if (isPrem)
+                  if (isPrem && !isAppleStoreBuild)
                     Container(
                       padding: const EdgeInsets.all(14),
                       decoration: BoxDecoration(
@@ -262,17 +262,18 @@ class MediaQuotaDialogBody extends StatelessWidget {
                         ),
                         _FeatureRow(
                           icon: Symbols.person_rounded,
-                          title: 'Free Plan (\$0/mo)',
+                          title: isAppleStoreBuild ? 'Included Quota' : 'Free Plan (\$0/mo)',
                           description:
                               '2.5 GB weekly quota • Up to 2.0 GB single file • Room duration up to 4 hrs.',
                         ),
-                        _FeatureRow(
-                          icon: Symbols.workspace_premium_rounded,
-                          title: 'Premium Plan',
-                          description:
-                              'Unlimited weekly uploads • Up to 10.0 GB single file • 24h rooms & facecams.',
-                          highlight: true,
-                        ),
+                        if (!isAppleStoreBuild)
+                          _FeatureRow(
+                            icon: Symbols.workspace_premium_rounded,
+                            title: 'Premium Plan',
+                            description:
+                                'Unlimited weekly uploads • Up to 10.0 GB single file • 24h rooms & facecams.',
+                            highlight: true,
+                          ),
                       ],
                     ),
                   ),
@@ -572,7 +573,9 @@ class _ContextualBlockageCard extends StatelessWidget {
                         if (reason == .singleFileLimitExceeded && maxBytes != null) ...[
                           Expanded(
                             child: _MetricBadge(
-                              label: isPrem ? 'Premium Cap' : 'Free Plan Cap',
+                              label: isPrem
+                                  ? (isAppleStoreBuild ? 'Single-File Cap' : 'Premium Cap')
+                                  : (isAppleStoreBuild ? 'Single-File Cap' : 'Free Plan Cap'),
                               value: Profile.formatBytes(maxBytes),
                               highlightColor: PTColors.white(0.75),
                             ),

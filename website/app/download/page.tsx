@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { GlassPanel } from "@/components/GlassPanel";
 import { PTButton } from "@/components/PTButton";
 import { getLatestRelease } from "@/lib/github";
+import { normalizeRoomCode } from "@/lib/rewards";
 import {
   Download,
   Smartphone,
@@ -19,13 +20,36 @@ export const metadata: Metadata = {
 
 export const revalidate = 3600; // ISR hourly
 
-export default async function DownloadPage() {
-  const release = await getLatestRelease();
+export default async function DownloadPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ code?: string }>;
+}) {
+  const [release, { code }] = await Promise.all([getLatestRelease(), searchParams]);
+  // Carried over from /join/<code> when the invite found nothing installed.
+  // Desktop has no install-referrer, so the code cannot survive the installer -
+  // showing it here is what lets somebody write it down before they leave.
+  const inviteCode = normalizeRoomCode(code ?? "");
 
   return (
     <div className="relative py-10 md:py-14 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto space-y-12 md:space-y-14">
       {/* Background Ambient Glow */}
       <div className="glow-blob-purple top-10 left-1/2 -translate-x-1/2 opacity-30" />
+
+      {inviteCode && (
+        <div className="max-w-2xl mx-auto glass-panel rounded-2xl px-6 py-5 text-center space-y-2">
+          <p className="text-sm text-gray-300">
+            Someone invited you to a watch party. Install SyncTogether, then join with
+            this code:
+          </p>
+          <p className="font-[family-name:var(--font-jetbrains-mono)] text-3xl font-semibold tracking-[0.3em] text-white">
+            {inviteCode}
+          </p>
+          <p className="text-xs text-gray-500">
+            Worth writing down - it will not follow you through the installer.
+          </p>
+        </div>
+      )}
 
       {/* Header */}
       <div className="text-center max-w-3xl mx-auto space-y-4">

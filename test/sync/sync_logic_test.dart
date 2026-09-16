@@ -427,6 +427,54 @@ void main() {
       });
     });
 
+    group('gateHolderIds', () {
+      test('names only the members somebody is actually waiting on', () {
+        expect(
+          gateHolderIds(_localMedia, [
+            _member('ok', ready: .ready, file: 'movie.mkv'),
+            _member('loading', ready: .loading),
+            _member('wrong', ready: .ready, file: 'other.mkv'),
+          ]),
+          {'loading', 'wrong'},
+        );
+      });
+
+      test('nobody holds the gate when nobody has the file open yet', () {
+        // Room entry, and the seconds after every media change. Calling all of
+        // them blockers is what made "never held everyone up" unreachable.
+        expect(gateHolderIds(_localMedia, [_member('a'), _member('b'), _member('c')]), isEmpty);
+      });
+
+      test('nobody holds the gate before the room has any canonical media', () {
+        expect(gateHolderIds(RoomMedia.none, [_member('a'), _member('b')]), isEmpty);
+      });
+
+      test('nobody holds the gate when everyone is ready', () {
+        expect(
+          gateHolderIds(_localMedia, [
+            _member('a', ready: .ready, file: 'movie.mkv'),
+            _member('b', ready: .ready, file: 'movie.mkv'),
+          ]),
+          isEmpty,
+        );
+      });
+
+      test('watching alone never counts as holding anyone up', () {
+        expect(gateHolderIds(_localMedia, [_member('solo', ready: .loading)]), isEmpty);
+      });
+
+      test('a waived member is not held against, since nobody is waiting', () {
+        expect(
+          gateHolderIds(
+            _localMedia,
+            [_member('ok', ready: .ready, file: 'movie.mkv'), _member('slow', ready: .loading)],
+            waived: {'slow'},
+          ),
+          isEmpty,
+        );
+      });
+    });
+
     group('gate transitions', () {
       GateTransition? transition({
         required GateState previous,

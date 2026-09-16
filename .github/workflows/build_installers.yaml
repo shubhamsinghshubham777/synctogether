@@ -69,13 +69,13 @@ jobs:
           DMG_LENGTH: ${{ needs.macos.outputs.dmg_length }}
           WINDOWS_VERSION: ${{ needs.windows.outputs.app_version }}
           MACOS_VERSION: ${{ needs.macos.outputs.app_version }}
-          TAG: "v${{ needs.windows.outputs.app_version }}_${{ github.run_id }}"
+          TAG: "v${{ needs.windows.outputs.app_version }}"
           REPO: ${{ github.repository }}
         run: ./.github/scripts/generate-appcast.sh
 
       - name: Tag the built commit
         env:
-          TAG: "v${{ needs.windows.outputs.app_version }}_${{ github.run_id }}"
+          TAG: "v${{ needs.windows.outputs.app_version }}"
         run: |
           set -euo pipefail
           if git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null 2>&1; then
@@ -96,7 +96,7 @@ jobs:
             ./SyncTogether-${{ needs.macos.outputs.app_version }}-macOS.dmg
             ./appcast.xml
           name: "v${{ needs.windows.outputs.app_version }}"
-          tag_name: "v${{ needs.windows.outputs.app_version }}_${{ github.run_id }}"
+          tag_name: "v${{ needs.windows.outputs.app_version }}"
           body: |
             ${{ inputs.release_notes }}
 

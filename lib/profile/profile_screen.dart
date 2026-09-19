@@ -398,6 +398,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               children: [
                                 _nameField(profile),
                                 _emailField(profile),
+                                _passwordField(profile),
                                 _subscriptionSection(),
                                 _mediaQuotaSection(),
                                 _audioVideoSection(),
@@ -1180,6 +1181,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _audioVideoSection(),
         _nameField(profile),
         _emailField(profile),
+        _passwordField(profile),
         const Divider(),
         if (supportsSelfUpdate) ...[_updatesSection(), const Divider()],
         _blockedSection(),
@@ -1463,6 +1465,69 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  /// Lets an account set a password, so email sign-in is not code-only.
+  ///
+  /// There is deliberately no "you already have one" state: Supabase exposes
+  /// no flag for it, and inferring it from the identity list would be wrong
+  /// for anyone who signed up with a one-time code. Setting a password is
+  /// idempotent, so the control reads the same either way.
+  Widget _passwordField(Profile profile) {
+    if (profile.isGuest || (profile.email ?? '').isEmpty) return const SizedBox.shrink();
+    return Column(
+      crossAxisAlignment: .start,
+      spacing: 8,
+      children: [
+        Text('Password', style: PTText.caption),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+          decoration: BoxDecoration(
+            color: PTColors.white(0.03),
+            border: Border.all(color: PTColors.white(0.07)),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Row(
+            spacing: 12,
+            children: [
+              Expanded(
+                child: Text(
+                  'Sign in with a password instead of a code',
+                  style: PTText.body.copyWith(color: PTColors.white(0.5)),
+                ),
+              ),
+              PTButton(
+                label: 'Set password',
+                variant: .secondary,
+                height: 34,
+                expand: false,
+                onPressed: () => unawaited(_setPassword()),
+              ),
+            ],
+          ),
+        ),
+        Text(
+          'Optional. A 6-digit code always works, so forgetting this can never lock you out.',
+          style: PTText.finePrint.copyWith(color: PTColors.white(0.35)),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _setPassword() async {
+    final password = await showGlassDialog<String>(
+      context: context,
+      width: 420,
+      builder: (_) => const _SetPasswordDialog(),
+    );
+    if (password == null || !mounted) return;
+    try {
+      await AuthService.instance.setPassword(password);
+      if (mounted) _snack('Password saved. You can sign in with it next time.', kind: .success);
+    } catch (e, s) {
+      reportNonFatal(e, s, during: 'setting an account password');
+      if (mounted) _snack("Couldn't save that password - try again.");
+    }
+  }
+
   Widget _emailField(Profile profile) {
     return Column(
       crossAxisAlignment: .start,
@@ -1513,3 +1578,110 @@ class _ProfileScreenState extends State<ProfileScreen> {
 }
 
 enum _HeaderStyle { row, column }
+
+/// Collects a new account password. Pops the password, or null if cancelled.
+class _SetPasswordDialog extends StatefulWidget {
+  const _SetPasswordDialog();
+
+  @override
+  State<_SetPasswordDialog> createState() => _SetPasswordDialogState();
+}
+
+class _SetPasswordDialogState extends State<_SetPasswordDialog> {
+  final _password = TextEditingController();
+  final _confirm = TextEditingController();
+  bool _obscure = true;
+  String? _error;
+
+  /// The server enforces its own floor; this is the friendlier one, checked
+  /// here so the failure arrives before the round trip rather than after it.
+  static const _minLength = 8;
+
+  @override
+  void dispose() {
+    _password.dispose();
+    _confirm.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    final password = _password.text;
+    if (password.length < _minLength) {
+      setState(() => _error = 'Use at least $_minLength characters.');
+      return;
+    }
+    if (password != _confirm.text) {
+      setState(() => _error = "Those two don't match.");
+      return;
+    }
+    Navigator.of(context).pop(password);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: .min,
+      crossAxisAlignment: .stretch,
+      children: [
+        Row(
+          spacing: 10,
+          children: [
+            const Icon(Symbols.lock_rounded, size: 22, color: PTColors.textAccent),
+            Expanded(
+              child: Text('Set a password', style: PTText.screenTitle.copyWith(fontSize: 18)),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Text(
+          'You can then sign in with your email and this password. A 6-digit '
+          'code still works, so forgetting it is never a lockout.',
+          style: PTText.body.copyWith(color: PTColors.white(0.7), height: 1.45),
+        ),
+        const SizedBox(height: 16),
+        PTTextField(
+          controller: _password,
+          label: 'New password',
+          hint: 'At least $_minLength characters',
+          obscureText: _obscure,
+          autofocus: true,
+          onChanged: (_) => setState(() => _error = null),
+          suffixIcon: IconButton(
+            icon: Icon(
+              _obscure ? Symbols.visibility_rounded : Symbols.visibility_off_rounded,
+              size: 18,
+              color: PTColors.white(0.5),
+            ),
+            tooltip: _obscure ? 'Show password' : 'Hide password',
+            onPressed: () => setState(() => _obscure = !_obscure),
+          ),
+        ),
+        const SizedBox(height: 12),
+        PTTextField(
+          controller: _confirm,
+          label: 'Confirm password',
+          obscureText: _obscure,
+          errorText: _error,
+          onChanged: (_) => setState(() => _error = null),
+          onSubmitted: (_) => _submit(),
+        ),
+        const SizedBox(height: 18),
+        Row(
+          spacing: 12,
+          children: [
+            Expanded(
+              child: PTButton(
+                label: 'Cancel',
+                variant: .secondary,
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+            ),
+            Expanded(
+              child: PTButton(label: 'Save', onPressed: _submit),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}

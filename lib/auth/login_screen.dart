@@ -32,19 +32,28 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _guestLoading = false;
   bool _emailLoading = false;
   bool _otpLoading = false;
+  bool _passwordLoading = false;
+  bool _obscurePassword = true;
 
   final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
   final _otpController = TextEditingController();
   int _resendCooldown = 0;
   Timer? _resendTimer;
 
   bool get _anyLoading =>
-      _appleLoading || _googleLoading || _guestLoading || _emailLoading || _otpLoading;
+      _appleLoading ||
+      _googleLoading ||
+      _guestLoading ||
+      _emailLoading ||
+      _otpLoading ||
+      _passwordLoading;
 
   @override
   void dispose() {
     _resendTimer?.cancel();
     _emailController.dispose();
+    _passwordController.dispose();
     _otpController.dispose();
     super.dispose();
   }
@@ -104,17 +113,8 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _sendEmailOtp() async {
     final email = _emailController.text.trim().toLowerCase();
-    if (email.isEmpty || !email.contains('@') || !email.contains('.')) {
+    if (!_looksLikeEmail(email)) {
       showPTSnack(context, 'Please enter a valid email address.', kind: .info);
-      return;
-    }
-    if (email == 'apple-review@synctogether.app' || email == 'demo@synctogether.app') {
-      setState(() {
-        _mode = .enterOtp;
-        _otpController.clear();
-        _startResendTimer();
-      });
-      showPTSnack(context, 'Reviewer demo verification code is 000000', kind: .info);
       return;
     }
     String? captchaToken;
@@ -137,6 +137,67 @@ class _LoginScreenState extends State<LoginScreen> {
       },
     );
   }
+
+  /// Signs in with the password the account holder set, if they set one.
+  ///
+  /// The one-time code stays available beside it, which is what makes this
+  /// safe to offer: an account with no password, or a forgotten one, is never
+  /// a lockout, so there is no reset-link flow to build or to get wrong.
+  Future<void> _signInWithPassword() async {
+    final email = _emailController.text.trim().toLowerCase();
+    final password = _passwordController.text;
+    if (!_looksLikeEmail(email)) {
+      showPTSnack(context, 'Please enter a valid email address.', kind: .info);
+      return;
+    }
+    if (password.isEmpty) {
+      showPTSnack(context, 'Enter your password, or ask for a code instead.', kind: .info);
+      return;
+    }
+
+    String? captchaToken;
+    if ((Env.turnstileSiteKey ?? '').isNotEmpty) {
+      captchaToken = await showTurnstileDialog(context);
+      if (captchaToken == null) return;
+    }
+    if (!mounted) return;
+
+    setState(() => _passwordLoading = true);
+    try {
+      await AuthService.instance.signInWithPassword(
+        email: email,
+        password: password,
+        captchaToken: captchaToken,
+      );
+      // Navigation happens via the router's auth redirect.
+    } on AuthException catch (e) {
+      // Wrong password is a normal answer, not a fault worth reporting - and
+      // the advice that matters is that the code still works.
+      final wrongCredentials = e.message.toLowerCase().contains('invalid login credentials');
+      if (!wrongCredentials) {
+        reportNonFatal(e, StackTrace.current, during: 'signing in with a password');
+      }
+      if (mounted) {
+        showPTSnack(
+          context,
+          wrongCredentials
+              ? "That password doesn't match - try again, or email yourself a code instead."
+              : e.message,
+          kind: .error,
+        );
+      }
+    } catch (e, s) {
+      reportNonFatal(e, s, during: 'signing in with a password');
+      if (mounted) {
+        showPTSnack(context, "Couldn't sign you in - give it another try.", kind: .error);
+      }
+    } finally {
+      if (mounted) setState(() => _passwordLoading = false);
+    }
+  }
+
+  static bool _looksLikeEmail(String email) =>
+      email.isNotEmpty && email.contains('@') && email.contains('.');
 
   Future<void> _verifyEmailOtp() async {
     final email = _emailController.text.trim().toLowerCase();
@@ -331,46 +392,79 @@ class _LoginScreenState extends State<LoginScreen> {
           ],
         ),
         Text(
-          "We'll send a 6-digit verification code to your inbox.",
+          'Enter your password, or have us email you a 6-digit code instead.',
           style: PTText.body.copyWith(color: PTColors.white(0.65), fontSize: 13.5),
         ),
         TextField(
           controller: _emailController,
           autofocus: true,
           keyboardType: TextInputType.emailAddress,
-          textInputAction: TextInputAction.done,
-          onSubmitted: (_) => _sendEmailOtp(),
+          textInputAction: TextInputAction.next,
           style: PTText.body.copyWith(color: Colors.white),
-          decoration: InputDecoration(
-            hintText: 'name@example.com',
-            hintStyle: PTText.body.copyWith(color: PTColors.white(0.35)),
-            prefixIcon: Icon(Symbols.mail_rounded, size: 20, color: PTColors.white(0.5)),
-            filled: true,
-            fillColor: PTColors.glass(0.35),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
-              borderSide: BorderSide(color: PTColors.white(0.15)),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
-              borderSide: BorderSide(color: PTColors.white(0.15)),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
-              borderSide: const BorderSide(color: PTColors.primary, width: 1.5),
+          decoration: _fieldDecoration(hint: 'name@example.com', icon: Symbols.mail_rounded),
+        ),
+        TextField(
+          controller: _passwordController,
+          obscureText: _obscurePassword,
+          textInputAction: TextInputAction.done,
+          onSubmitted: (_) => _signInWithPassword(),
+          style: PTText.body.copyWith(color: Colors.white),
+          decoration: _fieldDecoration(
+            hint: 'Password',
+            icon: Symbols.lock_rounded,
+            suffix: IconButton(
+              icon: Icon(
+                _obscurePassword ? Symbols.visibility_rounded : Symbols.visibility_off_rounded,
+                size: 20,
+                color: PTColors.white(0.5),
+              ),
+              tooltip: _obscurePassword ? 'Show password' : 'Hide password',
+              onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
             ),
           ),
         ),
         PTButton(
-          label: 'Send verification code',
-          icon: Symbols.send_rounded,
+          label: 'Sign in',
+          icon: Symbols.login_rounded,
           variant: .primary,
+          height: buttonHeight,
+          loading: _passwordLoading,
+          onPressed: _anyLoading ? null : _signInWithPassword,
+        ),
+        // Always offered, never secondary in importance: an account only has a
+        // password if its owner chose to set one, so the code is the path that
+        // works for everybody.
+        PTButton(
+          label: 'Email me a 6-digit code',
+          icon: Symbols.send_rounded,
+          variant: .secondary,
           height: buttonHeight,
           loading: _emailLoading,
           onPressed: _anyLoading ? null : _sendEmailOtp,
         ),
       ],
+    );
+  }
+
+  InputDecoration _fieldDecoration({required String hint, required IconData icon, Widget? suffix}) {
+    final border = OutlineInputBorder(
+      borderRadius: BorderRadius.circular(14),
+      borderSide: BorderSide(color: PTColors.white(0.15)),
+    );
+    return InputDecoration(
+      hintText: hint,
+      hintStyle: PTText.body.copyWith(color: PTColors.white(0.35)),
+      prefixIcon: Icon(icon, size: 20, color: PTColors.white(0.5)),
+      suffixIcon: suffix,
+      filled: true,
+      fillColor: PTColors.glass(0.35),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      border: border,
+      enabledBorder: border,
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: const BorderSide(color: PTColors.primary, width: 1.5),
+      ),
     );
   }
 

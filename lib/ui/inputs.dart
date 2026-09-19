@@ -21,6 +21,7 @@ class PTTextField extends StatefulWidget {
     this.autofocus = false,
     this.maxLength,
     this.enabled = true,
+    this.obscureText = false,
   });
 
   final TextEditingController? controller;
@@ -34,6 +35,7 @@ class PTTextField extends StatefulWidget {
   final bool autofocus;
   final int? maxLength;
   final bool enabled;
+  final bool obscureText;
 
   @override
   State<PTTextField> createState() => _PTTextFieldState();
@@ -89,6 +91,7 @@ class _PTTextFieldState extends State<PTTextField> {
                   autofocus: widget.autofocus,
                   enabled: widget.enabled,
                   maxLength: widget.maxLength,
+                  obscureText: widget.obscureText,
                   onChanged: widget.onChanged,
                   onSubmitted: widget.onSubmitted,
                   style: PTText.body.copyWith(fontSize: 14.5),

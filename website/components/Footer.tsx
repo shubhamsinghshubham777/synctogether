@@ -150,6 +150,14 @@ export function Footer() {
                   Refund Policy (14 Days)
                 </Link>
               </li>
+              <li>
+                <Link
+                  href="/dmca"
+                  className="hover:text-white transition-colors"
+                >
+                  Copyright &amp; DMCA
+                </Link>
+              </li>
             </ul>
           </div>
         </div>

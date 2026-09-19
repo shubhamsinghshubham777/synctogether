@@ -11,6 +11,29 @@ export const SITE_CONFIG = {
   creatorLinkedIn: "https://www.linkedin.com/in/shubhamsinghshubham777/",
 };
 
+/// Designated agent for copyright notices, as registered with the U.S.
+/// Copyright Office. Cloud Media Sharing lets a host upload a video and stream
+/// it to their room, which makes SyncTogether a host of user-uploaded content -
+/// so the DMCA safe harbour, and the takedown process that earns it, has to be
+/// real and published rather than implied.
+///
+/// The phone number on the registration is deliberately not repeated here: it
+/// is already reachable through the public directory, and a personal mobile
+/// number on a web page is scraped far more aggressively than one in a
+/// government register.
+export const DMCA_AGENT = {
+  registrationNumber: "DMCA-1080733",
+  serviceProvider: "Shubham Singh",
+  agentName: "DMCA Agent, SyncTogether",
+  email: "copyright@synctogether.app",
+  address: [
+    "House No. 1282, First Floor, Sector-9",
+    "Bahadurgarh, Haryana 124507",
+    "India",
+  ],
+  directoryUrl: "https://dmca.copyright.gov/osp/publish/history.html",
+};
+
 export const PRICING_TIERS = {
   guest: {
     name: "Guest",

@@ -118,20 +118,6 @@ String? resolveLanguageName(String? rawLanguage) {
   return trimmed[0].toUpperCase() + trimmed.substring(1);
 }
 
-/// Returns true if [track] represents the synthetic "auto" or "no" track.
-bool isSpecialTrack(dynamic track) {
-  if (track is SubtitleTrack) {
-    return track.id == 'no' || track.id == 'auto';
-  }
-  if (track is AudioTrack) {
-    return track.id == 'no' || track.id == 'auto';
-  }
-  if (track is PTYouTubeCaptionTrack) {
-    return track.isOff;
-  }
-  return false;
-}
-
 /// Compares two track instances by their underlying ID so selection is reliable.
 bool isTrackSelected(dynamic track, dynamic selected) {
   if (selected == null) return false;

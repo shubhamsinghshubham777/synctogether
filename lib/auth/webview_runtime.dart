@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:synctogether/diagnostics.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// Windows-only preparation for the webviews in the app - the guest captcha and
 /// the YouTube player embed, which share one environment.
@@ -84,5 +85,31 @@ abstract final class PTWebView {
     final dir = Directory('$base\\SyncTogether\\WebView2');
     await dir.create(recursive: true);
     return dir.path;
+  }
+}
+
+/// Clears the Google/YouTube session cookies older builds left in the webview.
+///
+/// Up to 1.6.3 the YouTube URL dialog offered a "Sign in to YouTube (for
+/// Premium)" flow that hosted `accounts.google.com` in an embedded webview.
+/// That flow is gone - Google forbids sign-in in an embedded webview, and no
+/// app should be asking people to type their Google password into a container
+/// it controls - but the cookies it banked are still sitting in the webview
+/// store on every machine that used it. Nothing reads them any more, so they
+/// are pure liability: this drops them once, on the first launch after the
+/// upgrade, rather than leaving a Google session lying around indefinitely.
+///
+/// Best-effort and idempotent. A failure leaves the flag unset so the next
+/// launch tries again.
+Future<void> purgeLegacyYouTubeCookies() async {
+  const flag = 'webview.legacy_youtube_cookies_purged';
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    if (prefs.getBool(flag) ?? false) return;
+    await CookieManager.instance().deleteAllCookies();
+    await prefs.setBool(flag, true);
+    trace('cleared legacy YouTube sign-in cookies', category: 'webview');
+  } catch (e, s) {
+    reportNonFatal(e, s, during: 'purging legacy YouTube sign-in cookies');
   }
 }

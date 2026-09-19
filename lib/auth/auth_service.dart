@@ -12,6 +12,7 @@ import 'package:synctogether/diagnostics.dart';
 import 'package:synctogether/env.dart';
 import 'package:synctogether/profile/entitlement_service.dart';
 import 'package:synctogether/rooms/local_media_store.dart';
+import 'package:synctogether/rooms/moderation_service.dart';
 import 'package:synctogether/rooms/media_sharing_cache.dart';
 
 /// Thin wrapper over Supabase auth. Session persistence and token refresh are
@@ -74,6 +75,7 @@ class AuthService {
       _wasAnonymous = false;
       Analytics.instance.reset();
       EntitlementService.instance.clear();
+      ModerationService.instance.clear();
       return;
     }
     final user = state.session?.user;
@@ -295,6 +297,7 @@ class AuthService {
       } catch (_) {}
     } finally {
       EntitlementService.instance.clear();
+      ModerationService.instance.clear();
       Analytics.instance.reset();
       try {
         await CookieManager.instance().deleteAllCookies();
@@ -315,6 +318,7 @@ class AuthService {
     } finally {
       await _client.auth.signOut(scope: SignOutScope.local);
       EntitlementService.instance.clear();
+      ModerationService.instance.clear();
       Analytics.instance.reset();
       try {
         await CookieManager.instance().deleteAllCookies();

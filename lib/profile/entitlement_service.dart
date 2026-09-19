@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:synctogether/diagnostics.dart';
+import 'package:synctogether/platform.dart';
 import 'package:synctogether/rooms/room_models.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -78,7 +79,23 @@ class TierLimits {
   );
 }
 
-bool tierWearsCrown(String? tier) => tier == kPremiumTier;
+/// The Apple App Store edition ships as a single free tier.
+///
+/// Guideline 3.1.1 objects to an app *unlocking* digital content bought
+/// outside it, not merely to the upsell that sells it - so suppressing the
+/// buttons while still honouring a web subscription is the shape Apple
+/// rejected. The downgrade therefore happens here, on the entitlement itself,
+/// and every affordance that reads it goes quiet for free.
+///
+/// Guests are left alone: `guest` is a capability floor, not a purchase.
+TierLimits applyStoreEditionCeiling(TierLimits limits, {bool? storeBuildOverride}) =>
+    (storeBuildOverride ?? isAppleStoreBuild) && limits.isPremium ? TierLimits.fallback : limits;
+
+/// Crowns are the one place another member's tier becomes visible, so the
+/// store edition has to answer no here too - otherwise a premium co-watcher
+/// advertises a tier this build does not sell.
+bool tierWearsCrown(String? tier, {bool? storeBuildOverride}) =>
+    !(storeBuildOverride ?? isAppleStoreBuild) && tier == kPremiumTier;
 
 Set<String> premiumMembersFrom(Map<String, String> tiers) => {
   for (final entry in tiers.entries)
@@ -117,7 +134,7 @@ class EntitlementService extends ChangeNotifier {
       final map = row is List
           ? (row.first as Map).cast<String, dynamic>()
           : (row as Map).cast<String, dynamic>();
-      _limits = TierLimits.fromJson(map);
+      _limits = applyStoreEditionCeiling(TierLimits.fromJson(map));
       notifyListeners();
       return _limits;
     } catch (e, s) {
@@ -189,7 +206,7 @@ class EntitlementService extends ChangeNotifier {
 
   @visibleForTesting
   void setLimitsForTesting(TierLimits? limits) {
-    _limits = limits;
+    _limits = limits == null ? null : applyStoreEditionCeiling(limits);
     notifyListeners();
   }
 }

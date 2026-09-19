@@ -1,3 +1,4 @@
+import 'package:synctogether/platform.dart';
 import 'package:synctogether/profile/profile_models.dart';
 import 'package:synctogether/rewards/rewards_models.dart';
 import 'package:synctogether/rewards/rewards_service.dart';
@@ -393,13 +394,15 @@ enum RoomErrorCode {
   guestRoomLimit('guest_room_limit', 'Guests can host one live room at a time.'),
   roomLimitReached(
     'room_limit_reached',
-    "You've hit your room limit - delete an old room or go premium.",
+    "You've hit your room limit - delete an old room to make space.",
+    upsell: "You've hit your room limit - delete an old room or go premium.",
   ),
   extensionUsed('extension_used', "You've already used your free hour on us."),
   extensionCap('extension_cap', "That's as long as a single room can run."),
   extendNotAllowed(
     'extend_not_allowed',
-    "Rooms can't be extended on this plan - upgrade to Premium for longer sessions.",
+    "Rooms can't be extended on this plan.",
+    upsell: "Rooms can't be extended on this plan - upgrade to Premium for longer sessions.",
   ),
   notAMember('not_a_member', "You're not in that room any more."),
   notOwner('not_owner', 'Only the person who made this room can delete it.'),
@@ -413,7 +416,9 @@ enum RoomErrorCode {
   ),
   uploadQuotaExceeded(
     'upload_quota_exceeded',
-    "You've reached your weekly sharing quota (2.5 GB). Upgrade to Premium for unlimited sharing.",
+    "You've reached your weekly sharing quota (2.5 GB). It refills as older uploads age out.",
+    upsell:
+        "You've reached your weekly sharing quota (2.5 GB). Upgrade to Premium for unlimited sharing.",
   ),
   uploadCooldownActive(
     'upload_cooldown_active',
@@ -426,10 +431,17 @@ enum RoomErrorCode {
   notAuthenticated('not_authenticated', 'Your session has expired. Please sign in again.'),
   unknown('unknown', "Something went sideways. Give it another try.");
 
-  const RoomErrorCode(this.code, this.message);
+  const RoomErrorCode(this.code, this._message, {this.upsell});
 
   final String code;
-  final String message;
+  final String _message;
+  final String? upsell;
+
+  /// The Apple store edition sells no tier, so copy that points at one would
+  /// be advertising content it cannot offer (guideline 3.1.1). Those three
+  /// codes carry a plain statement of the limit for it to fall back to; every
+  /// other code has only the one wording.
+  String get message => isAppleStoreBuild ? _message : (upsell ?? _message);
 
   static RoomErrorCode fromError(Object error) {
     final text = error.toString();

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:synctogether/rooms/widgets/media_sharing_prompt_dialog.dart';
-import 'package:synctogether/rooms/widgets/media_sharing_toggle.dart';
 import 'package:synctogether/rooms/widgets/sharing_progress_indicator.dart';
 
 void main() {
@@ -51,65 +50,6 @@ void main() {
       expect(find.text('Ready to watch'), findsOneWidget);
       expect(find.textContaining('100%'), findsOneWidget);
       expect(find.byIcon(Icons.check_circle_outline), findsOneWidget);
-    });
-  });
-
-  group('MediaSharingToggle', () {
-    testWidgets('toggles value and displays tier badge', (tester) async {
-      var currentValue = false;
-
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: StatefulBuilder(
-              builder: (context, setState) {
-                return MediaSharingToggle(
-                  enabled: currentValue,
-                  canShare: true,
-                  tierLabel: 'Free (2.5 GB/wk)',
-                  onChanged: (val) {
-                    setState(() {
-                      currentValue = val;
-                    });
-                  },
-                );
-              },
-            ),
-          ),
-        ),
-      );
-
-      expect(find.text('Share file with room'), findsOneWidget);
-      expect(find.text('Free (2.5 GB/wk)'), findsOneWidget);
-
-      await tester.tap(find.byType(Switch));
-      await tester.pumpAndSettle();
-
-      expect(currentValue, isTrue);
-    });
-
-    testWidgets('shows upgrade button when sharing is disabled for tier', (tester) async {
-      var upgradeTapped = false;
-
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: MediaSharingToggle(
-              enabled: false,
-              canShare: false,
-              tierLabel: 'Guest',
-              onUpgradeTap: () => upgradeTapped = true,
-              onChanged: (_) {},
-            ),
-          ),
-        ),
-      );
-
-      expect(find.text('Share file with room'), findsOneWidget);
-      expect(find.text('Upgrade'), findsOneWidget);
-
-      await tester.tap(find.text('Upgrade'));
-      expect(upgradeTapped, isTrue);
     });
   });
 

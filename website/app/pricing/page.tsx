@@ -29,6 +29,10 @@ export default function PricingPage() {
       a: "Yes, you must sign in to an account (Google, Apple, or Email) on the website to purchase Premium. This ensures your purchase links directly to your SyncTogether desktop app identity."
     },
     {
+      q: "Does Premium work in the Mac App Store version?",
+      a: "No. The Mac App Store edition of SyncTogether is free-only \u2014 it ships without the Premium tier, so a subscription will not unlock anything there. If you subscribe, download the macOS app directly from this site to use your Premium features. The Windows app, from this site or the Microsoft Store, supports Premium normally."
+    },
+    {
       q: "What happens to my rooms if my subscription expires?",
       a: "Your persistent rooms transition gracefully to standard Free tier limits with a 7-day grace period. No room data or history is deleted abruptly."
     }

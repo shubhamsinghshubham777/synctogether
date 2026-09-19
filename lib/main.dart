@@ -66,6 +66,7 @@ Future<void> _bootstrap() async {
   // Windows needs a WebView2 environment rooted somewhere writable before the
   // guest captcha can render; everywhere else this returns immediately.
   await PTWebView.init();
+  unawaited(purgeLegacyYouTubeCookies());
   if (Env.supabaseUrl.isEmpty) {
     reportNonFatal(
       StateError('Supabase URL is empty; check compile-time SUPABASE_URL define'),

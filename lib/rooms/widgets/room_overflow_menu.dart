@@ -30,6 +30,7 @@ class RoomMenuData {
     this.canAssignHost = false,
     this.premiumMembers = const {},
     this.memberFrames = const {},
+    this.blockedIds = const {},
   });
 
   static const empty = RoomMenuData(
@@ -51,6 +52,11 @@ class RoomMenuData {
   final bool canAssignHost;
   final Set<String> premiumMembers;
   final Map<String, AvatarFrame> memberFrames;
+
+  /// Who this account has blocked. The member list is the one surface that
+  /// still shows them - it is where unblocking lives, so hiding them here
+  /// would make a block permanent by accident.
+  final Set<String> blockedIds;
 
   /// Derived rather than passed alongside, so "who is online" and "who is
   /// ready" can never disagree.
@@ -76,6 +82,8 @@ Future<void> showRoomOverflowMenu({
   required ValueChanged<bool> onTransportLockChanged,
   required void Function(RoomMember member) onKick,
   void Function(RoomMember member)? onAssignHost,
+  void Function(RoomMember member)? onReportMember,
+  void Function(RoomMember member)? onUnblockMember,
 }) {
   return showGeneralDialog(
     context: context,
@@ -103,6 +111,8 @@ Future<void> showRoomOverflowMenu({
                   onTransportLockChanged: onTransportLockChanged,
                   onKick: onKick,
                   onAssignHost: onAssignHost,
+                  onReportMember: onReportMember,
+                  onUnblockMember: onUnblockMember,
                 ),
               ),
             ),
@@ -131,6 +141,8 @@ class _OverflowMenuPanel extends StatefulWidget {
     required this.onEndRoom,
     this.onExtendRoom,
     this.onReportConcern,
+    this.onReportMember,
+    this.onUnblockMember,
     required this.onTransportLockChanged,
     required this.onKick,
     this.onAssignHost,
@@ -142,6 +154,8 @@ class _OverflowMenuPanel extends StatefulWidget {
   final VoidCallback onEndRoom;
   final VoidCallback? onExtendRoom;
   final VoidCallback? onReportConcern;
+  final void Function(RoomMember member)? onReportMember;
+  final void Function(RoomMember member)? onUnblockMember;
   final ValueChanged<bool> onTransportLockChanged;
   final void Function(RoomMember member) onKick;
   final void Function(RoomMember member)? onAssignHost;
@@ -243,6 +257,15 @@ class _OverflowMenuPanelState extends State<_OverflowMenuPanel> {
                               widget.onAssignHost != null
                           ? () => _dismiss(() => widget.onAssignHost!(member))
                           : null,
+                      blocked: data.blockedIds.contains(member.userId),
+                      // Reporting is not a host power - anyone can flag
+                      // anyone but themselves, which is the whole point.
+                      onReport: member.userId != data.selfId && widget.onReportMember != null
+                          ? () => _dismiss(() => widget.onReportMember!(member))
+                          : null,
+                      onUnblock: widget.onUnblockMember != null
+                          ? () => _dismiss(() => widget.onUnblockMember!(member))
+                          : null,
                     ),
                 ],
               ),
@@ -319,6 +342,9 @@ class _MemberRow extends StatelessWidget {
     required this.presence,
     required this.onKick,
     this.onAssignHost,
+    this.blocked = false,
+    this.onReport,
+    this.onUnblock,
   });
 
   final RoomMember member;
@@ -332,6 +358,9 @@ class _MemberRow extends StatelessWidget {
   final PresentMember? presence;
   final VoidCallback? onKick;
   final VoidCallback? onAssignHost;
+  final bool blocked;
+  final VoidCallback? onReport;
+  final VoidCallback? onUnblock;
 
   @override
   Widget build(BuildContext context) {
@@ -378,8 +407,22 @@ class _MemberRow extends StatelessWidget {
                 style: PTText.body.copyWith(fontSize: 14, fontWeight: .w500),
               ),
             ),
-            if (presence != null && media.isSet) _chip(context),
-            if (member.isHost) const HostBadge(),
+            if (blocked)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: PTColors.white(0.07),
+                  borderRadius: BorderRadius.circular(999),
+                  border: Border.all(color: PTColors.white(0.14)),
+                ),
+                child: Text(
+                  'Blocked',
+                  style: PTText.finePrint.copyWith(fontSize: 11, color: PTColors.white(0.6)),
+                ),
+              )
+            else if (presence != null && media.isSet)
+              _chip(context),
+            if (member.isHost && !blocked) const HostBadge(),
             if (onAssignHost != null)
               PTIconButton(
                 icon: Symbols.star_rounded,
@@ -388,6 +431,24 @@ class _MemberRow extends StatelessWidget {
                 iconSize: 16,
                 tooltip: 'Make host',
                 onPressed: onAssignHost,
+              ),
+            if (blocked && onUnblock != null)
+              PTIconButton(
+                icon: Symbols.person_add_rounded,
+                glass: false,
+                size: 30,
+                iconSize: 16,
+                tooltip: 'Unblock ${member.displayName}',
+                onPressed: onUnblock,
+              )
+            else if (onReport != null)
+              PTIconButton(
+                icon: Symbols.flag_rounded,
+                glass: false,
+                size: 30,
+                iconSize: 16,
+                tooltip: 'Report or block ${member.displayName}',
+                onPressed: onReport,
               ),
             if (onKick != null)
               PTIconButton(

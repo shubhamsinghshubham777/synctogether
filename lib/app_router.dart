@@ -15,6 +15,7 @@ import 'platform.dart';
 import 'rewards/leaderboard_screen.dart';
 import 'rewards/rewards_service.dart';
 import 'rooms/lobby_screen.dart';
+import 'rooms/moderation_service.dart';
 import 'rooms/room_screen.dart';
 import 'rooms/room_service.dart';
 import 'ui/pt_motion.dart';
@@ -179,11 +180,15 @@ class _AuthRefresh extends ChangeNotifier {
           ProfileService.instance.load();
           EntitlementService.instance.load();
           RewardsService.instance.load();
+          // Blocks are account-scoped, so they have to be in place before the
+          // first room renders rather than fetched when one is opened.
+          ModerationService.instance.load();
         case AuthChangeEvent.signedOut:
           ProfileService.instance.clear();
           EntitlementService.instance.clear();
           RewardsService.instance.clear();
           RoomService.instance.clear();
+          ModerationService.instance.clear();
         default:
           break;
       }

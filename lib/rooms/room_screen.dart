@@ -11,7 +11,6 @@ import 'package:material_symbols_icons/symbols.dart';
 import 'package:path/path.dart' as p;
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:livekit_client/livekit_client.dart' as lk;
 import 'package:synctogether/analytics.dart';
 import 'package:synctogether/auth/auth_service.dart';
@@ -39,6 +38,8 @@ import 'package:synctogether/rewards/rewards_models.dart';
 import 'package:synctogether/rewards/rewards_service.dart';
 import 'package:synctogether/rewards/widgets/recap_card.dart';
 import 'package:synctogether/rooms/room_models.dart';
+import 'package:synctogether/rooms/moderation_service.dart';
+import 'package:synctogether/rooms/widgets/report_dialog.dart';
 import 'package:synctogether/rooms/room_service.dart';
 import 'package:synctogether/rooms/widgets/extend_room_dialog.dart';
 import 'package:synctogether/rooms/widgets/facecam_rail.dart';
@@ -137,15 +138,22 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
   double _volume = 1.0;
 
   final _messages = <ChatMessage>[];
-  final Set<String> _blockedUsers = <String>{};
+
+  /// Blocks are account-scoped and live on [ModerationService]; this screen
+  /// only reads them. Keying on the user id rather than the display name
+  /// matters: two people can share a name, and a blocked person could
+  /// otherwise walk straight back into the feed by renaming themselves.
+  Set<String> get _blockedUsers => ModerationService.instance.blockedIds;
 
   List<ChatMessage> get _visibleMessages => _blockedUsers.isEmpty
       ? _messages
-      : _messages
-            .where(
-              (m) => !_blockedUsers.contains(m.displayName) && !_blockedUsers.contains(m.senderId),
-            )
-            .toList();
+      : _messages.where((m) => !_blockedUsers.contains(m.senderId)).toList();
+
+  /// Presence minus anyone blocked - keeps a blocked person's facecam tile and
+  /// roster entry out of sight too, not just their chat.
+  List<PresentMember> get _visiblePresent => _blockedUsers.isEmpty
+      ? _present
+      : _present.where((m) => !_blockedUsers.contains(m.userId)).toList();
   List<String> _typingNames = const [];
   bool _chatOpen = false;
   int _unread = 0;
@@ -361,16 +369,20 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     return tally;
   }
 
+  /// Blocking has to take effect on the frame it happens - the guideline's
+  /// word is "instantly" - so the screen rebuilds off the service rather than
+  /// waiting for the next presence or chat event to bring it round.
+  void _onBlocksChanged() {
+    if (!mounted) return;
+    // The overflow menu reads a published snapshot rather than this State, so
+    // a block taken while it is open has to be pushed to it too.
+    _publishMenuData();
+    setState(() {});
+  }
+
   void _toggleFacecam(String kind, bool on) {
     final av = _av;
     if (av == null) return;
-    if (_present.length < 2 && on) {
-      _snack(
-        kind == 'mic' ? RoomControlBar.soloMicTooltip : RoomControlBar.soloCamTooltip,
-        kind: .info,
-      );
-      return;
-    }
     if (kind == 'cam' && on && !av.canPublishCamera) {
       _snack(
         isAppleStoreBuild
@@ -558,6 +570,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
       _chatOpen = true;
       _chatAnim.value = 1.0;
     }
+    ModerationService.instance.addListener(_onBlocksChanged);
     unawaited(_init());
   }
 
@@ -913,6 +926,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
 
   @override
   void dispose() {
+    ModerationService.instance.removeListener(_onBlocksChanged);
     if (isDesktop) windowManager.removeListener(this);
     for (final s in _subscriptions) {
       s.cancel();
@@ -1062,6 +1076,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
             present: _present,
             premiumMembers: _premiumMembers,
             memberFrames: _memberFrames,
+            blockedIds: ModerationService.instance.blockedIds,
             media: _canonicalMedia,
             transportLock: sync?.transportLock ?? false,
             selfId: sync?.userId ?? '',
@@ -2471,11 +2486,85 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     }
   }
 
-  Future<void> _showReportDialog({String? targetUser, String? messageSnippet}) async {
-    final roomCode = _room?.code ?? widget.roomId;
-    await showGlassDialog<void>(
+  /// Report and optionally block someone.
+  ///
+  /// Called three ways: from the flag on a chat bubble (which knows exactly
+  /// who and what), from the member list (which knows who), and from the
+  /// overflow menu's generic entry (which knows neither, and so asks). The
+  /// generic entry is kept because a safety affordance that only exists on a
+  /// message is one you cannot find when you need it.
+  Future<void> _showReportDialog({
+    String? targetUserId,
+    String? targetUser,
+    String? messageSnippet,
+  }) async {
+    var userId = targetUserId;
+    var name = targetUser;
+
+    if (userId == null) {
+      final picked = await _pickReportTarget();
+      if (picked == null || !mounted) return;
+      userId = picked.userId;
+      name = picked.displayName;
+    }
+
+    final outcome = await showReportDialog(
+      context,
+      targetName: name ?? 'this person',
+      roomCode: _room?.code,
+      messageSnippet: messageSnippet,
+      alreadyBlocked: ModerationService.instance.isBlocked(userId),
+    );
+    if (outcome == null || !mounted) return;
+
+    final moderation = ModerationService.instance;
+    try {
+      // The block goes first: it is the part the user needs to have worked,
+      // and it is the part that must survive a failing report.
+      if (outcome.block) {
+        await moderation.block(
+          userId,
+          roomId: widget.roomId,
+          reason: outcome.reason,
+          messageExcerpt: messageSnippet,
+        );
+      }
+      await moderation.report(
+        userId: userId,
+        reason: outcome.reason,
+        roomId: widget.roomId,
+        details: outcome.details,
+        messageExcerpt: messageSnippet,
+      );
+      if (!mounted) return;
+      _snack(
+        outcome.block
+            ? "Thanks - we're reviewing this, and you won't see ${name ?? 'them'} any more."
+            : "Thanks - we're reviewing this report.",
+        kind: .success,
+      );
+    } catch (_) {
+      // Both paths already reported the cause; the user gets the friendly half.
+      if (!mounted) return;
+      _snack(
+        moderation.isBlocked(userId)
+            ? "You won't see ${name ?? 'them'} any more, but the report didn't send. Try again, or email support@synctogether.app."
+            : "That didn't send. Try again, or email support@synctogether.app.",
+      );
+    }
+  }
+
+  /// Asks which of the people here the report is about.
+  Future<RoomMember?> _pickReportTarget() async {
+    final selfId = _sync?.userId;
+    final others = _members.where((m) => m.userId != selfId).toList(growable: false);
+    if (others.isEmpty) {
+      _snack("There's nobody else here to report.", kind: .info);
+      return null;
+    }
+    return showGlassDialog<RoomMember>(
       context: context,
-      width: 440,
+      width: 400,
       builder: (dialogContext) => Column(
         mainAxisSize: .min,
         crossAxisAlignment: .stretch,
@@ -2484,107 +2573,61 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
             spacing: 10,
             children: [
               const Icon(Symbols.flag_rounded, size: 22, color: PTColors.warningBorder),
-              Text('Report a concern', style: PTText.screenTitle.copyWith(fontSize: 18)),
+              Expanded(
+                child: Text('Who is this about?', style: PTText.screenTitle.copyWith(fontSize: 18)),
+              ),
             ],
           ),
-          const SizedBox(height: 12),
-          Text(
-            'SyncTogether strictly prohibits harassment, offensive language, or abusive behavior. '
-            'If someone in this room is violating community guidelines, please report them to our team.',
-            style: PTText.body.copyWith(color: PTColors.white(0.8), height: 1.45),
-          ),
-          const SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: PTColors.white(0.05),
-              border: Border.all(color: PTColors.white(0.08)),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Column(
-              crossAxisAlignment: .start,
-              spacing: 4,
-              children: [
-                Text(
-                  'Room Code: $roomCode',
-                  style: PTText.caption.copyWith(color: PTColors.textAccent),
+          const SizedBox(height: 14),
+          for (final member in others)
+            PTPressable(
+              onTap: () => Navigator.of(dialogContext).pop(member),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 4),
+                child: Row(
+                  spacing: 12,
+                  children: [
+                    PTAvatar(
+                      userId: member.userId,
+                      displayName: member.displayName,
+                      avatarUrl: member.profile?.avatarUrl,
+                      size: 32,
+                    ),
+                    Expanded(
+                      child: Text(
+                        member.displayName,
+                        overflow: .ellipsis,
+                        style: PTText.body.copyWith(fontSize: 14, fontWeight: .w500),
+                      ),
+                    ),
+                    if (ModerationService.instance.isBlocked(member.userId))
+                      Text('Blocked', style: PTText.finePrint.copyWith(color: PTColors.white(0.5))),
+                  ],
                 ),
-                if (targetUser != null)
-                  Text(
-                    'Reported User: $targetUser',
-                    style: PTText.caption.copyWith(color: PTColors.white(0.7)),
-                  ),
-                if (messageSnippet != null)
-                  Text(
-                    'Message: "$messageSnippet"',
-                    style: PTText.caption.copyWith(color: PTColors.white(0.7)),
-                  ),
-              ],
+              ),
             ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Reports are reviewed promptly. You can also email us directly at support@synctogether.app.',
-            style: PTText.finePrint.copyWith(color: PTColors.white(0.5)),
-          ),
-          if (targetUser != null && !_blockedUsers.contains(targetUser)) ...[
-            const SizedBox(height: 12),
-            PTButton(
-              label: 'Block $targetUser',
-              icon: Symbols.block_rounded,
+          const SizedBox(height: 14),
+          Align(
+            alignment: Alignment.centerRight,
+            child: PTButton(
+              label: 'Cancel',
               variant: .secondary,
-              height: 40,
-              onPressed: () {
-                Navigator.of(dialogContext).pop();
-                setState(() => _blockedUsers.add(targetUser));
-                _snack('$targetUser has been blocked. Their messages are now hidden.', kind: .info);
-              },
+              expand: false,
+              onPressed: () => Navigator.of(dialogContext).pop(),
             ),
-          ],
-          const SizedBox(height: 18),
-          Row(
-            spacing: 12,
-            children: [
-              Expanded(
-                child: PTButton(
-                  label: 'Close',
-                  variant: .secondary,
-                  onPressed: () => Navigator.of(dialogContext).pop(),
-                ),
-              ),
-              Expanded(
-                child: PTButton(
-                  label: 'Email report',
-                  icon: Symbols.mail_rounded,
-                  onPressed: () async {
-                    Navigator.of(dialogContext).pop();
-                    final subject = Uri.encodeComponent('Report Concern - Room $roomCode');
-                    final body = Uri.encodeComponent(
-                      'Room: $roomCode\n'
-                      '${targetUser != null ? 'Reported User: $targetUser\n' : ''}'
-                      '${messageSnippet != null ? 'Reported Message: $messageSnippet\n' : ''}\n'
-                      'Please describe the issue:\n',
-                    );
-                    final emailUri = Uri.parse(
-                      'mailto:support@synctogether.app?subject=$subject&body=$body',
-                    );
-                    try {
-                      await launchUrl(emailUri, mode: LaunchMode.externalApplication);
-                    } catch (_) {}
-                    if (mounted) {
-                      _snack(
-                        'Thank you for your report. Our team will review it shortly.',
-                        kind: .success,
-                      );
-                    }
-                  },
-                ),
-              ),
-            ],
           ),
         ],
       ),
     );
+  }
+
+  Future<void> _unblockMember(RoomMember member) async {
+    try {
+      await ModerationService.instance.unblock(member.userId);
+      if (mounted) _snack('${member.displayName} is unblocked.', kind: .success);
+    } catch (_) {
+      if (mounted) _snack("Couldn't unblock them - try again.");
+    }
   }
 
   bool get _canStartWithout {
@@ -3486,6 +3529,9 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
         );
       },
       onAssignHost: _confirmAssignHost,
+      onReportMember: (member) =>
+          unawaited(_showReportDialog(targetUserId: member.userId, targetUser: member.displayName)),
+      onUnblockMember: (member) => unawaited(_unblockMember(member)),
     );
   }
 
@@ -3646,6 +3692,16 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
 
   IconData? get _extendIcon => _limits.picksExtensionLength ? null : Symbols.crown_rounded;
 
+  /// The store edition sells no tier, so an extend affordance whose only
+  /// possible answer is "upgrade" is a dead button - it is hidden there
+  /// instead. A guest keeps it: their branch offers a free sign-in, which is
+  /// a real thing this build can deliver.
+  bool get _canOfferExtend =>
+      !isAppleStoreBuild ||
+      _limits.picksExtensionLength ||
+      _limits.hasFreeExtension ||
+      _limits.isGuest;
+
   String get _expirySubtitle {
     final room = _room;
     if (room != null && room.persistent) {
@@ -3756,6 +3812,13 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     VoidCallback? onSignIn,
     VoidCallback? onSignInApple,
   }) async {
+    if (isAppleStoreBuild && onSignIn == null) {
+      // Guideline 3.1.1: this build has no premium tier, so a dialog that
+      // describes one - perks, crown and all - would be advertising content
+      // it cannot sell. The user still needs to know why nothing happened.
+      _snack("This room's length is fixed for this session.", kind: .info);
+      return;
+    }
     Analytics.instance.track('upgrade_cta_shown', {'surface': surface});
     await showGlassDialog<void>(
       context: context,
@@ -3940,14 +4003,11 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     onSkip: _skip,
     onMicToggle: (v) => _toggleFacecam('mic', v),
     onCamToggle: (v) => _toggleFacecam('cam', v),
-    onCamLocked: (_av?.canPublishCamera == false && !EntitlementService.instance.isPremium)
-        ? () {
-            if (isAppleStoreBuild) {
-              _snack('Video facecams are not enabled for this room.');
-              return;
-            }
-            context.push('/lobby/subscribe?source=camera_lock');
-          }
+    onCamLocked:
+        (_av?.canPublishCamera == false &&
+            !EntitlementService.instance.isPremium &&
+            !isAppleStoreBuild)
+        ? () => context.push('/lobby/subscribe?source=camera_lock')
         : null,
     onMicDeviceSelect: isDesktop && _av != null ? _showMicDeviceSelector : null,
     onCamDeviceSelect: isDesktop && _av != null ? _showCamDeviceSelector : null,
@@ -4458,13 +4518,17 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
           // Urgency without layout movement - this sits right next to the
           // video, so nothing here may reflow or jitter.
           Tooltip(
-            message: (_sync?.isHost ?? false) ? 'Extend room duration' : 'Time remaining',
+            message: (_sync?.isHost ?? false) && _canOfferExtend
+                ? 'Extend room duration'
+                : 'Time remaining',
             child: MouseRegion(
               cursor: (_sync?.isHost ?? false)
                   ? SystemMouseCursors.click
                   : SystemMouseCursors.basic,
               child: GestureDetector(
-                onTap: (_sync?.isHost ?? false) && !_extending ? _extendRoom : null,
+                onTap: (_sync?.isHost ?? false) && !_extending && _canOfferExtend
+                    ? _extendRoom
+                    : null,
                 child: Row(
                   mainAxisSize: .min,
                   spacing: 6,
@@ -4524,7 +4588,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
               return '$mins minute${mins == 1 ? '' : 's'} left';
             }(),
             subtitle: _expirySubtitle,
-            trailing: (_sync?.isHost ?? false)
+            trailing: (_sync?.isHost ?? false) && _canOfferExtend
                 ? PTButton(
                     label: _extendLabel,
                     icon: _extendIcon,
@@ -4896,7 +4960,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
               left: 24,
               child: FacecamRail(
                 av: _av!,
-                present: _present,
+                present: _visiblePresent,
                 premiumMembers: _premiumMembers,
                 memberFrames: _memberFrames,
                 selfId: _sync?.userId ?? '',
@@ -4936,8 +5000,11 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
                   onSend: _sendChat,
                   onCopied: _onChatCopied,
                   onPlaySharedVideo: (_sync?.isHost ?? false) ? _playSharedVideo : null,
-                  onReportMessage: (msg) =>
-                      _showReportDialog(targetUser: msg.displayName, messageSnippet: msg.content),
+                  onReportMessage: (msg) => _showReportDialog(
+                    targetUserId: msg.senderId,
+                    targetUser: msg.displayName,
+                    messageSnippet: msg.content,
+                  ),
                 ),
               ),
             ),
@@ -4973,7 +5040,6 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
                     camOn: _av?.camEnabled ?? false,
                     avAvailable: _av != null,
                     camAvailable: _av?.canPublishCamera ?? false,
-                    avEnabled: _present.length >= 2,
                     actions: _controlActions,
                     fullscreen: _fullscreen,
                     reactOpen: _reactOpen,
@@ -5014,7 +5080,9 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
                         children: [
                           RoomCodeChip(code: room.code, onCopy: _copyCode, fontSize: 11),
                           GestureDetector(
-                            onTap: (_sync?.isHost ?? false) && !_extending ? _extendRoom : null,
+                            onTap: (_sync?.isHost ?? false) && !_extending && _canOfferExtend
+                                ? _extendRoom
+                                : null,
                             child: Row(
                               mainAxisSize: .min,
                               spacing: 4,
@@ -5060,7 +5128,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
               padding: const EdgeInsets.fromLTRB(14, 10, 14, 0),
               child: FacecamRail(
                 av: _av!,
-                present: _present,
+                present: _visiblePresent,
                 premiumMembers: _premiumMembers,
                 memberFrames: _memberFrames,
                 selfId: _sync?.userId ?? '',
@@ -5085,7 +5153,6 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
                   camOn: _av?.camEnabled ?? false,
                   avAvailable: _av != null,
                   camAvailable: _av?.canPublishCamera ?? false,
-                  avEnabled: _present.length >= 2,
                   actions: _controlActions,
                   fullscreen: _fullscreen,
                   reactOpen: _reactOpen,
@@ -5124,6 +5191,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
                           onCopied: _onChatCopied,
                           onPlaySharedVideo: (_sync?.isHost ?? false) ? _playSharedVideo : null,
                           onReportMessage: (msg) => _showReportDialog(
+                            targetUserId: msg.senderId,
                             targetUser: msg.displayName,
                             messageSnippet: msg.content,
                           ),
@@ -5197,7 +5265,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
                       child: _chatDisplaced(
                         FacecamRail(
                           av: _av!,
-                          present: _present,
+                          present: _visiblePresent,
                           premiumMembers: _premiumMembers,
                           memberFrames: _memberFrames,
                           selfId: _sync?.userId ?? '',
@@ -5230,6 +5298,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
                         onCopied: _onChatCopied,
                         onPlaySharedVideo: (_sync?.isHost ?? false) ? _playSharedVideo : null,
                         onReportMessage: (msg) => _showReportDialog(
+                          targetUserId: msg.senderId,
                           targetUser: msg.displayName,
                           messageSnippet: msg.content,
                         ),
@@ -5267,7 +5336,6 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
                           camOn: _av?.camEnabled ?? false,
                           avAvailable: _av != null,
                           camAvailable: _av?.canPublishCamera ?? false,
-                          avEnabled: _present.length >= 2,
                           actions: _controlActions,
                           fullscreen: _fullscreen,
                           reactOpen: _reactOpen,

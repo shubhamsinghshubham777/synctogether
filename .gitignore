@@ -73,3 +73,6 @@ sparkle_ed_private_key
 secrets.txt
 *.bundle.txt
 
+
+# Local MCP server config (references env vars, but machine-specific)
+.mcp.json

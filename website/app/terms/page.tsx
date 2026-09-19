@@ -8,7 +8,7 @@ export const metadata: Metadata = {
 };
 
 export default function TermsPage() {
-  const lastUpdated = "August 11, 2026";
+  const lastUpdated = "September 20, 2026";
 
   return (
     <div className="relative py-12 md:py-20 px-4 sm:px-6 lg:px-8 max-w-4xl mx-auto space-y-12">
@@ -55,6 +55,12 @@ export default function TermsPage() {
             <li>Use the service to broadcast abusive, harmful, or illegal communications.</li>
             <li>Interfere with, overburden, or compromise the integrity of our real-time relay infrastructure.</li>
             <li>Attempt to reverse-engineer server APIs or bypass room limits.</li>
+            <li>
+              Upload, stream, or share any material you do not own or have permission to share.
+              Cloud Media Sharing is for content you have the right to distribute to the people
+              in your room.
+            </li>
+            <li>Harass, threaten, impersonate, or bully other participants.</li>
           </ul>
         </section>
 
@@ -81,7 +87,30 @@ export default function TermsPage() {
 
         <section className="space-y-3">
           <h2 className="text-xl sm:text-2xl font-bold text-white font-[family-name:var(--font-space-grotesk)]">
-            6. Service Availability &amp; Disclaimer
+            6. Copyright, Moderation &amp; Termination
+          </h2>
+          <p>
+            You are responsible for the content you upload or share. If you believe material
+            shared through SyncTogether infringes your copyright, our{" "}
+            <a href="/dmca" className="text-purple-300 hover:text-white underline">Copyright &amp; DMCA Policy</a>{" "}
+            explains how to send a notice to our registered designated agent, and how to file a
+            counter-notification.
+          </p>
+          <p>
+            You can report abusive behaviour or infringing material from inside the app, from a
+            chat message or the member list, and you can block anyone you do not wish to hear
+            from &ndash; a block hides their messages and camera everywhere, in every room.
+          </p>
+          <p>
+            We remove content that violates these Terms, and we terminate, in appropriate
+            circumstances, the accounts of repeat copyright infringers and of anyone who harasses
+            or abuses other participants.
+          </p>
+        </section>
+
+        <section className="space-y-3">
+          <h2 className="text-xl sm:text-2xl font-bold text-white font-[family-name:var(--font-space-grotesk)]">
+            7. Service Availability &amp; Disclaimer
           </h2>
           <p>
             SyncTogether is provided on an &ldquo;as is&rdquo; and &ldquo;as available&rdquo; basis without warranties of any kind. We do not guarantee uninterrupted or error-free operation.
@@ -90,7 +119,7 @@ export default function TermsPage() {
 
         <section className="space-y-3">
           <h2 className="text-xl sm:text-2xl font-bold text-white font-[family-name:var(--font-space-grotesk)]">
-            7. Governing Law
+            8. Governing Law
           </h2>
           <p>
             These Terms shall be governed by and construed in accordance with the laws of India, without regard to its conflict of law provisions.
@@ -99,7 +128,7 @@ export default function TermsPage() {
 
         <section className="space-y-3">
           <h2 className="text-xl sm:text-2xl font-bold text-white font-[family-name:var(--font-space-grotesk)]">
-            8. Contact Us
+            9. Contact Us
           </h2>
           <p>
             If you have questions regarding these Terms, please contact us at:{" "}

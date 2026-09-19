@@ -15,6 +15,7 @@ enum AnalyticsGroup {
   rooms('Rooms and watching'),
   engagement('Things you do in a room'),
   rewards('Streaks and badges'),
+  safety('Safety and moderation'),
   premium('Premium');
 
   const AnalyticsGroup(this.title);
@@ -260,6 +261,31 @@ const kAnalyticsEvents = <AnalyticsEventDoc>[
     why:
         'Whether the one thing Premium adds here is worth having. The handle '
         'itself is not sent.',
+  ),
+
+  // --- Safety and moderation -----------------------------------------------
+  AnalyticsEventDoc(
+    event: 'content_reported',
+    group: .safety,
+    what: 'You reported someone in a room.',
+    why:
+        'So we can tell whether the report button is findable, and how often '
+        'it is needed. Only the category you picked is sent here - anything '
+        'you typed goes to the moderation queue, never to analytics.',
+    properties: ['the category you picked'],
+  ),
+  AnalyticsEventDoc(
+    event: 'user_blocked',
+    group: .safety,
+    what: 'You blocked someone.',
+    why: 'Whether blocking is reachable at the moment people need it.',
+    properties: ['the category it was filed under'],
+  ),
+  AnalyticsEventDoc(
+    event: 'user_unblocked',
+    group: .safety,
+    what: 'You unblocked someone.',
+    why: 'Whether blocks are being used as a mute and then undone.',
   ),
 
   // --- Premium -------------------------------------------------------------

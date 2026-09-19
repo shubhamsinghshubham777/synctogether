@@ -8,9 +8,6 @@ import 'package:synctogether/auth/auth_service.dart';
 import 'package:synctogether/auth/turnstile_dialog.dart';
 import 'package:synctogether/diagnostics.dart';
 import 'package:synctogether/env.dart';
-import 'package:go_router/go_router.dart';
-import 'package:synctogether/mock/mock_dependencies.dart';
-import 'package:synctogether/platform.dart';
 import 'package:synctogether/ui/banners.dart';
 import 'package:synctogether/ui/buttons.dart';
 import 'package:synctogether/ui/glass.dart';
@@ -146,14 +143,6 @@ class _LoginScreenState extends State<LoginScreen> {
     final token = _otpController.text.trim();
     if (token.length != 6) {
       showPTSnack(context, 'Please enter the 6-digit code.', kind: .info);
-      return;
-    }
-    if ((email == 'apple-review@synctogether.app' || email == 'demo@synctogether.app') &&
-        (token == '000000' || token == '123456')) {
-      installMockDependencies();
-      if (mounted) {
-        context.go('/lobby');
-      }
       return;
     }
     await _run(
@@ -317,25 +306,6 @@ class _LoginScreenState extends State<LoginScreen> {
           loading: _guestLoading,
           onPressed: _anyLoading ? null : _continueAsGuest,
         ),
-        if (isAppleStoreBuild)
-          Padding(
-            padding: const EdgeInsets.only(top: 6),
-            child: Center(
-              child: TextButton(
-                onPressed: () {
-                  installMockDependencies();
-                  context.go('/lobby');
-                },
-                child: Text(
-                  'Demo Review Sign-in',
-                  style: PTText.finePrint.copyWith(
-                    color: PTColors.white(0.4),
-                    decoration: TextDecoration.underline,
-                  ),
-                ),
-              ),
-            ),
-          ),
       ],
     );
   }

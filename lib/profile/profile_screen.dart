@@ -26,6 +26,7 @@ import 'package:synctogether/profile/entitlement_service.dart';
 import 'package:synctogether/profile/media_quota_dialog.dart';
 import 'package:synctogether/profile/profile_models.dart';
 import 'package:synctogether/profile/profile_service.dart';
+import 'package:synctogether/rooms/moderation_service.dart';
 import 'package:synctogether/ui/banners.dart';
 import 'package:synctogether/ui/buttons.dart';
 import 'package:synctogether/ui/glass.dart';
@@ -401,6 +402,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 _mediaQuotaSection(),
                                 _audioVideoSection(),
                                 if (supportsSelfUpdate) _updatesSection(),
+                                _blockedSection(),
                                 _privacySection(),
                                 Padding(
                                   padding: const EdgeInsets.only(top: 6),
@@ -660,6 +662,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Widget _handleField(RewardState state) {
     final handle = state.handle;
+    // A handle is Premium-only, and the store edition sells no tier - so the
+    // field would be a permanently locked control advertising one.
+    if (isAppleStoreBuild && handle == null) return const SizedBox.shrink();
     final controller = _handleController(handle == null ? '' : '@$handle');
     // A handle is permanent, globally unique and first-come, which makes it the
     // one thing here worth squatting - so it is the Premium perk. Being *on*
@@ -798,6 +803,76 @@ class _ProfileScreenState extends State<ProfileScreen> {
       Analytics.instance.track('frame_equipped', {'frame': frame?.name ?? 'none'});
     } on RewardsFailure catch (failure) {
       if (mounted) _snack(failure.message);
+    }
+  }
+
+  /// The list of people this account has blocked, with a way back.
+  ///
+  /// A block the user cannot see is a block the user cannot undo. It renders
+  /// nothing when the list is empty rather than an empty state: this sits in
+  /// a settings screen most people will never need, and a bare "Blocked
+  /// people" heading only invites the question.
+  Widget _blockedSection() {
+    return ListenableBuilder(
+      listenable: ModerationService.instance,
+      builder: (context, _) {
+        final blocked = ModerationService.instance.blockedUsers;
+        if (blocked.isEmpty) return const SizedBox.shrink();
+        return Column(
+          crossAxisAlignment: .start,
+          spacing: 10,
+          children: [
+            Text('Blocked people', style: PTText.cardHeading.copyWith(fontSize: 15)),
+            Text(
+              'You will not see their messages or cameras in any room.',
+              style: PTText.finePrint.copyWith(color: PTColors.white(0.55)),
+            ),
+            for (final user in blocked)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                decoration: BoxDecoration(
+                  color: PTColors.white(0.04),
+                  border: Border.all(color: PTColors.white(0.08)),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Row(
+                  spacing: 12,
+                  children: [
+                    PTAvatar(
+                      userId: user.userId,
+                      displayName: user.displayName,
+                      avatarUrl: user.avatarUrl,
+                      size: 32,
+                    ),
+                    Expanded(
+                      child: Text(
+                        user.displayName,
+                        overflow: .ellipsis,
+                        style: PTText.body.copyWith(fontSize: 14, fontWeight: .w500),
+                      ),
+                    ),
+                    PTButton(
+                      label: 'Unblock',
+                      variant: .secondary,
+                      height: 34,
+                      expand: false,
+                      onPressed: () => unawaited(_unblock(user)),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _unblock(BlockedUser user) async {
+    try {
+      await ModerationService.instance.unblock(user.userId);
+      if (mounted) _snack('${user.displayName} is unblocked.', kind: .success);
+    } catch (_) {
+      if (mounted) _snack("Couldn't unblock them - try again.");
     }
   }
 
@@ -1107,6 +1182,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _emailField(profile),
         const Divider(),
         if (supportsSelfUpdate) ...[_updatesSection(), const Divider()],
+        _blockedSection(),
         _privacySection(),
         const Divider(),
         Column(
@@ -1239,6 +1315,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _audioVideoSection(),
         const Divider(),
         if (supportsSelfUpdate) ...[_updatesSection(), const Divider()],
+        _blockedSection(),
         _privacySection(),
         PTButton(
           label: 'End guest session',

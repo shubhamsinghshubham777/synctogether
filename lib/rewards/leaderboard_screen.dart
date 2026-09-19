@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../platform.dart';
 import '../analytics.dart';
 import '../analytics_consent.dart';
 import '../auth/auth_service.dart';
@@ -513,6 +514,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
   Widget _profileLink(RewardState state) {
     final handle = state.handle;
     if (handle == null) {
+      if (isAppleStoreBuild && !state.isPremium) return const SizedBox.shrink();
       return Text(
         state.isPremium
             ? 'Pick a handle in your profile and your badges get a page you can link to.'
@@ -675,7 +677,7 @@ class _BoardRow extends StatelessWidget {
             userId: row.userId,
             displayName: row.displayName,
             avatarUrl: row.avatarUrl,
-            premium: row.isPremium,
+            premium: !isAppleStoreBuild && row.isPremium,
             frame: row.frame,
             size: 34,
           ),

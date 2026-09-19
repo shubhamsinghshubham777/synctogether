@@ -72,9 +72,6 @@ jobs:
           flutter config --enable-windows-desktop
           flutter pub get
 
-      - name: Pre-extract libwebrtc
-        run: ./.github/scripts/preextract-libwebrtc.ps1
-
       - name: Build Windows App (Store mode)
         shell: bash
         env:

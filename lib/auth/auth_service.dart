@@ -246,6 +246,36 @@ class AuthService {
     await _client.auth.verifyOTP(email: email.trim(), token: token.trim(), type: OtpType.email);
   }
 
+  /// Signs in with an email and password.
+  ///
+  /// Passwords are the *optional* half of email sign-in: an account only has
+  /// one if its owner set it in their profile, and the one-time code remains
+  /// the path that always works. That asymmetry is deliberate - it means
+  /// forgetting a password is never a lockout and needs no reset-link flow,
+  /// because signing in with a code and setting a new one is the reset.
+  Future<void> signInWithPassword({
+    required String email,
+    required String password,
+    String? captchaToken,
+  }) async {
+    _ensureConfigured();
+    await _client.auth.signInWithPassword(
+      email: email.trim(),
+      password: password,
+      captchaToken: captchaToken,
+    );
+  }
+
+  /// Sets or replaces the password on the signed-in account.
+  ///
+  /// Works whether or not one exists already, which is why nothing here tries
+  /// to detect that: Supabase exposes no "has a password" flag, and guessing
+  /// from the identity list would be wrong for anyone who signed up by code.
+  Future<void> setPassword(String password) async {
+    _ensureConfigured();
+    await _client.auth.updateUser(UserAttributes(password: password));
+  }
+
   /// Browser OAuth + deep-link callback - the one flow that works on every
   /// platform (plan Phase 1). supabase_flutter handles the callback URI.
   Future<void> signInWithGoogle() => _startOAuth(

@@ -1,12 +1,12 @@
 import type { Metadata } from "next";
 import { GlassPanel } from "@/components/GlassPanel";
 import { PTButton } from "@/components/PTButton";
+import { ReleaseChip } from "@/components/ReleaseChip";
 import { getLatestRelease } from "@/lib/github";
 import { normalizeRoomCode } from "@/lib/rewards";
 import {
   Download,
   Smartphone,
-  Sparkles,
 } from "lucide-react";
 
 import { AppleLogo, WindowsLogo } from "@/components/Icons";
@@ -26,6 +26,7 @@ export default async function DownloadPage({
   searchParams: Promise<{ code?: string }>;
 }) {
   const [release, { code }] = await Promise.all([getLatestRelease(), searchParams]);
+  const displayTag = release.name || `v${release.version || "0.11.0"}`;
   // Carried over from /join/<code> when the invite found nothing installed.
   // Desktop has no install-referrer, so the code cannot survive the installer -
   // showing it here is what lets somebody write it down before they leave.
@@ -53,10 +54,7 @@ export default async function DownloadPage({
 
       {/* Header */}
       <div className="text-center max-w-3xl mx-auto space-y-4">
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-500/10 border border-purple-400/20 text-xs font-mono text-purple-300">
-          <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-          <span>Latest Release: {release.name || `v${release.version}`}</span>
-        </div>
+        <ReleaseChip tag={displayTag} />
         <h1 className="text-4xl sm:text-6xl font-extrabold text-white tracking-tight font-[family-name:var(--font-space-grotesk)]">
           Download <span className="text-gradient-brand">SyncTogether.</span>
         </h1>

@@ -1,4 +1,3 @@
-import Link from "next/link";
 import Image from "next/image";
 import { GlassPanel } from "@/components/GlassPanel";
 import { HeroStage } from "@/components/hero/HeroStage";
@@ -8,6 +7,7 @@ import { ProductShot } from "@/components/ProductShot";
 import { WhyNotScreenShare } from "@/components/WhyNotScreenShare";
 import { ReactionPlayground } from "@/components/ReactionPlayground";
 import { TierPreviewSection } from "@/components/TierPreviewSection";
+import { ReleaseChip } from "@/components/ReleaseChip";
 import { getLatestRelease } from "@/lib/github";
 import {
   Film,
@@ -15,8 +15,6 @@ import {
   Video,
   Clock,
   ShieldCheck,
-  ArrowRight,
-  Sparkles,
 } from "lucide-react";
 
 export const revalidate = 3600; // ISR hourly
@@ -34,14 +32,7 @@ export default async function HomePage() {
       {/* 1. HERO SECTION */}
       <section className="relative pt-10 pb-12 md:pt-16 md:pb-16 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto text-center space-y-8">
         {/* Release / Intro Pill */}
-        <Link
-          href="/changelog"
-          className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-purple-500/10 border border-purple-400/30 text-purple-200 text-xs font-semibold shadow-inner hover:bg-purple-500/20 hover:border-purple-400/50 hover:text-white transition-all duration-200 group cursor-pointer"
-        >
-          <Sparkles className="w-3.5 h-3.5 text-amber-300 animate-pulse group-hover:scale-110 transition-transform" />
-          <span>SyncTogether {displayTag} is now live</span>
-          <ArrowRight className="w-3 h-3 text-purple-400 group-hover:translate-x-0.5 transition-transform" />
-        </Link>
+        <ReleaseChip tag={displayTag} />
 
         {/* Hero Title */}
         <div className="space-y-4 max-w-4xl mx-auto">

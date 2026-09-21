@@ -11,7 +11,9 @@ export interface PaddleSubscriptionItem {
 
 export interface FulfillmentInput {
   user: { id: string } | null;
-  existingSub: { tier: string; current_period_end?: string } | null;
+  existingSub: { tier: string; current_period_end?: string | null } | null;
+  /** Injectable so the expiry branch is testable without freezing the clock. */
+  now?: Date;
   paddleApiKey?: string;
   fetchPaddleSubs?: (userId: string) => Promise<{ data?: PaddleSubscriptionItem[] } | null>;
 }
@@ -34,6 +36,11 @@ export async function fetchPaddleUserSubscriptions(
     ? "https://sandbox-api.paddle.com"
     : "https://api.paddle.com";
 
+  // This path polls immediately after a checkout, so the subscription being
+  // looked for is the most recently created one and Paddle returns newest
+  // first. That is what makes a scan survivable here where it was not in the
+  // cancel route, which looks up arbitrarily old subscriptions and now
+  // addresses them by the id the webhook stores.
   const res = await fetch(`${paddleApiHost}/subscriptions?per_page=50`, {
     headers: {
       Authorization: `Bearer ${apiKey}`,
@@ -50,7 +57,7 @@ export async function fetchPaddleUserSubscriptions(
 export async function validateAndResolveFulfillment(
   input: FulfillmentInput
 ): Promise<FulfillmentResult> {
-  const { user, existingSub, paddleApiKey, fetchPaddleSubs } = input;
+  const { user, existingSub, paddleApiKey, fetchPaddleSubs, now = new Date() } = input;
 
   // 1. Authentication check
   if (!user || !user.id) {
@@ -62,8 +69,17 @@ export async function validateAndResolveFulfillment(
     };
   }
 
-  // 2. Early return if existing subscription is already active premium
-  if (existingSub && existingSub.tier === "premium") {
+  // 2. Early return if the existing subscription is premium AND still current.
+  //    The expiry check is the point: without it a lapsed row short-circuits
+  //    this route into reporting premium forever. `effective_tier` re-checks
+  //    server-side so entitlement was never actually wrong, but this endpoint
+  //    was answering with a state that had stopped being true.
+  const existingIsCurrent =
+    existingSub?.tier === "premium" &&
+    (existingSub.current_period_end == null ||
+      new Date(existingSub.current_period_end) > now);
+
+  if (existingIsCurrent && existingSub) {
     return {
       status: 200,
       success: true,

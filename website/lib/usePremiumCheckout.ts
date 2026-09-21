@@ -5,11 +5,8 @@ import { useRouter } from "next/navigation";
 import type { User } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
 import { openPaddleCheckout } from "@/components/PaddleCheckout";
+import { paddlePriceIds } from "@/lib/paddle_env";
 
-const PADDLE_MONTHLY_PRICE_ID =
-  process.env.NEXT_PUBLIC_PADDLE_MONTHLY_PRICE_ID || process.env.PADDLE_MONTHLY_PRICE_ID || "pri_monthly_default";
-const PADDLE_ANNUAL_PRICE_ID =
-  process.env.NEXT_PUBLIC_PADDLE_ANNUAL_PRICE_ID || process.env.PADDLE_ANNUAL_PRICE_ID || "pri_annual_default";
 
 /**
  * The Premium checkout branch shared by PricingTable and the Tier Configurator:
@@ -73,7 +70,8 @@ export function usePremiumCheckout() {
     }
     setIsLoadingCheckout(true);
     try {
-      const priceId = billingCycle === "annual" ? PADDLE_ANNUAL_PRICE_ID : PADDLE_MONTHLY_PRICE_ID;
+      const priceId =
+        billingCycle === "annual" ? paddlePriceIds.annual : paddlePriceIds.monthly;
       await openPaddleCheckout({ priceId, userId: user.id, userEmail: user.email });
     } finally {
       setIsLoadingCheckout(false);

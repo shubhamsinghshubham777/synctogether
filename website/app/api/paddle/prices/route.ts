@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
+  paddlePriceIds,
+  paddleApiHost,
+  isPaddleApiKeyUsable,
+} from "@/lib/paddle_env";
+import {
   COUNTRY_CURRENCY_MAP,
   PADDLE_SUPPORTED_CURRENCIES,
   formatCurrency,
@@ -36,21 +41,12 @@ export async function GET(request: NextRequest) {
     const targetCurrency = searchParams.get("currency") || countryConfig.currency;
     const isCurrencySupported = PADDLE_SUPPORTED_CURRENCIES.has(targetCurrency);
 
-    const monthlyPriceId =
-      process.env.NEXT_PUBLIC_PADDLE_MONTHLY_PRICE_ID ||
-      process.env.PADDLE_MONTHLY_PRICE_ID ||
-      "pri_01m02w4z770krsa3sw2ydsskgs";
-    const annualPriceId =
-      process.env.NEXT_PUBLIC_PADDLE_ANNUAL_PRICE_ID ||
-      process.env.PADDLE_ANNUAL_PRICE_ID ||
-      "pri_01m02w6w151nd2em52yrpar44y";
-    const apiKey = process.env.PADDLE_API_KEY;
+    const monthlyPriceId = paddlePriceIds.monthly;
+    const annualPriceId = paddlePriceIds.annual;
 
-    if (apiKey && !apiKey.includes("xxx")) {
-      const envUrl =
-        process.env.NEXT_PUBLIC_PADDLE_ENVIRONMENT === "production"
-          ? "https://api.paddle.com"
-          : "https://sandbox-api.paddle.com";
+    if (isPaddleApiKeyUsable()) {
+      const apiKey = process.env.PADDLE_API_KEY;
+      const envUrl = paddleApiHost();
 
       try {
         const previewPayload: Record<string, unknown> = {

@@ -5,6 +5,8 @@ import { initializePaddle, type Paddle } from "@paddle/paddle-js";
 let paddlePromise: Promise<Paddle | undefined> | null = null;
 
 export function getPaddleInstance(token?: string, env: "sandbox" | "production" = "sandbox") {
+  // Memoised against the first (token, env) pair it sees - callers must pass
+  // both, or an early call pins the page to sandbox for its lifetime.
   if (!paddlePromise && typeof window !== "undefined") {
     const clientToken = token || process.env.NEXT_PUBLIC_PADDLE_CLIENT_TOKEN || "test_token";
     paddlePromise = initializePaddle({
@@ -47,16 +49,19 @@ export async function openPaddleCheckout({
     });
   } catch (error) {
     console.error("Paddle Checkout error:", error);
-    // Dev fallback if mock token is used
-    if (process.env.NODE_ENV === "development" || !token || token.includes("test_")) {
+    // Strictly a development affordance. The old condition also fired on
+    // `!token`, so a production deployment missing NEXT_PUBLIC_PADDLE_CLIENT_TOKEN
+    // showed a paying customer a dialog captioned "Development Mode" and let
+    // them send themselves to the success page.
+    if (process.env.NODE_ENV !== "production") {
       const confirmMock = window.confirm(
         "Development Mode: Running in test/sandbox. Would you like to simulate a successful checkout redirect to /account?"
       );
       if (confirmMock) {
         window.location.href = successUrl;
       }
-    } else {
-      alert("Unable to open checkout overlay. Please try again later or contact support.");
+      return;
     }
+    alert("Unable to open checkout overlay. Please try again later or contact support.");
   }
 }

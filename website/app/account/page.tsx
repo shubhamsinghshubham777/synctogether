@@ -48,6 +48,7 @@ function AccountDashboard() {
   const [loading, setLoading] = useState(true);
   const [verifying, setVerifying] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
+  const [cancelsAt, setCancelsAt] = useState<string | null>(null);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const celebratedRef = useRef(false);
@@ -283,19 +284,36 @@ function AccountDashboard() {
   }, [isSubscribedRedirect, router, supabase]);
 
   const handleCancelSubscription = async () => {
-    if (!window.confirm("Are you sure you want to cancel your Premium subscription? Your account will revert to the Free tier.")) {
+    if (
+      !window.confirm(
+        "Cancel your Premium subscription? You keep Premium until the end of the period you have already paid for, and you will not be billed again."
+      )
+    ) {
       return;
     }
     setIsCancelling(true);
     try {
       const res = await fetch("/api/paddle/cancel", { method: "POST" });
+      const body = await res.json().catch(() => null);
       if (res.ok) {
-        setSubscription(null);
+        // Cancellation is scheduled at the next billing period, so the
+        // subscription is still live and must keep rendering as such -
+        // clearing it here showed the Free tier immediately and a reload then
+        // contradicted it.
+        if (body?.scheduled) {
+          setCancelsAt(body.cancelsAt ?? subscription?.current_period_end ?? null);
+        } else {
+          setSubscription(null);
+        }
         const { data: entData } = await supabase.rpc("my_entitlement");
         if (entData) {
           const ent = Array.isArray(entData) ? entData[0] : entData;
           setEntitlement(ent);
         }
+      } else if (body?.error === "subscription_unlinked") {
+        alert(
+          "We could not find the billing record for this subscription. Please contact support so we can stop the billing for you."
+        );
       } else {
         alert("Failed to cancel subscription. Please contact support.");
       }
@@ -490,10 +508,10 @@ function AccountDashboard() {
                 </p>
                 {subscription?.current_period_end && (
                   <p className="text-gray-300">
-                    Next billing / renewal date:{" "}
+                    {cancelsAt ? "Premium until" : "Next billing / renewal date"}:{" "}
                     <strong>
                       {new Date(
-                        subscription.current_period_end
+                        cancelsAt ?? subscription.current_period_end
                       ).toLocaleDateString(undefined, {
                         year: "numeric",
                         month: "long",
@@ -503,7 +521,9 @@ function AccountDashboard() {
                   </p>
                 )}
                 <p className="text-[11px] text-gray-400">
-                  To update your payment method or cancel renewal, use the link in your email receipt or contact support.
+                  {cancelsAt
+                    ? "Cancelled. You keep Premium until the date above and will not be billed again."
+                    : "To update your payment method, use the link in your email receipt or contact support."}
                 </p>
               </div>
             ) : (
@@ -520,7 +540,7 @@ function AccountDashboard() {
               <>
                 <button
                   onClick={handleCancelSubscription}
-                  disabled={isCancelling}
+                  disabled={isCancelling || cancelsAt !== null}
                   className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-300 hover:text-red-200 text-xs font-semibold border border-red-500/30 transition-all cursor-pointer disabled:opacity-50"
                 >
                   {isCancelling ? (

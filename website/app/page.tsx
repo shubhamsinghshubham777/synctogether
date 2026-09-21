@@ -41,9 +41,9 @@ export default async function HomePage() {
             <span className="text-gradient-brand">not in the same room.</span>
           </h1>
           <p className="text-lg sm:text-xl text-gray-300 max-w-2xl mx-auto leading-relaxed font-[family-name:var(--font-outfit)]">
-            Open your own video file or paste a YouTube link. Everyone lands on
-            the same frame at the same moment - with voice, facecams and
-            reactions on top.
+            No more counting down from three. Open your own video file or paste
+            a YouTube link, and everyone lands on the same frame at the same
+            moment - with voice, facecams and reactions on top.
           </p>
         </div>
 

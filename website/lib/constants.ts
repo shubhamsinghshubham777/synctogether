@@ -110,7 +110,10 @@ export const PRICING_TIERS = {
       inrMonthly: "₹199",
       inrAnnual: "₹999",
       inrAnnualMonthlyEquivalent: "₹83",
-      savingsPct: "58%",
+      // No savingsPct here on purpose. It read "58%", which is the INR figure
+      // (199x12 = 2388 vs 999). USD saves 37% (3.99x12 = 47.88 vs 29.99), so a
+      // single constant is wrong for every currency but one. PricingTable takes
+      // the per-currency value from `calculateSavingsPercentage` instead.
     },
     description: "The complete theater experience. Video facecams, 16 members, 24h rooms, and persistent memory.",
     cta: "Upgrade to Premium",

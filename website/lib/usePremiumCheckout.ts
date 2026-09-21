@@ -17,6 +17,10 @@ import { paddlePriceIds } from "@/lib/paddle_env";
 export function usePremiumCheckout() {
   const [user, setUser] = useState<User | null>(null);
   const [isPremium, setIsPremium] = useState(false);
+  // Paddle customer id (`ctm_...`) for Retain. Written by the webhook, so it
+  // exists for anyone who has checked out before and is null for a first
+  // purchase - which is fine: Retain has nothing to act on until then.
+  const [paddleCustomerId, setPaddleCustomerId] = useState<string | undefined>();
   const [isLoadingCheckout, setIsLoadingCheckout] = useState(false);
   const router = useRouter();
   const supabase = createClient();
@@ -31,6 +35,16 @@ export function usePremiumCheckout() {
       setUser(user);
       if (user) {
         try {
+          const { data: custRow } = await supabase
+            .from("subscriptions")
+            .select("paddle_customer_id")
+            .eq("user_id", user.id)
+            .maybeSingle();
+          if (ignore) return;
+          if (custRow?.paddle_customer_id) {
+            setPaddleCustomerId(custRow.paddle_customer_id);
+          }
+
           const { data: entData } = await supabase.rpc("my_entitlement");
           if (ignore) return;
           if (entData) {
@@ -72,7 +86,12 @@ export function usePremiumCheckout() {
     try {
       const priceId =
         billingCycle === "annual" ? paddlePriceIds.annual : paddlePriceIds.monthly;
-      await openPaddleCheckout({ priceId, userId: user.id, userEmail: user.email });
+      await openPaddleCheckout({
+        priceId,
+        userId: user.id,
+        userEmail: user.email,
+        paddleCustomerId,
+      });
     } finally {
       setIsLoadingCheckout(false);
     }

@@ -7,6 +7,7 @@ import {
   resolvePeriodEnd,
   isRedundantGrant,
 } from "@/lib/paddle_webhook";
+import { callerAddress, classifyCaller, paddleWebhookIps } from "@/lib/paddle_ips";
 
 /**
  * Paddle's subscription webhook.
@@ -16,6 +17,14 @@ import {
  * before the body is parsed. The decisions themselves live in
  * `lib/paddle_webhook.ts` so they can be tested without a database.
  *
+ * Callers are also checked against Paddle's published webhook IPs, fetched
+ * from https://api.paddle.com/ips rather than hard-coded. That check sits in
+ * front of verification as defence in depth, never in place of it - an
+ * allowlisted address still has to present a valid signature. It fails open
+ * when the allowlist cannot be fetched, because dropping real subscription
+ * events is worse than falling back to the signature check that already fails
+ * closed.
+ *
  * Revoking sets `tier` to free and dates the row rather than deleting it. The
  * row carries the Paddle ids the cancel route addresses and the event cursor
  * that makes replay safe, and deleting it threw both away - which is how a
@@ -23,6 +32,21 @@ import {
  */
 export async function POST(request: Request) {
   try {
+    const address = callerAddress(request.headers);
+    const sourceVerdict = classifyCaller(address, await paddleWebhookIps());
+    if (sourceVerdict === "rejected") {
+      // Not from Paddle. 403 and no retry semantics to worry about, since a
+      // genuine Paddle delivery can never land here.
+      console.warn(`Paddle webhook from non-Paddle address: ${address}`);
+      return NextResponse.json({ error: "forbidden_source" }, { status: 403 });
+    }
+    if (sourceVerdict === "unverifiable") {
+      // Logged rather than rejected - see the fail-open note above.
+      console.warn(
+        `Paddle webhook source could not be verified (address: ${address ?? "unknown"}); relying on signature`
+      );
+    }
+
     const rawBody = await request.text();
 
     const verdict = verifyPaddleSignature({

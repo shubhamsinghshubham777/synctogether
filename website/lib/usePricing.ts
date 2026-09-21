@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useSyncExternalStore } from "react";
 import { getPaddleInstance } from "@/components/PaddleCheckout";
+import { paddlePriceIds } from "@/lib/paddle_env";
 import {
   COUNTRY_CURRENCY_MAP,
   PADDLE_SUPPORTED_CURRENCIES,
@@ -12,11 +13,6 @@ import {
   isLocalEnvironment,
   type LocalizedPriceData,
 } from "./pricing";
-
-const PADDLE_MONTHLY_PRICE_ID =
-  process.env.NEXT_PUBLIC_PADDLE_MONTHLY_PRICE_ID || "pri_01m02w4z770krsa3sw2ydsskgs";
-const PADDLE_ANNUAL_PRICE_ID =
-  process.env.NEXT_PUBLIC_PADDLE_ANNUAL_PRICE_ID || "pri_01m02w6w151nd2em52yrpar44y";
 
 // In-memory client-side price cache to eliminate duplicate network calls
 const clientPriceCache: Record<string, LocalizedPriceData> = {};
@@ -106,6 +102,16 @@ export function usePricing() {
     setIsLoading(true);
 
     try {
+      // Resolved through `paddle_env.ts`, and read here rather than at module
+      // scope. These were `process.env.X || "pri_01m02w..."` literals, and the
+      // literals were the *sandbox* ids - so a deployment missing the variables
+      // previewed sandbox prices against the live catalog instead of failing.
+      // `paddlePriceIds` throws when unconfigured in production, which is the
+      // point of it; at module scope that throw would take the whole pricing
+      // page down at import instead of just failing this fetch.
+      const monthlyPriceId = paddlePriceIds.monthly;
+      const annualPriceId = paddlePriceIds.annual;
+
       // 1. Try fetching via Paddle.js client SDK PricePreview
       const paddle = await getPaddleInstance();
       if (paddle && typeof paddle.PricePreview === "function") {
@@ -117,8 +123,8 @@ export function usePricing() {
             currencyCode?: "USD" | "EUR" | "GBP" | "INR" | "CAD" | "AUD" | "JPY";
           } = {
             items: [
-              { priceId: PADDLE_MONTHLY_PRICE_ID, quantity: 1 },
-              { priceId: PADDLE_ANNUAL_PRICE_ID, quantity: 1 },
+              { priceId: monthlyPriceId, quantity: 1 },
+              { priceId: annualPriceId, quantity: 1 },
             ],
             address: { countryCode: country },
           };
@@ -131,10 +137,10 @@ export function usePricing() {
           if (preview?.data?.details?.lineItems?.length) {
             const lineItems = preview.data.details.lineItems;
             const monthlyItem =
-              lineItems.find((item) => item.price?.id === PADDLE_MONTHLY_PRICE_ID) ||
+              lineItems.find((item) => item.price?.id === monthlyPriceId) ||
               lineItems[0];
             const annualItem =
-              lineItems.find((item) => item.price?.id === PADDLE_ANNUAL_PRICE_ID) ||
+              lineItems.find((item) => item.price?.id === annualPriceId) ||
               lineItems[1];
 
             const currencyCode = preview.data.currencyCode || (isSupported ? targetCurrency : "USD");

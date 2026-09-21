@@ -3,6 +3,7 @@ import { PricingTable } from "@/components/PricingTable";
 import { TierConfigurator } from "@/components/pricing/TierConfigurator";
 import { PersistentRoomsBand } from "@/components/pricing/PersistentRoomsBand";
 import { FAQAccordion } from "@/components/FAQAccordion";
+import { PaddleTransactionCheckout } from "@/components/PaddleTransactionCheckout";
 
 export const metadata: Metadata = {
   title: "Pricing & Plans - SyncTogether Premium",
@@ -40,6 +41,10 @@ export default function PricingPage() {
 
   return (
     <div className="relative py-10 md:py-14 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto space-y-12 md:space-y-14">
+      {/* Resumes payment when Paddle's default payment link sends a customer
+          here with ?_ptxn=txn_... Renders nothing otherwise. */}
+      <PaddleTransactionCheckout />
+
       {/* Background Ambient Glow */}
       <div className="glow-blob-purple top-0 left-1/2 -translate-x-1/2 opacity-30" />
 

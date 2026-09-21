@@ -29,6 +29,15 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: "daily",
       priority: 0.6,
     },
+    // Comparison pages: long-tail search entry points ("teleparty alternative
+    // for downloaded movies"). Low competition, no ongoing cost, and the only
+    // marketing asset that keeps working when nobody is posting.
+    ...["teleparty", "syncplay", "discord"].map((slug) => ({
+      url: `${baseUrl}/vs/${slug}`,
+      lastModified: new Date(),
+      changeFrequency: "monthly" as const,
+      priority: 0.7,
+    })),
     {
       url: `${baseUrl}/faq`,
       lastModified: new Date(),

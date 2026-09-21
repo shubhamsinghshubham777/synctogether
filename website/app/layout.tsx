@@ -28,18 +28,22 @@ const jetbrainsMono = JetBrains_Mono({
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_CONFIG.url),
   title: {
-    default: "SyncTogether - Synchronized Video & Media Playback",
+    default: "SyncTogether - Watch Movies Together, Even When You're Apart",
     template: "%s | SyncTogether",
   },
   description: SITE_CONFIG.description,
   keywords: [
+    "watch movies together long distance",
+    "long distance movie night",
     "watch together app",
     "sync video playback",
     "watch party desktop app",
     "watch movies together online",
+    "teleparty alternative",
+    "syncplay alternative",
+    "watch downloaded movies together",
     "synchronized media player",
     "real-time facecams",
-    "hardware-accelerated sync player",
     "YouTube sync watch",
   ],
   authors: [{ name: SITE_CONFIG.creatorName }],
@@ -48,7 +52,7 @@ export const metadata: Metadata = {
     type: "website",
     locale: "en_US",
     url: SITE_CONFIG.url,
-    title: "SyncTogether - Synchronized Video & Media Playback",
+    title: "SyncTogether - Watch Movies Together, Even When You're Apart",
     description: SITE_CONFIG.description,
     siteName: SITE_CONFIG.name,
     images: [
@@ -62,7 +66,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "SyncTogether - Synchronized Video & Media Playback",
+    title: "SyncTogether - Watch Movies Together, Even When You're Apart",
     description: SITE_CONFIG.description,
     images: ["/og-image.png"],
     creator: "@shubhamsingh",

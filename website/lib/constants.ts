@@ -1,8 +1,8 @@
 export const SITE_CONFIG = {
   name: "SyncTogether",
-  tagline: "Synchronized media playback with real-time video, chat, and reactions.",
+  tagline: "Movie night, even when you're not in the same room.",
   description:
-    "Watch local video files or YouTube in perfect sync with the people you watch with. Features private rooms, low-latency facecams, animated emoji reactions, and persistent room memory.",
+    "Watch movies together when you are apart. SyncTogether keeps your own video files and YouTube on the same frame for everyone, with voice and facecams beside the film. Free on Mac and Windows.",
   url: process.env.NEXT_PUBLIC_SITE_URL || "https://synctogether.app",
   supportEmail: "support@synctogether.app",
   githubRepo: "https://github.com/shubhamsinghshubham777/synctogether",

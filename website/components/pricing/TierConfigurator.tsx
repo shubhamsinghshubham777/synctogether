@@ -230,7 +230,7 @@ export function TierConfigurator() {
                 type="button"
                 onClick={() => goPremium("annual")}
                 disabled={isLoadingCheckout || isPriceLoading}
-                className="text-[color:var(--pt-premium)] font-semibold hover:underline cursor-pointer"
+                className="ml-1 text-[color:var(--pt-premium)] font-semibold hover:underline cursor-pointer"
               >
                 Go Premium{isPriceLoading ? "" : ` - ${monthlyFormatted}/mo`}
               </button>

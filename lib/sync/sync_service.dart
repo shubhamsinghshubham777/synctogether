@@ -236,6 +236,15 @@ class SyncService {
   Duration Function()? currentPosition;
   bool Function()? isPlaying;
 
+  /// Whether our active player is stalled. Only the heartbeat reads it - a
+  /// stalled authority must not broadcast its frozen position.
+  bool Function()? isBuffering;
+
+  /// Server-corrected wall clock (`RoomService.serverNow`), used to stamp and
+  /// age position broadcasts. Defaults to the local clock, which is fine for
+  /// tests and only costs accuracy on a skewed device.
+  DateTime Function() serverNow = clock.now;
+
   String _currentMode = 'local';
   String? _currentYoutubeUrl;
   String? _currentFileName;
@@ -1269,9 +1278,11 @@ class SyncService {
   // Room Catch-Up (e.g. after ad interruption or desync)
   // ---------------------------------------------------------------------------
 
+  bool get _aloneInRoom => _hasPresenceSynced && _presentMembers.every((m) => m.userId == userId);
+
   Future<void> requestCatchUp() async {
     if (_disposed || _channel == null) return;
-    if (_hasPresenceSynced && _presentMembers.every((m) => m.userId == userId)) {
+    if (_aloneInRoom) {
       trace('skipped catch up request: alone in room', category: 'sync');
       return;
     }
@@ -1309,6 +1320,7 @@ class SyncService {
         timestamp: _nextTimestamp(),
         positionMs: pos.inMilliseconds,
         playing: playing,
+        sentAtMs: serverNow().millisecondsSinceEpoch,
       ).toPayload(),
     );
   }
@@ -1326,18 +1338,85 @@ class SyncService {
 
     _roomPlaying = event.playing;
     _catchUpController.add(event);
+
+    // The YouTube ad path consumes the stream above; a stall recovery is
+    // applied here, as a silent drift correction.
+    if (_bufferCatchUpPending) {
+      _endBufferCatchUp();
+      _correctDrift(
+        Duration(milliseconds: event.positionMs),
+        playing: event.playing,
+        sentAtMs: event.sentAtMs,
+        reason: 'stall',
+      );
+    }
   }
 
   // ---------------------------------------------------------------------------
-  // Drift correction (host heartbeat every 10 s while playing)
+  // Stall recovery: ask the room where it is the moment a stall ends, instead
+  // of drifting behind until the next heartbeat (up to 10 s later).
+  // ---------------------------------------------------------------------------
+
+  DateTime? _stallStartedAt;
+  DateTime? _lastBufferCatchUpAt;
+  bool _bufferCatchUpPending = false;
+  Timer? _bufferCatchUpTimeout;
+
+  /// Called by the room screen on every buffering edge of the active player.
+  void noteBuffering(bool buffering) {
+    if (_disposed) return;
+    final now = clock.now();
+    if (buffering) {
+      _stallStartedAt ??= now;
+      return;
+    }
+    final started = _stallStartedAt;
+    _stallStartedAt = null;
+    if (started == null || _aloneInRoom) return;
+    final last = _lastBufferCatchUpAt;
+    final stall = now.difference(started);
+    if (!logic.shouldCatchUpAfterStall(
+      stall: stall,
+      sinceLastCatchUp: last == null ? null : now.difference(last),
+    )) {
+      return;
+    }
+    _lastBufferCatchUpAt = now;
+    trace('stall ended - catching up', category: 'sync', data: {'stall_ms': stall.inMilliseconds});
+    _bufferCatchUpPending = true;
+    _bufferCatchUpTimeout?.cancel();
+    // Nobody answered (the responder dropped): the heartbeat resumes and
+    // covers it on its next tick.
+    _bufferCatchUpTimeout = Timer(const Duration(seconds: 2), _endBufferCatchUp);
+    unawaited(requestCatchUp());
+  }
+
+  void _endBufferCatchUp() {
+    _bufferCatchUpPending = false;
+    _bufferCatchUpTimeout?.cancel();
+    _bufferCatchUpTimeout = null;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Drift correction (authority heartbeat every 10 s while playing)
   // ---------------------------------------------------------------------------
 
   static const _driftThreshold = Duration(milliseconds: 1500);
 
   void _broadcastPositionSync() {
-    if (!isHost || _isApplyingRemoteAction) return;
     final playing = isPlaying?.call() ?? _player.playing;
-    if (!playing) return;
+    // Before the first presence sync nobody can be elected; the host role is
+    // the best guess, and the one this used to rely on outright.
+    final authority = _hasPresenceSynced ? _isAuthority : isHost;
+    if (!logic.shouldSendHeartbeat(
+      isAuthority: authority,
+      playing: playing,
+      buffering: isBuffering?.call() ?? false,
+      applyingRemote: _isApplyingRemoteAction,
+      catchUpPending: _bufferCatchUpPending || _stallStartedAt != null,
+    )) {
+      return;
+    }
     _channel?.sendBroadcastMessage(
       event: SyncEventType.positionSync,
       payload: PositionSyncEvent(
@@ -1345,6 +1424,7 @@ class SyncService {
         timestamp: _nextTimestamp(),
         positionMs: (currentPosition?.call() ?? _player.position).inMilliseconds,
         playing: playing,
+        sentAtMs: serverNow().millisecondsSinceEpoch,
       ).toPayload(),
     );
   }
@@ -1352,15 +1432,41 @@ class SyncService {
   void _handlePositionSync(Map<String, dynamic> payload) {
     final event = PositionSyncEvent.fromPayload(payload);
     _roomPlaying = event.playing; // authority heartbeat keeps this honest
+    _correctDrift(
+      Duration(milliseconds: event.positionMs),
+      playing: event.playing,
+      sentAtMs: event.sentAtMs,
+      reason: 'heartbeat',
+    );
+  }
+
+  /// Silently seeks to where a playing room is *now*, if we are playing and
+  /// more than [_driftThreshold] away from it.
+  void _correctDrift(
+    Duration reported, {
+    required bool playing,
+    required int? sentAtMs,
+    required String reason,
+  }) {
     final localPlaying = isPlaying?.call() ?? _player.playing;
-    if (!event.playing || !localPlaying) return;
+    if (!playing || !localPlaying) return;
     final local = currentPosition?.call() ?? _player.position;
-    final remote = Duration(milliseconds: event.positionMs);
+    final remote = logic.extrapolatePosition(
+      reported,
+      playing: playing,
+      sentAtMs: sentAtMs,
+      nowMs: serverNow().millisecondsSinceEpoch,
+    );
     if ((local - remote).abs() <= _driftThreshold) return;
     trace(
       'correcting drift',
       category: 'sync',
-      data: {'delta_ms': (local - remote).inMilliseconds, 'to_ms': remote.inMilliseconds},
+      data: {
+        'reason': reason,
+        'delta_ms': (local - remote).inMilliseconds,
+        'to_ms': remote.inMilliseconds,
+        'lead_ms': (remote - reported).inMilliseconds,
+      },
     );
     _applyRemoteAction(() {
       if (onRemoteDriftCorrect != null) {
@@ -1518,6 +1624,7 @@ class SyncService {
     _roomExtendedController.close();
     _catchUpController.close();
     _hostAssignedController.close();
+    _bufferCatchUpTimeout?.cancel();
     disconnect();
   }
 }

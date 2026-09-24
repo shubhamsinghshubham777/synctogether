@@ -1300,4 +1300,93 @@ void main() {
       );
     });
   });
+
+  group('extrapolatePosition', () {
+    const at = Duration(seconds: 30);
+
+    test('a playing sender has moved on by the transit time', () {
+      expect(
+        extrapolatePosition(at, playing: true, sentAtMs: 1000, nowMs: 1400),
+        const Duration(milliseconds: 30400),
+      );
+    });
+
+    test('a paused sender has not moved', () {
+      expect(extrapolatePosition(at, playing: false, sentAtMs: 1000, nowMs: 9000), at);
+    });
+
+    test('an older client without a send time is taken at face value', () {
+      expect(extrapolatePosition(at, playing: true, sentAtMs: null, nowMs: 9000), at);
+    });
+
+    test('a send time in the future never rewinds, and a stale one is capped', () {
+      expect(extrapolatePosition(at, playing: true, sentAtMs: 5000, nowMs: 1000), at);
+      expect(
+        extrapolatePosition(at, playing: true, sentAtMs: 0, nowMs: 60000),
+        at + kMaxPositionLead,
+      );
+    });
+  });
+
+  group('shouldSendHeartbeat', () {
+    bool send({
+      bool isAuthority = true,
+      bool playing = true,
+      bool buffering = false,
+      bool applyingRemote = false,
+      bool catchUpPending = false,
+    }) => shouldSendHeartbeat(
+      isAuthority: isAuthority,
+      playing: playing,
+      buffering: buffering,
+      applyingRemote: applyingRemote,
+      catchUpPending: catchUpPending,
+    );
+
+    test('a playing, settled authority sends', () => expect(send(), isTrue));
+    test('a non-authority never sends', () => expect(send(isAuthority: false), isFalse));
+    test('a paused authority does not send', () => expect(send(playing: false), isFalse));
+    test(
+      'a stalled authority does not drag the room back',
+      () => expect(send(buffering: true), isFalse),
+    );
+    test(
+      'nor does one still catching up after a stall',
+      () => expect(send(catchUpPending: true), isFalse),
+    );
+    test('nor while applying a remote action', () => expect(send(applyingRemote: true), isFalse));
+  });
+
+  group('shouldCatchUpAfterStall', () {
+    test('a hiccup is ignored', () {
+      expect(
+        shouldCatchUpAfterStall(stall: const Duration(milliseconds: 100), sinceLastCatchUp: null),
+        isFalse,
+      );
+    });
+
+    test('a real stall catches up', () {
+      expect(
+        shouldCatchUpAfterStall(stall: const Duration(seconds: 2), sinceLastCatchUp: null),
+        isTrue,
+      );
+    });
+
+    test('a flapping connection is rate-limited', () {
+      expect(
+        shouldCatchUpAfterStall(
+          stall: const Duration(seconds: 2),
+          sinceLastCatchUp: const Duration(seconds: 1),
+        ),
+        isFalse,
+      );
+      expect(
+        shouldCatchUpAfterStall(
+          stall: const Duration(seconds: 2),
+          sinceLastCatchUp: kBufferCatchUpCooldown,
+        ),
+        isTrue,
+      );
+    });
+  });
 }

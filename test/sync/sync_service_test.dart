@@ -1535,4 +1535,168 @@ void main() {
       });
     });
   });
+
+  group('heartbeat and stall recovery', () {
+    int heartbeats(_Harness h) =>
+        h.channel.sent.where((m) => m.event == SyncEventType.positionSync).length;
+
+    test('the elected authority heartbeats when the host is absent', () {
+      fakeAsync((async) {
+        final h = _Harness(role: 'member', joinedSeconds: 0)..connect();
+        h.service.isPlaying = () => true;
+        h.service.currentPosition = () => const Duration(seconds: 12);
+        async.flushMicrotasks();
+        h.channel.syncPresence([
+          presenceEntry(_me, joinedSeconds: 0),
+          presenceEntry(_other, joinedSeconds: 60),
+        ]);
+        async.flushMicrotasks();
+        h.channel.sent.clear();
+
+        async.elapse(const Duration(seconds: 10));
+
+        expect(heartbeats(h), 1);
+        final sent = h.channel.sent.firstWhere((m) => m.event == SyncEventType.positionSync);
+        expect(sent.payload['positionMs'], 12000);
+        expect(sent.payload['sentAtMs'], isA<int>());
+        h.dispose();
+      });
+    });
+
+    test('a stalled authority stays quiet instead of dragging the room back', () {
+      fakeAsync((async) {
+        final h = _Harness(role: 'host')..connect();
+        h.service.isPlaying = () => true;
+        h.service.isBuffering = () => true;
+        async.flushMicrotasks();
+        h.channel.syncPresence([
+          presenceEntry(_me, role: 'host'),
+          presenceEntry(_other, joinedSeconds: 60),
+        ]);
+        async.flushMicrotasks();
+        h.channel.sent.clear();
+
+        async.elapse(const Duration(seconds: 30));
+
+        expect(heartbeats(h), 0);
+        h.dispose();
+      });
+    });
+
+    test('a heartbeat is aged by its transit time before correcting', () {
+      fakeAsync((async) {
+        final h = _Harness()..connect();
+        h.service.isPlaying = () => true;
+        h.service.currentPosition = () => const Duration(seconds: 10);
+        async.flushMicrotasks();
+
+        h.channel.deliver(SyncEventType.positionSync, {
+          'senderId': _other,
+          'timestamp': 100,
+          'positionMs': 30000,
+          'playing': true,
+          'sentAtMs': h.service.serverNow().millisecondsSinceEpoch - 800,
+        });
+        async.flushMicrotasks();
+
+        expect(h.driftCorrections, [const Duration(milliseconds: 30800)]);
+        h.dispose();
+      });
+    });
+
+    test('the end of a stall catches up to the room immediately', () {
+      fakeAsync((async) {
+        final h = _Harness()..connect();
+        h.service.isPlaying = () => true;
+        h.service.currentPosition = () => const Duration(seconds: 10);
+        async.flushMicrotasks();
+        h.channel.syncPresence([
+          presenceEntry(_me, joinedSeconds: 60),
+          presenceEntry(_other, role: 'host'),
+        ]);
+        async.flushMicrotasks();
+        h.channel.sent.clear();
+
+        h.service.noteBuffering(true);
+        async.elapse(const Duration(seconds: 3));
+        h.service.noteBuffering(false);
+        async.flushMicrotasks();
+        expect(h.channel.hasSent(SyncEventType.catchUpRequest), isTrue);
+
+        h.channel.deliver(SyncEventType.catchUpResponse, {
+          'senderId': _other,
+          'timestamp': 200,
+          'targetUserId': _me,
+          'positionMs': 25000,
+          'playing': true,
+          'sentAtMs': h.service.serverNow().millisecondsSinceEpoch - 200,
+        });
+        async.flushMicrotasks();
+
+        expect(h.driftCorrections, [const Duration(milliseconds: 25200)]);
+        expect(h.actions, isEmpty, reason: 'a stall recovery is mechanical, never attributed');
+        h.dispose();
+      });
+    });
+
+    test('a hiccup asks nothing, and a flapping connection asks once per cooldown', () {
+      fakeAsync((async) {
+        final h = _Harness()..connect();
+        async.flushMicrotasks();
+        h.channel.syncPresence([
+          presenceEntry(_me, joinedSeconds: 60),
+          presenceEntry(_other, role: 'host'),
+        ]);
+        async.flushMicrotasks();
+        h.channel.sent.clear();
+        int requests() =>
+            h.channel.sent.where((m) => m.event == SyncEventType.catchUpRequest).length;
+
+        h.service.noteBuffering(true);
+        async.elapse(const Duration(milliseconds: 100));
+        h.service.noteBuffering(false);
+        expect(requests(), 0);
+
+        for (var i = 0; i < 3; i++) {
+          h.service.noteBuffering(true);
+          async.elapse(const Duration(milliseconds: 600));
+          h.service.noteBuffering(false);
+        }
+        async.flushMicrotasks();
+        expect(requests(), 1);
+        h.dispose();
+      });
+    });
+
+    test('an unanswered catch-up does not correct on a later, unrelated response', () {
+      fakeAsync((async) {
+        final h = _Harness()..connect();
+        h.service.isPlaying = () => true;
+        h.service.currentPosition = () => const Duration(seconds: 10);
+        async.flushMicrotasks();
+        h.channel.syncPresence([
+          presenceEntry(_me, joinedSeconds: 60),
+          presenceEntry(_other, role: 'host'),
+        ]);
+        async.flushMicrotasks();
+
+        h.service.noteBuffering(true);
+        async.elapse(const Duration(seconds: 1));
+        h.service.noteBuffering(false);
+        async.elapse(const Duration(seconds: 3)); // timeout lapses
+
+        h.channel.deliver(SyncEventType.catchUpResponse, {
+          'senderId': _other,
+          'timestamp': 300,
+          'targetUserId': _me,
+          'positionMs': 60000,
+          'playing': true,
+        });
+        async.flushMicrotasks();
+
+        expect(h.driftCorrections, isEmpty);
+        h.dispose();
+      });
+    });
+  });
 }

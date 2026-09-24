@@ -659,6 +659,8 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     sync.onRemoteDriftCorrect = _remoteDriftCorrect;
     sync.currentPosition = () => _position;
     sync.isPlaying = () => _playing;
+    sync.isBuffering = () => _buffering;
+    sync.serverNow = () => RoomService.instance.serverNow;
     sync.entitlementTier = EntitlementService.instance.tier;
 
     _subscriptions.addAll([
@@ -764,7 +766,9 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
       _player.stream.log.listen(_onPlayerLog),
       _player.stream.error.listen(_onPlayerError),
       _player.stream.buffering.listen((buffering) {
-        if (_mode == .local) setState(() => _buffering = buffering);
+        if (_mode != .local) return;
+        setState(() => _buffering = buffering);
+        _sync?.noteBuffering(buffering);
       }),
       _player.stream.buffer.listen((buffer) {
         if (_isStreamingRemoteSharedMedia && _mode == .local) {
@@ -1415,6 +1419,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     final isPlaying = state == .playing;
 
     final wasPlaying = _playing;
+    final wasBuffering = _buffering;
     setState(() {
       _playing = isPlaying;
       _buffering = state == .buffering;
@@ -1422,6 +1427,10 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
       if (controller.duration != Duration.zero) _duration = controller.duration;
     });
     if (isPlaying != wasPlaying) _onPlayingChangedForControls(isPlaying);
+    // Ads have their own catch-up (_handleAdEnded); a stall inside one is not ours.
+    if (_buffering != wasBuffering && !controller.isAdPlaying) {
+      _sync?.noteBuffering(_buffering);
+    }
 
     final wasAd = _youtubeWasAdPlaying;
     final isAd = controller.isAdPlaying;

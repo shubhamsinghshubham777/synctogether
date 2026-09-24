@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:synctogether/rooms/emoji/emoji_logic.dart';
 import 'package:synctogether/rooms/emoji/emoji_prefs.dart';
 import 'package:synctogether/rooms/widgets/emoji_picker.dart';
 import 'package:synctogether/rooms/widgets/room_chat_panel.dart';
@@ -51,7 +52,11 @@ Finder get _field =>
 
 String _text(WidgetTester tester) => tester.widget<TextField>(_field).controller!.text;
 
-Finder get _pickerButton => find.byTooltip('Emoji');
+/// The tooltip carries the platform's shortcut, e.g. "Emoji (Ctrl+E)".
+Finder _tooltip(String prefix) =>
+    find.byWidgetPredicate((w) => w is Tooltip && (w.message?.startsWith('$prefix (') ?? false));
+
+Finder get _pickerButton => _tooltip('Emoji');
 
 Future<TestGesture> _mouse(WidgetTester tester) async {
   final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
@@ -67,9 +72,9 @@ void main() {
   });
 
   group('quick bar', () {
-    testWidgets('starts on the default five, and a tap inserts without sending', (tester) async {
+    testWidgets('starts on the default seven, and a tap inserts without sending', (tester) async {
       final sent = await _pump(tester);
-      for (final emoji in ['😂', '❤️', '👍', '😮', '🔥']) {
+      for (final emoji in kDefaultQuickEmoji) {
         expect(find.text(emoji), findsOneWidget);
       }
       await tester.tap(find.text('🔥'));
@@ -109,7 +114,7 @@ void main() {
       expect(EmojiPrefs.instance.recent.first, '😀');
 
       // Back to the keyboard.
-      await tester.tap(find.byTooltip('Close emoji'));
+      await tester.tap(_tooltip('Close emoji'));
       await tester.pumpAndSettle();
       expect(find.byType(EmojiPicker), findsNothing);
     });

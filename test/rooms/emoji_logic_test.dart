@@ -151,13 +151,22 @@ void main() {
     });
 
     test('fresh install shows the defaults', () {
-      final slots = quickBarSlots(pins: List.filled(5, null), usage: const {}, now: _now);
+      final slots = quickBarSlots(
+        pins: List.filled(kQuickSlotCount, null),
+        usage: const {},
+        now: _now,
+      );
       expect(slots.map((s) => s.emoji), kDefaultQuickEmoji);
       expect(slots.any((s) => s.pinned), isFalse);
     });
 
     test('defaults take the remembered tone', () {
-      final slots = quickBarSlots(pins: List.filled(5, null), usage: const {}, now: _now, tone: 2);
+      final slots = quickBarSlots(
+        pins: List.filled(kQuickSlotCount, null),
+        usage: const {},
+        now: _now,
+        tone: 2,
+      );
       expect(slots[2].emoji, '👍🏼');
     });
 
@@ -174,18 +183,20 @@ void main() {
         QuickSlot('😭'),
         QuickSlot('🎉'),
         QuickSlot('😂'),
+        QuickSlot('❤️'),
+        QuickSlot('👍'),
       ]);
     });
 
     test('a pinned emoji is never repeated in an unpinned slot', () {
       final slots = quickBarSlots(
-        pins: [null, null, null, null, '😂'],
+        pins: [null, null, null, null, null, null, '😂'],
         usage: {'😂': EmojiUsage(10, _now)},
         now: _now,
       );
       expect(slots.where((s) => s.emoji == '😂'), hasLength(1));
       expect(slots.last, const QuickSlot('😂', pinned: true));
-      expect(slots, hasLength(5));
+      expect(slots, hasLength(kQuickSlotCount));
     });
 
     test('recents are most-recent-first, deduped and capped', () {

@@ -251,7 +251,7 @@ Meet-style: a control-bar toggle opens a glass strip of 8 emoji; a tap renders a
 
 ### Chat emoji (`lib/rooms/emoji/`, `emoji_picker.dart`, `emoji_quick_bar.dart`)
 
-A full picker beside the chat field plus a five-slot quick bar above it. Chat emoji are plain Unicode text - nothing about the wire, the `messages` row or the receive side changes.
+A full picker beside the chat field plus a seven-slot quick bar above it, spanning the text field's width (not the send button's). Chat emoji are plain Unicode text - nothing about the wire, the `messages` row or the receive side changes.
 
 - **Glyphs come from the platform's own colour font, and nothing is bundled.** Apple Color Emoji is proprietary and licensed for Apple devices only - the apps that ship it everywhere (Telegram Desktop/Web, via `emoji-datasource-apple`) do so unlicensed, and a Mac App Store app is the wrong place to bet on Apple's tolerance. `PTText.emoji` names each OS's font in `fontFamilyFallback`. The price is that a message looks different on each platform, which is how every system-emoji app behaves. If one look everywhere is ever wanted, the licence-safe path is Fluent Emoji 3D (MIT) as a *display* layer over the same text - not a font swap, and the field would still show system glyphs.
 - **The picker hides what the OS font cannot draw.** `emojiVersionCap` maps OS + version to the highest Emoji version its font carries (Windows keys on the build number; Android has nothing to key on and sits at 13.1), and `emojiFlagsSupported` drops the Flags group on Windows, whose font has no flag glyphs at all. Received messages are never filtered - what the sender typed is what it is.

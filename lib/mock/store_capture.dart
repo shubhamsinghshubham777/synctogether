@@ -34,45 +34,63 @@ Future<void> captureBoundaryToFile(String path, {double pixelRatio = 1.0}) async
   print('[STORE CAPTURE SUCCESS] Wrote $path (${file.lengthSync()} bytes)');
 }
 
+// Laid out at 1280x720 and rendered at 1.5x: the files are still a crisp
+// 1920x1080, but the chrome reads at the size it has in a normal window - a
+// 1920-logical layout made every control tiny.
+const _kCaptureLogical = Size(1280, 720);
+const _kCaptureRatio = 1.5;
+
+/// Sizes the window so the *content* is exactly [logical]. setSize is the
+/// frame, title bar included, so grow by whatever the content came up short.
+Future<void> _sizeContentTo(Size logical) async {
+  if (!isDesktop) return;
+  try {
+    await windowManager.ensureInitialized();
+    await windowManager.setSize(logical);
+    await Future.delayed(const Duration(milliseconds: 300));
+    final box = storeCaptureBoundaryKey.currentContext?.size;
+    if (box != null && box != logical) {
+      await windowManager.setSize(
+        Size(logical.width * 2 - box.width, logical.height * 2 - box.height),
+      );
+    }
+    await windowManager.center();
+  } catch (_) {}
+}
+
 Future<void> runStoreCaptureFlow(BuildContext context, GoRouter router) async {
   // ignore: avoid_print
   print('[STORE CAPTURE] Starting automated store capture flow...');
 
-  if (isDesktop) {
-    try {
-      await windowManager.ensureInitialized();
-      await windowManager.setSize(const Size(1920, 1080));
-      await windowManager.center();
-    } catch (_) {}
-  }
+  await _sizeContentTo(_kCaptureLogical);
 
   // 1. Capture Lobby Screen
   // ignore: avoid_print
   print('[STORE CAPTURE] Step 1: Capturing Lobby Screen...');
   router.go('/lobby');
   await Future.delayed(const Duration(milliseconds: 2500));
-  await captureBoundaryToFile('assets/store/1_violet_glass_lobby.png');
+  await captureBoundaryToFile('assets/store/1_violet_glass_lobby.png', pixelRatio: _kCaptureRatio);
 
   // 2. Capture Room Theater View
   // ignore: avoid_print
   print('[STORE CAPTURE] Step 2: Capturing Room Theater View...');
   router.go('/lobby/room/demo-room-1');
   await Future.delayed(const Duration(milliseconds: 3000));
-  await captureBoundaryToFile('assets/store/2_theater_room.png');
+  await captureBoundaryToFile('assets/store/2_theater_room.png', pixelRatio: _kCaptureRatio);
 
   // 3. Capture Room with Live Chat Panel
   // ignore: avoid_print
   print('[STORE CAPTURE] Step 3: Capturing Room with Live Chat...');
   router.go('/lobby/room/demo-room-1?chat=true');
   await Future.delayed(const Duration(milliseconds: 2500));
-  await captureBoundaryToFile('assets/store/3_room_chat.png');
+  await captureBoundaryToFile('assets/store/3_room_chat.png', pixelRatio: _kCaptureRatio);
 
   // 4. Capture Media Source Chooser Dialog
   // ignore: avoid_print
   print('[STORE CAPTURE] Step 4: Capturing Media Chooser Dialog...');
   router.go('/lobby/room/demo-room-1?dialog=media');
   await Future.delayed(const Duration(milliseconds: 2500));
-  await captureBoundaryToFile('assets/store/4_media_chooser.png');
+  await captureBoundaryToFile('assets/store/4_media_chooser.png', pixelRatio: _kCaptureRatio);
 
   // 5. Subscription purchase screen - the App Review screenshot each App
   // Store subscription needs. Only meaningful with STORE_BUILD=true, which is
@@ -110,5 +128,16 @@ Future<void> runStoreCaptureFlow(BuildContext context, GoRouter router) async {
 
   // ignore: avoid_print
   print('[STORE CAPTURE] Complete! All store screenshots generated in assets/store/');
+  exit(0);
+}
+
+/// The homepage product shot, at the same 1280x720 @ 1.5x as the store shots.
+Future<void> runWebsiteCaptureFlow(GoRouter router) async {
+  await _sizeContentTo(_kCaptureLogical);
+  router.go('/lobby/room/demo-room-1?chat=true');
+  await Future.delayed(const Duration(milliseconds: 4000));
+  // ignore: avoid_print
+  print('[WEBSITE CAPTURE] boundary ${storeCaptureBoundaryKey.currentContext?.size}');
+  await captureBoundaryToFile('website/public/shots/room-theater.png', pixelRatio: _kCaptureRatio);
   exit(0);
 }

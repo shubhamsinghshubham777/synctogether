@@ -923,9 +923,10 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     final hasMedia =
         _player.state.duration != Duration.zero || _youtubeUrl != null || _canonicalMedia.isSet;
 
-    if ((isHost || widget.initialDialogOpen == 'media') &&
-        !hasMedia &&
-        !_hasPromptedInitialSource) {
+    // `?dialog=media` is the screenshot hook, so it opens the chooser even
+    // over the demo room's pre-set film.
+    final forceChooser = widget.initialDialogOpen == 'media';
+    if ((forceChooser || (isHost && !hasMedia)) && !_hasPromptedInitialSource) {
       _hasPromptedInitialSource = true;
       // Host in an empty room: prompt immediately rather than making the user
       // stare at "Setting up the room…" for the 4.5s late-joiner sync window.

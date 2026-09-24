@@ -251,6 +251,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
             'There is no undo.',
             style: PTText.body.copyWith(fontSize: 14, color: PTColors.white(0.6), height: 1.5),
           ),
+          // Deleting the account cannot end an App Store subscription - only
+          // Apple can - so without this Apple would keep billing for an
+          // account that no longer exists (guideline 5.1.1(v)).
+          if (EntitlementService.instance.premiumSources.contains('apple'))
+            Text(
+              'Your App Store subscription keeps renewing until you cancel it. '
+              'Cancel it in your App Store account settings first - deleting your '
+              "account here doesn't stop Apple billing you.",
+              style: PTText.body.copyWith(fontSize: 14, color: PTColors.warning, height: 1.5),
+            ),
           Row(
             mainAxisAlignment: .end,
             spacing: 11,
@@ -445,7 +455,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Widget _subscriptionSection() {
-    if (isAppleStoreBuild) return const SizedBox.shrink();
     final isPrem = EntitlementService.instance.isPremium;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -486,23 +495,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 Text(
                   isPrem
                       ? 'Video facecams, 24h rooms & more'
-                      : isAppleStoreBuild
-                      ? 'Session-based watch rooms and voice chat'
                       : 'Upgrade for video facecams & persistent rooms',
                   style: PTText.finePrint.copyWith(color: PTColors.white(0.55)),
                 ),
               ],
             ),
           ),
-          if (isPrem || !isAppleStoreBuild)
-            PTButton(
-              label: isPrem ? 'Manage' : 'Go Premium',
-              variant: isPrem ? .secondary : .primary,
-              icon: isPrem ? Symbols.arrow_forward_rounded : Symbols.crown_rounded,
-              height: 38,
-              expand: false,
-              onPressed: () => context.go('/lobby/subscribe?source=profile'),
-            ),
+          PTButton(
+            label: isPrem ? 'Manage' : 'Go Premium',
+            variant: isPrem ? .secondary : .primary,
+            icon: isPrem ? Symbols.arrow_forward_rounded : Symbols.crown_rounded,
+            height: 38,
+            expand: false,
+            onPressed: () => context.go('/lobby/subscribe?source=profile'),
+          ),
         ],
       ),
     );
@@ -663,9 +669,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Widget _handleField(RewardState state) {
     final handle = state.handle;
-    // A handle is Premium-only, and the store edition sells no tier - so the
-    // field would be a permanently locked control advertising one.
-    if (isAppleStoreBuild && handle == null) return const SizedBox.shrink();
     final controller = _handleController(handle == null ? '' : '@$handle');
     // A handle is permanent, globally unique and first-come, which makes it the
     // one thing here worth squatting - so it is the Premium perk. Being *on*
@@ -1042,9 +1045,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
           if (isPrem)
             Text(
-              isAppleStoreBuild
-                  ? 'Unlimited weekly uploads active on your account.'
-                  : 'Unlimited weekly uploads active with your Premium subscription.',
+              'Unlimited weekly uploads active with your Premium subscription.',
               style: PTText.finePrint.copyWith(color: PTColors.white(0.6)),
             )
           else if (!isGuest) ...[
@@ -1427,7 +1428,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
               ),
             ),
-            if (!isAppleStoreBuild && EntitlementService.instance.isPremium) const PremiumBadge(),
+            if (EntitlementService.instance.isPremium) const PremiumBadge(),
           ],
         ),
         Text(sinceLabel, style: PTText.caption.copyWith(fontWeight: .w400)),

@@ -17,6 +17,9 @@ PODS:
     - FlutterMacOS
     - WebRTC-SDK (= 150.7871.01)
   - FlutterMacOS (1.0.0)
+  - in_app_purchase_storekit (0.0.1):
+    - Flutter
+    - FlutterMacOS
   - livekit_client (2.13.0):
     - flutter_webrtc
     - FlutterMacOS
@@ -63,6 +66,7 @@ DEPENDENCIES:
   - flutter_inappwebview_macos (from `Flutter/ephemeral/.symlinks/plugins/flutter_inappwebview_macos/macos`)
   - flutter_webrtc (from `Flutter/ephemeral/.symlinks/plugins/flutter_webrtc/macos`)
   - FlutterMacOS (from `Flutter/ephemeral`)
+  - in_app_purchase_storekit (from `Flutter/ephemeral/.symlinks/plugins/in_app_purchase_storekit/darwin`)
   - livekit_client (from `Flutter/ephemeral/.symlinks/plugins/livekit_client/macos`)
   - macos_file_picker (from `Flutter/ephemeral/.symlinks/plugins/macos_file_picker/macos`)
   - media_kit_libs_macos_video (from `Flutter/ephemeral/.symlinks/plugins/media_kit_libs_macos_video/macos`)
@@ -100,6 +104,8 @@ EXTERNAL SOURCES:
     :path: Flutter/ephemeral/.symlinks/plugins/flutter_webrtc/macos
   FlutterMacOS:
     :path: Flutter/ephemeral
+  in_app_purchase_storekit:
+    :path: Flutter/ephemeral/.symlinks/plugins/in_app_purchase_storekit/darwin
   livekit_client:
     :path: Flutter/ephemeral/.symlinks/plugins/livekit_client/macos
   macos_file_picker:
@@ -136,6 +142,7 @@ SPEC CHECKSUMS:
   flutter_inappwebview_macos: c2d68649f9f8f1831bfcd98d73fd6256366d9d1d
   flutter_webrtc: af708ba091a5d71e101f9f631a9f96c107581a3d
   FlutterMacOS: d0db08ddef1a9af05a5ec4b724367152bb0500b1
+  in_app_purchase_storekit: 22cca7d08eebca9babdf4d07d0baccb73325d3c8
   livekit_client: a6026d572e01431fd06d6ccd6f44eaf4b72dec4b
   macos_file_picker: 8308ccb8cca0578190f640cd163b3da001db0222
   media_kit_libs_macos_video: 85a23e549b5f480e72cae3e5634b5514bc692f65

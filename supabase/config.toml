@@ -431,3 +431,8 @@ enabled = true
 # declarative_schema_path = "./database"
 # JSON string passed through to pg-delta SQL formatting.
 # format_options = "{\"keywordCase\":\"upper\",\"indent\":2,\"maxWidth\":80,\"commaStyle\":\"trailing\"}"
+
+# App Store Server Notifications carry no Supabase JWT - the signed payload is
+# the authentication. `/verify` checks the caller's JWT itself.
+[functions.apple-iap]
+verify_jwt = false

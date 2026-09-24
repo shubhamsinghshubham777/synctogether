@@ -1,4 +1,3 @@
-import 'package:synctogether/platform.dart';
 import 'package:synctogether/profile/profile_models.dart';
 import 'package:synctogether/rewards/rewards_models.dart';
 import 'package:synctogether/rewards/rewards_service.dart';
@@ -437,11 +436,7 @@ enum RoomErrorCode {
   final String _message;
   final String? upsell;
 
-  /// The Apple store edition sells no tier, so copy that points at one would
-  /// be advertising content it cannot offer (guideline 3.1.1). Those three
-  /// codes carry a plain statement of the limit for it to fall back to; every
-  /// other code has only the one wording.
-  String get message => isAppleStoreBuild ? _message : (upsell ?? _message);
+  String get message => upsell ?? _message;
 
   static RoomErrorCode fromError(Object error) {
     final text = error.toString();

@@ -5,7 +5,9 @@ import 'dart:ui' as ui;
 import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
 import 'package:go_router/go_router.dart';
+import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:synctogether/platform.dart';
+import 'package:synctogether/profile/apple_iap_service.dart';
 import 'package:window_manager/window_manager.dart';
 
 final GlobalKey storeCaptureBoundaryKey = GlobalKey();
@@ -71,6 +73,40 @@ Future<void> runStoreCaptureFlow(BuildContext context, GoRouter router) async {
   router.go('/lobby/room/demo-room-1?dialog=media');
   await Future.delayed(const Duration(milliseconds: 2500));
   await captureBoundaryToFile('assets/store/4_media_chooser.png');
+
+  // 5. Subscription purchase screen - the App Review screenshot each App
+  // Store subscription needs. Only meaningful with STORE_BUILD=true, which is
+  // what shows the StoreKit offer; 1440x900 at 2x is a Mac App Store size.
+  if (isAppleStoreBuild) {
+    // ignore: avoid_print
+    print('[STORE CAPTURE] Step 5: Capturing Subscription Purchase Screen...');
+    AppleIapService.instance.seedDemoProducts([
+      ProductDetails(
+        id: kAppleMonthlyProductId,
+        title: 'Premium Monthly',
+        description: 'Bigger rooms, video facecams and 24-hour sessions.',
+        price: r'$3.99',
+        rawPrice: 3.99,
+        currencyCode: 'USD',
+      ),
+      ProductDetails(
+        id: kAppleAnnualProductId,
+        title: 'Premium Annual',
+        description: 'A year of bigger rooms, video facecams and more.',
+        price: r'$29.99',
+        rawPrice: 29.99,
+        currencyCode: 'USD',
+      ),
+    ]);
+    if (isDesktop) {
+      try {
+        await windowManager.setSize(const Size(1440, 900));
+      } catch (_) {}
+    }
+    router.go('/lobby/subscribe');
+    await Future.delayed(const Duration(milliseconds: 2500));
+    await captureBoundaryToFile('assets/store/5_subscription_purchase.png', pixelRatio: 2.0);
+  }
 
   // ignore: avoid_print
   print('[STORE CAPTURE] Complete! All store screenshots generated in assets/store/');

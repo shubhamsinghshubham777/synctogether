@@ -3,10 +3,12 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:synctogether/analytics.dart';
 import 'package:synctogether/diagnostics.dart';
 import 'package:synctogether/platform.dart';
+import 'package:synctogether/profile/apple_iap_service.dart';
 import 'package:synctogether/profile/entitlement_service.dart';
 import 'package:synctogether/profile/profile_service.dart';
 import 'package:synctogether/ui/banners.dart';
@@ -23,6 +25,10 @@ String get checkoutUrl =>
 
 String get accountUrl =>
     kDebugMode ? 'http://localhost:3000/account' : 'https://synctogether.app/account';
+
+// Guideline 3.1.2 requires both beside an auto-renewing subscription offer.
+const _termsUrl = 'https://synctogether.app/terms';
+const _privacyUrl = 'https://synctogether.app/privacy';
 
 class SubscriptionScreen extends StatefulWidget {
   const SubscriptionScreen({
@@ -46,6 +52,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> with WidgetsBin
   bool _awaitingCheckout = false;
   bool _verifying = false;
   bool _celebrating = false;
+  StreamSubscription<AppleIapNotice>? _iapNotices;
 
   bool get _isDesktop => widget.desktopOverride ?? isDesktop;
   bool get _isStore => widget.storeBuildOverride ?? isStoreBuild;
@@ -57,10 +64,15 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> with WidgetsBin
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     Analytics.instance.track('subscription_screen_viewed', {'source': widget.source ?? 'direct'});
+    if (_isAppleStore) {
+      _iapNotices = AppleIapService.instance.notices.listen(_onIapNotice);
+      AppleIapService.instance.loadProducts();
+    }
   }
 
   @override
   void dispose() {
+    _iapNotices?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -86,6 +98,43 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> with WidgetsBin
       if (mounted) {
         showPTSnack(context, "Couldn't open browser. Please visit synctogether.app/premium");
       }
+    }
+  }
+
+  void _onIapNotice(AppleIapNotice notice) {
+    if (!mounted) return;
+    switch (notice) {
+      case .activated:
+        if (_celebrating) return;
+        setState(() => _celebrating = true);
+        Analytics.instance.track('purchase_confirmed');
+      case .nothingToRestore:
+        showPTSnack(context, 'No App Store subscription found for this Apple ID.');
+      case .ownedElsewhere:
+        showPTSnack(
+          context,
+          "This Apple ID's subscription is already linked to a different SyncTogether account.",
+        );
+      case .failed:
+        showPTSnack(context, "Hmm, the App Store purchase didn't go through. Please try again.");
+    }
+  }
+
+  void _buyOnAppStore(ProductDetails product) {
+    Analytics.instance.track('app_store_purchase_started', {
+      'source': widget.source ?? 'direct',
+      'plan': product.id == kAppleAnnualProductId ? 'annual' : 'monthly',
+    });
+    AppleIapService.instance.buy(product);
+  }
+
+  Future<void> _openUrl(String url) async {
+    try {
+      final launched = await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+      if (!launched && mounted) showPTSnack(context, "Couldn't open that link. Please try again.");
+    } catch (e, s) {
+      reportNonFatal(e, s, during: 'launching $url');
+      if (mounted) showPTSnack(context, "Couldn't open that link. Please try again.");
     }
   }
 
@@ -138,7 +187,11 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> with WidgetsBin
     return Scaffold(
       body: AmbientBackground(
         child: ListenableBuilder(
-          listenable: Listenable.merge([ProfileService.instance, EntitlementService.instance]),
+          listenable: Listenable.merge([
+            ProfileService.instance,
+            EntitlementService.instance,
+            AppleIapService.instance,
+          ]),
           builder: (context, _) {
             return PTResponsive(
               desktop: (_) => _layout(compact: false),
@@ -395,34 +448,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> with WidgetsBin
       );
     }
 
-    if (_isAppleStore) {
-      return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-        decoration: BoxDecoration(
-          color: PTColors.white(0.04),
-          border: Border.all(color: PTColors.white(0.08)),
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Column(
-          crossAxisAlignment: .stretch,
-          spacing: 12,
-          children: [
-            Text(
-              'Sign in to your account to access your subscription.',
-              textAlign: TextAlign.center,
-              style: PTText.body.copyWith(fontSize: 13.5, color: PTColors.white(0.85)),
-            ),
-            PTButton(
-              label: 'Refresh status',
-              icon: Symbols.refresh_rounded,
-              variant: .secondary,
-              height: 40,
-              onPressed: _pollForSubscription,
-            ),
-          ],
-        ),
-      );
-    }
+    if (_isAppleStore) return _appStorePurchase();
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
@@ -468,6 +494,13 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> with WidgetsBin
   }
 
   Widget _premiumStatusActions({required bool compact}) {
+    // An App Store subscription is only ever managed by Apple, whichever
+    // build is showing it; a web account page cannot cancel it.
+    final sources = EntitlementService.instance.premiumSources;
+    if (_isAppleStore || (sources.contains('apple') && !sources.contains('paddle'))) {
+      return _appStoreManage(sources);
+    }
+
     if (_canShowCheckout) {
       return Column(
         crossAxisAlignment: .stretch,
@@ -486,35 +519,6 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> with WidgetsBin
             style: PTText.finePrint.copyWith(color: PTColors.white(0.4)),
           ),
         ],
-      );
-    }
-
-    if (_isAppleStore) {
-      return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-        decoration: BoxDecoration(
-          color: PTColors.white(0.04),
-          border: Border.all(color: PTColors.white(0.08)),
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Column(
-          crossAxisAlignment: .stretch,
-          spacing: 12,
-          children: [
-            Text(
-              'Your SyncTogether Premium subscription is active across all your devices.',
-              textAlign: TextAlign.center,
-              style: PTText.body.copyWith(fontSize: 13.5, color: PTColors.white(0.85)),
-            ),
-            PTButton(
-              label: 'Refresh status',
-              icon: Symbols.refresh_rounded,
-              variant: .secondary,
-              height: 40,
-              onPressed: _pollForSubscription,
-            ),
-          ],
-        ),
       );
     }
 
@@ -542,6 +546,133 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> with WidgetsBin
             onPressed: _pollForSubscription,
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _appStorePurchase() {
+    final iap = AppleIapService.instance;
+    if (EntitlementService.instance.limitsOrFallback.isGuest) {
+      return _infoCard(
+        'Sign in with Apple, Google or email to subscribe - Premium belongs to your account, '
+        'so it follows you to every device.',
+      );
+    }
+    if (iap.loadingProducts && iap.products.isEmpty) {
+      return const Center(child: PTLoader(size: 22));
+    }
+    if (iap.products.isEmpty) {
+      return Column(
+        crossAxisAlignment: .stretch,
+        spacing: 12,
+        children: [
+          _infoCard("Couldn't reach the App Store right now."),
+          PTButton(
+            label: 'Try again',
+            icon: Symbols.refresh_rounded,
+            variant: .secondary,
+            height: 40,
+            onPressed: iap.loadProducts,
+          ),
+        ],
+      );
+    }
+    return Column(
+      crossAxisAlignment: .stretch,
+      spacing: 10,
+      children: [
+        for (final product in iap.products)
+          PTButton(
+            label: product.id == kAppleAnnualProductId
+                ? 'Annual - ${product.price} / year'
+                : 'Monthly - ${product.price} / month',
+            icon: Symbols.workspace_premium_rounded,
+            variant: product.id == kAppleAnnualProductId ? .secondary : .primary,
+            height: 48,
+            loading: iap.busy,
+            onPressed: iap.busy ? null : () => _buyOnAppStore(product),
+          ),
+        PTButton(
+          label: 'Restore purchases',
+          icon: Symbols.restore_rounded,
+          variant: .secondary,
+          height: 40,
+          onPressed: iap.busy ? null : iap.restore,
+        ),
+        _appStoreFinePrint(),
+      ],
+    );
+  }
+
+  Widget _appStoreManage(Set<String> sources) {
+    return Column(
+      crossAxisAlignment: .stretch,
+      spacing: 10,
+      children: [
+        if (sources.contains('apple'))
+          PTButton(
+            label: 'Manage in App Store',
+            icon: Symbols.open_in_new_rounded,
+            variant: .secondary,
+            height: 48,
+            onPressed: () => _openUrl(kAppleManageSubscriptionsUrl),
+          )
+        else
+          _infoCard('Premium is active on your account across all your devices.'),
+        PTButton(
+          label: 'Refresh status',
+          icon: Symbols.refresh_rounded,
+          variant: .secondary,
+          height: 40,
+          onPressed: _pollForSubscription,
+        ),
+      ],
+    );
+  }
+
+  Widget _appStoreFinePrint() {
+    final style = PTText.finePrint.copyWith(color: PTColors.white(0.45), height: 1.45);
+    final link = style.copyWith(color: PTColors.textAccent, decoration: TextDecoration.underline);
+    return Column(
+      spacing: 8,
+      children: [
+        Text(
+          'Payment is charged to your Apple ID when you confirm. Your subscription renews '
+          'automatically at the same price unless cancelled at least 24 hours before the end '
+          'of the current period. Manage or cancel any time in your App Store account settings.',
+          textAlign: TextAlign.center,
+          style: style,
+        ),
+        Row(
+          mainAxisAlignment: .center,
+          spacing: 16,
+          children: [
+            GestureDetector(
+              onTap: () => _openUrl(_termsUrl),
+              child: Text('Terms of Use', style: link),
+            ),
+            GestureDetector(
+              onTap: () => _openUrl(_privacyUrl),
+              child: Text('Privacy Policy', style: link),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _infoCard(String message) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+      decoration: BoxDecoration(
+        color: PTColors.white(0.04),
+        border: Border.all(color: PTColors.white(0.08)),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Text(
+        message,
+        textAlign: TextAlign.center,
+        style: PTText.body.copyWith(fontSize: 13.5, color: PTColors.white(0.85)),
       ),
     );
   }

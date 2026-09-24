@@ -13,7 +13,6 @@ import 'package:synctogether/app_version.dart';
 import 'package:synctogether/auth/auth_service.dart';
 import 'package:synctogether/diagnostics.dart';
 import 'package:synctogether/env.dart';
-import 'package:synctogether/platform.dart';
 import 'package:synctogether/profile/entitlement_service.dart';
 import 'package:synctogether/profile/media_quota_dialog.dart';
 import 'package:synctogether/profile/profile_models.dart';
@@ -477,54 +476,6 @@ class _LobbyScreenState extends State<LobbyScreen> {
   }
 
   Future<void> _showRoomLimitDialog() async {
-    if (isAppleStoreBuild) {
-      await showGlassDialog<void>(
-        context: context,
-        width: 400,
-        builder: (_) => Column(
-          mainAxisSize: .min,
-          crossAxisAlignment: .start,
-          spacing: 14,
-          children: [
-            Row(
-              spacing: 13,
-              children: [
-                Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    color: PTColors.primary.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: const Icon(
-                    Symbols.meeting_room_rounded,
-                    size: 24,
-                    color: PTColors.textAccent,
-                  ),
-                ),
-                Expanded(child: Text("That's all your rooms", style: PTText.cardHeading)),
-              ],
-            ),
-            Text(
-              "You're holding as many rooms as your account allows. Please delete a room you're done with to create a new one.",
-              style: PTText.body.copyWith(fontSize: 14, color: PTColors.white(0.7), height: 1.5),
-            ),
-            Align(
-              alignment: Alignment.centerRight,
-              child: PTButton(
-                label: 'Got it',
-                variant: .secondary,
-                height: 44,
-                expand: false,
-                onPressed: () => Navigator.of(context).pop(),
-              ),
-            ),
-          ],
-        ),
-      );
-      return;
-    }
-
     Analytics.instance.track('upgrade_cta_shown', {'surface': 'room_limit'});
     await showGlassDialog<void>(
       context: context,
@@ -936,7 +887,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
     }
   }
 
-  bool get _showPremiumChip => !isAppleStoreBuild && !EntitlementService.instance.isPremium;
+  bool get _showPremiumChip => !EntitlementService.instance.isPremium;
 
   bool get _showQuotaChip {
     final profile = ProfileService.instance.profile;

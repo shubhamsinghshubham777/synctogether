@@ -384,12 +384,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     final av = _av;
     if (av == null) return;
     if (kind == 'cam' && on && !av.canPublishCamera) {
-      _snack(
-        isAppleStoreBuild
-            ? 'This room is set up as voice only.'
-            : 'Cameras are a premium thing - this room is voice only.',
-        kind: .info,
-      );
+      _snack('Cameras are a premium thing - this room is voice only.', kind: .info);
       return;
     }
     if (on) _facecamUsed = true;
@@ -3355,7 +3350,6 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
   }
 
   bool get _canShowPremiumUpsell {
-    if (isAppleStoreBuild) return false;
     if (EntitlementService.instance.isPremium || !AuthService.instance.isSignedIn) {
       return false;
     }
@@ -3692,16 +3686,6 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
 
   IconData? get _extendIcon => _limits.picksExtensionLength ? null : Symbols.crown_rounded;
 
-  /// The store edition sells no tier, so an extend affordance whose only
-  /// possible answer is "upgrade" is a dead button - it is hidden there
-  /// instead. A guest keeps it: their branch offers a free sign-in, which is
-  /// a real thing this build can deliver.
-  bool get _canOfferExtend =>
-      !isAppleStoreBuild ||
-      _limits.picksExtensionLength ||
-      _limits.hasFreeExtension ||
-      _limits.isGuest;
-
   String get _expirySubtitle {
     final room = _room;
     if (room != null && room.persistent) {
@@ -3812,13 +3796,6 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     VoidCallback? onSignIn,
     VoidCallback? onSignInApple,
   }) async {
-    if (isAppleStoreBuild && onSignIn == null) {
-      // Guideline 3.1.1: this build has no premium tier, so a dialog that
-      // describes one - perks, crown and all - would be advertising content
-      // it cannot sell. The user still needs to know why nothing happened.
-      _snack("This room's length is fixed for this session.", kind: .info);
-      return;
-    }
     Analytics.instance.track('upgrade_cta_shown', {'surface': surface});
     await showGlassDialog<void>(
       context: context,
@@ -4003,10 +3980,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     onSkip: _skip,
     onMicToggle: (v) => _toggleFacecam('mic', v),
     onCamToggle: (v) => _toggleFacecam('cam', v),
-    onCamLocked:
-        (_av?.canPublishCamera == false &&
-            !EntitlementService.instance.isPremium &&
-            !isAppleStoreBuild)
+    onCamLocked: (_av?.canPublishCamera == false && !EntitlementService.instance.isPremium)
         ? () => context.push('/lobby/subscribe?source=camera_lock')
         : null,
     onMicDeviceSelect: isDesktop && _av != null ? _showMicDeviceSelector : null,
@@ -4518,17 +4492,13 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
           // Urgency without layout movement - this sits right next to the
           // video, so nothing here may reflow or jitter.
           Tooltip(
-            message: (_sync?.isHost ?? false) && _canOfferExtend
-                ? 'Extend room duration'
-                : 'Time remaining',
+            message: (_sync?.isHost ?? false) ? 'Extend room duration' : 'Time remaining',
             child: MouseRegion(
               cursor: (_sync?.isHost ?? false)
                   ? SystemMouseCursors.click
                   : SystemMouseCursors.basic,
               child: GestureDetector(
-                onTap: (_sync?.isHost ?? false) && !_extending && _canOfferExtend
-                    ? _extendRoom
-                    : null,
+                onTap: (_sync?.isHost ?? false) && !_extending ? _extendRoom : null,
                 child: Row(
                   mainAxisSize: .min,
                   spacing: 6,
@@ -4588,7 +4558,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
               return '$mins minute${mins == 1 ? '' : 's'} left';
             }(),
             subtitle: _expirySubtitle,
-            trailing: (_sync?.isHost ?? false) && _canOfferExtend
+            trailing: (_sync?.isHost ?? false)
                 ? PTButton(
                     label: _extendLabel,
                     icon: _extendIcon,
@@ -4874,7 +4844,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
       reactions: available.take(kBaseReactionCount).toList(growable: false),
       hasMore: available.length > kBaseReactionCount,
       onMore: _showReactionPicker,
-      showLockedMore: !isAppleStoreBuild && !isPremium,
+      showLockedMore: !isPremium,
       onLockedMore: () {
         setState(() => _reactOpen = false);
         context.push('/lobby/subscribe?source=reaction_lock');
@@ -5080,9 +5050,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
                         children: [
                           RoomCodeChip(code: room.code, onCopy: _copyCode, fontSize: 11),
                           GestureDetector(
-                            onTap: (_sync?.isHost ?? false) && !_extending && _canOfferExtend
-                                ? _extendRoom
-                                : null,
+                            onTap: (_sync?.isHost ?? false) && !_extending ? _extendRoom : null,
                             child: Row(
                               mainAxisSize: .min,
                               spacing: 4,

@@ -4,7 +4,6 @@ import 'dart:math';
 
 import 'package:mime/mime.dart';
 import 'package:path/path.dart' as p;
-import 'package:synctogether/platform.dart';
 import 'package:synctogether/diagnostics.dart';
 import 'package:synctogether/profile/profile_models.dart';
 import 'package:synctogether/rooms/local_media_store.dart';
@@ -69,13 +68,10 @@ class MediaSharingException implements Exception {
       if (used != null && limit != null) {
         final usedStr = Profile.formatBytes(used.toInt());
         final limitStr = Profile.formatBytes(limit.toInt());
-        msg = isAppleStoreBuild
-            ? 'Weekly upload quota reached ($usedStr of $limitStr used). It refills as older uploads age out.'
-            : 'Weekly upload quota reached ($usedStr of $limitStr used). Upgrade to Premium for unlimited bandwidth.';
+        msg =
+            'Weekly upload quota reached ($usedStr of $limitStr used). Upgrade to Premium for unlimited bandwidth.';
       } else {
-        msg = isAppleStoreBuild
-            ? 'Weekly upload quota reached. It refills as older uploads age out.'
-            : 'Weekly upload quota reached. Upgrade to Premium for unlimited uploads.';
+        msg = 'Weekly upload quota reached. Upgrade to Premium for unlimited uploads.';
       }
 
       return MediaSharingException(

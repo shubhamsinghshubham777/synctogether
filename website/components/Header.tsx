@@ -93,27 +93,46 @@ export function Header() {
       }
     );
 
-    let ticking = false;
-    const handleScroll = () => {
-      if (!ticking) {
-        window.requestAnimationFrame(() => {
-          setScrolled(window.scrollY > 20);
-          ticking = false;
-        });
-        ticking = true;
-      }
-    };
-    window.addEventListener("scroll", handleScroll, { passive: true });
-
     return () => {
       ignore = true;
       authListener.subscription.unsubscribe();
       if (channel) {
         supabase.removeChannel(channel);
       }
-      window.removeEventListener("scroll", handleScroll);
     };
   }, [supabase]);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setScrolled(window.scrollY > 20);
+    };
+
+    // Evaluate immediately on mount/init so pages refreshed at a scroll offset collapse immediately
+    handleScroll();
+
+    // Catch asynchronous scroll restoration across layout/paint
+    const rafId = window.requestAnimationFrame(handleScroll);
+
+    let ticking = false;
+    const onScroll = () => {
+      if (!ticking) {
+        window.requestAnimationFrame(() => {
+          handleScroll();
+          ticking = false;
+        });
+        ticking = true;
+      }
+    };
+
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", handleScroll, { passive: true });
+
+    return () => {
+      window.cancelAnimationFrame(rafId);
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", handleScroll);
+    };
+  }, [pathname]);
 
   const navLinks = [
     { name: "Features", href: "/#features" },

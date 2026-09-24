@@ -48,12 +48,16 @@ class _MediaSharingPromptDialogState extends State<_MediaSharingPromptDialog> {
     return BackdropFilter(
       filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
       child: AlertDialog(
+        // Short windows and large text: the title and body scroll together
+        // rather than overflowing the dialog.
+        scrollable: true,
+        insetPadding: const EdgeInsets.all(16),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Row(
           children: [
             Icon(Icons.cloud_upload_outlined, color: theme.colorScheme.primary),
             const SizedBox(width: 10),
-            const Text('Share with room?'),
+            const Expanded(child: Text('Share with room?')),
           ],
         ),
         content: Column(

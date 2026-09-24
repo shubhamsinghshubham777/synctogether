@@ -139,7 +139,7 @@ class _RoomControlBarState extends State<RoomControlBar> {
       radius: compact ? 20 : 24,
       opacity: 0.6,
       blur: 32,
-      baseColor: const Color(0xFF141022),
+      baseColor: PTColors.surfaceBase,
       padding: EdgeInsets.symmetric(horizontal: compact ? 16 : 26, vertical: compact ? 14 : 18),
       // Two nested columns on purpose: the hint sits *outside* the spaced
       // column so its collapsed state costs nothing. As a spaced sibling, an
@@ -154,10 +154,7 @@ class _RoomControlBarState extends State<RoomControlBar> {
               Row(
                 spacing: compact ? 10 : 16,
                 children: [
-                  Text(
-                    _fmt(shownPosition),
-                    style: PTText.mono.copyWith(fontSize: compact ? 11 : 13),
-                  ),
+                  _timeReadout(context, _fmt(shownPosition), compact: compact),
                   Expanded(
                     child: CompositedTransformTarget(
                       link: _sliderLink,
@@ -173,12 +170,11 @@ class _RoomControlBarState extends State<RoomControlBar> {
                       ),
                     ),
                   ),
-                  Text(
+                  _timeReadout(
+                    context,
                     _fmt(widget.duration),
-                    style: PTText.mono.copyWith(
-                      fontSize: compact ? 11 : 13,
-                      color: PTColors.white(0.5),
-                    ),
+                    compact: compact,
+                    color: PTColors.white(0.5),
                   ),
                 ],
               ),
@@ -255,11 +251,7 @@ class _RoomControlBarState extends State<RoomControlBar> {
         borderRadius: BorderRadius.circular(9),
         border: Border.all(color: PTColors.white(0.14)),
         boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.45),
-            blurRadius: 14,
-            offset: const Offset(0, 5),
-          ),
+          BoxShadow(color: PTColors.black(0.45), blurRadius: 14, offset: const Offset(0, 5)),
         ],
       ),
       child: Text(_fmt(position), style: PTText.mono.copyWith(fontSize: 12)),
@@ -324,10 +316,10 @@ class _RoomControlBarState extends State<RoomControlBar> {
                         child: Container(
                           padding: const EdgeInsets.all(2),
                           decoration: BoxDecoration(
-                            color: const Color(0xE61E1834),
+                            color: PTColors.raised,
                             shape: BoxShape.circle,
                             border: Border.all(
-                              color: const Color(0xFFA78BFA).withValues(alpha: 0.5),
+                              color: PTColors.accentBorder.withValues(alpha: 0.5),
                               width: 1,
                             ),
                           ),
@@ -385,33 +377,38 @@ class _RoomControlBarState extends State<RoomControlBar> {
           ],
         ),
         Expanded(
-          child: Row(
-            mainAxisAlignment: .center,
-            spacing: 20,
-            children: [
-              PTIconButton(
-                icon: Symbols.replay_10_rounded,
-                glass: false,
-                iconSize: 26,
-                spinOnPress: -40,
-                onPressed: widget.transportEnabled
-                    ? () => actions.onSkip(const Duration(seconds: -10))
-                    : null,
-              ),
-              PTPlayButton(
-                playing: widget.playing,
-                onPressed: widget.transportEnabled ? actions.onPlayPause : null,
-              ),
-              PTIconButton(
-                icon: Symbols.forward_10_rounded,
-                glass: false,
-                iconSize: 26,
-                spinOnPress: 40,
-                onPressed: widget.transportEnabled
-                    ? () => actions.onSkip(const Duration(seconds: 10))
-                    : null,
-              ),
-            ],
+          // Icon-only: shrinks rather than overflows when touch targets (44px
+          // on a tablet) or extra actions crowd the row; 1:1 otherwise.
+          child: FittedBox(
+            fit: .scaleDown,
+            child: Row(
+              mainAxisSize: .min,
+              spacing: 20,
+              children: [
+                PTIconButton(
+                  icon: Symbols.replay_10_rounded,
+                  glass: false,
+                  iconSize: 26,
+                  spinOnPress: -40,
+                  onPressed: widget.transportEnabled
+                      ? () => actions.onSkip(const Duration(seconds: -10))
+                      : null,
+                ),
+                PTPlayButton(
+                  playing: widget.playing,
+                  onPressed: widget.transportEnabled ? actions.onPlayPause : null,
+                ),
+                PTIconButton(
+                  icon: Symbols.forward_10_rounded,
+                  glass: false,
+                  iconSize: 26,
+                  spinOnPress: 40,
+                  onPressed: widget.transportEnabled
+                      ? () => actions.onSkip(const Duration(seconds: 10))
+                      : null,
+                ),
+              ],
+            ),
           ),
         ),
         Row(
@@ -509,11 +506,42 @@ class _RoomControlBarState extends State<RoomControlBar> {
 
   Widget _compactRow() {
     final actions = widget.actions;
+    // Every fixed button is a 44px PTIconButton. Below the width that fits
+    // them all plus a half-size transport cluster, the whole row scales down
+    // together instead of overflowing - a 320-390 portrait phone carries every
+    // source control here. At any wider slot the row lays out 1:1.
+    final fixedButtons = [
+      if (widget.avAvailable) true,
+      if (widget.avAvailable && (widget.camAvailable || actions.onCamLocked != null)) true,
+      actions.onReact != null,
+      actions.onSwitchSource != null,
+      actions.onOpenFile != null,
+      actions.onAudioTracks != null,
+      actions.onSubtitles != null,
+      actions.onHideControls != null,
+      actions.onFullscreenToggle != null,
+    ].where((b) => b).length;
+    final minWidth = fixedButtons * 44.0 + 4 + 84;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final row = _compactRowContent();
+        if (!constraints.hasBoundedWidth || constraints.maxWidth >= minWidth) return row;
+        return FittedBox(
+          fit: .scaleDown,
+          child: SizedBox(width: minWidth, child: row),
+        );
+      },
+    );
+  }
+
+  Widget _compactRowContent() {
+    final actions = widget.actions;
     return Row(
       children: [
         if (widget.avAvailable)
           Row(
-            spacing: 8,
+            // Tight: on a 320 phone this row carries every source control too.
+            spacing: 4,
             children: [
               PTIconButton(
                 icon: Symbols.mic_rounded,
@@ -554,10 +582,10 @@ class _RoomControlBarState extends State<RoomControlBar> {
                         child: Container(
                           padding: const EdgeInsets.all(2),
                           decoration: BoxDecoration(
-                            color: const Color(0xE61E1834),
+                            color: PTColors.raised,
                             shape: BoxShape.circle,
                             border: Border.all(
-                              color: const Color(0xFFA78BFA).withValues(alpha: 0.5),
+                              color: PTColors.accentBorder.withValues(alpha: 0.5),
                               width: 1,
                             ),
                           ),
@@ -585,34 +613,39 @@ class _RoomControlBarState extends State<RoomControlBar> {
             onPressed: actions.onReact,
           ),
         Expanded(
-          child: Row(
-            mainAxisAlignment: .center,
-            spacing: 14,
-            children: [
-              PTIconButton(
-                icon: Symbols.replay_10_rounded,
-                glass: false,
-                iconSize: 24,
-                spinOnPress: -40,
-                onPressed: widget.transportEnabled
-                    ? () => actions.onSkip(const Duration(seconds: -10))
-                    : null,
-              ),
-              PTPlayButton(
-                playing: widget.playing,
-                size: 52,
-                onPressed: widget.transportEnabled ? actions.onPlayPause : null,
-              ),
-              PTIconButton(
-                icon: Symbols.forward_10_rounded,
-                glass: false,
-                iconSize: 24,
-                spinOnPress: 40,
-                onPressed: widget.transportEnabled
-                    ? () => actions.onSkip(const Duration(seconds: 10))
-                    : null,
-              ),
-            ],
+          // Icon-only, so it shrinks rather than overflows when a narrow phone
+          // also carries every source control; at normal widths it is 1:1.
+          child: FittedBox(
+            fit: .scaleDown,
+            child: Row(
+              mainAxisSize: .min,
+              spacing: 14,
+              children: [
+                PTIconButton(
+                  icon: Symbols.replay_10_rounded,
+                  glass: false,
+                  iconSize: 24,
+                  spinOnPress: -40,
+                  onPressed: widget.transportEnabled
+                      ? () => actions.onSkip(const Duration(seconds: -10))
+                      : null,
+                ),
+                PTPlayButton(
+                  playing: widget.playing,
+                  size: 52,
+                  onPressed: widget.transportEnabled ? actions.onPlayPause : null,
+                ),
+                PTIconButton(
+                  icon: Symbols.forward_10_rounded,
+                  glass: false,
+                  iconSize: 24,
+                  spinOnPress: 40,
+                  onPressed: widget.transportEnabled
+                      ? () => actions.onSkip(const Duration(seconds: 10))
+                      : null,
+                ),
+              ],
+            ),
           ),
         ),
         // Source controls belong here too - this row is what portrait,
@@ -673,6 +706,25 @@ class _RoomControlBarState extends State<RoomControlBar> {
             onPressed: actions.onFullscreenToggle,
           ),
       ],
+    );
+  }
+
+  /// Sized by its content, not a fixed box - but capped at 1.3x text scale:
+  /// at 2x two `1:02:03` readouts would leave the scrubber no width at all on a
+  /// phone, and the scrubber is the control. Tabular figures stop the readout
+  /// jittering as digits tick (JetBrains Mono is already monospaced; this keeps
+  /// it true should the family ever change).
+  Widget _timeReadout(BuildContext context, String text, {required bool compact, Color? color}) {
+    return Text(
+      text,
+      maxLines: 1,
+      softWrap: false,
+      textScaler: MediaQuery.textScalerOf(context).clamp(maxScaleFactor: 1.3),
+      style: PTText.mono.copyWith(
+        fontSize: compact ? 11 : 13,
+        color: color,
+        fontFeatures: const [FontFeature.tabularFigures()],
+      ),
     );
   }
 

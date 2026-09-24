@@ -43,7 +43,7 @@ class StreakChip extends StatelessWidget {
         ? PTColors.white(0.55)
         : atRisk
         ? PTColors.warning
-        : const Color(0xFFFB923C);
+        : PTColors.streak;
 
     return GlassPill(
       onTap: onTap,

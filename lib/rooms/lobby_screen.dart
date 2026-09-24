@@ -641,20 +641,32 @@ class _LobbyScreenState extends State<LobbyScreen> {
     );
   }
 
-  Widget _desktop() {
-    return Column(
+  /// Header chips for the wide layouts. A `Wrap` rather than a `Row`: with
+  /// every chip showing (streak, quota, premium, profile, logout) the row
+  /// needs ~1000 px, so below that the chips go compact and the profile pill
+  /// becomes the bare avatar, and anything still too wide wraps to a second
+  /// line instead of overflowing.
+  Widget _desktopHeader(double width) {
+    // Scaled with the text: at 2.0x the full pill row needs twice the room.
+    final narrow = width < MediaQuery.textScalerOf(context).scale(1000);
+    return Row(
+      crossAxisAlignment: .start,
       children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 28),
-          child: Row(
+        const Flexible(
+          child: FittedBox(fit: .scaleDown, alignment: .centerLeft, child: _Wordmark()),
+        ),
+        const SizedBox(width: 16),
+        Expanded(
+          child: Wrap(
+            alignment: .end,
+            crossAxisAlignment: .center,
+            spacing: 12,
+            runSpacing: 8,
             children: [
-              const _Wordmark(),
-              const Spacer(),
-              if (_showStreakChip) ...[_streakChip(), const SizedBox(width: 12)],
-              if (_showQuotaChip) ...[_mediaQuotaChip(), const SizedBox(width: 12)],
-              if (_showPremiumChip) ...[_premiumChip(), const SizedBox(width: 12)],
-              _profilePill(),
-              const SizedBox(width: 12),
+              if (_showStreakChip) _streakChip(compact: narrow),
+              if (_showQuotaChip) _mediaQuotaChip(compact: narrow),
+              if (_showPremiumChip) _premiumChip(),
+              if (narrow) _avatarButton(size: 42) else _profilePill(),
               PTIconButton(
                 icon: Symbols.logout_rounded,
                 iconSize: 20,
@@ -665,83 +677,127 @@ class _LobbyScreenState extends State<LobbyScreen> {
             ],
           ),
         ),
-        Expanded(
-          child: ScrollFadeEdge(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.only(top: 36, bottom: 48),
-              child: Column(
-                children: [
-                  if (UpdateService.instance.hasUpdate) ...[
-                    ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 888),
-                      child: _updateBanner(),
-                    ),
-                    const SizedBox(height: 32),
-                  ],
-                  _intro(child: const _Greeting(style: PTText.display)),
-                  const SizedBox(height: 12),
-                  _intro(
-                    delay: const Duration(milliseconds: 60),
-                    child: Text(
-                      'Start a room or hop into one your friends made.',
-                      style: PTText.body.copyWith(fontSize: 16, color: PTColors.white(0.55)),
-                    ),
-                  ),
-                  const SizedBox(height: 52),
-                  // IntrinsicHeight: equal-height cards; a bare .stretch Row here
-                  // would receive unbounded height from the scroll view and crash.
-                  IntrinsicHeight(
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 888),
-                      child: Row(
-                        mainAxisAlignment: .center,
-                        crossAxisAlignment: .stretch,
-                        spacing: 28,
-                        children: [
-                          Expanded(child: _createCard(delay: const Duration(milliseconds: 120))),
-                          Expanded(child: _joinCard(delay: const Duration(milliseconds: 180))),
-                        ],
-                      ),
-                    ),
-                  ),
-                  if (RoomService.instance.myRooms.isNotEmpty) ...[
-                    const SizedBox(height: 28),
-                    ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 888),
-                      child: _intro(
-                        delay: const Duration(milliseconds: 240),
-                        fade: false,
-                        child: _myRoomsSection(),
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ),
-        ),
       ],
     );
   }
 
-  Widget _portrait() {
+  /// Desktop, and tablets through the `tablet → desktop` fallback: a tablet in
+  /// portrait (600-840 wide) keeps the two-column cards, so the gutters shrink
+  /// there, and the `SafeArea` covers the iPad status bar and landscape insets.
+  Widget _desktop() {
+    final width = MediaQuery.sizeOf(context).width;
+    final gutter = width < 900 ? 24.0 : 48.0;
     return SafeArea(
+      child: Column(
+        children: [
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: gutter, vertical: 28),
+            child: _desktopHeader(width),
+          ),
+          Expanded(
+            child: ScrollFadeEdge(
+              child: SingleChildScrollView(
+                padding: EdgeInsets.fromLTRB(gutter, 36, gutter, 48),
+                child: Column(
+                  children: [
+                    if (UpdateService.instance.hasUpdate) ...[
+                      ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 888),
+                        child: _updateBanner(),
+                      ),
+                      const SizedBox(height: 32),
+                    ],
+                    _intro(child: const _Greeting(style: PTText.display)),
+                    const SizedBox(height: 12),
+                    _intro(
+                      delay: const Duration(milliseconds: 60),
+                      child: Text(
+                        'Start a room or hop into one your friends made.',
+                        style: PTText.body.copyWith(fontSize: 16, color: PTColors.white(0.55)),
+                      ),
+                    ),
+                    const SizedBox(height: 52),
+                    // IntrinsicHeight: equal-height cards; a bare .stretch Row here
+                    // would receive unbounded height from the scroll view and crash.
+                    // The width cap goes *outside* it: IntrinsicHeight measures at
+                    // the incoming width, so inside it the cards were measured
+                    // wider than the 888 cap they are laid out at, came out a
+                    // line short, and the create card overflowed.
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 888),
+                      child: IntrinsicHeight(
+                        child: Row(
+                          mainAxisAlignment: .center,
+                          crossAxisAlignment: .stretch,
+                          spacing: 28,
+                          children: [
+                            Expanded(child: _createCard(delay: const Duration(milliseconds: 120))),
+                            Expanded(child: _joinCard(delay: const Duration(milliseconds: 180))),
+                          ],
+                        ),
+                      ),
+                    ),
+                    if (RoomService.instance.myRooms.isNotEmpty) ...[
+                      const SizedBox(height: 28),
+                      ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 888),
+                        child: _intro(
+                          delay: const Duration(milliseconds: 240),
+                          fade: false,
+                          child: _myRoomsSection(),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _portrait() {
+    // Edge-to-edge: the list scrolls under the home indicator / nav bar, and
+    // the bottom inset pads the content so its last item still clears it.
+    return SafeArea(
+      bottom: false,
       child: ScrollFadeEdge(
         height: 48,
         child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(20, 10, 20, 40),
+          padding: EdgeInsets.fromLTRB(20, 10, 20, 40 + MediaQuery.paddingOf(context).bottom),
           child: Column(
             crossAxisAlignment: .start,
             spacing: 18,
             children: [
+              // Wrap, not Row: on a 320-wide phone the wordmark plus every chip
+              // does not fit on one line.
               Row(
+                crossAxisAlignment: .start,
                 children: [
-                  const _Wordmark(compact: true),
-                  const Spacer(),
-                  if (_showStreakChip) ...[_streakChip(compact: true), const SizedBox(width: 8)],
-                  if (_showQuotaChip) ...[_mediaQuotaChip(compact: true), const SizedBox(width: 8)],
-                  if (_showPremiumChip) ...[_premiumChip(), const SizedBox(width: 8)],
-                  _avatarButton(),
+                  const Flexible(
+                    child: FittedBox(
+                      fit: .scaleDown,
+                      alignment: .centerLeft,
+                      child: _Wordmark(compact: true),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Wrap(
+                      alignment: .end,
+                      crossAxisAlignment: .center,
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        if (_showStreakChip) _streakChip(compact: true),
+                        if (_showQuotaChip) _mediaQuotaChip(compact: true),
+                        if (_showPremiumChip) _premiumChip(),
+                        _avatarButton(),
+                      ],
+                    ),
+                  ),
                 ],
               ),
               if (UpdateService.instance.hasUpdate) _updateBanner(),
@@ -779,18 +835,45 @@ class _LobbyScreenState extends State<LobbyScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           spacing: 14,
           children: [
+            // The greeting only takes the leftover width, and the chips scale
+            // down rather than overflow: an SE in landscape (547 usable) cannot
+            // hold wordmark + greeting + three chips + avatar on one line. Not
+            // a Wrap - landscape has no height to give a second header line
+            // (390 tall, less a keyboard).
             Row(
               children: [
-                const _Wordmark(compact: true),
-                const SizedBox(width: 10),
                 const Flexible(
-                  child: _Greeting(style: PTText.panelHeading, align: .centerLeft),
+                  child: FittedBox(
+                    fit: .scaleDown,
+                    alignment: .centerLeft,
+                    child: _Wordmark(compact: true),
+                  ),
                 ),
+                const SizedBox(width: 10),
+                if (MediaQuery.sizeOf(context).width >= MediaQuery.textScalerOf(context).scale(760))
+                  const Expanded(
+                    child: _Greeting(style: PTText.panelHeading, align: .centerLeft),
+                  )
+                else
+                  const Spacer(),
                 const SizedBox(width: 8),
-                if (_showStreakChip) ...[_streakChip(compact: true), const SizedBox(width: 8)],
-                if (_showQuotaChip) ...[_mediaQuotaChip(compact: true), const SizedBox(width: 8)],
-                if (_showPremiumChip) ...[_premiumChip(), const SizedBox(width: 8)],
-                _avatarButton(size: 36),
+                Flexible(
+                  flex: 2,
+                  child: FittedBox(
+                    fit: .scaleDown,
+                    alignment: .centerRight,
+                    child: Row(
+                      mainAxisSize: .min,
+                      spacing: 8,
+                      children: [
+                        if (_showStreakChip) _streakChip(compact: true),
+                        if (_showQuotaChip) _mediaQuotaChip(compact: true),
+                        if (_showPremiumChip) _premiumChip(),
+                        _avatarButton(size: 36),
+                      ],
+                    ),
+                  ),
+                ),
               ],
             ),
             if (UpdateService.instance.hasUpdate) _updateBanner(),
@@ -925,12 +1008,16 @@ class _LobbyScreenState extends State<LobbyScreen> {
         spacing: 6,
         children: [
           const Icon(Symbols.crown_rounded, size: 16, fill: 1, color: PTColors.textAccent),
-          Text(
-            'Go Premium',
-            style: PTText.body.copyWith(
-              fontSize: 13,
-              fontWeight: .w600,
-              color: PTColors.textAccent,
+          Flexible(
+            child: Text(
+              'Go Premium',
+              maxLines: 1,
+              overflow: .ellipsis,
+              style: PTText.body.copyWith(
+                fontSize: 13,
+                fontWeight: .w600,
+                color: PTColors.textAccent,
+              ),
             ),
           ),
         ],
@@ -965,18 +1052,22 @@ class _LobbyScreenState extends State<LobbyScreen> {
                 ? PTColors.warning
                 : PTColors.white(0.75),
           ),
-          Text(
-            isPrem
-                ? (compact ? 'Unlimited' : 'Unlimited quota')
-                : '${Profile.formatBytes(remainingBytes)} quota',
-            style: PTText.body.copyWith(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: isPrem
-                  ? PTColors.textAccent
-                  : isLow
-                  ? PTColors.warning
-                  : PTColors.white(0.85),
+          Flexible(
+            child: Text(
+              isPrem
+                  ? (compact ? 'Unlimited' : 'Unlimited quota')
+                  : '${Profile.formatBytes(remainingBytes)} quota',
+              style: PTText.body.copyWith(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: isPrem
+                    ? PTColors.textAccent
+                    : isLow
+                    ? PTColors.warning
+                    : PTColors.white(0.85),
+              ),
+              maxLines: 1,
+              overflow: .ellipsis,
             ),
           ),
         ],
@@ -1000,9 +1091,13 @@ class _LobbyScreenState extends State<LobbyScreen> {
             size: 32,
             premium: EntitlementService.instance.isPremium,
           ),
-          Text(
-            profile?.displayName ?? '…',
-            style: PTText.body.copyWith(fontSize: 14, fontWeight: .w500),
+          Flexible(
+            child: Text(
+              profile?.displayName ?? '…',
+              maxLines: 1,
+              overflow: .ellipsis,
+              style: PTText.body.copyWith(fontSize: 14, fontWeight: .w500),
+            ),
           ),
         ],
       ),
@@ -1051,8 +1146,13 @@ class _LobbyScreenState extends State<LobbyScreen> {
           children: [
             Row(
               children: [
-                Text('Duration', style: PTText.caption.copyWith(fontSize: compact ? 12 : 13)),
-                const Spacer(),
+                Expanded(
+                  child: Text(
+                    'Duration',
+                    overflow: .ellipsis,
+                    style: PTText.caption.copyWith(fontSize: compact ? 12 : 13),
+                  ),
+                ),
                 // Ticks over as the slider moves - the label the user is
                 // actually looking at while choosing.
                 AnimatedSwitcher(
@@ -1089,9 +1189,11 @@ class _LobbyScreenState extends State<LobbyScreen> {
               Row(
                 mainAxisAlignment: .spaceBetween,
                 children: [
-                  Text(
-                    '5 min',
-                    style: PTText.mono.copyWith(fontSize: 11, color: PTColors.white(0.35)),
+                  Flexible(
+                    child: Text(
+                      '5 min',
+                      style: PTText.mono.copyWith(fontSize: 11, color: PTColors.white(0.35)),
+                    ),
                   ),
                   Text(
                     '$_durationCapLabel max',
@@ -1285,7 +1387,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
                   decoration: BoxDecoration(
                     color: PTColors.primary.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: const Color(0x4DA78BFA)),
+                    border: Border.all(color: PTColors.accentBorderSoft),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -1354,7 +1456,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           decoration: BoxDecoration(
             color: PTColors.primary.withValues(alpha: 0.1),
-            border: Border.all(color: const Color(0xFFA78BFA).withValues(alpha: 0.22)),
+            border: Border.all(color: PTColors.accentBorder.withValues(alpha: 0.22)),
             borderRadius: BorderRadius.circular(14),
           ),
           child: Row(
@@ -1417,23 +1519,25 @@ class _LobbyScreenState extends State<LobbyScreen> {
           height: compact ? 40 : 44,
           decoration: BoxDecoration(
             color: PTColors.primary.withValues(alpha: 0.25),
-            border: Border.all(color: const Color(0xFFA78BFA).withValues(alpha: 0.4)),
+            border: Border.all(color: PTColors.accentBorder.withValues(alpha: 0.4)),
             borderRadius: BorderRadius.circular(compact ? 13 : 14),
           ),
           child: Icon(icon, size: compact ? 21 : 23, fill: 1, color: PTColors.textAccent),
         ),
-        Column(
-          crossAxisAlignment: .start,
-          children: [
-            Text(
-              title,
-              style: compact ? PTText.cardHeading.copyWith(fontSize: 17) : PTText.cardHeading,
-            ),
-            Text(
-              subtitle,
-              style: PTText.caption.copyWith(fontSize: compact ? 12 : 13, fontWeight: .w400),
-            ),
-          ],
+        Expanded(
+          child: Column(
+            crossAxisAlignment: .start,
+            children: [
+              Text(
+                title,
+                style: compact ? PTText.cardHeading.copyWith(fontSize: 17) : PTText.cardHeading,
+              ),
+              Text(
+                subtitle,
+                style: PTText.caption.copyWith(fontSize: compact ? 12 : 13, fontWeight: .w400),
+              ),
+            ],
+          ),
         ),
       ],
     );

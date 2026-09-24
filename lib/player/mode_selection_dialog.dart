@@ -182,7 +182,7 @@ class _SourceOptionState extends State<_SourceOption> {
               color: _hovered ? PTColors.primary.withValues(alpha: 0.18) : PTColors.white(0.05),
               border: Border.all(
                 color: _hovered
-                    ? const Color(0xFFA78BFA).withValues(alpha: 0.5)
+                    ? PTColors.accentBorder.withValues(alpha: 0.5)
                     : PTColors.white(0.13),
               ),
               borderRadius: BorderRadius.circular(18),

@@ -1,5 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import '../../ui/pt_theme.dart';
 
 class SharingProgressIndicator extends StatelessWidget {
   const SharingProgressIndicator({
@@ -82,7 +83,7 @@ class SharingProgressIndicator extends StatelessWidget {
                         : Icons.cloud_upload_outlined,
                     size: 18,
                     color: isDone
-                        ? Colors.green
+                        ? PTColors.online
                         : isFailed
                         ? theme.colorScheme.error
                         : theme.colorScheme.primary,
@@ -102,7 +103,7 @@ class SharingProgressIndicator extends StatelessWidget {
                     style: theme.textTheme.bodyMedium?.copyWith(
                       fontWeight: FontWeight.bold,
                       color: isDone
-                          ? Colors.green
+                          ? PTColors.online
                           : isFailed
                           ? theme.colorScheme.error
                           : theme.colorScheme.primary,
@@ -139,7 +140,7 @@ class SharingProgressIndicator extends StatelessWidget {
                   backgroundColor: theme.colorScheme.onSurface.withValues(alpha: 0.1),
                   valueColor: AlwaysStoppedAnimation<Color>(
                     isDone
-                        ? Colors.green
+                        ? PTColors.online
                         : isFailed
                         ? theme.colorScheme.error
                         : theme.colorScheme.primary,

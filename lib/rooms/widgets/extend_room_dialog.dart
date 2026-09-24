@@ -34,7 +34,7 @@ class _ExtendRoomDialogState extends State<ExtendRoomDialog> {
               height: 46,
               decoration: BoxDecoration(
                 color: PTColors.primary.withValues(alpha: 0.2),
-                border: Border.all(color: const Color(0xFFA78BFA).withValues(alpha: 0.4)),
+                border: Border.all(color: PTColors.accentBorder.withValues(alpha: 0.4)),
                 borderRadius: BorderRadius.circular(14),
               ),
               child: const Icon(
@@ -127,7 +127,7 @@ class _Choice extends StatelessWidget {
             color: selected ? PTColors.primary.withValues(alpha: 0.25) : PTColors.white(0.06),
             border: Border.all(
               color: selected
-                  ? const Color(0xFFA78BFA).withValues(alpha: 0.55)
+                  ? PTColors.accentBorder.withValues(alpha: 0.55)
                   : PTColors.white(0.12),
             ),
             borderRadius: BorderRadius.circular(14),

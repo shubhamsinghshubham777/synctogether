@@ -16,8 +16,8 @@ class SeasonTrophies extends StatelessWidget {
 
   static Color colorFor(int rank) => switch (rank) {
     1 => PTColors.premium,
-    2 => const Color(0xFFCBD5E1),
-    _ => const Color(0xFFD08C60),
+    2 => PTColors.silver,
+    _ => PTColors.bronze,
   };
 
   @override

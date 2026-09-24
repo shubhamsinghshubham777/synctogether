@@ -71,6 +71,11 @@
 	</dict>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<!-- Light glyphs over the dark launch screen; after launch Flutter's
+	     SystemChrome (kSystemUiStyle in main.dart) owns the status bar, which
+	     needs view-controller-based appearance left at its default (YES). -->
+	<key>UIStatusBarStyle</key>
+	<string>UIStatusBarStyleLightContent</string>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>

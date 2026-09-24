@@ -34,48 +34,46 @@ class ChooserDialog<T> extends StatelessWidget {
           padding: const EdgeInsets.only(left: 6),
           child: Text(type, style: PTText.cardHeading),
         ),
-        ConstrainedBox(
-          constraints: const BoxConstraints(maxHeight: 320),
-          child: SingleChildScrollView(
-            child: Column(
-              spacing: 6,
-              children: [
-                ...values.map<Widget?>((value) {
-                  final label = formatTrackLabel(value);
-                  if (label.isEmpty) return null;
-                  final isSelected = isTrackSelected(value, selected);
-                  IconData? icon;
-                  if (value is SubtitleTrack) {
-                    if (value.id == 'no') icon = Symbols.subtitles_off_rounded;
-                    if (value.id == 'auto') icon = Symbols.auto_mode_rounded;
-                  } else if (value is AudioTrack) {
-                    if (value.id == 'no') icon = Symbols.volume_off_rounded;
-                    if (value.id == 'auto') icon = Symbols.auto_mode_rounded;
-                  } else if (value is PTYouTubeCaptionTrack) {
-                    if (value.isOff) icon = Symbols.subtitles_off_rounded;
-                  }
-                  return _TrackRow(
-                    label: label,
-                    icon: icon,
-                    isSelected: isSelected,
-                    onTap: () => onChosen(value),
-                  );
-                }).nonNulls,
-                if (onAddFromFile != null) ...[
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 4),
-                    child: Divider(color: PTColors.white(0.12), height: 1),
-                  ),
-                  _TrackRow(
-                    label: 'Add from File...',
-                    icon: Symbols.file_open_rounded,
-                    isSelected: false,
-                    onTap: onAddFromFile!,
-                  ),
-                ],
-              ],
-            ),
-          ),
+        // No inner scroller: showGlassDialog already scrolls the body within a
+        // keyboard-aware height, and a nested 320px one outgrew that on short
+        // windows, leaving the last row unreachable below the safe edge.
+        Column(
+          spacing: 6,
+          children: [
+            ...values.map<Widget?>((value) {
+              final label = formatTrackLabel(value);
+              if (label.isEmpty) return null;
+              final isSelected = isTrackSelected(value, selected);
+              IconData? icon;
+              if (value is SubtitleTrack) {
+                if (value.id == 'no') icon = Symbols.subtitles_off_rounded;
+                if (value.id == 'auto') icon = Symbols.auto_mode_rounded;
+              } else if (value is AudioTrack) {
+                if (value.id == 'no') icon = Symbols.volume_off_rounded;
+                if (value.id == 'auto') icon = Symbols.auto_mode_rounded;
+              } else if (value is PTYouTubeCaptionTrack) {
+                if (value.isOff) icon = Symbols.subtitles_off_rounded;
+              }
+              return _TrackRow(
+                label: label,
+                icon: icon,
+                isSelected: isSelected,
+                onTap: () => onChosen(value),
+              );
+            }).nonNulls,
+            if (onAddFromFile != null) ...[
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Divider(color: PTColors.white(0.12), height: 1),
+              ),
+              _TrackRow(
+                label: 'Add from File...',
+                icon: Symbols.file_open_rounded,
+                isSelected: false,
+                onTap: onAddFromFile!,
+              ),
+            ],
+          ],
         ),
       ],
     );
@@ -116,7 +114,7 @@ class _TrackRowState extends State<_TrackRow> {
                 : Colors.transparent,
             border: Border.all(
               color: widget.isSelected
-                  ? const Color(0xFFA78BFA).withValues(alpha: 0.45)
+                  ? PTColors.accentBorder.withValues(alpha: 0.45)
                   : Colors.transparent,
             ),
             borderRadius: BorderRadius.circular(14),

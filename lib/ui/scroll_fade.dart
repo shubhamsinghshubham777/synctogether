@@ -1,4 +1,5 @@
 import 'package:flutter/widgets.dart';
+import 'pt_theme.dart';
 
 class ScrollFadeEdge extends StatefulWidget {
   const ScrollFadeEdge({super.key, required this.child, this.height = 72});
@@ -55,6 +56,6 @@ class _ScrollFadeEdgeState extends State<ScrollFadeEdge> {
 const _veil = LinearGradient(
   begin: .topCenter,
   end: .bottomCenter,
-  colors: [Color(0x990B0A14), Color(0x5E0B0A14), Color(0x260B0A14), Color(0x000B0A14)],
+  colors: [PTColors.veilTop, PTColors.veilMid, PTColors.veilLow, PTColors.veilClear],
   stops: [0, 0.34, 0.64, 1],
 );

@@ -17,6 +17,7 @@ Future<void> showAnalyticsDisclosure(BuildContext context) {
   return showGlassDialog(
     context: context,
     width: 560,
+    scrollable: false,
     padding: const EdgeInsets.fromLTRB(28, 26, 20, 22),
     builder: (context) => const _Disclosure(),
   );
@@ -28,82 +29,99 @@ class _Disclosure extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final grouped = analyticsEventsByGroup();
-    return Column(
-      mainAxisSize: .min,
-      crossAxisAlignment: .stretch,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(right: 8),
-          child: Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: .start,
-                  spacing: 4,
-                  children: [
-                    Text('What we collect', style: PTText.screenTitle.copyWith(fontSize: 20)),
-                    Text(
-                      'All of it. This is the complete list - there is no second one.',
-                      style: PTText.caption,
-                    ),
-                  ],
-                ),
-              ),
-              PTIconButton(
-                icon: Symbols.close_rounded,
-                iconSize: 18,
-                size: 36,
-                tooltip: 'Close',
-                onPressed: () => Navigator.of(context).pop(),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 18),
-        Flexible(
-          child: ScrollFadeEdge(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.only(right: 16, bottom: 4),
-              child: Column(
-                crossAxisAlignment: .stretch,
+    // A short window cannot spare a pinned header and footer around the
+    // list, so below this the whole body scrolls as one.
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxHeight < MediaQuery.textScalerOf(context).scale(420);
+        Widget list(Widget child) =>
+            compact ? child : Flexible(child: ScrollFadeEdge(child: child));
+        final body = Column(
+          mainAxisSize: .min,
+          crossAxisAlignment: .stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: Row(
                 children: [
-                  _NeverPanel(),
-                  const SizedBox(height: 20),
-                  for (final entry in grouped.entries) ...[
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 10),
-                      child: Text(
-                        entry.key.title,
-                        style: PTText.finePrint.copyWith(
-                          fontSize: 11,
-                          letterSpacing: 0.8,
-                          fontWeight: .w700,
-                          color: PTColors.textAccent,
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: .start,
+                      spacing: 4,
+                      children: [
+                        Text('What we collect', style: PTText.screenTitle.copyWith(fontSize: 20)),
+                        Text(
+                          'All of it. This is the complete list - there is no second one.',
+                          style: PTText.caption,
                         ),
-                      ),
+                      ],
                     ),
-                    for (final doc in entry.value)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 10),
-                        child: _EventRow(doc: doc),
-                      ),
-                    const SizedBox(height: 10),
-                  ],
-                  Text(
-                    'Events are tied to your account ID and, before you sign in, to a '
-                    'random ID generated on this device. Deleting your account deletes '
-                    'all of it.',
-                    style: PTText.finePrint.copyWith(fontSize: 11.5),
+                  ),
+                  PTIconButton(
+                    icon: Symbols.close_rounded,
+                    iconSize: 18,
+                    size: 36,
+                    tooltip: 'Close',
+                    onPressed: () => Navigator.of(context).pop(),
                   ),
                 ],
               ),
             ),
+            const SizedBox(height: 18),
+            list(
+              compact
+                  ? Padding(
+                      padding: const EdgeInsets.only(right: 16, bottom: 4),
+                      child: _list(grouped),
+                    )
+                  : SingleChildScrollView(
+                      padding: const EdgeInsets.only(right: 16, bottom: 4),
+                      child: _list(grouped),
+                    ),
+            ),
+            const SizedBox(height: 18),
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: PTButton(label: 'Got it', onPressed: () => Navigator.of(context).pop()),
+            ),
+          ],
+        );
+        return compact ? SingleChildScrollView(child: body) : body;
+      },
+    );
+  }
+
+  Widget _list(Map<AnalyticsGroup, List<AnalyticsEventDoc>> grouped) {
+    return Column(
+      crossAxisAlignment: .stretch,
+      children: [
+        _NeverPanel(),
+        const SizedBox(height: 20),
+        for (final entry in grouped.entries) ...[
+          Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: Text(
+              entry.key.title,
+              style: PTText.finePrint.copyWith(
+                fontSize: 11,
+                letterSpacing: 0.8,
+                fontWeight: .w700,
+                color: PTColors.textAccent,
+              ),
+            ),
           ),
-        ),
-        const SizedBox(height: 18),
-        Padding(
-          padding: const EdgeInsets.only(right: 8),
-          child: PTButton(label: 'Got it', onPressed: () => Navigator.of(context).pop()),
+          for (final doc in entry.value)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: _EventRow(doc: doc),
+            ),
+          const SizedBox(height: 10),
+        ],
+        Text(
+          'Events are tied to your account ID and, before you sign in, to a '
+          'random ID generated on this device. Deleting your account deletes '
+          'all of it.',
+          style: PTText.finePrint.copyWith(fontSize: 11.5),
         ),
       ],
     );
@@ -128,9 +146,11 @@ class _NeverPanel extends StatelessWidget {
             spacing: 8,
             children: [
               const Icon(Symbols.shield_rounded, size: 17, fill: 1, color: PTColors.online),
-              Text(
-                'Never collected, on any plan',
-                style: PTText.body.copyWith(fontSize: 14, fontWeight: .w600),
+              Expanded(
+                child: Text(
+                  'Never collected, on any plan',
+                  style: PTText.body.copyWith(fontSize: 14, fontWeight: .w600),
+                ),
               ),
             ],
           ),

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- PTColors.canvas. The app is dark-only, so the window is dark whatever
+         the OS theme - a light window flashes white before the first frame. -->
+    <color name="canvas">#FF08070C</color>
+</resources>

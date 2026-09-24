@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:app_links/app_links.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:synctogether/analytics.dart';
 import 'package:synctogether/analytics_consent.dart';
@@ -28,6 +29,7 @@ import 'package:synctogether/ui/banners.dart';
 import 'package:synctogether/ui/pt_theme.dart';
 import 'package:synctogether/ui/responsive.dart';
 import 'package:synctogether/ui/splash_screen.dart';
+import 'package:synctogether/ui/system_ui.dart';
 
 import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -63,6 +65,12 @@ Future<void> _bootstrap() async {
   if (isDesktop) {
     await windowManager.ensureInitialized();
     await windowManager.setMinimumSize(kDesktopMinWindowSize);
+  } else if (!kIsWeb) {
+    // Draw behind the status and navigation bars on every Android version, not
+    // only where targetSdk 35 forces it on Android 15: one layout contract,
+    // and every screen already pads itself by MediaQuery's insets. The bar
+    // colours come from `kSystemUiStyle` (lib/ui/system_ui.dart).
+    await SystemChrome.setEnabledSystemUIMode(.edgeToEdge);
   }
   // Windows needs a WebView2 environment rooted somewhere writable before the
   // guest captcha can render; everywhere else this returns immediately.
@@ -250,15 +258,26 @@ class _MainAppState extends State<MainApp> with WidgetsBindingObserver {
       // The splash is an overlay inside the app, not a route: routing, auth
       // redirects and the deep-link handler above all keep running underneath
       // it, so an invite that arrives during the splash is not lost.
-      builder: (context, child) => RepaintBoundary(
-        key: storeCaptureBoundaryKey,
-        child: buildResponsiveWrapper(
-          context,
-          PTSplash(
-            child: UnlockToastHost(
-              stream: _unlocks,
-              onShown: _onBadgeShown,
-              child: child ?? const SizedBox.shrink(),
+      // The AnnotatedRegion re-asserts the dark-app bar style on every frame,
+      // so a plugin or dialog that sets its own style cannot leave the status
+      // bar with dark icons on our dark UI.
+      builder: (context, child) => AnnotatedRegion<SystemUiOverlayStyle>(
+        value: kSystemUiStyle,
+        child: MediaQuery.withClampedTextScaling(
+          // Labels are built to reflow up to 2x; past that, fixed-size chrome
+          // (control bar, pills) cannot hold them.
+          maxScaleFactor: 2.0,
+          child: RepaintBoundary(
+            key: storeCaptureBoundaryKey,
+            child: buildResponsiveWrapper(
+              context,
+              PTSplash(
+                child: UnlockToastHost(
+                  stream: _unlocks,
+                  onShown: _onBadgeShown,
+                  child: child ?? const SizedBox.shrink(),
+                ),
+              ),
             ),
           ),
         ),

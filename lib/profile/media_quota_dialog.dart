@@ -32,6 +32,7 @@ Future<void> showMediaQuotaDialog(BuildContext context, {MediaQuotaContext? quot
   await showGlassDialog(
     context: context,
     width: 450,
+    scrollable: false,
     padding: const EdgeInsets.symmetric(vertical: 24),
     builder: (dialogContext) => MediaQuotaDialogBody(quotaContext: quotaContext),
   );
@@ -55,73 +56,100 @@ class MediaQuotaDialogBody extends StatelessWidget {
     final fractionUsed = weeklyLimit > 0 ? (usedBytes / weeklyLimit).clamp(0.0, 1.0) : 0.0;
     final resetDuration = profile?.timeUntilQuotaReset;
 
-    final screenHeight = MediaQuery.sizeOf(context).height;
-    final maxBodyHeight = (screenHeight - 88).clamp(280.0, 720.0);
-
-    return ConstrainedBox(
-      constraints: BoxConstraints(maxHeight: maxBodyHeight),
-      child: Column(
-        mainAxisSize: .min,
-        crossAxisAlignment: .start,
-        children: [
-          // Header (pinned)
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Row(
-              spacing: 12,
-              children: [
-                Container(
-                  width: 46,
-                  height: 46,
-                  decoration: BoxDecoration(
-                    color: isPrem ? PTColors.primary.withValues(alpha: 0.25) : PTColors.white(0.08),
-                    border: Border.all(
-                      color: isPrem
-                          ? const Color(0xFFA78BFA).withValues(alpha: 0.5)
-                          : PTColors.white(0.12),
-                    ),
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: Icon(
-                    isPrem ? Symbols.crown_rounded : Symbols.cloud_queue_rounded,
-                    size: 24,
-                    fill: 1,
-                    color: isPrem ? PTColors.textAccent : Colors.white,
-                  ),
+    // Tall enough: header and actions stay pinned and only the middle
+    // scrolls. Short windows (landscape phones, big text) cannot afford two
+    // pinned bands, so the whole body scrolls as one instead.
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final maxBodyHeight = constraints.maxHeight.clamp(0.0, 720.0);
+        final compact = maxBodyHeight < MediaQuery.textScalerOf(context).scale(520);
+        // Side-by-side actions need room for both labels; on a narrow or
+        // large-text dialog they stack instead of ellipsizing to nothing.
+        final stackActions = constraints.maxWidth / MediaQuery.textScalerOf(context).scale(1) < 300;
+        Widget actionRow(Widget main, Widget side) => stackActions
+            ? Column(
+                mainAxisSize: .min,
+                crossAxisAlignment: .stretch,
+                spacing: 10,
+                children: [main, side],
+              )
+            : Row(
+                spacing: 10,
+                children: [
+                  Expanded(child: main),
+                  side,
+                ],
+              );
+        Widget middle(Widget child) => compact
+            ? Padding(padding: const EdgeInsets.symmetric(horizontal: 20), child: child)
+            : Flexible(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: child,
                 ),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Media Sharing Quota', style: PTText.cardHeading),
-                      Text(
-                        isPrem
-                            ? 'Unlimited with Premium'
-                            : isGuest
-                            ? 'Sign in to unlock weekly quota'
-                            : '${Profile.formatBytes(remainingBytes)} of ${Profile.formatBytes(weeklyLimit)} remaining',
-                        style: PTText.caption.copyWith(
-                          fontSize: 12,
-                          color: isPrem
-                              ? PTColors.textAccent
-                              : remainingBytes < 1024 * 1024 * 1024 && !isGuest
-                              ? PTColors.warning
-                              : PTColors.white(0.6),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 14),
-
-          // Scrollable middle section extending full width with comfortable 20px horizontal padding
-          Flexible(
-            child: SingleChildScrollView(
+              );
+        final body = Column(
+          mainAxisSize: .min,
+          crossAxisAlignment: .start,
+          children: [
+            // Header (pinned)
+            Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Column(
+              child: Row(
+                spacing: 12,
+                children: [
+                  Container(
+                    width: 46,
+                    height: 46,
+                    decoration: BoxDecoration(
+                      color: isPrem
+                          ? PTColors.primary.withValues(alpha: 0.25)
+                          : PTColors.white(0.08),
+                      border: Border.all(
+                        color: isPrem
+                            ? PTColors.accentBorder.withValues(alpha: 0.5)
+                            : PTColors.white(0.12),
+                      ),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Icon(
+                      isPrem ? Symbols.crown_rounded : Symbols.cloud_queue_rounded,
+                      size: 24,
+                      fill: 1,
+                      color: isPrem ? PTColors.textAccent : Colors.white,
+                    ),
+                  ),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Media Sharing Quota', style: PTText.cardHeading),
+                        Text(
+                          isPrem
+                              ? 'Unlimited with Premium'
+                              : isGuest
+                              ? 'Sign in to unlock weekly quota'
+                              : '${Profile.formatBytes(remainingBytes)} of ${Profile.formatBytes(weeklyLimit)} remaining',
+                          style: PTText.caption.copyWith(
+                            fontSize: 12,
+                            color: isPrem
+                                ? PTColors.textAccent
+                                : remainingBytes < 1024 * 1024 * 1024 && !isGuest
+                                ? PTColors.warning
+                                : PTColors.white(0.6),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 14),
+
+            // Scrollable middle section extending full width with comfortable 20px horizontal padding
+            middle(
+              Column(
                 mainAxisSize: .min,
                 crossAxisAlignment: .start,
                 spacing: 14,
@@ -172,8 +200,10 @@ class MediaQuotaDialogBody extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         spacing: 10,
                         children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          Wrap(
+                            alignment: WrapAlignment.spaceBetween,
+                            spacing: 8,
+                            runSpacing: 4,
                             children: [
                               Text(
                                 '7-Day Rolling Usage',
@@ -199,8 +229,10 @@ class MediaQuotaDialogBody extends StatelessWidget {
                               minHeight: 6,
                             ),
                           ),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          Wrap(
+                            alignment: WrapAlignment.spaceBetween,
+                            spacing: 8,
+                            runSpacing: 4,
                             children: [
                               Text(
                                 '${Profile.formatBytes(remainingBytes)} available',
@@ -278,130 +310,117 @@ class MediaQuotaDialogBody extends StatelessWidget {
                 ],
               ),
             ),
-          ),
-          const SizedBox(height: 14),
+            const SizedBox(height: 14),
 
-          // Action Buttons (pinned at bottom)
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: isGuest
-                ? Column(
-                    mainAxisSize: .min,
-                    crossAxisAlignment: .stretch,
-                    spacing: 10,
-                    children: [
-                      if (AuthService.instance.isAppleSupported)
-                        AppleButton(
-                          label: 'Sign in with Apple (Free 2.5 GB)',
+            // Action Buttons (pinned at bottom)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: isGuest
+                  ? Column(
+                      mainAxisSize: .min,
+                      crossAxisAlignment: .stretch,
+                      spacing: 10,
+                      children: [
+                        if (AuthService.instance.isAppleSupported)
+                          AppleButton(
+                            label: 'Sign in with Apple (Free 2.5 GB)',
+                            onPressed: () async {
+                              Navigator.of(context).pop();
+                              try {
+                                await AuthService.instance.linkAppleIdentity();
+                              } catch (e, s) {
+                                reportNonFatal(
+                                  e,
+                                  s,
+                                  during: 'linking Apple identity from media quota dialog',
+                                );
+                              }
+                            },
+                          ),
+                        GoogleButton(
+                          label: 'Sign in with Google (Free 2.5 GB)',
                           onPressed: () async {
                             Navigator.of(context).pop();
                             try {
-                              await AuthService.instance.linkAppleIdentity();
+                              await AuthService.instance.linkGoogleIdentity();
                             } catch (e, s) {
                               reportNonFatal(
                                 e,
                                 s,
-                                during: 'linking Apple identity from media quota dialog',
+                                during: 'linking Google identity from media quota dialog',
                               );
                             }
                           },
                         ),
-                      GoogleButton(
-                        label: 'Sign in with Google (Free 2.5 GB)',
-                        onPressed: () async {
-                          Navigator.of(context).pop();
-                          try {
-                            await AuthService.instance.linkGoogleIdentity();
-                          } catch (e, s) {
-                            reportNonFatal(
-                              e,
-                              s,
-                              during: 'linking Google identity from media quota dialog',
-                            );
-                          }
-                        },
-                      ),
-                      PTButton(
-                        label: 'Sign in with Email (Free 2.5 GB)',
-                        icon: Symbols.mail_rounded,
-                        variant: .secondary,
-                        onPressed: () async {
-                          Navigator.of(context).pop();
-                          try {
-                            await AuthService.instance.signOut();
-                          } catch (e, s) {
-                            reportNonFatal(
-                              e,
-                              s,
-                              during: 'signing out guest for email sign-in from quota dialog',
-                            );
-                          }
-                        },
-                      ),
-                      Row(
-                        spacing: 10,
-                        children: [
-                          Expanded(
-                            child: PTButton(
-                              label: 'Go Premium (Unlimited)',
-                              icon: Symbols.crown_rounded,
-                              variant: .secondary,
-                              onPressed: () {
-                                Navigator.of(context).pop();
-                                context.push('/lobby/subscribe?source=quota_dialog');
-                              },
-                            ),
-                          ),
-                          Expanded(
-                            flex: 0,
-                            child: PTButton(
-                              label: 'Got it',
-                              variant: .secondary,
-                              expand: false,
-                              onPressed: () => Navigator.of(context).pop(),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  )
-                : Row(
-                    spacing: 10,
-                    children: [
-                      if (!isPrem) ...[
-                        Expanded(
-                          child: PTButton(
-                            label: quotaContext?.reason == .singleFileLimitExceeded
-                                ? 'Upgrade for 10.0 GB Files'
-                                : 'Get Unlimited with Premium',
+                        PTButton(
+                          label: 'Sign in with Email (Free 2.5 GB)',
+                          icon: Symbols.mail_rounded,
+                          variant: .secondary,
+                          onPressed: () async {
+                            Navigator.of(context).pop();
+                            try {
+                              await AuthService.instance.signOut();
+                            } catch (e, s) {
+                              reportNonFatal(
+                                e,
+                                s,
+                                during: 'signing out guest for email sign-in from quota dialog',
+                              );
+                            }
+                          },
+                        ),
+                        actionRow(
+                          PTButton(
+                            label: 'Go Premium (Unlimited)',
                             icon: Symbols.crown_rounded,
+                            variant: .secondary,
                             onPressed: () {
                               Navigator.of(context).pop();
-                              final source = quotaContext?.reason == .singleFileLimitExceeded
-                                  ? 'quota_dialog_single_file'
-                                  : 'quota_dialog_weekly';
-                              context.push('/lobby/subscribe?source=$source');
+                              context.push('/lobby/subscribe?source=quota_dialog');
                             },
                           ),
-                        ),
-                        PTButton(
-                          label: 'Got it',
-                          variant: .secondary,
-                          expand: false,
-                          onPressed: () => Navigator.of(context).pop(),
-                        ),
-                      ] else
-                        Expanded(
-                          child: PTButton(
+                          PTButton(
                             label: 'Got it',
+                            variant: .secondary,
+                            expand: false,
                             onPressed: () => Navigator.of(context).pop(),
                           ),
                         ),
-                    ],
-                  ),
-          ),
-        ],
-      ),
+                      ],
+                    )
+                  : isPrem
+                  ? PTButton(label: 'Got it', onPressed: () => Navigator.of(context).pop())
+                  : actionRow(
+                      PTButton(
+                        label: quotaContext?.reason == .singleFileLimitExceeded
+                            ? 'Upgrade for 10.0 GB Files'
+                            : 'Get Unlimited with Premium',
+                        icon: Symbols.crown_rounded,
+                        onPressed: () {
+                          Navigator.of(context).pop();
+                          final source = quotaContext?.reason == .singleFileLimitExceeded
+                              ? 'quota_dialog_single_file'
+                              : 'quota_dialog_weekly';
+                          context.push('/lobby/subscribe?source=$source');
+                        },
+                      ),
+                      PTButton(
+                        label: 'Got it',
+                        variant: .secondary,
+                        expand: false,
+                        onPressed: () => Navigator.of(context).pop(),
+                      ),
+                    ),
+            ),
+          ],
+        );
+        return compact
+            ? SingleChildScrollView(child: body)
+            : ConstrainedBox(
+                constraints: BoxConstraints(maxHeight: maxBodyHeight),
+                child: body,
+              );
+      },
     );
   }
 
@@ -500,13 +519,15 @@ class _ContextualBlockageCard extends StatelessWidget {
               spacing: 5,
               children: [
                 Icon(badgeIcon, size: 14, color: PTColors.warning),
-                Text(
-                  badgeText,
-                  style: PTText.mono.copyWith(
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                    color: PTColors.warning,
-                    letterSpacing: 0.5,
+                Flexible(
+                  child: Text(
+                    badgeText,
+                    style: PTText.mono.copyWith(
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      color: PTColors.warning,
+                      letterSpacing: 0.5,
+                    ),
                   ),
                 ),
               ],
@@ -575,7 +596,7 @@ class _ContextualBlockageCard extends StatelessWidget {
                               child: _MetricBadge(
                                 label: deltaLabel!,
                                 value: '+${Profile.formatBytes(deltaBytes)}',
-                                highlightColor: const Color(0xFFF87171),
+                                highlightColor: PTColors.dangerBorder,
                               ),
                             ),
                           ],
@@ -593,7 +614,7 @@ class _ContextualBlockageCard extends StatelessWidget {
                               child: _MetricBadge(
                                 label: deltaLabel!,
                                 value: '-${Profile.formatBytes(deltaBytes)}',
-                                highlightColor: const Color(0xFFF87171),
+                                highlightColor: PTColors.dangerBorder,
                               ),
                             ),
                           ],

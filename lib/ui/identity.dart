@@ -147,12 +147,12 @@ LinearGradient frameGradient(AvatarFrame frame) => switch (frame) {
   AvatarFrame.ember => const LinearGradient(
     begin: .topLeft,
     end: .bottomRight,
-    colors: [Color(0xFFFBBF24), Color(0xFFF97316)],
+    colors: [PTColors.premium, PTColors.ember],
   ),
   AvatarFrame.halo => const LinearGradient(
     begin: .topLeft,
     end: .bottomRight,
-    colors: [Color(0xFF38BDF8), Color(0xFF818CF8)],
+    colors: [PTColors.halo, PTColors.indigo],
   ),
   AvatarFrame.pulse => const LinearGradient(
     begin: .topLeft,
@@ -162,12 +162,12 @@ LinearGradient frameGradient(AvatarFrame frame) => switch (frame) {
   AvatarFrame.aurora => const LinearGradient(
     begin: .topLeft,
     end: .bottomRight,
-    colors: [Color(0xFF4ADE80), Color(0xFF22D3EE), Color(0xFFA855F7)],
+    colors: [PTColors.online, PTColors.cyan, PTColors.gradientMid],
   ),
   AvatarFrame.laurel => const LinearGradient(
     begin: .topLeft,
     end: .bottomRight,
-    colors: [Color(0xFFE9D5A1), Color(0xFFB08D57)],
+    colors: [PTColors.laurelLight, PTColors.laurel],
   ),
   AvatarFrame.aurum => const LinearGradient(
     begin: .topLeft,
@@ -177,11 +177,11 @@ LinearGradient frameGradient(AvatarFrame frame) => switch (frame) {
 };
 
 Color frameGlow(AvatarFrame frame) => switch (frame) {
-  AvatarFrame.ember => const Color(0xFFF97316),
-  AvatarFrame.halo => const Color(0xFF38BDF8),
+  AvatarFrame.ember => PTColors.ember,
+  AvatarFrame.halo => PTColors.halo,
   AvatarFrame.pulse => PTColors.primary,
-  AvatarFrame.aurora => const Color(0xFF22D3EE),
-  AvatarFrame.laurel => const Color(0xFFB08D57),
+  AvatarFrame.aurora => PTColors.cyan,
+  AvatarFrame.laurel => PTColors.laurel,
   AvatarFrame.aurum => PTColors.premium,
 };
 
@@ -387,8 +387,8 @@ class _RoomCodeChipState extends State<RoomCodeChip> {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
           decoration: BoxDecoration(
-            color: const Color(0xFFA78BFA).withValues(alpha: 0.14),
-            border: Border.all(color: const Color(0xFFA78BFA).withValues(alpha: 0.35)),
+            color: PTColors.accentBorder.withValues(alpha: 0.14),
+            border: Border.all(color: PTColors.accentBorder.withValues(alpha: 0.35)),
             borderRadius: BorderRadius.circular(999),
           ),
           child: Row(
@@ -474,9 +474,13 @@ class GuestBadge extends StatelessWidget {
         spacing: 6,
         children: [
           Icon(Symbols.lock_rounded, size: 14, fill: 1, color: PTColors.white(0.55)),
-          Text(
-            label,
-            style: TextStyle(fontFamily: PTFonts.body, fontSize: 12, color: PTColors.white(0.55)),
+          Flexible(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: .ellipsis,
+              style: TextStyle(fontFamily: PTFonts.body, fontSize: 12, color: PTColors.white(0.55)),
+            ),
           ),
         ],
       ),

@@ -204,36 +204,47 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> with WidgetsBin
     );
   }
 
+  /// One layout for every class: the plans are already a single stacked
+  /// column capped at 580, and it all scrolls, so the App Store legal copy
+  /// (3.1.2) can never be clipped - only pushed below the fold and reachable.
   Widget _layout({required bool compact}) {
-    return Column(
-      children: [
-        Padding(
-          padding: EdgeInsets.symmetric(horizontal: compact ? 20 : 48, vertical: compact ? 12 : 28),
-          child: _backHeader(compact: compact),
-        ),
-        Expanded(
-          child: SingleChildScrollView(
-            padding: EdgeInsets.only(
-              left: compact ? 16 : 32,
-              right: compact ? 16 : 32,
-              top: compact ? 10 : 20,
-              bottom: 48,
+    // Edge-to-edge: the list scrolls under the home indicator / nav bar, and
+    // the bottom inset pads the content so its last item still clears it.
+    return SafeArea(
+      bottom: false,
+      child: Column(
+        children: [
+          Padding(
+            padding: EdgeInsets.symmetric(
+              horizontal: compact ? 20 : 48,
+              vertical: compact ? 12 : 28,
             ),
-            child: Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 580),
-                child: GlassPanel(
-                  radius: compact ? 22 : 28,
-                  opacity: 0.5,
-                  blur: 32,
-                  padding: EdgeInsets.all(compact ? 24 : 40),
-                  child: _celebrating ? _celebrationBody() : _mainBody(compact: compact),
+            child: _backHeader(compact: compact),
+          ),
+          Expanded(
+            child: SingleChildScrollView(
+              padding: EdgeInsets.only(
+                left: compact ? 16 : 32,
+                right: compact ? 16 : 32,
+                top: compact ? 10 : 20,
+                bottom: 48 + MediaQuery.paddingOf(context).bottom,
+              ),
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 580),
+                  child: GlassPanel(
+                    radius: compact ? 22 : 28,
+                    opacity: 0.5,
+                    blur: 32,
+                    padding: EdgeInsets.all(compact ? 24 : 40),
+                    child: _celebrating ? _celebrationBody() : _mainBody(compact: compact),
+                  ),
                 ),
               ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -247,9 +258,13 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> with WidgetsBin
           size: compact ? 38 : 42,
           onPressed: () => context.canPop() ? context.pop() : context.go('/lobby'),
         ),
-        Text(
-          'SyncTogether Premium',
-          style: compact ? PTText.cardHeading.copyWith(fontSize: 18) : PTText.cardHeading,
+        Flexible(
+          child: Text(
+            'SyncTogether Premium',
+            maxLines: 1,
+            overflow: .ellipsis,
+            style: compact ? PTText.cardHeading.copyWith(fontSize: 18) : PTText.cardHeading,
+          ),
         ),
       ],
     );
@@ -309,7 +324,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> with WidgetsBin
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: PTColors.primary.withValues(alpha: 0.12),
-              border: Border.all(color: const Color(0xFFA78BFA).withValues(alpha: 0.3)),
+              border: Border.all(color: PTColors.accentBorder.withValues(alpha: 0.3)),
               borderRadius: BorderRadius.circular(16),
             ),
             child: Row(
@@ -338,7 +353,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> with WidgetsBin
       decoration: BoxDecoration(
         color: isPremium ? PTColors.primary.withValues(alpha: 0.15) : PTColors.white(0.04),
         border: Border.all(
-          color: isPremium ? const Color(0xFFA78BFA).withValues(alpha: 0.4) : PTColors.white(0.1),
+          color: isPremium ? PTColors.accentBorder.withValues(alpha: 0.4) : PTColors.white(0.1),
         ),
         borderRadius: BorderRadius.circular(18),
       ),
@@ -643,9 +658,11 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> with WidgetsBin
           textAlign: TextAlign.center,
           style: style,
         ),
-        Row(
-          mainAxisAlignment: .center,
+        // Wrap so both links stay on screen at 320 wide / 2.0x text.
+        Wrap(
+          alignment: .center,
           spacing: 16,
+          runSpacing: 6,
           children: [
             GestureDetector(
               onTap: () => _openUrl(_termsUrl),

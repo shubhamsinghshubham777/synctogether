@@ -62,7 +62,7 @@ class _PTTextFieldState extends State<PTTextField> {
     final borderColor = hasError
         ? PTColors.dangerBorder.withValues(alpha: 0.55)
         : _focusNode.hasFocus
-        ? const Color(0xFFA78BFA).withValues(alpha: 0.55)
+        ? PTColors.accentBorder.withValues(alpha: 0.55)
         : PTColors.white(0.12);
 
     return Column(
@@ -242,9 +242,9 @@ class PTCodeInputState extends State<PTCodeInput> with SingleTickerProviderState
             border: Border.all(
               color: Color.lerp(
                 active
-                    ? const Color(0xFFA78BFA).withValues(alpha: 0.5)
+                    ? PTColors.accentBorder.withValues(alpha: 0.5)
                     : PTColors.white(char != null ? 0.12 : 0.09),
-                const Color(0xFFC9B8FF),
+                PTColors.textAccent,
                 pulse,
               )!,
               width: 1 + pulse,
@@ -254,7 +254,7 @@ class PTCodeInputState extends State<PTCodeInput> with SingleTickerProviderState
           child: char != null
               ? Text(
                   char,
-                  style: PTText.code.copyWith(letterSpacing: 0, color: const Color(0xFFE9DCFF)),
+                  style: PTText.code.copyWith(letterSpacing: 0, color: PTColors.accentBright),
                 )
               : isCursor && _focusNode.hasFocus
               ? const _BlinkingCaret()
@@ -477,7 +477,7 @@ class _PTSliderPainter extends CustomPainter {
         ..color = PTColors.primary.withValues(alpha: 0.7)
         ..maskFilter = MaskFilter.blur(.normal, Shadow.convertRadiusToSigma(8)),
     );
-    canvas.drawCircle(center, thumbRadius, Paint()..color = const Color(0xFFE9DCFF));
+    canvas.drawCircle(center, thumbRadius, Paint()..color = PTColors.accentBright);
   }
 
   @override

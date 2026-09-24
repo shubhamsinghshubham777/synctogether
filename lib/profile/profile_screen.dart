@@ -330,38 +330,46 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  /// Also the tablet layout (portrait and landscape) via the `tablet →
+  /// desktop` fallback: one centred stacked panel, which is what a 600-820
+  /// wide portrait iPad wants. The SafeArea covers tablet status bars.
   Widget _desktop(Profile profile) {
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 28),
-          child: _backHeader(size: 42),
-        ),
-        Expanded(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.only(top: 36, bottom: 48),
-            child: Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 520),
-                child: GlassPanel(
-                  radius: 28,
-                  opacity: 0.5,
-                  blur: 32,
-                  padding: const EdgeInsets.symmetric(horizontal: 46, vertical: 44),
-                  child: profile.isGuest
-                      ? _guestBody(profile)
-                      : _accountBody(profile, header: .row),
+    return SafeArea(
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 28),
+            child: _backHeader(size: 42),
+          ),
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(24, 36, 24, 48),
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 520),
+                  child: GlassPanel(
+                    radius: 28,
+                    opacity: 0.5,
+                    blur: 32,
+                    padding: const EdgeInsets.symmetric(horizontal: 46, vertical: 44),
+                    child: profile.isGuest
+                        ? _guestBody(profile)
+                        : _accountBody(profile, header: .row),
+                  ),
                 ),
               ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
   Widget _portrait(Profile profile) {
+    // Edge-to-edge: the list scrolls under the home indicator / nav bar, and
+    // the bottom inset pads the content so its last item still clears it.
     return SafeArea(
+      bottom: false,
       child: Column(
         children: [
           Padding(
@@ -370,7 +378,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
           Expanded(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(22, 28, 22, 40),
+              padding: EdgeInsets.fromLTRB(22, 28, 22, 40 + MediaQuery.paddingOf(context).bottom),
               child: profile.isGuest ? _guestBody(profile) : _accountBody(profile, header: .column),
             ),
           ),
@@ -399,7 +407,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     child: Row(
                       spacing: 36,
                       children: [
-                        SizedBox(width: 240, child: _identityHeader(profile, vertical: true)),
+                        // 240 on a normal phone in landscape; an SE (667 wide,
+                        // less the notch gutters) needs the fields column more.
+                        SizedBox(
+                          width: MediaQuery.sizeOf(context).width < 720 ? 180 : 240,
+                          child: Center(
+                            child: SingleChildScrollView(
+                              child: _identityHeader(profile, vertical: true),
+                            ),
+                          ),
+                        ),
                         Expanded(
                           child: SingleChildScrollView(
                             child: Column(
@@ -461,12 +478,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
       decoration: BoxDecoration(
         color: isPrem ? PTColors.primary.withValues(alpha: 0.12) : PTColors.white(0.04),
         border: Border.all(
-          color: isPrem ? const Color(0xFFA78BFA).withValues(alpha: 0.35) : PTColors.white(0.08),
+          color: isPrem ? PTColors.accentBorder.withValues(alpha: 0.35) : PTColors.white(0.08),
         ),
         borderRadius: BorderRadius.circular(16),
       ),
-      child: Row(
-        spacing: 12,
+      child: _ActionRow(
         children: [
           Container(
             width: 36,
@@ -537,7 +553,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       crossAxisAlignment: .start,
       spacing: 14,
       children: [
-        Row(
+        _ActionRow(
           children: [
             Expanded(child: Text('Watching', style: PTText.panelHeading)),
             PTButton(
@@ -988,11 +1004,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
           size: size,
           onPressed: () => context.go('/lobby'),
         ),
-        Text(
-          'Profile',
-          style: titleSize == null
-              ? PTText.cardHeading
-              : PTText.cardHeading.copyWith(fontSize: titleSize),
+        Flexible(
+          child: Text(
+            'Profile',
+            maxLines: 1,
+            overflow: .ellipsis,
+            style: titleSize == null
+                ? PTText.cardHeading
+                : PTText.cardHeading.copyWith(fontSize: titleSize),
+          ),
         ),
       ],
     );
@@ -1128,8 +1148,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         border: Border.all(color: PTColors.white(0.08)),
         borderRadius: BorderRadius.circular(16),
       ),
-      child: Row(
-        spacing: 12,
+      child: _ActionRow(
         children: [
           Container(
             width: 36,
@@ -1259,7 +1278,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           padding: const EdgeInsets.all(22),
           decoration: BoxDecoration(
             color: PTColors.primary.withValues(alpha: 0.12),
-            border: Border.all(color: const Color(0xFFA78BFA).withValues(alpha: 0.3)),
+            border: Border.all(color: PTColors.accentBorder.withValues(alpha: 0.3)),
             borderRadius: BorderRadius.circular(20),
           ),
           child: Column(
@@ -1275,7 +1294,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     fill: 1,
                     color: PTColors.textAccent,
                   ),
-                  Text('Keep your identity', style: PTText.cardHeading.copyWith(fontSize: 16)),
+                  Flexible(
+                    child: Text(
+                      'Keep your identity',
+                      style: PTText.cardHeading.copyWith(fontSize: 16),
+                    ),
+                  ),
                 ],
               ),
               Text(
@@ -1361,7 +1385,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               opacity: _uploadingAvatar ? 1 : 0,
               duration: PTMotion.functional(context, PTMotion.state),
               child: const DecoratedBox(
-                decoration: BoxDecoration(color: Color(0x99080710), shape: .circle),
+                decoration: BoxDecoration(color: PTColors.canvasScrim, shape: .circle),
               ),
             ),
           ),
@@ -1377,9 +1401,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 width: 34,
                 height: 34,
                 decoration: BoxDecoration(
-                  color: const Color(0xF21E1834),
+                  color: PTColors.raisedStrong,
                   shape: .circle,
-                  border: Border.all(color: const Color(0xFFA78BFA).withValues(alpha: 0.5)),
+                  border: Border.all(color: PTColors.accentBorder.withValues(alpha: 0.5)),
                 ),
                 child: AnimatedSwitcher(
                   duration: PTMotion.functional(context, PTMotion.state),
@@ -1486,8 +1510,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             border: Border.all(color: PTColors.white(0.07)),
             borderRadius: BorderRadius.circular(16),
           ),
-          child: Row(
-            spacing: 12,
+          child: _ActionRow(
             children: [
               Expanded(
                 child: Text(
@@ -1683,6 +1706,36 @@ class _SetPasswordDialogState extends State<_SetPasswordDialog> {
           ],
         ),
       ],
+    );
+  }
+}
+
+/// A settings row of `[leading..., Expanded(text), trailing button]`. The
+/// button has a fixed intrinsic width, so on a 320 phone or at 2.0x text the
+/// row cannot fit; below that point the last child drops under the rest,
+/// right-aligned, instead of overflowing.
+class _ActionRow extends StatelessWidget {
+  const _ActionRow({required this.children});
+
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, box) {
+        final needed = MediaQuery.textScalerOf(context).scale(360);
+        if (box.maxWidth >= needed) {
+          return Row(spacing: 12, children: children);
+        }
+        return Column(
+          crossAxisAlignment: .end,
+          spacing: 10,
+          children: [
+            Row(spacing: 12, children: children.sublist(0, children.length - 1)),
+            children.last,
+          ],
+        );
+      },
     );
   }
 }

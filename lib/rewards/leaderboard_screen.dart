@@ -116,6 +116,9 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
             final state = RewardsService.instance.state;
             return PTResponsive(
               portrait: (_) => _layout(state, compact: true),
+              // Phone landscape is 390 tall: the compact header, not the 28 px
+              // desktop gutters. Tablets fall back to desktop.
+              landscape: (_) => _layout(state, compact: MediaQuery.sizeOf(context).width < 840),
               desktop: (_) => _layout(state, compact: false),
             );
           },
@@ -125,7 +128,10 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
   }
 
   Widget _layout(RewardState state, {required bool compact}) {
+    // Edge-to-edge: the list scrolls under the home indicator / nav bar, and
+    // the bottom inset pads the content so its last item still clears it.
     return SafeArea(
+      bottom: false,
       child: Column(
         children: [
           Padding(
@@ -141,9 +147,13 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                   size: compact ? 44 : 42,
                   onPressed: () => context.go('/lobby'),
                 ),
-                Text(
-                  'Leaderboard',
-                  style: compact ? PTText.cardHeading.copyWith(fontSize: 18) : PTText.cardHeading,
+                Flexible(
+                  child: Text(
+                    'Leaderboard',
+                    maxLines: 1,
+                    overflow: .ellipsis,
+                    style: compact ? PTText.cardHeading.copyWith(fontSize: 18) : PTText.cardHeading,
+                  ),
                 ),
               ],
             ),
@@ -151,7 +161,12 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
           Expanded(
             child: ScrollFadeEdge(
               child: SingleChildScrollView(
-                padding: EdgeInsets.fromLTRB(compact ? 20 : 48, 20, compact ? 20 : 48, 40),
+                padding: EdgeInsets.fromLTRB(
+                  compact ? 20 : 48,
+                  20,
+                  compact ? 20 : 48,
+                  40 + MediaQuery.paddingOf(context).bottom,
+                ),
                 child: Center(
                   child: ConstrainedBox(
                     constraints: const BoxConstraints(maxWidth: 620),
@@ -202,7 +217,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
               value: '${state.streak.current}',
               suffix: state.streak.current == 1 ? 'day' : 'days',
               icon: Symbols.local_fire_department_rounded,
-              tint: const Color(0xFFFB923C),
+              tint: PTColors.streak,
             ),
           ),
           _divider(),
@@ -269,9 +284,11 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
   }
 
   Widget _periodTabs() {
-    return Row(
-      mainAxisAlignment: .center,
+    // Wrap: three chips at 2.0x text do not fit a 320 phone on one line.
+    return Wrap(
+      alignment: .center,
       spacing: 8,
+      runSpacing: 8,
       children: [
         for (final period in LeaderboardPeriod.values)
           _Chip(label: period.title, selected: _period == period, onTap: () => _setPeriod(period)),
@@ -557,7 +574,10 @@ class _Tile extends StatelessWidget {
       spacing: 3,
       children: [
         Icon(icon, size: 17, fill: 1, color: tint),
-        Text(value, style: PTText.cardHeading.copyWith(fontSize: 19)),
+        FittedBox(
+          fit: .scaleDown,
+          child: Text(value, style: PTText.cardHeading.copyWith(fontSize: 19)),
+        ),
         Text(
           '$label · $suffix',
           maxLines: 1,
@@ -592,6 +612,8 @@ class _Tab extends StatelessWidget {
         ),
         child: Text(
           label,
+          maxLines: 1,
+          overflow: .ellipsis,
           style: PTText.body.copyWith(
             fontSize: 14,
             fontWeight: .w600,
@@ -643,8 +665,8 @@ class _BoardRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final medal = switch (row.rank) {
       1 => PTColors.premium,
-      2 => const Color(0xFFCBD5E1),
-      3 => const Color(0xFFD08C60),
+      2 => PTColors.silver,
+      3 => PTColors.bronze,
       _ => null,
     };
     return Container(
@@ -660,14 +682,17 @@ class _BoardRow extends StatelessWidget {
         children: [
           SizedBox(
             width: 26,
-            child: Text(
-              '${row.rank}',
-              textAlign: .center,
-              style: PTText.body.copyWith(
-                fontFamily: PTFonts.mono,
-                fontSize: 13,
-                fontWeight: .w600,
-                color: medal ?? PTColors.white(0.45),
+            child: FittedBox(
+              fit: .scaleDown,
+              child: Text(
+                '${row.rank}',
+                textAlign: .center,
+                style: PTText.body.copyWith(
+                  fontFamily: PTFonts.mono,
+                  fontSize: 13,
+                  fontWeight: .w600,
+                  color: medal ?? PTColors.white(0.45),
+                ),
               ),
             ),
           ),
@@ -691,6 +716,8 @@ class _BoardRow extends StatelessWidget {
                 ),
                 Text(
                   '${formatWatchHours(row.watched)} watched',
+                  maxLines: 1,
+                  overflow: .ellipsis,
                   style: PTText.finePrint.copyWith(fontSize: 11),
                 ),
               ],
@@ -705,7 +732,7 @@ class _BoardRow extends StatelessWidget {
                   Symbols.local_fire_department_rounded,
                   size: 14,
                   fill: 1,
-                  color: Color(0xFFFB923C),
+                  color: PTColors.streak,
                 ),
                 Text(
                   '${row.streak}',
@@ -715,14 +742,18 @@ class _BoardRow extends StatelessWidget {
             ),
           SizedBox(
             width: 56,
-            child: Text(
-              formatPoints(row.points),
-              textAlign: .right,
-              style: PTText.body.copyWith(
-                fontFamily: PTFonts.mono,
-                fontSize: 13,
-                fontWeight: .w600,
-                color: PTColors.textAccent,
+            child: FittedBox(
+              fit: .scaleDown,
+              alignment: .centerRight,
+              child: Text(
+                formatPoints(row.points),
+                textAlign: .right,
+                style: PTText.body.copyWith(
+                  fontFamily: PTFonts.mono,
+                  fontSize: 13,
+                  fontWeight: .w600,
+                  color: PTColors.textAccent,
+                ),
               ),
             ),
           ),

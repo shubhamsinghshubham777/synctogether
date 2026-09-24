@@ -345,7 +345,9 @@ void main() {
         c,
         textScale: s,
       );
-      await tester.tap(find.byTooltip('Emoji'));
+      await tester.tap(
+        find.byWidgetPredicate((w) => w is Tooltip && (w.message?.startsWith('Emoji (') ?? false)),
+      );
       await tester.pump(const Duration(milliseconds: 400));
       await finishCase(tester);
       sync.dispose();

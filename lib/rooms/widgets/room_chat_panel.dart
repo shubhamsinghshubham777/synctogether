@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -31,6 +32,10 @@ const kEmojiHoverCloseDelay = Duration(milliseconds: 300);
 
 /// The counter appears only once a message nears the limit.
 const _kCounterFrom = 450;
+
+/// The send button's diameter, and the gap between it and the field.
+const _kSendExtent = 42.0;
+const _kComposerGap = 10.0;
 
 class RoomChatPanel extends StatefulWidget {
   const RoomChatPanel({
@@ -475,7 +480,10 @@ class _RoomChatPanelState extends State<RoomChatPanel> {
           if (quickBar)
             Padding(
               padding: const EdgeInsets.only(bottom: 6),
+              // Spans the text field only: the send button's column stays
+              // clear (and carries the counter when there is one).
               child: Row(
+                spacing: _kComposerGap,
                 children: [
                   Expanded(
                     child: EmojiQuickBar(
@@ -484,14 +492,19 @@ class _RoomChatPanelState extends State<RoomChatPanel> {
                       onCustomize: _customize,
                     ),
                   ),
-                  if (length >= _kCounterFrom) _counter(length),
+                  SizedBox(
+                    width: _kSendExtent,
+                    child: length >= _kCounterFrom
+                        ? FittedBox(fit: BoxFit.scaleDown, child: _counter(length))
+                        : null,
+                  ),
                 ],
               ),
             ),
           Row(
             // The send button stays on the last line as the composer grows.
             crossAxisAlignment: .end,
-            spacing: 10,
+            spacing: _kComposerGap,
             children: [
               Expanded(
                 child: PTShake(
@@ -552,6 +565,7 @@ class _RoomChatPanelState extends State<RoomChatPanel> {
   );
 
   Widget _pickerButton() {
+    final chord = defaultTargetPlatform == TargetPlatform.macOS ? '⌘E' : 'Ctrl+E';
     final button = PTIconButton(
       icon: Symbols.mood_rounded,
       size: 36,
@@ -559,7 +573,7 @@ class _RoomChatPanelState extends State<RoomChatPanel> {
       glass: false,
       active: _pickerOpen && (_pickerPinned || _touch),
       color: _pickerOpen ? Colors.white : PTColors.white(0.55),
-      tooltip: _pickerOpen ? 'Close emoji' : 'Emoji',
+      tooltip: _pickerOpen ? 'Close emoji ($chord)' : 'Emoji ($chord)',
       onPressed: _togglePicker,
     );
     if (_touch) return button;
@@ -608,8 +622,8 @@ class _RoomChatPanelState extends State<RoomChatPanel> {
       onTap: _send,
       pressedScale: 0.92,
       child: Container(
-        width: 42,
-        height: 42,
+        width: _kSendExtent,
+        height: _kSendExtent,
         decoration: BoxDecoration(
           gradient: PTColors.buttonGradient,
           shape: .circle,

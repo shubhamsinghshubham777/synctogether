@@ -137,9 +137,9 @@ bool isEmojiOnly(String text) {
   return graphemes.isNotEmpty && graphemes.length <= 3 && graphemes.every(isEmoji);
 }
 
-/// The quick bar's starting five, until usage or pins replace them.
-const kDefaultQuickEmoji = ['😂', '❤️', '👍', '😮', '🔥'];
-const kQuickSlotCount = 5;
+/// The quick bar's starting seven, until usage or pins replace them.
+const kDefaultQuickEmoji = ['😂', '❤️', '👍', '😮', '🔥', '😭', '🎉'];
+const kQuickSlotCount = 7;
 const kRecentEmojiLimit = 32;
 
 /// A score halves after this long unused, so last month's favourite gives way.

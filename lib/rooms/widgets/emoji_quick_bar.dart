@@ -11,13 +11,15 @@ import 'package:synctogether/ui/responsive.dart';
 
 import 'emoji_picker.dart';
 
-/// Five one-tap emoji above the composer. Tapping one *inserts* it - it never
+/// Seven one-tap emoji above the composer. Tapping one *inserts* it - it never
 /// sends, which is what keeps a slot next to the field from firing off a
 /// message mid-sentence.
 ///
 /// [slots] is a snapshot the caller takes (see [EmojiPrefs.quickSlots]) rather
 /// than a live read, so a slot never reorders under the pointer.
 class EmojiQuickBar extends StatelessWidget {
+  static const _minExtent = 36.0;
+
   const EmojiQuickBar({
     super.key,
     required this.slots,
@@ -34,13 +36,17 @@ class EmojiQuickBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final extent = inputOf(context) == PTInput.touch ? 44.0 : 34.0;
-    // A narrow panel shows fewer slots rather than squeezing five - the
+    // A narrow panel shows fewer slots rather than squeezing seven - the
     // leading ones are the pinned-first, highest-ranked ones anyway.
     return LayoutBuilder(
       builder: (context, constraints) {
-        final fit = ((constraints.maxWidth + 2) ~/ (extent + 2)).clamp(0, slots.length);
+        // Cells shrink toward [_minExtent] before a slot is dropped, so all
+        // seven fit beside a phone's send button.
+        final fit = (constraints.maxWidth ~/ _minExtent).clamp(0, slots.length);
+        final cell = fit == 0 ? extent : math.min(extent, constraints.maxWidth / fit);
+        // Spread across the field's width; a narrow one shows fewer slots.
         return Row(
-          spacing: 2,
+          mainAxisAlignment: .spaceBetween,
           children: [
             for (var i = 0; i < fit; i++)
               Stack(
@@ -48,7 +54,7 @@ class EmojiQuickBar extends StatelessWidget {
                 children: [
                   EmojiCell(
                     emoji: slots[i].emoji,
-                    extent: extent,
+                    extent: cell,
                     label: emojiEntryOf(slots[i].emoji)?.name,
                     onTap: () => onPick(slots[i].emoji),
                     onHold: () => onCustomize(i),
@@ -141,7 +147,10 @@ class _QuickBarEditorState extends State<_QuickBarEditor> {
         final inline = bare || (compact && box.maxWidth >= 520);
         final slotRow = LayoutBuilder(
           builder: (context, box) {
-            final extent = math.min(48.0, (box.maxWidth - 24) / kQuickSlotCount);
+            final extent = math.min(
+              48.0,
+              (box.maxWidth - 6 * (kQuickSlotCount - 1)) / kQuickSlotCount,
+            );
             return Row(
               mainAxisAlignment: .center,
               spacing: 6,

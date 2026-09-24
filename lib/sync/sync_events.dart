@@ -285,16 +285,23 @@ class TypingEvent extends SyncEvent {
   };
 }
 
-/// Host heartbeat while playing: members correct only if drift > 1.5 s.
+/// Authority heartbeat while playing: members correct only if drift > 1.5 s.
+///
+/// [sentAtMs] is the sender's *server-corrected* clock at send time, so a
+/// receiver can add the transit time back on (`extrapolatePosition`). It is
+/// optional because older clients never sent it; without it the position is
+/// taken as-is, which is exactly the old behaviour.
 class PositionSyncEvent extends SyncEvent {
   final int positionMs;
   final bool playing;
+  final int? sentAtMs;
 
   const PositionSyncEvent({
     required super.senderId,
     required super.timestamp,
     required this.positionMs,
     required this.playing,
+    this.sentAtMs,
   });
 
   factory PositionSyncEvent.fromPayload(Map<String, dynamic> payload) {
@@ -303,6 +310,7 @@ class PositionSyncEvent extends SyncEvent {
       timestamp: payload['timestamp'] as int,
       positionMs: payload['positionMs'] as int,
       playing: payload['playing'] as bool,
+      sentAtMs: (payload['sentAtMs'] as num?)?.toInt(),
     );
   }
 
@@ -312,6 +320,7 @@ class PositionSyncEvent extends SyncEvent {
     'timestamp': timestamp,
     'positionMs': positionMs,
     'playing': playing,
+    'sentAtMs': ?sentAtMs,
   };
 }
 
@@ -547,12 +556,16 @@ class CatchUpResponseEvent extends SyncEvent {
   final int positionMs;
   final bool playing;
 
+  /// Server-corrected send time; see [PositionSyncEvent.sentAtMs].
+  final int? sentAtMs;
+
   const CatchUpResponseEvent({
     required super.senderId,
     required super.timestamp,
     required this.targetUserId,
     required this.positionMs,
     required this.playing,
+    this.sentAtMs,
   });
 
   factory CatchUpResponseEvent.fromPayload(Map<String, dynamic> payload) {
@@ -562,6 +575,7 @@ class CatchUpResponseEvent extends SyncEvent {
       targetUserId: payload['targetUserId'] as String? ?? '',
       positionMs: (payload['positionMs'] as num?)?.toInt() ?? 0,
       playing: payload['playing'] as bool? ?? false,
+      sentAtMs: (payload['sentAtMs'] as num?)?.toInt(),
     );
   }
 
@@ -572,6 +586,7 @@ class CatchUpResponseEvent extends SyncEvent {
     'targetUserId': targetUserId,
     'positionMs': positionMs,
     'playing': playing,
+    'sentAtMs': ?sentAtMs,
   };
 }
 

@@ -429,3 +429,57 @@ class TrailingThrottle<T> {
 }
 
 typedef ReactionThrottle = TrailingThrottle<String>;
+
+// ---------------------------------------------------------------------------
+// Position heartbeat and stall recovery
+// ---------------------------------------------------------------------------
+
+/// Transit compensation is capped: a broadcast that claims to be older than
+/// this is either a skewed clock or a stale redelivery, and extrapolating it
+/// would overshoot the room rather than meet it.
+const kMaxPositionLead = Duration(seconds: 5);
+
+/// Where a playing sender *is now*, given where it was when it sent.
+///
+/// `sentAtMs`/`nowMs` are both server-corrected clocks, so skew between the two
+/// devices cancels out. A paused sender does not move, and a message without a
+/// send time (an older client) is taken at face value.
+Duration extrapolatePosition(
+  Duration position, {
+  required bool playing,
+  required int? sentAtMs,
+  required int nowMs,
+}) {
+  if (!playing || sentAtMs == null) return position;
+  final elapsed = (nowMs - sentAtMs).clamp(0, kMaxPositionLead.inMilliseconds);
+  return position + Duration(milliseconds: elapsed);
+}
+
+/// Whether this client should send the 10 s position heartbeat.
+///
+/// Authority, not host: a host who quit without leaving keeps the role, and a
+/// host-only heartbeat left that room with no drift correction at all. A
+/// stalled sender stays quiet, because its frozen position would drag every
+/// member who kept playing *back* to it - the stalled one catches up instead.
+/// [catchUpPending] covers the moment just after a stall, when our position is
+/// still behind and the answer that moves us forward is in flight.
+bool shouldSendHeartbeat({
+  required bool isAuthority,
+  required bool playing,
+  required bool buffering,
+  required bool applyingRemote,
+  required bool catchUpPending,
+}) => isAuthority && playing && !buffering && !applyingRemote && !catchUpPending;
+
+/// Stalls shorter than this are routine decoder hiccups, not lost time.
+const kMinStallForCatchUp = Duration(milliseconds: 400);
+
+/// A flapping connection stalls repeatedly; one catch-up per window is plenty,
+/// and the heartbeat covers anything that slips between them.
+const kBufferCatchUpCooldown = Duration(seconds: 3);
+
+/// Whether a stall that just ended is worth asking the room where it is.
+bool shouldCatchUpAfterStall({required Duration stall, required Duration? sinceLastCatchUp}) {
+  if (stall < kMinStallForCatchUp) return false;
+  return sinceLastCatchUp == null || sinceLastCatchUp >= kBufferCatchUpCooldown;
+}

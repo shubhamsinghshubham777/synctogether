@@ -35,7 +35,10 @@ class ShortcutsDialog extends StatelessWidget {
       const _Shortcut(['F1'], 'Privacy mode - black out the room, mute mic and cam'),
       if (kDebugMode) const _Shortcut(['F2'], 'Debug: Simulate / toggle YouTube ad'),
       const _Shortcut(['?'], 'Show keyboard shortcuts'),
-      const _Shortcut(['Esc'], 'Close the reaction strip, then chat, then fullscreen'),
+      _Shortcut([
+        defaultTargetPlatform == TargetPlatform.macOS ? '⌘E' : 'Ctrl+E',
+      ], 'Open or close emoji (while typing in chat)'),
+      const _Shortcut(['Esc'], 'Close emoji, then the reaction strip, then chat, then fullscreen'),
     ];
 
     return Column(

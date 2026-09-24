@@ -21,6 +21,7 @@ import 'package:synctogether/rewards/widgets/recap_card.dart';
 import 'package:synctogether/rewards/widgets/shared_recaps_dialog.dart';
 import 'package:synctogether/rooms/reactions.dart';
 import 'package:synctogether/rooms/room_models.dart';
+import 'package:synctogether/rooms/widgets/emoji_quick_bar.dart';
 import 'package:synctogether/rooms/widgets/ended_room_dialog.dart';
 import 'package:synctogether/rooms/widgets/extend_room_dialog.dart';
 import 'package:synctogether/rooms/widgets/kick_member_dialog.dart';
@@ -177,6 +178,7 @@ void main() {
     'play-shared-video',
     (_) => const PlaySharedVideoDialog(videoId: 'J-95Mhipb98', sharedBy: _longName),
   );
+  opener('quick-emoji-editor', (ctx) => showQuickBarEditor(ctx, initialSlot: 2));
   opener('media-quota', (ctx) => showMediaQuotaDialog(ctx));
   opener(
     'media-quota-blocked',

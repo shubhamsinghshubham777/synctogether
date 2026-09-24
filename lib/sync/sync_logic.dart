@@ -114,6 +114,15 @@ void mergeChatHistory(List<ChatMessage> into, List<ChatMessage> history) {
   into.sort((a, b) => a.sentAt.compareTo(b.sentAt));
 }
 
+/// `messages.content` is `char_length(content) between 1 and 500`, and
+/// Postgres counts *codepoints*. Flutter's `maxLength` counts graphemes, so the
+/// two agree on text and disagree on emoji: 👩🏽‍💻 is one grapheme and four
+/// codepoints. Counting runes here is what stops an emoji-heavy message passing
+/// the field and bouncing off the insert.
+const kChatMaxCodepoints = 500;
+
+bool chatLengthOk(String text) => text.runes.length <= kChatMaxCodepoints;
+
 /// `ready` only means "something is open" - the name comparison is the gate's
 /// job, which is what lets the UI tell "still loading" apart from "loaded the
 /// wrong thing".

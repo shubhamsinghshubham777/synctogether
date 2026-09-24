@@ -1,7 +1,7 @@
 ---
 name: release
 description: >-
-  Cut a SyncTogether release or pre-release across direct distribution (GitHub Releases + self-update appcast) and the desktop app stores (Microsoft Store & Mac App Store). Analyzes commits since the last release tag, bumps the pubspec version, pushes to main, writes user-facing "What's Changed" notes, and dispatches the matching workflows. Use when the user says "cut a release", "ship a release", "cut a pre-release", "publish everywhere", "release to stores", "bump the version and build installers", or "/release". Targets: "/release" (direct, default), "/release stores", "/release all". Optional version override (e.g. "/release 0.5.0", "/release all patch"); a "pre" arg (e.g. "/release pre", "/release pre minor") publishes the direct release as a GitHub pre-release.
+  Cut a SyncTogether release or pre-release across direct distribution (GitHub Releases + self-update appcast) and the app stores (Microsoft Store, Mac App Store & iOS App Store). Analyzes commits since the last release tag, bumps the pubspec version, pushes to main, writes user-facing "What's Changed" notes, and dispatches the matching workflows. Use when the user says "cut a release", "ship a release", "cut a pre-release", "publish everywhere", "release to stores", "bump the version and build installers", or "/release". Targets: "/release" (direct, default), "/release stores", "/release ios", "/release all". Optional version override (e.g. "/release 0.5.0", "/release all patch"); a "pre" arg (e.g. "/release pre", "/release pre minor") publishes the direct release as a GitHub pre-release.
 ---
 
 # Cut a release
@@ -29,6 +29,12 @@ re-running a failed `release` job is safe.
   Dispatches `publish_stores.yaml`. Builds store-only artifacts with `--dart-define=STORE_BUILD=true` (in-app updater disabled):
   - Windows: MSIX package submitted to Microsoft Partner Center via `publish_microsoft_store.yaml`.
   - macOS: Sandboxed PKG installer submitted to Mac App Store Connect via `publish_mac_app_store.yaml`.
+  - iOS/iPadOS: **opt-in** (`publish_to_ios_app_store` defaults to false), see below.
+- **iOS App Store (`/release ios`, or `/release stores ios`)**:
+  Dispatches `publish_ios_app_store.yaml` directly, or `publish_stores.yaml` with
+  `-f publish_to_ios_app_store=true` when the desktop stores go too. It uploads a
+  signed IPA to App Store Connect, where it lands in **TestFlight only**. The
+  upload does not submit for review; that is a separate `asc` step (below).
 - **Unified Release Everywhere (`/release all`)**:
   Dispatches both `build_installers.yaml` AND `publish_stores.yaml` in parallel for complete multi-channel distribution.
 
@@ -179,6 +185,27 @@ stable later means cutting a new, higher version, not re-tagging.
    ```bash
    gh workflow run publish_stores.yaml --ref main
    ```
+
+   For iOS, add `-f publish_to_ios_app_store=true` to that dispatch, or on its own:
+
+   ```bash
+   gh workflow run publish_ios_app_store.yaml --ref main
+   ```
+
+   iOS has no pre-release channel and no appcast: TestFlight *is* the
+   pre-release. Three things differ from the desktop stores:
+   - **Build numbers come from `github.run_number`**, not pubspec (which stays a
+     bare `X.Y.Z`). Never add a `+build` suffix to get a new iOS build; re-run
+     the workflow instead.
+   - **The iOS App Store version must match pubspec.** App Store Connect keeps a
+     separate version record per platform. If the iOS one is still on the
+     previous number, create or rename it
+     (`asc versions create --app 6809185202 --platform IOS --version X.Y.Z --copy-metadata-from <prev>`),
+     or the uploaded build has nothing to attach to.
+   - **Submitting for review is manual and deliberate.** Once the build has
+     processed, use the `asc-release-flow` skill: attach the build, run
+     `asc validate --platform IOS`, then submit. Never submit without the
+     user's go-ahead: review cannot be undone cleanly.
 
    Pre-release only applies to the direct target; the stores have their own
    review queues.

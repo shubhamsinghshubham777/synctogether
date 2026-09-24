@@ -963,16 +963,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
             );
           },
         ),
-        Wrap(
-          spacing: 12,
-          runSpacing: 10,
-          children: [
+        PTButtonBar(
+          buttons: [
             PTButton(
               label: 'Privacy policy',
               variant: .secondary,
               icon: Symbols.open_in_new_rounded,
               height: 36,
-              expand: false,
               onPressed: () => launchUrl(
                 Uri.parse('https://synctogether.app/privacy'),
                 mode: LaunchMode.externalApplication,
@@ -983,7 +980,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
               variant: .secondary,
               icon: Symbols.open_in_new_rounded,
               height: 36,
-              expand: false,
               onPressed: () => launchUrl(
                 Uri.parse('https://synctogether.app/terms'),
                 mode: LaunchMode.externalApplication,

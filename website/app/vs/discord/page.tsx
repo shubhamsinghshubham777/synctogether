@@ -20,18 +20,19 @@ export default function VsDiscordPage() {
         </>
       }
       intro="Discord screen share is where almost everyone starts, because the call is already running. It is also the wrong tool for a two-hour film, and everybody who has tried it knows exactly why: the picture is soft, the motion stutters, the audio slides out of sync, and one of you is burning a CPU core to make that happen. The problem is not your internet. It is what screen sharing fundamentally is."
+      lastChecked="2026-09-24"
       rows={[
         { feature: "Full source quality (1080p, 4K, HDR)", ours: "yes", theirs: "no" },
         { feature: "Needs Nitro for higher resolution", ours: "no", theirs: "yes" },
         { feature: "Host's CPU encodes the whole film", ours: "no", theirs: "yes" },
         { feature: "Audio and video stay in sync", ours: "yes", theirs: "partial" },
         { feature: "Everyone can pause and seek", ours: "yes", theirs: "no" },
-        { feature: "Subtitles and audio track selection", ours: "yes", theirs: "no" },
+        { feature: "Per-viewer subtitles and audio tracks", ours: "yes", theirs: "no" },
         { feature: "Voice chat", ours: "yes", theirs: "yes" },
         { feature: "Video facecams", ours: "yes", theirs: "yes" },
         { feature: "Works if the host's connection dips", ours: "yes", theirs: "no" },
         { feature: "Host can share the file with the room", ours: "yes", theirs: "no" },
-        { feature: "YouTube together", ours: "yes", theirs: "partial" },
+        { feature: "YouTube together", ours: "yes", theirs: "yes" },
         { feature: "Price", ours: "Free, Premium $3.99/mo", theirs: "Free, Nitro $9.99/mo" },
       ]}
       sections={[

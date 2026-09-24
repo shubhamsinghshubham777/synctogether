@@ -26,8 +26,8 @@ export type Support = "yes" | "no" | "partial";
 export interface ComparisonRow {
   feature: string;
   /** A tick/cross/dash, or a short qualifying note rendered as text. */
-  ours: Support | string;
-  theirs: Support | string;
+  ours: Support | ReactNode;
+  theirs: Support | ReactNode;
 }
 
 export interface ComparisonPageProps {
@@ -35,13 +35,15 @@ export interface ComparisonPageProps {
   eyebrow: string;
   headline: ReactNode;
   intro: string;
+  /** ISO date the competitor's side of the table was last verified. */
+  lastChecked: string;
   rows: ComparisonRow[];
   sections: { heading: string; body: string[] }[];
   verdictAgainst: string[];
   verdictFor: string[];
 }
 
-function Cell({ value }: { value: Support | string }) {
+function Cell({ value }: { value: Support | ReactNode }) {
   if (value === "yes")
     return <Check className="w-5 h-5 text-emerald-400 mx-auto" aria-label="Yes" />;
   if (value === "no")
@@ -56,6 +58,7 @@ export function ComparisonPage({
   eyebrow,
   headline,
   intro,
+  lastChecked,
   rows,
   sections,
   verdictAgainst,
@@ -111,6 +114,17 @@ export function ComparisonPage({
             ))}
           </tbody>
         </table>
+        <p className="px-4 py-3 border-t border-white/10 text-xs text-gray-500">
+          {competitor} details last checked{" "}
+          <time dateTime={lastChecked}>
+            {new Date(lastChecked).toLocaleDateString("en-US", { month: "long", year: "numeric", timeZone: "UTC" })}
+          </time>
+          . Products change - spotted something out of date?{" "}
+          <a href={`mailto:${SITE_CONFIG.supportEmail}`} className="underline hover:text-white">
+            Tell us
+          </a>
+          .
+        </p>
       </GlassPanel>
 
       {sections.map((section) => (

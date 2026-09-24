@@ -27,7 +27,7 @@ export function DownloadCTA() {
         </PTButton>
         <Link
           href="/download"
-          className="text-sm text-gray-400 hover:text-white transition-colors underline-offset-4 hover:underline"
+          className="text-sm text-gray-400 hover:text-white transition-colors underline underline-offset-4"
         >
           {secondaryLabel}
         </Link>

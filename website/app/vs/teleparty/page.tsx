@@ -20,18 +20,19 @@ export default function VsTelepartyPage() {
         </>
       }
       intro="Teleparty (formerly Netflix Party) is a Chrome extension that keeps a streaming service in sync across browsers. It is free, it is good at that, and if everything you watch together lives on Netflix you probably do not need anything else. The gap opens the moment the thing you want to watch is a file on your computer."
+      lastChecked="2026-09-24"
       rows={[
         { feature: "Netflix, Disney+, Prime Video, HBO", ours: "no", theirs: "yes" },
         { feature: "Local video files (MKV, MP4, 4K HDR)", ours: "yes", theirs: "no" },
         { feature: "YouTube", ours: "yes", theirs: "partial" },
-        { feature: "Works without a browser extension", ours: "yes", theirs: "no" },
+        { feature: "Works without a browser extension", ours: "yes", theirs: "partial" },
         { feature: "Everyone needs their own subscription", ours: "no", theirs: "yes" },
-        { feature: "Voice chat", ours: "yes", theirs: "no" },
-        { feature: "Video facecams beside the film", ours: "yes", theirs: "no" },
+        { feature: "Voice chat", ours: "yes", theirs: "Premium only" },
+        { feature: "Video facecams beside the film", ours: "yes", theirs: "Premium only" },
         { feature: "Text chat", ours: "yes", theirs: "yes" },
         { feature: "Host can share the file with the room", ours: "yes", theirs: "no" },
-        { feature: "Platforms", ours: "Mac, Windows", theirs: "Chrome, Edge" },
-        { feature: "Price", ours: "Free, Premium $3.99/mo", theirs: "Free" },
+        { feature: "Platforms", ours: "Mac, Windows", theirs: "Chrome, Edge, Opera, Mac, Android" },
+        { feature: "Price", ours: "Free, Premium $3.99/mo", theirs: "Free, Premium $3.99/mo" },
       ]}
       sections={[
         {
@@ -52,13 +53,13 @@ export default function VsTelepartyPage() {
           heading: "What happens when only one of you has the file",
           body: [
             "The usual failure of local-file sync is that one person has the video and the other does not, and the evening turns into a file transfer. SyncTogether lets the host upload the file to the room so everyone else streams it directly, without hunting down their own copy first. Nobody counts down from three.",
-            "This is a Premium feature with a per-file size limit and a weekly allowance, and it is the main reason anyone pays for the app.",
+            "Signed-in free accounts can share files up to 2 GB within a weekly allowance; Premium raises the limit to 10 GB per file with no weekly cap. Guests can join a shared room but cannot upload.",
           ],
         },
         {
           heading: "Talking during the film",
           body: [
-            "Teleparty gives you a text sidebar. That works, but typing during a film means looking away from it, and most people end up running a Discord call alongside the extension - two apps, two sets of settings, and audio that drifts against the video.",
+            "Teleparty's free tier gives you a text sidebar. Voice and video chat exist, but only Premium members can turn on a camera or microphone, so most groups on the free tier end up running a Discord call alongside the extension - two apps, two sets of settings.",
             "SyncTogether puts low-latency voice and optional video facecams in the same window as the film, so reacting to a scene does not cost you the scene.",
           ],
         },
@@ -75,6 +76,7 @@ export default function VsTelepartyPage() {
         "You genuinely prefer working inside a browser tab",
         "You are on Linux or ChromeOS, which SyncTogether does not support",
         "Text chat beside the film is all the conversation you want",
+        "Your group already pays for Teleparty Premium and its voice chat is enough",
       ]}
     />
   );

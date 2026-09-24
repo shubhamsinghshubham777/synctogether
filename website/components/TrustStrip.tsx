@@ -27,9 +27,18 @@ export async function TrustStrip() {
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-x-4 gap-y-5 max-w-4xl mx-auto">
         {ITEMS.map(({ icon: Icon, label, href }) => {
           const content = (
-            <div className="flex items-center justify-center gap-2 text-center">
-              <Icon className="w-4 h-4 text-purple-300 shrink-0" />
-              <span className="text-xs sm:text-[13px] text-gray-300 font-medium">{label}</span>
+            <div className="flex items-start justify-center gap-2 text-center">
+              {/* h-5 matches the label's leading-5, so the icon centres on the first line only */}
+              <span className="flex items-center h-5 shrink-0">
+                <Icon className="w-4 h-4 text-purple-300" />
+              </span>
+              <span
+                className={`text-xs sm:text-[13px] leading-5 text-gray-300 font-medium ${
+                  href ? "underline decoration-gray-500 underline-offset-4 hover:decoration-white" : ""
+                }`}
+              >
+                {label}
+              </span>
             </div>
           );
           return href ? (

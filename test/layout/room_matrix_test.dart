@@ -9,6 +9,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_symbols_icons/symbols.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:synctogether/av/livekit_service.dart';
 import 'package:synctogether/rooms/reactions.dart';
 import 'package:synctogether/rooms/room_models.dart';
@@ -115,6 +116,7 @@ Widget _chatPanel(SyncService sync, {required bool embedded}) => RoomChatPanel(
 
 void main() {
   setUp(() {
+    SharedPreferences.setMockInitialValues({});
     LiveKitService.isConfiguredOverride = true;
     LiveKitService.isMockMode = true;
   });
@@ -317,4 +319,36 @@ void main() {
     await finishCase(tester);
     sync.dispose();
   });
+
+  // The picker in each presentation: inline under the composer on touch (in
+  // the keyboard's place), a popover above it on pointer.
+  for (final embedded in [false, true]) {
+    screenMatrix('room/chat-emoji-picker-${embedded ? 'embedded' : 'docked'}', (
+      tester,
+      c,
+      s,
+    ) async {
+      final sync = _sync();
+      final panel = _chatPanel(sync, embedded: embedded);
+      await pumpAtSize(
+        tester,
+        Scaffold(
+          body: SafeArea(
+            child: embedded
+                ? panel
+                : Align(
+                    alignment: Alignment.centerRight,
+                    child: SizedBox(width: 340, child: panel),
+                  ),
+          ),
+        ),
+        c,
+        textScale: s,
+      );
+      await tester.tap(find.byTooltip('Emoji'));
+      await tester.pump(const Duration(milliseconds: 400));
+      await finishCase(tester);
+      sync.dispose();
+    });
+  }
 }

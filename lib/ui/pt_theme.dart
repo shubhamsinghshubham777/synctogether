@@ -192,6 +192,18 @@ abstract final class PTText {
     letterSpacing: 3.96,
     color: PTColors.textAccent,
   );
+
+  /// Emoji render in the platform's own colour font - nothing is bundled
+  /// (Apple's set cannot be redistributed; see the chat emoji notes in
+  /// CLAUDE.md). The fallback list names each OS's font so a glyph never
+  /// resolves through a body font's monochrome emoji first. Opaque white, so
+  /// the colour font draws at full saturation.
+  static const emoji = TextStyle(
+    fontSize: 22,
+    height: 1.15,
+    color: Colors.white,
+    fontFamilyFallback: ['Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji'],
+  );
   static TextStyle mono = TextStyle(
     fontFamily: PTFonts.mono,
     fontSize: 13,

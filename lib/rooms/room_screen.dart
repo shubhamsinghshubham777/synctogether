@@ -3048,7 +3048,8 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
           handled = false;
         }
       case LogicalKeyboardKey.escape:
-        // Ordered: text-field unfocus (handled above) → reaction strip close →
+        // Ordered: emoji picker close (RoomChatPanel consumes it first, while
+        // open) → text-field unfocus (handled above) → reaction strip close →
         // chat close → fullscreen exit → let Esc bubble.
         if (_reactOpen) {
           _closeReact();

@@ -11,6 +11,7 @@ import 'package:synctogether/analytics.dart';
 import 'package:synctogether/diagnostics.dart';
 import 'package:synctogether/env.dart';
 import 'package:synctogether/profile/entitlement_service.dart';
+import 'package:synctogether/rooms/emoji/emoji_prefs.dart';
 import 'package:synctogether/rooms/local_media_store.dart';
 import 'package:synctogether/rooms/moderation_service.dart';
 import 'package:synctogether/rooms/media_sharing_cache.dart';
@@ -328,6 +329,7 @@ class AuthService {
     } finally {
       EntitlementService.instance.clear();
       ModerationService.instance.clear();
+      unawaited(EmojiPrefs.instance.clear());
       Analytics.instance.reset();
       try {
         await CookieManager.instance().deleteAllCookies();
@@ -349,6 +351,7 @@ class AuthService {
       await _client.auth.signOut(scope: SignOutScope.local);
       EntitlementService.instance.clear();
       ModerationService.instance.clear();
+      unawaited(EmojiPrefs.instance.clear());
       Analytics.instance.reset();
       try {
         await CookieManager.instance().deleteAllCookies();

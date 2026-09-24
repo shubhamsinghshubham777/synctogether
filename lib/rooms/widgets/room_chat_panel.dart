@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -6,14 +7,30 @@ import 'package:flutter/services.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:synctogether/platform.dart';
 import 'package:synctogether/player/youtube/youtube_links.dart';
+import 'package:synctogether/rooms/emoji/emoji_logic.dart';
+import 'package:synctogether/rooms/emoji/emoji_prefs.dart';
 import 'package:synctogether/sync/sync_service.dart';
 import 'package:synctogether/ui/buttons.dart';
 import 'package:synctogether/ui/glass.dart';
 import 'package:synctogether/ui/identity.dart';
 import 'package:synctogether/ui/pt_motion.dart';
 import 'package:synctogether/ui/pt_theme.dart';
+import 'package:synctogether/ui/responsive.dart';
 
 import '../../rewards/rewards_models.dart';
+import 'emoji_picker.dart';
+import 'emoji_quick_bar.dart';
+
+/// Pointer hover-intent before the picker opens: long enough that sweeping the
+/// mouse across the button on the way to the field does not pop it.
+const kEmojiHoverOpenDelay = Duration(milliseconds: 250);
+
+/// Grace after the pointer leaves both the button and the picker, so a
+/// diagonal move from one to the other does not close it.
+const kEmojiHoverCloseDelay = Duration(milliseconds: 300);
+
+/// The counter appears only once a message nears the limit.
+const _kCounterFrom = 450;
 
 class RoomChatPanel extends StatefulWidget {
   const RoomChatPanel({
@@ -58,6 +75,25 @@ class _RoomChatPanelState extends State<RoomChatPanel> {
   Timer? _typingDebounce;
   bool _sentTyping = false;
 
+  // Emoji picker. Pointer: a popover above the composer, opened by hover
+  // intent (and then transient) or by a click (then [_pickerPinned] until
+  // Esc, an outside click, the button or a send). Touch: inline beneath the
+  // composer in place of the soft keyboard.
+  final _emoji = EmojiPrefs.instance;
+  final _pickerPortal = OverlayPortalController();
+  final _tapGroup = Object();
+  bool _pickerOpen = false;
+  bool _pickerPinned = false;
+  Timer? _hoverOpen;
+  Timer? _hoverClose;
+  double _keyboardHeight = 0;
+  Size _panelSize = Size.zero;
+  int _limitShake = 0;
+
+  /// Snapshot, not a live read: refreshed when the panel mounts (it remounts
+  /// on every open) and after a send - never while the pointer is on it.
+  late List<QuickSlot> _quickSlots = _emoji.quickSlots();
+
   // What the list was last laid out with. Snapshotted here rather than diffed
   // against `oldWidget`, because the room owns one mutable list and appends to
   // it in place - `widget.messages` and `oldWidget.messages` are the same object.
@@ -86,6 +122,11 @@ class _RoomChatPanelState extends State<RoomChatPanel> {
     // The panel mounts with history already loaded (and remounts every time it
     // is reopened), so land on the newest message instead of the top.
     _scrollToBottom(animate: false);
+    if (!_emoji.loaded) {
+      _emoji.load().then((_) {
+        if (mounted) setState(() => _quickSlots = _emoji.quickSlots());
+      });
+    }
   }
 
   @override
@@ -137,6 +178,8 @@ class _RoomChatPanelState extends State<RoomChatPanel> {
   @override
   void dispose() {
     _typingDebounce?.cancel();
+    _hoverOpen?.cancel();
+    _hoverClose?.cancel();
     _controller.dispose();
     _scrollController.dispose();
     _inputFocus.dispose();
@@ -164,11 +207,116 @@ class _RoomChatPanelState extends State<RoomChatPanel> {
       _sentTyping = false;
       widget.sync.broadcastTyping(false);
     }
+    _emoji.noteSent(text);
+    _closePicker();
+    setState(() => _quickSlots = _emoji.quickSlots());
     widget.onSend(text);
     // Keep the caret in the field for the next line - Enter would otherwise hand
     // focus back to the player shortcuts (so the next Space toggles playback),
     // and tapping the send button never had it to begin with.
     _inputFocus.requestFocus();
+  }
+
+  bool get _touch => inputOf(context) == PTInput.touch;
+
+  void _openPicker({required bool pinned}) {
+    _hoverOpen?.cancel();
+    _hoverClose?.cancel();
+    if (_touch) {
+      // The picker takes the keyboard's place rather than stacking on it.
+      _inputFocus.unfocus();
+    } else {
+      _pickerPortal.show();
+    }
+    setState(() {
+      _pickerOpen = true;
+      _pickerPinned = pinned;
+    });
+  }
+
+  void _closePicker() {
+    _hoverOpen?.cancel();
+    _hoverClose?.cancel();
+    if (!_pickerOpen) return;
+    _pickerPortal.hide();
+    setState(() {
+      _pickerOpen = false;
+      _pickerPinned = false;
+    });
+  }
+
+  void _togglePicker() {
+    if (_pickerOpen && (_pickerPinned || _touch)) {
+      _closePicker();
+      // Touch: hand the keyboard back, which is why they closed it.
+      _inputFocus.requestFocus();
+    } else {
+      _openPicker(pinned: true);
+      if (!_touch) _inputFocus.requestFocus();
+    }
+  }
+
+  void _hoverEnter() {
+    _hoverClose?.cancel();
+    if (_pickerOpen) return;
+    _hoverOpen = Timer(kEmojiHoverOpenDelay, () {
+      if (mounted) _openPicker(pinned: false);
+    });
+  }
+
+  void _hoverExit() {
+    _hoverOpen?.cancel();
+    if (!_pickerOpen || _pickerPinned) return;
+    _hoverClose = Timer(kEmojiHoverCloseDelay, () {
+      if (mounted && !_pickerPinned) _closePicker();
+    });
+  }
+
+  void _insert(String emoji) {
+    final value = _controller.value;
+    final next = insertEmoji(
+      value.text,
+      value.selection.start,
+      value.selection.end,
+      emoji,
+      maxCodepoints: kChatMaxCodepoints,
+    );
+    if (next == null) {
+      setState(() => _limitShake++);
+      return;
+    }
+    _controller.value = TextEditingValue(
+      text: next.text,
+      selection: TextSelection.collapsed(offset: next.caret),
+    );
+    _onTextChanged(next.text);
+    // Pointer keeps typing where it was; touch leaves the keyboard down so it
+    // does not rise over the picker.
+    if (!_touch) _inputFocus.requestFocus();
+  }
+
+  Future<void> _customize(int slot) async {
+    _closePicker();
+    await showQuickBarEditor(context, initialSlot: slot, prefs: _emoji);
+    if (mounted) setState(() => _quickSlots = _emoji.quickSlots());
+  }
+
+  /// Esc closes the picker before anything else - the field keeps focus, since
+  /// whoever pressed it is still composing - and Ctrl/Cmd+E toggles it.
+  KeyEventResult _onComposerKey(FocusNode node, KeyEvent event) {
+    if (event is! KeyDownEvent) return KeyEventResult.ignored;
+    final key = event.logicalKey;
+    if (key == LogicalKeyboardKey.escape && _pickerOpen) {
+      _closePicker();
+      _inputFocus.requestFocus();
+      return KeyEventResult.handled;
+    }
+    final keyboard = HardwareKeyboard.instance;
+    if (key == LogicalKeyboardKey.keyE && (keyboard.isMetaPressed || keyboard.isControlPressed)) {
+      _togglePicker();
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
   }
 
   @override
@@ -177,8 +325,23 @@ class _RoomChatPanelState extends State<RoomChatPanel> {
     // the composer's height. The composer is what the user is there for, so the
     // header gives way first rather than pushing the field off the bottom.
     final content = LayoutBuilder(
-      builder: (context, constraints) =>
-          _content(showHeader: constraints.maxHeight >= 240, tight: constraints.maxHeight < 200),
+      builder: (context, constraints) {
+        _panelSize = constraints.biggest;
+        // The panel resizes as the keyboard rises, so this builder sees it.
+        // Read from the View: the Scaffold strips insets from what we inherit.
+        final view = View.of(context);
+        final keyboard = view.viewInsets.bottom / view.devicePixelRatio;
+        if (keyboard > 0) _keyboardHeight = keyboard;
+        return _content(
+          // An inline picker needs the room more than the header does.
+          showHeader: constraints.maxHeight >= (_pickerOpen && _touch ? 480 : 240),
+          tight: constraints.maxHeight < 200,
+          // The field and header grow with the text scale; the bar does not,
+          // so the room it needs before appearing grows with them.
+          quickBar:
+              constraints.maxHeight >= 300 + 90 * (MediaQuery.textScalerOf(context).scale(1) - 1),
+        );
+      },
     );
 
     if (widget.embedded) return content;
@@ -191,7 +354,7 @@ class _RoomChatPanelState extends State<RoomChatPanel> {
     );
   }
 
-  Widget _content({required bool showHeader, required bool tight}) {
+  Widget _content({required bool showHeader, required bool tight, required bool quickBar}) {
     return Column(
       children: [
         if (showHeader)
@@ -235,57 +398,104 @@ class _RoomChatPanelState extends State<RoomChatPanel> {
               ],
             ),
           ),
+        // One pass lays the composer out at its natural height, gives the
+        // inline picker what is left of what it wants, and the list the rest -
+        // exact on the first frame, which measuring a GlobalKey never is.
         Expanded(
-          child: SelectionArea(
-            child: ListView.separated(
-              controller: _scrollController,
-              physics: const ChatScrollPhysics(),
-              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-              // The typing slot is always present so it can collapse rather than
-              // pop; its own gap lives inside it, which is why the separator
-              // before it is suppressed.
-              itemCount: widget.messages.length + 1,
-              separatorBuilder: (_, index) => index == widget.messages.length - 1
-                  ? const SizedBox.shrink()
-                  : const SizedBox(height: 14),
-              itemBuilder: (context, index) {
-                if (index == widget.messages.length) {
-                  return _typingRow();
-                }
-                final message = widget.messages[index];
-                final bubble = _MessageRow(
-                  message: message,
-                  own: message.senderId == widget.sync.userId,
-                  premium: widget.premiumMembers.contains(message.senderId),
-                  frame: widget.memberFrames[message.senderId],
-                  onCopied: widget.onCopied,
-                  onPlaySharedVideo: widget.onPlaySharedVideo,
-                  onReport: widget.onReportMessage,
-                );
-                final key = _keyOf(message);
-                if (!_animated.add(key)) return bubble;
-                return PTEntrance(duration: PTMotion.state, offset: 6, child: bubble);
-              },
-            ),
+          child: CustomMultiChildLayout(
+            delegate: _ComposerLayout(picker: _pickerOpen && _touch ? _inlinePickerHeight() : null),
+            children: [
+              LayoutId(
+                id: _ComposerSlot.list,
+                child: SelectionArea(
+                  child: ListView.separated(
+                    controller: _scrollController,
+                    physics: const ChatScrollPhysics(),
+                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+                    // The typing slot is always present so it can collapse rather than
+                    // pop; its own gap lives inside it, which is why the separator
+                    // before it is suppressed.
+                    itemCount: widget.messages.length + 1,
+                    separatorBuilder: (_, index) => index == widget.messages.length - 1
+                        ? const SizedBox.shrink()
+                        : const SizedBox(height: 14),
+                    itemBuilder: (context, index) {
+                      if (index == widget.messages.length) {
+                        return _typingRow();
+                      }
+                      final message = widget.messages[index];
+                      final bubble = _MessageRow(
+                        message: message,
+                        own: message.senderId == widget.sync.userId,
+                        premium: widget.premiumMembers.contains(message.senderId),
+                        frame: widget.memberFrames[message.senderId],
+                        onCopied: widget.onCopied,
+                        onPlaySharedVideo: widget.onPlaySharedVideo,
+                        onReport: widget.onReportMessage,
+                      );
+                      final key = _keyOf(message);
+                      if (!_animated.add(key)) return bubble;
+                      return PTEntrance(duration: PTMotion.state, offset: 6, child: bubble);
+                    },
+                  ),
+                ),
+              ),
+              // Tighter still (landscape keyboard at large text), the composer caps
+              // its own scale so the field and its send button both fit.
+              LayoutId(
+                id: _ComposerSlot.composer,
+                child: MediaQuery.withClampedTextScaling(
+                  maxScaleFactor: tight ? 1.3 : double.infinity,
+                  child: _composer(tight: tight, quickBar: quickBar),
+                ),
+              ),
+              if (_pickerOpen && _touch) LayoutId(id: _ComposerSlot.picker, child: _inlinePicker()),
+            ],
           ),
         ),
-        // Tighter still (landscape keyboard at large text), the composer caps
-        // its own scale so the field and its send button both fit.
-        MediaQuery.withClampedTextScaling(
-          maxScaleFactor: tight ? 1.3 : double.infinity,
-          child: Container(
-            padding: tight
-                ? const EdgeInsets.fromLTRB(14, 8, 14, 8)
-                : const EdgeInsets.fromLTRB(14, 12, 14, 14),
-            decoration: BoxDecoration(
-              border: Border(top: BorderSide(color: PTColors.white(0.08))),
+      ],
+    );
+  }
+
+  Widget _composer({required bool tight, required bool quickBar}) {
+    final length = _controller.text.runes.length;
+    final composer = Container(
+      padding: tight
+          ? const EdgeInsets.fromLTRB(14, 8, 14, 8)
+          : const EdgeInsets.fromLTRB(14, 8, 14, 14),
+      decoration: BoxDecoration(
+        border: Border(top: BorderSide(color: PTColors.white(0.08))),
+      ),
+      child: Column(
+        mainAxisSize: .min,
+        crossAxisAlignment: .stretch,
+        children: [
+          // The composer is what a short panel is there for, so the bar gives
+          // way first; the picker button still reaches everything.
+          if (quickBar)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: EmojiQuickBar(
+                      slots: _quickSlots,
+                      onPick: _insert,
+                      onCustomize: _customize,
+                    ),
+                  ),
+                  if (length >= _kCounterFrom) _counter(length),
+                ],
+              ),
             ),
-            child: Row(
-              // The send button stays on the last line as the composer grows.
-              crossAxisAlignment: .end,
-              spacing: 10,
-              children: [
-                Expanded(
+          Row(
+            // The send button stays on the last line as the composer grows.
+            crossAxisAlignment: .end,
+            spacing: 10,
+            children: [
+              Expanded(
+                child: PTShake(
+                  trigger: _limitShake,
                   child: Container(
                     decoration: BoxDecoration(
                       color: PTColors.white(0.07),
@@ -294,72 +504,209 @@ class _RoomChatPanelState extends State<RoomChatPanel> {
                       // radius on a tall box pinches its corners into points.
                       borderRadius: BorderRadius.circular(21),
                     ),
-                    child: TextField(
-                      controller: _controller,
-                      focusNode: _inputFocus,
-                      textInputAction: .send,
-                      onChanged: _onTextChanged,
-                      // The default `onEditingComplete` unfocuses on submit; `_send`
-                      // owns focus instead. `onSubmitted` still fires after it.
-                      onEditingComplete: () {},
-                      onSubmitted: (_) => _send(),
-                      maxLength: 500,
-                      // Grows with what is typed (and with the text scale), up to
-                      // four lines, then scrolls. `.send` still makes Enter send.
-                      minLines: 1,
-                      maxLines: tight ? 2 : 4,
-                      keyboardType: .multiline,
-                      style: PTText.body.copyWith(fontSize: 13.5),
-                      cursorColor: PTColors.textAccent,
-                      decoration: InputDecoration(
-                        hintText: 'Say something…',
-                        hintStyle: PTText.body.copyWith(
-                          fontSize: 13.5,
-                          color: PTColors.white(0.45),
+                    child: Row(
+                      crossAxisAlignment: .end,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.only(left: 4, bottom: 1),
+                          child: _pickerButton(),
                         ),
-                        border: InputBorder.none,
-                        counterText: '',
-                        isDense: true,
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                      ),
+                        Expanded(child: _field(tight: tight)),
+                      ],
                     ),
                   ),
                 ),
-                MouseRegion(
-                  cursor: SystemMouseCursors.click,
-                  child: PTPressable(
-                    onTap: _send,
-                    pressedScale: 0.92,
-                    child: Container(
-                      width: 42,
-                      height: 42,
-                      decoration: BoxDecoration(
-                        gradient: PTColors.buttonGradient,
-                        shape: .circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: PTColors.primary.withValues(alpha: 0.4),
-                            blurRadius: 18,
-                            offset: const Offset(0, 6),
-                          ),
-                        ],
-                      ),
-                      child: const Icon(
-                        Symbols.send_rounded,
-                        size: 19,
-                        fill: 1,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
+              ),
+              _sendButton(),
+            ],
+          ),
+          if (!quickBar && length >= _kCounterFrom)
+            Align(alignment: .centerRight, child: _counter(length)),
+        ],
+      ),
+    );
+    return Focus(
+      canRequestFocus: false,
+      skipTraversal: true,
+      onKeyEvent: _onComposerKey,
+      child: TapRegion(
+        groupId: _tapGroup,
+        child: OverlayPortal.overlayChildLayoutBuilder(
+          controller: _pickerPortal,
+          overlayChildBuilder: _popover,
+          child: composer,
+        ),
+      ),
+    );
+  }
+
+  Widget _counter(int length) => Padding(
+    padding: const EdgeInsets.only(right: 4),
+    child: Text(
+      '$length/$kChatMaxCodepoints',
+      style: PTText.finePrint.copyWith(
+        fontSize: 11,
+        color: length >= kChatMaxCodepoints ? PTColors.warning : PTColors.white(0.45),
+      ),
+    ),
+  );
+
+  Widget _pickerButton() {
+    final button = PTIconButton(
+      icon: Symbols.mood_rounded,
+      size: 36,
+      iconSize: 20,
+      glass: false,
+      active: _pickerOpen && (_pickerPinned || _touch),
+      color: _pickerOpen ? Colors.white : PTColors.white(0.55),
+      tooltip: _pickerOpen ? 'Close emoji' : 'Emoji',
+      onPressed: _togglePicker,
+    );
+    if (_touch) return button;
+    return MouseRegion(onEnter: (_) => _hoverEnter(), onExit: (_) => _hoverExit(), child: button);
+  }
+
+  Widget _field({required bool tight}) => TextField(
+    controller: _controller,
+    focusNode: _inputFocus,
+    textInputAction: .send,
+    onChanged: (text) {
+      _onTextChanged(text);
+      // Only the counter depends on it, and only near the limit.
+      if (text.runes.length >= _kCounterFrom - 1) setState(() {});
+    },
+    // Touch: tapping the field brings the keyboard back, so the inline picker
+    // makes way for it.
+    onTap: () {
+      if (_touch && _pickerOpen) _closePicker();
+    },
+    // The default `onEditingComplete` unfocuses on submit; `_send`
+    // owns focus instead. `onSubmitted` still fires after it.
+    onEditingComplete: () {},
+    onSubmitted: (_) => _send(),
+    // Codepoints, not `maxLength`'s graphemes - see [chatLengthOk].
+    inputFormatters: const [_CodepointLimitFormatter()],
+    // Grows with what is typed (and with the text scale), up to
+    // four lines, then scrolls. `.send` still makes Enter send.
+    minLines: 1,
+    maxLines: tight ? 2 : 4,
+    keyboardType: .multiline,
+    style: PTText.body.copyWith(fontSize: 13.5),
+    cursorColor: PTColors.textAccent,
+    decoration: InputDecoration(
+      hintText: 'Say something…',
+      hintStyle: PTText.body.copyWith(fontSize: 13.5, color: PTColors.white(0.45)),
+      border: InputBorder.none,
+      isDense: true,
+      contentPadding: const EdgeInsets.fromLTRB(4, 12, 16, 12),
+    ),
+  );
+
+  Widget _sendButton() => MouseRegion(
+    cursor: SystemMouseCursors.click,
+    child: PTPressable(
+      onTap: _send,
+      pressedScale: 0.92,
+      child: Container(
+        width: 42,
+        height: 42,
+        decoration: BoxDecoration(
+          gradient: PTColors.buttonGradient,
+          shape: .circle,
+          boxShadow: [
+            BoxShadow(
+              color: PTColors.primary.withValues(alpha: 0.4),
+              blurRadius: 18,
+              offset: const Offset(0, 6),
+            ),
+          ],
+        ),
+        child: const Icon(Symbols.send_rounded, size: 19, fill: 1, color: Colors.white),
+      ),
+    ),
+  );
+
+  /// Pointer: a glass popover above the composer's leading edge, sized to and
+  /// kept inside the window rather than the panel (a floating panel can be
+  /// shorter than the picker is useful at, and the overlay is not clipped by it).
+  Widget _popover(BuildContext context, OverlayChildLayoutInfo info) {
+    const gap = 6.0;
+    const margin = 8.0;
+    final overlay = info.overlaySize;
+    final anchor = MatrixUtils.transformPoint(info.childPaintTransform, Offset.zero);
+    // Inside the composer's width when it can be (a docked panel is ~340
+    // wide), never narrower than a usable grid, never wider than the window.
+    final width = math.min(
+      math.min(340.0, math.max(280.0, info.childSize.width - 2 * margin)),
+      overlay.width - 2 * margin,
+    );
+    final height = math.min(380.0, math.max(160.0, anchor.dy - gap - margin));
+    final left = math.min(anchor.dx + margin, math.max(margin, overlay.width - width - margin));
+    final bottom = math.max(margin, overlay.height - anchor.dy + gap);
+    return Positioned(
+      left: left,
+      bottom: bottom,
+      width: width,
+      height: height,
+      child: TapRegion(
+        groupId: _tapGroup,
+        onTapOutside: (_) => _closePicker(),
+        child: MouseRegion(
+          onEnter: (_) => _hoverClose?.cancel(),
+          onExit: (_) => _hoverExit(),
+          child: Focus(
+            canRequestFocus: false,
+            skipTraversal: true,
+            onKeyEvent: _onComposerKey,
+            // Glass rule: scale in, never fade - an Opacity over the
+            // BackdropFilter would blur an empty layer.
+            child: TweenAnimationBuilder<double>(
+              tween: Tween(begin: 0, end: 1),
+              duration: PTMotion.functional(context, PTMotion.state),
+              curve: PTMotion.enter,
+              builder: (context, t, child) => Transform.translate(
+                offset: Offset(0, 8 * (1 - t)),
+                child: Transform.scale(
+                  scale: 0.94 + 0.06 * t,
+                  alignment: .bottomLeft,
+                  child: child,
                 ),
-              ],
+              ),
+              child: GlassPanel(
+                radius: 18,
+                opacity: 0.85,
+                blur: 32,
+                baseColor: PTColors.surfaceBase,
+                child: EmojiPicker(
+                  prefs: _emoji,
+                  onPick: _insert,
+                  onCustomize: () => _customize(0),
+                ),
+              ),
             ),
           ),
         ),
-      ],
+      ),
     );
   }
+
+  /// Touch: in the keyboard's place, at the keyboard's last height so the
+  /// composer does not jump between the two.
+  /// Touch: the keyboard's last height, so the composer does not jump between
+  /// the two; capped so the list keeps a share. [_ComposerLayout] trims it
+  /// further if the composer leaves less.
+  double _inlinePickerHeight() {
+    final wanted = _keyboardHeight > 0 ? _keyboardHeight : 280.0;
+    return math.min(wanted, _panelSize.height * 0.6) + MediaQuery.paddingOf(context).bottom;
+  }
+
+  Widget _inlinePicker() => Container(
+    padding: EdgeInsets.only(bottom: MediaQuery.paddingOf(context).bottom),
+    decoration: BoxDecoration(
+      border: Border(top: BorderSide(color: PTColors.white(0.08))),
+    ),
+    child: EmojiPicker(prefs: _emoji, onPick: _insert, onCustomize: () => _customize(0)),
+  );
 
   Widget _typingRow() {
     final names = widget.typingNames;
@@ -424,6 +771,9 @@ class _MessageRow extends StatefulWidget {
 class _MessageRowState extends State<_MessageRow> {
   bool _hovered = false;
   late List<MessageSegment> _segments;
+
+  /// One to three emoji and nothing else: rendered large, with no bubble.
+  bool _bigEmoji = false;
   final _linkTaps = <int, TapGestureRecognizer>{};
 
   @override
@@ -454,6 +804,7 @@ class _MessageRowState extends State<_MessageRow> {
   void _parseContent() {
     _disposeLinkTaps();
     _segments = splitYouTubeLinks(widget.message.content);
+    _bigEmoji = isEmojiOnly(widget.message.content);
     for (var i = 0; i < _segments.length; i++) {
       final videoId = _segments[i].videoId;
       if (videoId == null) continue;
@@ -478,6 +829,9 @@ class _MessageRowState extends State<_MessageRow> {
   }
 
   Widget _text() {
+    if (_bigEmoji) {
+      return Text(widget.message.content.trim(), style: PTText.emoji.copyWith(fontSize: 34));
+    }
     final base = PTText.body.copyWith(fontSize: 13.5);
     if (_linkTaps.isEmpty) return Text(widget.message.content, style: base);
     final linkColor = widget.own ? Colors.white : PTColors.textAccent;
@@ -609,17 +963,21 @@ class _MessageRowState extends State<_MessageRow> {
               ),
               Container(
                 constraints: const BoxConstraints(maxWidth: 220),
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                decoration: BoxDecoration(
-                  color: PTColors.white(0.08),
-                  border: Border.all(color: PTColors.white(0.08)),
-                  borderRadius: const BorderRadius.only(
-                    topLeft: Radius.circular(14),
-                    topRight: Radius.circular(14),
-                    bottomRight: Radius.circular(14),
-                    bottomLeft: Radius.circular(4),
-                  ),
-                ),
+                padding: _bigEmoji
+                    ? const EdgeInsets.symmetric(horizontal: 2)
+                    : const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: _bigEmoji
+                    ? null
+                    : BoxDecoration(
+                        color: PTColors.white(0.08),
+                        border: Border.all(color: PTColors.white(0.08)),
+                        borderRadius: const BorderRadius.only(
+                          topLeft: Radius.circular(14),
+                          topRight: Radius.circular(14),
+                          bottomRight: Radius.circular(14),
+                          bottomLeft: Radius.circular(4),
+                        ),
+                      ),
                 child: _bubbleBody(),
               ),
             ],
@@ -642,17 +1000,21 @@ class _MessageRowState extends State<_MessageRow> {
         Flexible(
           child: Container(
             constraints: const BoxConstraints(maxWidth: 220),
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              color: PTColors.primary.withValues(alpha: 0.4),
-              border: Border.all(color: PTColors.accentBorder.withValues(alpha: 0.35)),
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(14),
-                topRight: Radius.circular(14),
-                bottomLeft: Radius.circular(14),
-                bottomRight: Radius.circular(4),
-              ),
-            ),
+            padding: _bigEmoji
+                ? const EdgeInsets.symmetric(horizontal: 2)
+                : const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: _bigEmoji
+                ? null
+                : BoxDecoration(
+                    color: PTColors.primary.withValues(alpha: 0.4),
+                    border: Border.all(color: PTColors.accentBorder.withValues(alpha: 0.35)),
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(14),
+                      topRight: Radius.circular(14),
+                      bottomLeft: Radius.circular(14),
+                      bottomRight: Radius.circular(4),
+                    ),
+                  ),
             child: _bubbleBody(),
           ),
         ),
@@ -723,6 +1085,56 @@ class _PlaySharedVideoButtonState extends State<_PlaySharedVideoButton> {
 /// bottom when the viewport height changes (e.g. control bar animating in/out,
 /// keyboard opening/closing, or window resizing), as long as the user was already
 /// near the bottom.
+enum _ComposerSlot { list, composer, picker }
+
+class _ComposerLayout extends MultiChildLayoutDelegate {
+  _ComposerLayout({required this.picker});
+
+  /// The inline picker's wanted height, or null when it is not shown.
+  final double? picker;
+
+  /// What the message list keeps, at least, while the picker is up.
+  static const _minList = 48.0;
+
+  @override
+  void performLayout(Size size) {
+    final width = size.width;
+    final composer = layoutChild(
+      _ComposerSlot.composer,
+      BoxConstraints(minWidth: width, maxWidth: width, maxHeight: size.height),
+    ).height;
+    var pickerHeight = 0.0;
+    if (picker != null) {
+      pickerHeight = math.max(0.0, math.min(picker!, size.height - composer - _minList));
+      layoutChild(
+        _ComposerSlot.picker,
+        BoxConstraints.tightFor(width: width, height: pickerHeight),
+      );
+    }
+    final list = math.max(0.0, size.height - composer - pickerHeight);
+    layoutChild(_ComposerSlot.list, BoxConstraints.tightFor(width: width, height: list));
+    positionChild(_ComposerSlot.list, Offset.zero);
+    positionChild(_ComposerSlot.composer, Offset(0, list));
+    if (picker != null) positionChild(_ComposerSlot.picker, Offset(0, list + composer));
+  }
+
+  @override
+  bool shouldRelayout(_ComposerLayout oldDelegate) => oldDelegate.picker != picker;
+}
+
+/// Refuses an edit that would take the message past the server's codepoint
+/// limit. A paste that overshoots is refused whole rather than truncated, since
+/// cutting inside a ZWJ sequence would leave half an emoji behind.
+class _CodepointLimitFormatter extends TextInputFormatter {
+  const _CodepointLimitFormatter();
+
+  @override
+  TextEditingValue formatEditUpdate(TextEditingValue oldValue, TextEditingValue newValue) =>
+      chatLengthOk(newValue.text) || newValue.text.runes.length <= oldValue.text.runes.length
+      ? newValue
+      : oldValue;
+}
+
 class ChatScrollPhysics extends ScrollPhysics {
   const ChatScrollPhysics({super.parent, this.bottomThreshold = 80.0});
 

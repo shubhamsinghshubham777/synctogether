@@ -31,7 +31,6 @@ dependencies:
   package_info_plus: 10.2.1
   path: 1.9.1
   path_provider: 2.1.6
-  responsive_framework: 1.5.1
   sentry_flutter: 9.30.0
   shared_preferences: 2.5.5
   sign_in_with_apple: 8.2.0

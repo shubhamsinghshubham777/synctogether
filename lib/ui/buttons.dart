@@ -6,8 +6,38 @@ import 'glass.dart';
 import 'loader.dart';
 import 'pt_motion.dart';
 import 'pt_theme.dart';
+import 'responsive.dart';
 
 enum PTButtonVariant { primary, secondary, destructive }
+
+/// Smallest hit area a touch-first layout gets, per the platform guidelines.
+const kMinTouchTarget = 44.0;
+
+/// Pads [child]'s *hit area* out to [kMinTouchTarget] on touch input without
+/// touching its visual size. The margin forwards to [onTap]; taps on the
+/// visual itself still reach its own pressable (deepest recognizer wins), so
+/// the press animation is unchanged. Pointer layouts get [child] untouched,
+/// which keeps desktop metrics exactly as they were.
+Widget _touchTarget(
+  BuildContext context, {
+  required Widget child,
+  required VoidCallback? onTap,
+  double? width,
+  double? height,
+}) {
+  final growW = width != null && width < kMinTouchTarget;
+  final growH = height != null && height < kMinTouchTarget;
+  if (inputOf(context) != .touch || !(growW || growH)) return child;
+  return GestureDetector(
+    behavior: .opaque,
+    onTap: onTap,
+    child: SizedBox(
+      width: growW ? kMinTouchTarget : null,
+      height: growH ? kMinTouchTarget : null,
+      child: Center(widthFactor: growW ? null : 1, child: child),
+    ),
+  );
+}
 
 class PTButton extends StatefulWidget {
   const PTButton({
@@ -82,21 +112,31 @@ class _PTButtonState extends State<PTButton> {
       switchOutCurve: PTMotion.exit,
       child: widget.loading
           ? PTLoader(key: const ValueKey('loading'), size: 20, color: foreground)
-          : Row(
+          : LayoutBuilder(
               key: const ValueKey('label'),
-              mainAxisSize: .min,
-              mainAxisAlignment: .center,
-              spacing: 10,
-              children: [
-                if (widget.icon != null) Icon(widget.icon, size: 19, color: foreground),
-                Flexible(child: label),
-                if (widget.trailingIcon != null)
-                  Icon(widget.trailingIcon, size: 19, color: foreground),
-              ],
+              builder: (context, constraints) {
+                // A squeezed button (narrow window, large text) keeps its
+                // words and sheds the icons first: each costs 29px the label
+                // could have used, and a fixed-width glyph cannot ellipsize.
+                final icons = (widget.icon != null ? 1 : 0) + (widget.trailingIcon != null ? 1 : 0);
+                final showIcons = constraints.maxWidth >= icons * 29 + 56;
+                return Row(
+                  mainAxisSize: .min,
+                  mainAxisAlignment: .center,
+                  spacing: 10,
+                  children: [
+                    if (showIcons && widget.icon != null)
+                      Icon(widget.icon, size: 19, color: foreground),
+                    Flexible(child: label),
+                    if (showIcons && widget.trailingIcon != null)
+                      Icon(widget.trailingIcon, size: 19, color: foreground),
+                  ],
+                );
+              },
             ),
     );
 
-    return MouseRegion(
+    final button = MouseRegion(
       cursor: enabled ? SystemMouseCursors.click : MouseCursor.defer,
       onEnter: (_) => setState(() => _hovered = true),
       onExit: (_) => setState(() => _hovered = false),
@@ -137,10 +177,17 @@ class _PTButtonState extends State<PTButton> {
         ),
       ),
     );
+    return _touchTarget(
+      context,
+      height: widget.height,
+      onTap: enabled ? widget.onPressed : null,
+      child: button,
+    );
   }
 }
 
-/// 44px round glass icon button (min touch target per design rules).
+/// 44px round glass icon button. Smaller sizes keep a 44px hit area on touch
+/// input (see [_touchTarget]).
 class PTIconButton extends StatefulWidget {
   const PTIconButton({
     super.key,
@@ -204,7 +251,7 @@ class _PTIconButtonState extends State<PTIconButton> with SingleTickerProviderSt
     final decoration = widget.active
         ? BoxDecoration(
             color: PTColors.primary.withValues(alpha: 0.45),
-            border: Border.all(color: const Color(0xFFC4A8FF).withValues(alpha: 0.5)),
+            border: Border.all(color: PTColors.accentSoft.withValues(alpha: 0.5)),
             borderRadius: radius,
           )
         : widget.glass
@@ -219,7 +266,7 @@ class _PTIconButtonState extends State<PTIconButton> with SingleTickerProviderSt
           );
 
     final iconColor =
-        widget.color ?? (widget.active ? const Color(0xFFE9DCFF) : PTColors.white(0.85));
+        widget.color ?? (widget.active ? PTColors.accentBright : PTColors.white(0.85));
     // Keyed by glyph so every icon swap in the kit - volume_up ⇄ volume_off,
     // mic on/off, chat open/closed - cross-fades instead of snapping.
     Widget glyph = AnimatedSwitcher(
@@ -262,7 +309,13 @@ class _PTIconButtonState extends State<PTIconButton> with SingleTickerProviderSt
     if (widget.tooltip != null) {
       button = Tooltip(message: widget.tooltip!, child: button);
     }
-    return button;
+    return _touchTarget(
+      context,
+      width: widget.size,
+      height: widget.size,
+      onTap: widget.onPressed == null ? null : _handleTap,
+      child: button,
+    );
   }
 }
 
@@ -368,7 +421,7 @@ class _GoogleButtonState extends State<GoogleButton> {
             switchInCurve: PTMotion.enter,
             switchOutCurve: PTMotion.exit,
             child: widget.loading
-                ? const PTLoader(key: ValueKey('loading'), size: 20, color: Color(0xFF1A1625))
+                ? const PTLoader(key: ValueKey('loading'), size: 20, color: PTColors.onAccent)
                 : Row(
                     key: const ValueKey('label'),
                     mainAxisSize: .min,
@@ -378,7 +431,7 @@ class _GoogleButtonState extends State<GoogleButton> {
                       Flexible(
                         child: Text(
                           widget.label,
-                          style: PTText.buttonLabel.copyWith(color: const Color(0xFF1A1625)),
+                          style: PTText.buttonLabel.copyWith(color: PTColors.onAccent),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -409,7 +462,7 @@ class _GoogleMarkPainter extends CustomPainter {
 
     Path scaled(Path p) => p.transform(Matrix4.diagonal3Values(s, s, 1).storage);
 
-    paint.color = const Color(0xFFEA4335);
+    paint.color = _googleRed;
     canvas.drawPath(
       scaled(
         Path()
@@ -424,7 +477,7 @@ class _GoogleMarkPainter extends CustomPainter {
       ),
       paint,
     );
-    paint.color = const Color(0xFF4285F4);
+    paint.color = _googleBlue;
     canvas.drawPath(
       scaled(
         Path()
@@ -440,7 +493,7 @@ class _GoogleMarkPainter extends CustomPainter {
       ),
       paint,
     );
-    paint.color = const Color(0xFFFBBC05);
+    paint.color = _googleYellow;
     canvas.drawPath(
       scaled(
         Path()
@@ -455,7 +508,7 @@ class _GoogleMarkPainter extends CustomPainter {
       ),
       paint,
     );
-    paint.color = const Color(0xFF34A853);
+    paint.color = _googleGreen;
     canvas.drawPath(
       scaled(
         Path()
@@ -506,7 +559,7 @@ class _AppleButtonState extends State<AppleButton> {
           height: 52,
           alignment: .center,
           decoration: BoxDecoration(
-            color: Colors.black.withValues(alpha: _hovered && enabled ? 1.0 : 0.88),
+            color: PTColors.black(_hovered && enabled ? 1.0 : 0.88),
             border: Border.all(color: PTColors.white(_hovered && enabled ? 0.35 : 0.2), width: 1),
             borderRadius: BorderRadius.circular(16),
           ),
@@ -617,9 +670,22 @@ class PTActionPill extends StatelessWidget {
         spacing: 6,
         children: [
           if (icon != null) Icon(icon, size: 15, color: PTColors.white(0.65)),
-          Text(label, style: PTText.finePrint.copyWith(fontSize: 12, color: PTColors.white(0.65))),
+          Flexible(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: .ellipsis,
+              style: PTText.finePrint.copyWith(fontSize: 12, color: PTColors.white(0.65)),
+            ),
+          ),
         ],
       ),
     );
   }
 }
+
+// Google's logo colours, fixed by its brand guidelines - not theme tokens.
+const _googleRed = Color(0xFFEA4335);
+const _googleBlue = Color(0xFF4285F4);
+const _googleYellow = Color(0xFFFBBC05);
+const _googleGreen = Color(0xFF34A853);

@@ -327,10 +327,10 @@ class _LockedMoreCellState extends State<_LockedMoreCell> {
                   child: Container(
                     padding: const EdgeInsets.all(2),
                     decoration: BoxDecoration(
-                      color: const Color(0xE61E1834),
+                      color: PTColors.raised,
                       shape: BoxShape.circle,
                       border: Border.all(
-                        color: const Color(0xFFA78BFA).withValues(alpha: 0.5),
+                        color: PTColors.accentBorder.withValues(alpha: 0.5),
                         width: 1,
                       ),
                     ),
@@ -383,7 +383,9 @@ class _ReactionPickerDialogState extends State<ReactionPickerDialog> {
           spacing: 12,
           children: [
             const Icon(Symbols.add_reaction_rounded, size: 22, fill: 1, color: PTColors.textAccent),
-            Text('Pick a reaction', style: PTText.cardHeading.copyWith(fontSize: 17)),
+            Expanded(
+              child: Text('Pick a reaction', style: PTText.cardHeading.copyWith(fontSize: 17)),
+            ),
           ],
         ),
         Wrap(

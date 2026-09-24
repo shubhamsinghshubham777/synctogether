@@ -290,7 +290,7 @@ class _ReactionOverlayState extends State<ReactionOverlay> with SingleTickerProv
                   fontWeight: particle.isCombo ? .w700 : .w500,
                   color: particle.isCombo ? PTColors.textAccent : PTColors.white(0.85),
                   shadows: const [
-                    Shadow(color: Color(0xCC000000), blurRadius: 6, offset: Offset(0, 1)),
+                    Shadow(color: PTColors.shadowStrong, blurRadius: 6, offset: Offset(0, 1)),
                   ],
                 ),
               ),

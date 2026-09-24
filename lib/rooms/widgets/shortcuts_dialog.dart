@@ -53,19 +53,19 @@ class ShortcutsDialog extends StatelessWidget {
           style: PTText.body.copyWith(fontSize: 13.5, color: PTColors.white(0.55)),
         ),
         const SizedBox(height: 20),
-        Flexible(
-          child: ConstrainedBox(
-            constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * 0.5),
-            child: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: .stretch,
-                spacing: 18,
-                children: [
-                  _Section(title: 'Playback', shortcuts: _playback),
-                  _Section(title: 'Audio', shortcuts: _audio),
-                  _Section(title: 'View', shortcuts: view),
-                ],
-              ),
+        // No Flexible: showGlassDialog scrolls the whole body, and a flex
+        // child inside that scroll view would have no height to divide.
+        ConstrainedBox(
+          constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * 0.5),
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: .stretch,
+              spacing: 18,
+              children: [
+                _Section(title: 'Playback', shortcuts: _playback),
+                _Section(title: 'Audio', shortcuts: _audio),
+                _Section(title: 'View', shortcuts: view),
+              ],
             ),
           ),
         ),

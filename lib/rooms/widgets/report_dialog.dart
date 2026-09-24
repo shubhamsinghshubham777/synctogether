@@ -32,6 +32,7 @@ Future<ReportOutcome?> showReportDialog(
   return showGlassDialog<ReportOutcome>(
     context: context,
     width: 460,
+    sheetOnCompact: true,
     builder: (_) => _ReportDialog(
       targetName: targetName,
       roomCode: roomCode,

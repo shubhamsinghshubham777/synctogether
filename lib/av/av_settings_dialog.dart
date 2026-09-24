@@ -25,6 +25,10 @@ Future<void> showAvSettingsDialog(
   return showGlassDialog(
     context: context,
     width: 460,
+    // Owns its scrolling: the device list is the Flexible middle, so the
+    // header and the Save row stay put while it scrolls.
+    scrollable: false,
+    sheetOnCompact: true,
     padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 22),
     builder: (dialogContext) => _AvSettingsDialogContent(
       enumerateAudioInputs: enumerateAudioInputs,
@@ -359,113 +363,136 @@ class _AvSettingsDialogContentState extends State<_AvSettingsDialogContent> {
       return const SizedBox(height: 220, child: Center(child: PTLoader(size: 24)));
     }
 
-    return Column(
-      mainAxisSize: .min,
-      crossAxisAlignment: .start,
-      children: [
-        Row(
+    // Short windows (landscape phone, big text) cannot keep both the header
+    // and the Save row pinned, so the whole body scrolls as one there.
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxHeight < MediaQuery.textScalerOf(context).scale(380);
+        final body = Column(
+          mainAxisSize: .min,
+          crossAxisAlignment: .start,
           children: [
-            const Icon(Symbols.tune_rounded, size: 22, color: PTColors.textAccent),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                'Audio & Video Settings',
-                style: PTText.cardHeading,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            const SizedBox(width: 8),
-            PTIconButton(
-              icon: Symbols.close_rounded,
-              size: 32,
-              iconSize: 18,
-              glass: false,
-              onPressed: () => Navigator.of(context).pop(),
-            ),
-          ],
-        ),
-        const SizedBox(height: 16),
-        Container(height: 1, color: PTColors.white(0.08)),
-        const SizedBox(height: 16),
-        ConstrainedBox(
-          constraints: const BoxConstraints(maxHeight: 400),
-          child: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: .start,
+            Row(
               children: [
-                _deviceSection(
-                  icon: Symbols.mic_rounded,
-                  title: 'Microphone',
-                  devices: _audioInputs,
-                  selectedDevice: _selectedMic,
-                  onSelected: (dev) {
-                    setState(() {
-                      _selectedMic = dev;
-                    });
-                  },
-                ),
-                const SizedBox(height: 14),
-                _deviceSection(
-                  icon: Symbols.volume_up_rounded,
-                  title: 'Audio Output',
-                  subtitle: 'Does not apply to YouTube mode',
-                  devices: _audioOutputs,
-                  selectedDevice: _selectedOutput,
-                  onSelected: (dev) {
-                    setState(() {
-                      _selectedOutput = dev;
-                    });
-                  },
-                  trailingAction: PTIconButton(
-                    icon: Symbols.volume_up_rounded,
-                    tooltip: _isPlayingTestSound ? 'Playing test audio...' : 'Test output',
-                    size: 32,
-                    iconSize: 18,
-                    glass: true,
-                    onPressed: _isPlayingTestSound ? null : _playTestSound,
+                const Icon(Symbols.tune_rounded, size: 22, color: PTColors.textAccent),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Audio & Video Settings',
+                    style: PTText.cardHeading,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                const SizedBox(height: 14),
-                _deviceSection(
-                  icon: Symbols.videocam_rounded,
-                  title: 'Camera',
-                  devices: _videoInputs,
-                  selectedDevice: _selectedCam,
-                  onSelected: (dev) {
-                    setState(() {
-                      _selectedCam = dev;
-                    });
-                  },
+                const SizedBox(width: 8),
+                PTIconButton(
+                  icon: Symbols.close_rounded,
+                  size: 32,
+                  iconSize: 18,
+                  glass: false,
+                  onPressed: () => Navigator.of(context).pop(),
                 ),
               ],
             ),
-          ),
-        ),
-        const SizedBox(height: 20),
-        Row(
-          mainAxisAlignment: .end,
-          children: [
-            PTButton(
-              label: 'Cancel',
-              height: 38,
-              variant: .secondary,
-              expand: false,
-              onPressed: () => Navigator.of(context).pop(),
+            const SizedBox(height: 16),
+            Container(height: 1, color: PTColors.white(0.08)),
+            const SizedBox(height: 16),
+            _scrollMiddle(
+              compact: compact,
+              child: Column(
+                crossAxisAlignment: .start,
+                children: [
+                  _deviceSection(
+                    icon: Symbols.mic_rounded,
+                    title: 'Microphone',
+                    devices: _audioInputs,
+                    selectedDevice: _selectedMic,
+                    onSelected: (dev) {
+                      setState(() {
+                        _selectedMic = dev;
+                      });
+                    },
+                  ),
+                  const SizedBox(height: 14),
+                  _deviceSection(
+                    icon: Symbols.volume_up_rounded,
+                    title: 'Audio Output',
+                    subtitle: 'Does not apply to YouTube mode',
+                    devices: _audioOutputs,
+                    selectedDevice: _selectedOutput,
+                    onSelected: (dev) {
+                      setState(() {
+                        _selectedOutput = dev;
+                      });
+                    },
+                    trailingAction: PTIconButton(
+                      icon: Symbols.volume_up_rounded,
+                      tooltip: _isPlayingTestSound ? 'Playing test audio...' : 'Test output',
+                      size: 32,
+                      iconSize: 18,
+                      glass: true,
+                      onPressed: _isPlayingTestSound ? null : _playTestSound,
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  _deviceSection(
+                    icon: Symbols.videocam_rounded,
+                    title: 'Camera',
+                    devices: _videoInputs,
+                    selectedDevice: _selectedCam,
+                    onSelected: (dev) {
+                      setState(() {
+                        _selectedCam = dev;
+                      });
+                    },
+                  ),
+                ],
+              ),
             ),
-            const SizedBox(width: 10),
-            PTButton(
-              label: 'Save',
-              height: 38,
-              variant: .primary,
-              expand: false,
-              loading: _saving,
-              onPressed: _saving ? null : _saveAndClose,
+            const SizedBox(height: 20),
+            // Flexible so a squeezed window shrinks the buttons (their labels
+            // ellipsize) instead of overflowing the row.
+            Row(
+              mainAxisAlignment: .end,
+              spacing: 10,
+              children: [
+                Flexible(
+                  child: PTButton(
+                    label: 'Cancel',
+                    height: 38,
+                    variant: .secondary,
+                    expand: false,
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ),
+                Flexible(
+                  child: PTButton(
+                    label: 'Save',
+                    height: 38,
+                    variant: .primary,
+                    expand: false,
+                    loading: _saving,
+                    onPressed: _saving ? null : _saveAndClose,
+                  ),
+                ),
+              ],
             ),
           ],
-        ),
-      ],
+        );
+        return compact ? SingleChildScrollView(child: body) : body;
+      },
     );
   }
+
+  /// The device list: its own capped scroller between pinned header and
+  /// actions, or plain content when the whole body is already scrolling.
+  Widget _scrollMiddle({required bool compact, required Widget child}) => compact
+      ? child
+      : Flexible(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 400),
+            child: SingleChildScrollView(child: child),
+          ),
+        );
 
   Widget _deviceSection({
     required IconData icon,
@@ -535,7 +562,7 @@ class _AvSettingsDialogContentState extends State<_AvSettingsDialogContent> {
               child: DropdownButtonHideUnderline(
                 child: DropdownButton<String>(
                   isExpanded: true,
-                  dropdownColor: const Color(0xFF1B172C),
+                  dropdownColor: PTColors.menuSurface,
                   icon: const Icon(
                     Symbols.keyboard_arrow_down_rounded,
                     size: 18,

@@ -192,7 +192,7 @@ class _Stage extends StatelessWidget {
           gradient: RadialGradient(
             center: Alignment.center,
             radius: 0.9,
-            colors: [Color(0xFF1A1130), PTColors.screenBg, PTColors.canvas],
+            colors: [PTColors.splashGlow, PTColors.screenBg, PTColors.canvas],
             stops: [0, 0.55, 1],
           ),
         ),

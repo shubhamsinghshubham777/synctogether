@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
@@ -9,8 +10,8 @@ import '../rewards_models.dart';
 import 'badge_art.dart';
 
 Color gradeColor(RewardGrade grade) => switch (grade) {
-  RewardGrade.bronze => const Color(0xFFD08C60),
-  RewardGrade.silver => const Color(0xFFCBD5E1),
+  RewardGrade.bronze => PTColors.bronze,
+  RewardGrade.silver => PTColors.silver,
   RewardGrade.gold => PTColors.premium,
   RewardGrade.secret => PTColors.gradientEnd,
 };
@@ -133,7 +134,8 @@ class UnlockCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final colour = gradeColor(achievement.grade);
     return ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: 420),
+      // Never wider than the window less a 16px gutter each side.
+      constraints: BoxConstraints(maxWidth: math.min(420, MediaQuery.sizeOf(context).width - 32)),
       child: Material(
         type: .transparency,
         child: InkWell(

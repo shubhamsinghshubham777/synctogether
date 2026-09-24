@@ -53,13 +53,7 @@ class GlassPanel extends StatelessWidget {
       decoration: BoxDecoration(
         borderRadius: borderRadius,
         boxShadow: shadow
-            ? [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.5),
-                  blurRadius: 56,
-                  offset: const Offset(0, 20),
-                ),
-              ]
+            ? [BoxShadow(color: PTColors.black(0.5), blurRadius: 56, offset: const Offset(0, 20))]
             : null,
       ),
       child: ClipRRect(
@@ -148,17 +142,17 @@ class AmbientBackground extends StatelessWidget {
           const Positioned(
             top: -180,
             left: -120,
-            child: _GlowBlob(size: 640, color: Color(0x387C3AED), blur: 110),
+            child: _GlowBlob(size: 640, color: PTColors.glowDeep, blur: 110),
           ),
           const Positioned(
             bottom: -220,
             right: -100,
-            child: _GlowBlob(size: 720, color: Color(0x24C084FC), blur: 120),
+            child: _GlowBlob(size: 720, color: PTColors.glowEnd, blur: 120),
           ),
           const Positioned(
             top: 270,
             right: 300,
-            child: _GlowBlob(size: 280, color: Color(0x296366F1), blur: 90),
+            child: _GlowBlob(size: 280, color: PTColors.glowIndigo, blur: 90),
           ),
           child,
         ],
@@ -189,30 +183,69 @@ class _GlowBlob extends StatelessWidget {
 
 /// Shows a dialog with the standard dark scrim + blur, glass shell provided by
 /// [GlassPanel.dialog]. All redesigned dialogs go through this.
+///
+/// The shell owns fitting the dialog to the screen, so call sites only pick a
+/// [width]:
+/// - a 16px gutter on every side (plus safe area), so [width] is a cap, never
+///   a demand - a 430 dialog on a 320 phone is 288 wide;
+/// - the height stops at the keyboard, and follows it as it animates;
+/// - the body scrolls by default. Pass `scrollable: false` for a body that
+///   manages its own scrolling with a `Flexible`/`Expanded` child - those need
+///   a bounded height, which a scroll view cannot give them;
+/// - the default horizontal padding (and any explicit padding over 20) drops
+///   to 20 below 400 logical pixels of screen width;
+/// - `sheetOnCompact: true` presents it as a bottom sheet under 480 width, for
+///   long forms that read better thumb-side on a phone.
 Future<T?> showGlassDialog<T>({
   required BuildContext context,
   required WidgetBuilder builder,
   bool barrierDismissible = true,
   double width = 430,
   EdgeInsetsGeometry? padding,
+  bool scrollable = true,
+  bool sheetOnCompact = false,
 }) {
+  bool isSheet(BuildContext context) =>
+      sheetOnCompact && MediaQuery.sizeOf(context).width < kGlassSheetBreakpoint;
+
   return showGeneralDialog<T>(
     context: context,
     barrierDismissible: barrierDismissible,
     barrierLabel: 'dialog',
-    barrierColor: const Color(0x8C06050A),
+    barrierColor: PTColors.barrier,
     transitionDuration: PTMotion.panel,
     pageBuilder: (context, _, _) {
-      final screenHeight = MediaQuery.sizeOf(context).height;
-      final maxDialogHeight = screenHeight > 64 ? screenHeight - 32 : screenHeight;
-      return Center(
-        child: ConstrainedBox(
-          constraints: BoxConstraints(maxWidth: width, maxHeight: maxDialogHeight),
-          child: Material(
-            type: .transparency,
-            child: GlassPanel.dialog(
-              padding: padding ?? const EdgeInsets.symmetric(horizontal: 32, vertical: 30),
-              child: builder(context),
+      final mq = MediaQuery.of(context);
+      final sheet = isSheet(context);
+      final inset = glassDialogInsets(mq);
+      final bodyPadding = glassDialogPadding(padding, mq.size.width);
+      return AnimatedPadding(
+        duration: PTMotion.functional(context, PTMotion.state),
+        curve: PTMotion.enter,
+        padding: inset,
+        child: MediaQuery.removeViewInsets(
+          context: context,
+          removeBottom: true,
+          child: MediaQuery.removePadding(
+            context: context,
+            removeTop: true,
+            removeBottom: true,
+            removeLeft: true,
+            removeRight: true,
+            child: Align(
+              alignment: sheet ? .bottomCenter : .center,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: sheet ? double.infinity : width),
+                child: Material(
+                  type: .transparency,
+                  child: GlassPanel.dialog(
+                    padding: scrollable ? null : bodyPadding,
+                    child: scrollable
+                        ? SingleChildScrollView(padding: bodyPadding, child: builder(context))
+                        : builder(context),
+                  ),
+                ),
+              ),
             ),
           ),
         ),
@@ -224,13 +257,57 @@ Future<T?> showGlassDialog<T>({
         curve: PTMotion.enter,
         reverseCurve: PTMotion.exit,
       );
+      // Scale for a centred dialog, slide for a sheet. The fade is on the
+      // route (scrim + panel together), not on the glass, which keeps the
+      // panel's BackdropFilter sampling a real backdrop once it lands.
+      final Widget moved = isSheet(context)
+          ? SlideTransition(
+              position: Tween(begin: const Offset(0, 0.12), end: Offset.zero).animate(curved),
+              child: child,
+            )
+          : ScaleTransition(scale: Tween(begin: 0.96, end: 1.0).animate(curved), child: child);
       return BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 6 * animation.value, sigmaY: 6 * animation.value),
-        child: FadeTransition(
-          opacity: curved,
-          child: ScaleTransition(scale: Tween(begin: 0.96, end: 1.0).animate(curved), child: child),
-        ),
+        child: FadeTransition(opacity: curved, child: moved),
       );
     },
+  );
+}
+
+/// Below this width a `sheetOnCompact` dialog presents as a bottom sheet.
+const double kGlassSheetBreakpoint = 480;
+
+/// Below this width dialog padding tightens to [_compactHorizontalPadding].
+const double kGlassCompactPaddingBreakpoint = 400;
+const double _compactHorizontalPadding = 20;
+const double _gutter = 16;
+
+/// Space kept clear around a glass dialog: a 16px gutter inside the safe area,
+/// and above the keyboard when it is up (the keyboard covers the bottom safe
+/// area, so the two are not added).
+@visibleForTesting
+EdgeInsets glassDialogInsets(MediaQueryData mq) {
+  final bottom = mq.viewInsets.bottom > mq.viewPadding.bottom
+      ? mq.viewInsets.bottom
+      : mq.viewPadding.bottom;
+  return EdgeInsets.fromLTRB(
+    mq.viewPadding.left + _gutter,
+    mq.viewPadding.top + _gutter,
+    mq.viewPadding.right + _gutter,
+    bottom + _gutter,
+  );
+}
+
+/// The dialog body's padding at [screenWidth]: the caller's (or the 32/30
+/// default), with horizontal padding capped at 20 on narrow screens.
+@visibleForTesting
+EdgeInsets glassDialogPadding(EdgeInsetsGeometry? padding, double screenWidth) {
+  final base = (padding ?? const EdgeInsets.symmetric(horizontal: 32, vertical: 30)).resolve(
+    TextDirection.ltr,
+  );
+  if (screenWidth >= kGlassCompactPaddingBreakpoint) return base;
+  return base.copyWith(
+    left: base.left > _compactHorizontalPadding ? _compactHorizontalPadding : base.left,
+    right: base.right > _compactHorizontalPadding ? _compactHorizontalPadding : base.right,
   );
 }

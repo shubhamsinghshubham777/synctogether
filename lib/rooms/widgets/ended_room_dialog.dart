@@ -66,7 +66,7 @@ class EndedRoomDialog extends StatelessWidget {
           decoration: BoxDecoration(
             color: PTColors.primary.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: const Color(0xFFA78BFA).withValues(alpha: 0.2)),
+            border: Border.all(color: PTColors.accentBorder.withValues(alpha: 0.2)),
           ),
           child: Row(
             spacing: 10,

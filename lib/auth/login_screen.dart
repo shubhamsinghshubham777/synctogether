@@ -237,26 +237,29 @@ class _LoginScreenState extends State<LoginScreen> {
     return Scaffold(
       body: AmbientBackground(
         child: PTResponsive(
-          desktop: (_) => Center(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(vertical: 24),
-              child: Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 440),
-                  child: GlassPanel(
-                    radius: 28,
-                    opacity: 0.5,
-                    blur: 32,
-                    padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 44),
-                    child: Column(
-                      mainAxisSize: .min,
-                      children: [
-                        const _Brand(),
-                        const SizedBox(height: 34),
-                        _actions(),
-                        const SizedBox(height: 26),
-                        const PTEntrance(delay: Duration(milliseconds: 240), child: _TermsNote()),
-                      ],
+          // Tablets fall back here too, hence the SafeArea.
+          desktop: (_) => SafeArea(
+            child: Center(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(vertical: 24),
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 440),
+                    child: GlassPanel(
+                      radius: 28,
+                      opacity: 0.5,
+                      blur: 32,
+                      padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 44),
+                      child: Column(
+                        mainAxisSize: .min,
+                        children: [
+                          const _Brand(),
+                          const SizedBox(height: 34),
+                          _actions(),
+                          const SizedBox(height: 26),
+                          const PTEntrance(delay: Duration(milliseconds: 240), child: _TermsNote()),
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -266,7 +269,15 @@ class _LoginScreenState extends State<LoginScreen> {
           landscape: (_) => SafeArea(
             child: Row(
               children: [
-                const Expanded(child: Center(child: _Brand())),
+                // Scale the brand down rather than clip it on a 375-tall phone.
+                const Expanded(
+                  child: Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(16),
+                      child: FittedBox(fit: .scaleDown, child: _Brand()),
+                    ),
+                  ),
+                ),
                 Expanded(
                   child: Center(
                     child: SingleChildScrollView(
@@ -285,19 +296,29 @@ class _LoginScreenState extends State<LoginScreen> {
               ],
             ),
           ),
+          // Scrolls once the content outgrows the screen (320x568, the OTP
+          // view with the keyboard up, 2.0x text); the spacers still centre
+          // the brand whenever it fits.
           portrait: (_) => SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Column(
-                children: [
-                  const Spacer(),
-                  const _Brand(large: true),
-                  const Spacer(),
-                  _actions(buttonHeight: 54),
-                  const SizedBox(height: 16),
-                  const PTEntrance(delay: Duration(milliseconds: 240), child: _TermsNote()),
-                  const SizedBox(height: 30),
-                ],
+            child: LayoutBuilder(
+              builder: (context, box) => SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(minHeight: box.maxHeight),
+                  child: IntrinsicHeight(
+                    child: Column(
+                      children: [
+                        const Spacer(),
+                        const _Brand(large: true),
+                        const Spacer(),
+                        _actions(buttonHeight: 54),
+                        const SizedBox(height: 16),
+                        const PTEntrance(delay: Duration(milliseconds: 240), child: _TermsNote()),
+                        const SizedBox(height: 30),
+                      ],
+                    ),
+                  ),
+                ),
               ),
             ),
           ),
@@ -381,7 +402,7 @@ class _LoginScreenState extends State<LoginScreen> {
         Row(
           children: [
             IconButton(
-              icon: const Icon(Symbols.arrow_back_rounded, color: Colors.white70),
+              icon: Icon(Symbols.arrow_back_rounded, color: PTColors.white(0.7)),
               onPressed: _anyLoading ? null : () => setState(() => _mode = .providers),
               tooltip: 'Back',
             ),
@@ -395,13 +416,15 @@ class _LoginScreenState extends State<LoginScreen> {
           'Enter your password, or have us email you a 6-digit code instead.',
           style: PTText.body.copyWith(color: PTColors.white(0.65), fontSize: 13.5),
         ),
-        TextField(
-          controller: _emailController,
-          autofocus: true,
-          keyboardType: TextInputType.emailAddress,
-          textInputAction: TextInputAction.next,
-          style: PTText.body.copyWith(color: Colors.white),
-          decoration: _fieldDecoration(hint: 'name@example.com', icon: Symbols.mail_rounded),
+        _RevealOnFocus(
+          child: TextField(
+            controller: _emailController,
+            autofocus: true,
+            keyboardType: TextInputType.emailAddress,
+            textInputAction: TextInputAction.next,
+            style: PTText.body.copyWith(color: Colors.white),
+            decoration: _fieldDecoration(hint: 'name@example.com', icon: Symbols.mail_rounded),
+          ),
         ),
         TextField(
           controller: _passwordController,
@@ -478,7 +501,7 @@ class _LoginScreenState extends State<LoginScreen> {
         Row(
           children: [
             IconButton(
-              icon: const Icon(Symbols.arrow_back_rounded, color: Colors.white70),
+              icon: Icon(Symbols.arrow_back_rounded, color: PTColors.white(0.7)),
               onPressed: _anyLoading ? null : () => setState(() => _mode = .enterEmail),
               tooltip: 'Change email',
             ),
@@ -501,48 +524,50 @@ class _LoginScreenState extends State<LoginScreen> {
             ],
           ),
         ),
-        TextField(
-          controller: _otpController,
-          autofocus: true,
-          keyboardType: TextInputType.number,
-          maxLength: 6,
-          textAlign: .center,
-          textInputAction: TextInputAction.done,
-          style: PTText.body.copyWith(
-            fontSize: 22,
-            letterSpacing: 6,
-            fontWeight: .w700,
-            color: Colors.white,
-          ),
-          decoration: InputDecoration(
-            counterText: '',
-            hintText: '000000',
-            hintStyle: PTText.body.copyWith(
+        _RevealOnFocus(
+          child: TextField(
+            controller: _otpController,
+            autofocus: true,
+            keyboardType: TextInputType.number,
+            maxLength: 6,
+            textAlign: .center,
+            textInputAction: TextInputAction.done,
+            style: PTText.body.copyWith(
               fontSize: 22,
               letterSpacing: 6,
-              color: PTColors.white(0.2),
+              fontWeight: .w700,
+              color: Colors.white,
             ),
-            filled: true,
-            fillColor: PTColors.glass(0.35),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
-              borderSide: BorderSide(color: PTColors.white(0.15)),
+            decoration: InputDecoration(
+              counterText: '',
+              hintText: '000000',
+              hintStyle: PTText.body.copyWith(
+                fontSize: 22,
+                letterSpacing: 6,
+                color: PTColors.white(0.2),
+              ),
+              filled: true,
+              fillColor: PTColors.glass(0.35),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: BorderSide(color: PTColors.white(0.15)),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: BorderSide(color: PTColors.white(0.15)),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: const BorderSide(color: PTColors.primary, width: 1.5),
+              ),
             ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
-              borderSide: BorderSide(color: PTColors.white(0.15)),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
-              borderSide: const BorderSide(color: PTColors.primary, width: 1.5),
-            ),
+            onChanged: (code) {
+              if (code.trim().length == 6) {
+                _verifyEmailOtp();
+              }
+            },
           ),
-          onChanged: (code) {
-            if (code.trim().length == 6) {
-              _verifyEmailOtp();
-            }
-          },
         ),
         PTButton(
           label: 'Verify code',
@@ -558,7 +583,7 @@ class _LoginScreenState extends State<LoginScreen> {
             child: Text(
               _resendCooldown > 0 ? 'Resend code in ${_resendCooldown}s' : 'Resend code',
               style: PTText.finePrint.copyWith(
-                color: _resendCooldown > 0 ? PTColors.white(0.4) : const Color(0xFFB79CFF),
+                color: _resendCooldown > 0 ? PTColors.white(0.4) : PTColors.link,
               ),
             ),
           ),
@@ -624,7 +649,7 @@ class _TermsNote extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final linkStyle = PTText.finePrint.copyWith(color: const Color(0xFFB79CFF));
+    final linkStyle = PTText.finePrint.copyWith(color: PTColors.link);
     return Text.rich(
       TextSpan(
         text: 'By continuing you agree to our ',
@@ -652,6 +677,34 @@ class _TermsNote extends StatelessWidget {
         ],
       ),
       textAlign: .center,
+    );
+  }
+}
+
+/// Scrolls an autofocused field into view once it takes focus.
+///
+/// EditableText only reveals its caret when the keyboard *changes* the
+/// metrics; a field that autofocuses below the fold (2x text on a small
+/// phone, or a keyboard already up from the previous view) would otherwise
+/// sit focused under the nav bar or keyboard.
+class _RevealOnFocus extends StatelessWidget {
+  const _RevealOnFocus({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Focus(
+      canRequestFocus: false,
+      skipTraversal: true,
+      onFocusChange: (focused) {
+        if (!focused) return;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!context.mounted) return;
+          Scrollable.ensureVisible(context, alignment: 0.5);
+        });
+      },
+      child: child,
     );
   }
 }

@@ -203,6 +203,32 @@ class _CameraCaptureDialogState extends State<CameraCaptureDialog> {
     super.dispose();
   }
 
+  // The preview is a circle, so one side fixes both: 250, or less when the
+  // dialog is narrower than that (a 320 phone leaves ~248).
+  static const double _kPreviewSize = 250;
+
+  Widget _previewCircle(double size) {
+    return Center(
+      child: Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          shape: .circle,
+          color: PTColors.dialogGlassBase,
+          border: Border.all(color: PTColors.primary.withValues(alpha: 0.4), width: 3),
+          boxShadow: [
+            BoxShadow(
+              color: PTColors.primary.withValues(alpha: 0.2),
+              blurRadius: 24,
+              spreadRadius: 2,
+            ),
+          ],
+        ),
+        child: ClipOval(child: _buildCameraPreview()),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -222,23 +248,9 @@ class _CameraCaptureDialogState extends State<CameraCaptureDialog> {
           ],
         ),
         const SizedBox(height: 20),
-        Center(
-          child: Container(
-            width: 250,
-            height: 250,
-            decoration: BoxDecoration(
-              shape: .circle,
-              color: PTColors.dialogGlassBase,
-              border: Border.all(color: PTColors.primary.withValues(alpha: 0.4), width: 3),
-              boxShadow: [
-                BoxShadow(
-                  color: PTColors.primary.withValues(alpha: 0.2),
-                  blurRadius: 24,
-                  spreadRadius: 2,
-                ),
-              ],
-            ),
-            child: ClipOval(child: _buildCameraPreview()),
+        LayoutBuilder(
+          builder: (context, constraints) => _previewCircle(
+            constraints.maxWidth < _kPreviewSize ? constraints.maxWidth : _kPreviewSize,
           ),
         ),
         if (_cameras.isNotEmpty) ...[const SizedBox(height: 16), _buildCameraSelector()],
@@ -249,12 +261,12 @@ class _CameraCaptureDialogState extends State<CameraCaptureDialog> {
             decoration: BoxDecoration(
               color: PTColors.white(0.04),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.redAccent.withValues(alpha: 0.3)),
+              border: Border.all(color: PTColors.dangerBorder.withValues(alpha: 0.3)),
             ),
             child: Text(
               _error!,
               textAlign: TextAlign.center,
-              style: PTText.finePrint.copyWith(color: Colors.redAccent, height: 1.4),
+              style: PTText.finePrint.copyWith(color: PTColors.dangerBorder, height: 1.4),
             ),
           ),
         ],
@@ -308,7 +320,7 @@ class _CameraCaptureDialogState extends State<CameraCaptureDialog> {
               child: DropdownButton<String>(
                 isExpanded: true,
                 value: value,
-                dropdownColor: const Color(0xFF1B172C),
+                dropdownColor: PTColors.menuSurface,
                 icon: const Icon(
                   Symbols.keyboard_arrow_down_rounded,
                   size: 18,

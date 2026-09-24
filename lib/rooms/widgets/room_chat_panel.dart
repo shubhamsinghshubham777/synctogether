@@ -173,41 +173,68 @@ class _RoomChatPanelState extends State<RoomChatPanel> {
 
   @override
   Widget build(BuildContext context) {
-    final content = Column(
+    // A landscape phone with the keyboard up leaves the panel little more than
+    // the composer's height. The composer is what the user is there for, so the
+    // header gives way first rather than pushing the field off the bottom.
+    final content = LayoutBuilder(
+      builder: (context, constraints) =>
+          _content(showHeader: constraints.maxHeight >= 240, tight: constraints.maxHeight < 200),
+    );
+
+    if (widget.embedded) return content;
+    return GlassPanel(
+      radius: 22,
+      opacity: 0.6,
+      blur: 32,
+      baseColor: PTColors.surfaceBase,
+      child: content,
+    );
+  }
+
+  Widget _content({required bool showHeader, required bool tight}) {
+    return Column(
       children: [
-        Container(
-          padding: EdgeInsets.fromLTRB(18, widget.embedded ? 12 : 16, 18, 12),
-          decoration: BoxDecoration(
-            border: Border(bottom: BorderSide(color: PTColors.white(0.08))),
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: .start,
-                  children: [
-                    Text('Party chat', style: PTText.panelHeading),
-                    Text(
-                      '${widget.watchingCount} watching',
-                      style: PTText.finePrint.copyWith(color: PTColors.white(0.5)),
-                    ),
-                  ],
-                ),
-              ),
-              if (!widget.embedded)
-                MouseRegion(
-                  cursor: SystemMouseCursors.click,
-                  child: PTPressable(
-                    onTap: widget.onClose,
-                    child: SizedBox.square(
-                      dimension: 34,
-                      child: Icon(Icons.close_rounded, size: 19, color: PTColors.white(0.6)),
-                    ),
+        if (showHeader)
+          Container(
+            padding: EdgeInsets.fromLTRB(18, widget.embedded ? 12 : 16, 18, 12),
+            decoration: BoxDecoration(
+              border: Border(bottom: BorderSide(color: PTColors.white(0.08))),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: .start,
+                    children: [
+                      Text(
+                        'Party chat',
+                        maxLines: 1,
+                        overflow: .ellipsis,
+                        style: PTText.panelHeading,
+                      ),
+                      Text(
+                        '${widget.watchingCount} watching',
+                        maxLines: 1,
+                        overflow: .ellipsis,
+                        style: PTText.finePrint.copyWith(color: PTColors.white(0.5)),
+                      ),
+                    ],
                   ),
                 ),
-            ],
+                if (!widget.embedded)
+                  MouseRegion(
+                    cursor: SystemMouseCursors.click,
+                    child: PTPressable(
+                      onTap: widget.onClose,
+                      child: SizedBox.square(
+                        dimension: 34,
+                        child: Icon(Icons.close_rounded, size: 19, color: PTColors.white(0.6)),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
           ),
-        ),
         Expanded(
           child: SelectionArea(
             child: ListView.separated(
@@ -242,81 +269,95 @@ class _RoomChatPanelState extends State<RoomChatPanel> {
             ),
           ),
         ),
-        Container(
-          padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
-          decoration: BoxDecoration(
-            border: Border(top: BorderSide(color: PTColors.white(0.08))),
-          ),
-          child: Row(
-            spacing: 10,
-            children: [
-              Expanded(
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: PTColors.white(0.07),
-                    border: Border.all(color: PTColors.white(0.1)),
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                  child: TextField(
-                    controller: _controller,
-                    focusNode: _inputFocus,
-                    textInputAction: .send,
-                    onChanged: _onTextChanged,
-                    // The default `onEditingComplete` unfocuses on submit; `_send`
-                    // owns focus instead. `onSubmitted` still fires after it.
-                    onEditingComplete: () {},
-                    onSubmitted: (_) => _send(),
-                    maxLength: 500,
-                    style: PTText.body.copyWith(fontSize: 13.5),
-                    cursorColor: PTColors.textAccent,
-                    decoration: InputDecoration(
-                      hintText: 'Say something…',
-                      hintStyle: PTText.body.copyWith(fontSize: 13.5, color: PTColors.white(0.45)),
-                      border: InputBorder.none,
-                      counterText: '',
-                      isDense: true,
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    ),
-                  ),
-                ),
-              ),
-              MouseRegion(
-                cursor: SystemMouseCursors.click,
-                child: PTPressable(
-                  onTap: _send,
-                  pressedScale: 0.92,
+        // Tighter still (landscape keyboard at large text), the composer caps
+        // its own scale so the field and its send button both fit.
+        MediaQuery.withClampedTextScaling(
+          maxScaleFactor: tight ? 1.3 : double.infinity,
+          child: Container(
+            padding: tight
+                ? const EdgeInsets.fromLTRB(14, 8, 14, 8)
+                : const EdgeInsets.fromLTRB(14, 12, 14, 14),
+            decoration: BoxDecoration(
+              border: Border(top: BorderSide(color: PTColors.white(0.08))),
+            ),
+            child: Row(
+              // The send button stays on the last line as the composer grows.
+              crossAxisAlignment: .end,
+              spacing: 10,
+              children: [
+                Expanded(
                   child: Container(
-                    width: 42,
-                    height: 42,
                     decoration: BoxDecoration(
-                      gradient: PTColors.buttonGradient,
-                      shape: .circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: PTColors.primary.withValues(alpha: 0.4),
-                          blurRadius: 18,
-                          offset: const Offset(0, 6),
-                        ),
-                      ],
+                      color: PTColors.white(0.07),
+                      border: Border.all(color: PTColors.white(0.1)),
+                      // Not a pill: the field grows to four lines, and a 999
+                      // radius on a tall box pinches its corners into points.
+                      borderRadius: BorderRadius.circular(21),
                     ),
-                    child: const Icon(Symbols.send_rounded, size: 19, fill: 1, color: Colors.white),
+                    child: TextField(
+                      controller: _controller,
+                      focusNode: _inputFocus,
+                      textInputAction: .send,
+                      onChanged: _onTextChanged,
+                      // The default `onEditingComplete` unfocuses on submit; `_send`
+                      // owns focus instead. `onSubmitted` still fires after it.
+                      onEditingComplete: () {},
+                      onSubmitted: (_) => _send(),
+                      maxLength: 500,
+                      // Grows with what is typed (and with the text scale), up to
+                      // four lines, then scrolls. `.send` still makes Enter send.
+                      minLines: 1,
+                      maxLines: tight ? 2 : 4,
+                      keyboardType: .multiline,
+                      style: PTText.body.copyWith(fontSize: 13.5),
+                      cursorColor: PTColors.textAccent,
+                      decoration: InputDecoration(
+                        hintText: 'Say something…',
+                        hintStyle: PTText.body.copyWith(
+                          fontSize: 13.5,
+                          color: PTColors.white(0.45),
+                        ),
+                        border: InputBorder.none,
+                        counterText: '',
+                        isDense: true,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      ),
+                    ),
                   ),
                 ),
-              ),
-            ],
+                MouseRegion(
+                  cursor: SystemMouseCursors.click,
+                  child: PTPressable(
+                    onTap: _send,
+                    pressedScale: 0.92,
+                    child: Container(
+                      width: 42,
+                      height: 42,
+                      decoration: BoxDecoration(
+                        gradient: PTColors.buttonGradient,
+                        shape: .circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: PTColors.primary.withValues(alpha: 0.4),
+                            blurRadius: 18,
+                            offset: const Offset(0, 6),
+                          ),
+                        ],
+                      ),
+                      child: const Icon(
+                        Symbols.send_rounded,
+                        size: 19,
+                        fill: 1,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ],
-    );
-
-    if (widget.embedded) return content;
-
-    return GlassPanel(
-      radius: 22,
-      opacity: 0.6,
-      blur: 32,
-      baseColor: const Color(0xFF141022),
-      child: content,
     );
   }
 
@@ -338,11 +379,15 @@ class _RoomChatPanelState extends State<RoomChatPanel> {
               child: Row(
                 spacing: 8,
                 children: [
-                  Text(
-                    label,
-                    style: PTText.finePrint.copyWith(
-                      fontStyle: .italic,
-                      color: PTColors.white(0.5),
+                  Flexible(
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      overflow: .ellipsis,
+                      style: PTText.finePrint.copyWith(
+                        fontStyle: .italic,
+                        color: PTColors.white(0.5),
+                      ),
                     ),
                   ),
                   const TypingDots(),
@@ -536,6 +581,8 @@ class _MessageRowState extends State<_MessageRow> {
                 padding: const EdgeInsets.only(left: 2),
                 child: Text(
                   message.displayName,
+                  maxLines: 1,
+                  overflow: .ellipsis,
                   style: TextStyle(
                     fontFamily: PTFonts.body,
                     fontSize: 11,
@@ -581,7 +628,7 @@ class _MessageRowState extends State<_MessageRow> {
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
               color: PTColors.primary.withValues(alpha: 0.4),
-              border: Border.all(color: const Color(0xFFA78BFA).withValues(alpha: 0.35)),
+              border: Border.all(color: PTColors.accentBorder.withValues(alpha: 0.35)),
               borderRadius: const BorderRadius.only(
                 topLeft: Radius.circular(14),
                 topRight: Radius.circular(14),

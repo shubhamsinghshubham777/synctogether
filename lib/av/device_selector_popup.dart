@@ -164,7 +164,7 @@ class _DeviceSelectorPanelState extends State<_DeviceSelectorPanel> {
       radius: 20,
       opacity: 0.78,
       blur: 32,
-      baseColor: const Color(0xFF141022),
+      baseColor: PTColors.surfaceBase,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       child: Column(
         mainAxisSize: .min,
@@ -266,7 +266,7 @@ class _DeviceRowState extends State<_DeviceRow> {
                 : Colors.transparent,
             border: Border.all(
               color: widget.isSelected
-                  ? const Color(0xFFA78BFA).withValues(alpha: 0.45)
+                  ? PTColors.accentBorder.withValues(alpha: 0.45)
                   : Colors.transparent,
             ),
             borderRadius: BorderRadius.circular(10),

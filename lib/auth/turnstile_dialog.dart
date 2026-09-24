@@ -256,7 +256,12 @@ function onloadTurnstile() {
           Center(
             child: ClipRRect(
               borderRadius: BorderRadius.circular(4),
-              child: SizedBox(width: 300, height: 65, child: _buildWebView(context)),
+              // Cloudflare's widget is 300x65 CSS and refuses to go smaller,
+              // so a narrow phone scales the whole box down instead.
+              child: FittedBox(
+                fit: .scaleDown,
+                child: SizedBox(width: 300, height: 65, child: _buildWebView(context)),
+              ),
             ),
           ),
           if (_failed)

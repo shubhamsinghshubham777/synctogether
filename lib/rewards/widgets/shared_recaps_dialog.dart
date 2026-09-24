@@ -25,6 +25,7 @@ Future<void> showSharedRecapsDialog(BuildContext context) {
   return showGlassDialog(
     context: context,
     width: 520,
+    scrollable: false,
     padding: const EdgeInsets.fromLTRB(28, 26, 20, 22),
     builder: (context) => const _SharedRecaps(),
   );
@@ -74,70 +75,81 @@ class _SharedRecapsState extends State<_SharedRecaps> {
   @override
   Widget build(BuildContext context) {
     final recaps = _recaps;
-    return Column(
-      mainAxisSize: .min,
-      crossAxisAlignment: .stretch,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(right: 8),
-          child: Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: .start,
-                  spacing: 4,
-                  children: [
-                    Text('Shared recaps', style: PTText.screenTitle.copyWith(fontSize: 20)),
-                    Text(
-                      'Public pages you have made. Deleting one breaks its link '
-                      'immediately, for everyone.',
-                      style: PTText.caption,
+    // Below this height a pinned header plus a scrolling list leaves the list
+    // no room at all, so the whole body scrolls as one instead.
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact =
+            recaps == null ||
+            recaps.isEmpty ||
+            constraints.maxHeight < MediaQuery.textScalerOf(context).scale(360);
+        final list = ListView.separated(
+          shrinkWrap: true,
+          physics: compact ? const NeverScrollableScrollPhysics() : null,
+          padding: const EdgeInsets.only(right: 16),
+          itemCount: recaps?.length ?? 0,
+          separatorBuilder: (_, _) => const SizedBox(height: 10),
+          itemBuilder: (context, i) => _RecapRow(
+            recap: recaps![i],
+            busy: _deleting.contains(recaps[i].id),
+            onDelete: () => unawaited(_delete(recaps[i])),
+          ),
+        );
+        final body = Column(
+          mainAxisSize: .min,
+          crossAxisAlignment: .stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: .start,
+                      spacing: 4,
+                      children: [
+                        Text('Shared recaps', style: PTText.screenTitle.copyWith(fontSize: 20)),
+                        Text(
+                          'Public pages you have made. Deleting one breaks its link '
+                          'immediately, for everyone.',
+                          style: PTText.caption,
+                        ),
+                      ],
                     ),
-                  ],
-                ),
-              ),
-              PTIconButton(
-                icon: Symbols.close_rounded,
-                iconSize: 18,
-                size: 36,
-                tooltip: 'Close',
-                onPressed: () => Navigator.of(context).pop(),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 18),
-        if (recaps == null)
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 40),
-            child: Center(child: PTLoader(size: 26)),
-          )
-        else if (recaps.isEmpty)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(0, 24, 16, 24),
-            child: Text(
-              "You haven't shared any recaps yet. When you leave a room after a "
-              'proper session, the card you get is the thing that lands here.',
-              style: PTText.caption,
-            ),
-          )
-        else
-          Flexible(
-            child: ScrollFadeEdge(
-              child: ListView.separated(
-                shrinkWrap: true,
-                padding: const EdgeInsets.only(right: 16),
-                itemCount: recaps.length,
-                separatorBuilder: (_, _) => const SizedBox(height: 10),
-                itemBuilder: (context, i) => _RecapRow(
-                  recap: recaps[i],
-                  busy: _deleting.contains(recaps[i].id),
-                  onDelete: () => unawaited(_delete(recaps[i])),
-                ),
+                  ),
+                  PTIconButton(
+                    icon: Symbols.close_rounded,
+                    iconSize: 18,
+                    size: 36,
+                    tooltip: 'Close',
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ],
               ),
             ),
-          ),
-      ],
+            const SizedBox(height: 18),
+            if (recaps == null)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 40),
+                child: Center(child: PTLoader(size: 26)),
+              )
+            else if (recaps.isEmpty)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(0, 24, 16, 24),
+                child: Text(
+                  "You haven't shared any recaps yet. When you leave a room after a "
+                  'proper session, the card you get is the thing that lands here.',
+                  style: PTText.caption,
+                ),
+              )
+            else if (compact)
+              list
+            else
+              Flexible(child: ScrollFadeEdge(child: list)),
+          ],
+        );
+        return compact ? SingleChildScrollView(child: body) : body;
+      },
     );
   }
 }

@@ -25,6 +25,8 @@ class RecapPerson {
   final AvatarFrame? frame;
 }
 
+const double _kRecapContentWidth = 414;
+
 /// Shown when a session ends. Returns true if the user shared it.
 ///
 /// This is the artefact the whole word-of-mouth loop is built on, so its one
@@ -42,7 +44,22 @@ Future<bool> showRecapDialog({
     context: context,
     width: 470,
     padding: const EdgeInsets.fromLTRB(28, 26, 28, 24),
-    builder: (context) => _RecapBody(recap: recap, people: people, selfId: selfId),
+    // The card is screenshot art, so a narrow screen scales it rather than
+    // reflowing it: 414 is its content width at the 470 cap.
+    builder: (context) => LayoutBuilder(
+      builder: (context, constraints) {
+        final body = _RecapBody(recap: recap, people: people, selfId: selfId);
+        // Large text grows the card's layout width in step, so the art keeps
+        // its 1.0x proportions and is then scaled down to fit as one image.
+        final width = MediaQuery.textScalerOf(context).scale(_kRecapContentWidth);
+        if (constraints.maxWidth >= width) return body;
+        return FittedBox(
+          fit: .scaleDown,
+          alignment: .topCenter,
+          child: SizedBox(width: width, child: body),
+        );
+      },
+    ),
   );
   return shared ?? false;
 }
@@ -272,22 +289,31 @@ class _AwardRow extends StatelessWidget {
             ],
           ),
         ),
-        Row(
-          mainAxisSize: .min,
-          spacing: 7,
-          children: [
-            PTAvatar(
-              userId: superlative.userId,
-              displayName: superlative.displayName,
-              avatarUrl: person?.avatarUrl,
-              frame: person?.frame,
-              size: 24,
-            ),
-            Text(
-              isSelf ? 'You' : superlative.displayName,
-              style: PTText.finePrint.copyWith(fontSize: 12, color: PTColors.white(0.8)),
-            ),
-          ],
+        // A winner's name is user input of any length; cap it so the award
+        // title keeps the room and the name ellipsizes instead.
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 150),
+          child: Row(
+            mainAxisSize: .min,
+            spacing: 7,
+            children: [
+              PTAvatar(
+                userId: superlative.userId,
+                displayName: superlative.displayName,
+                avatarUrl: person?.avatarUrl,
+                frame: person?.frame,
+                size: 24,
+              ),
+              Flexible(
+                child: Text(
+                  isSelf ? 'You' : superlative.displayName,
+                  maxLines: 1,
+                  overflow: .ellipsis,
+                  style: PTText.finePrint.copyWith(fontSize: 12, color: PTColors.white(0.8)),
+                ),
+              ),
+            ],
+          ),
         ),
       ],
     );

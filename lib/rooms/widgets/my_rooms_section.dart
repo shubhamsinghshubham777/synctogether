@@ -52,26 +52,29 @@ class MyRoomsSection extends StatelessWidget {
                 fill: 1,
                 color: PTColors.textAccent,
               ),
-              Text.rich(
-                TextSpan(
-                  children: [
-                    TextSpan(
-                      text: 'Your rooms',
-                      style: compact
-                          ? PTText.cardHeading.copyWith(fontSize: 16)
-                          : PTText.cardHeading.copyWith(fontSize: 18),
-                    ),
-                    TextSpan(
-                      text: ' (${rooms.length})',
-                      style: PTText.mono.copyWith(
-                        fontSize: compact ? 13 : 14,
-                        color: PTColors.white(0.45),
+              Expanded(
+                child: Text.rich(
+                  maxLines: 1,
+                  overflow: .ellipsis,
+                  TextSpan(
+                    children: [
+                      TextSpan(
+                        text: 'Your rooms',
+                        style: compact
+                            ? PTText.cardHeading.copyWith(fontSize: 16)
+                            : PTText.cardHeading.copyWith(fontSize: 18),
                       ),
-                    ),
-                  ],
+                      TextSpan(
+                        text: ' (${rooms.length})',
+                        style: PTText.mono.copyWith(
+                          fontSize: compact ? 13 : 14,
+                          color: PTColors.white(0.45),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-              const Spacer(),
               if (endedRooms.isNotEmpty)
                 _ClearEndedButton(
                   count: endedRooms.length,
@@ -179,45 +182,31 @@ class _RoomRowState extends State<_RoomRow> {
                   crossAxisAlignment: .start,
                   spacing: 3,
                   children: [
-                    Row(
-                      spacing: 8,
-                      children: [
-                        Flexible(
-                          child: Text(
-                            room.name,
-                            overflow: .ellipsis,
-                            style: PTText.body.copyWith(
-                              fontSize: 14,
-                              fontWeight: .w600,
-                              color: live ? PTColors.white(0.95) : PTColors.white(0.65),
+                    // The badge may take at most 40% of the line and scales
+                    // down past that: a narrow tile at 2x text (split view,
+                    // SE landscape) would otherwise push it off the edge.
+                    LayoutBuilder(
+                      builder: (context, box) => Row(
+                        spacing: 8,
+                        children: [
+                          Flexible(
+                            child: Text(
+                              room.name,
+                              overflow: .ellipsis,
+                              style: PTText.body.copyWith(
+                                fontSize: 14,
+                                fontWeight: .w600,
+                                color: live ? PTColors.white(0.95) : PTColors.white(0.65),
+                              ),
                             ),
                           ),
-                        ),
-                        if (live && entry.isHost)
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: PTColors.primary.withValues(alpha: 0.2),
-                              borderRadius: BorderRadius.circular(6),
+                          if (_badge(live, entry.isHost) case final badge?)
+                            ConstrainedBox(
+                              constraints: BoxConstraints(maxWidth: box.maxWidth * 0.4),
+                              child: FittedBox(fit: .scaleDown, child: badge),
                             ),
-                            child: Text(
-                              'Host',
-                              style: PTText.mono.copyWith(fontSize: 9, color: PTColors.textAccent),
-                            ),
-                          )
-                        else if (!live)
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: PTColors.white(0.08),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Text(
-                              'Ended',
-                              style: PTText.mono.copyWith(fontSize: 9, color: PTColors.white(0.5)),
-                            ),
-                          ),
-                      ],
+                        ],
+                      ),
                     ),
                     Text(
                       _subtitle(entry, widget.serverNow),
@@ -254,6 +243,30 @@ class _RoomRowState extends State<_RoomRow> {
         ),
       ),
     );
+  }
+
+  static Widget? _badge(bool live, bool isHost) {
+    if (live && isHost) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+        decoration: BoxDecoration(
+          color: PTColors.primary.withValues(alpha: 0.2),
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: Text('Host', style: PTText.mono.copyWith(fontSize: 9, color: PTColors.textAccent)),
+      );
+    }
+    if (!live) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+        decoration: BoxDecoration(
+          color: PTColors.white(0.08),
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: Text('Ended', style: PTText.mono.copyWith(fontSize: 9, color: PTColors.white(0.5))),
+      );
+    }
+    return null;
   }
 
   static String _subtitle(MyRoom entry, DateTime serverNow) {

@@ -31,6 +31,68 @@ abstract final class PTColors {
   static const selectionHandle = Color(0xFF22D3EE);
   static const selectionHighlight = Color(0x7322D3EE);
 
+  // Accent variants.
+  static const accentBorder = Color(0xFFA78BFA); // violet outline, used at low alpha
+  static const accentBorderSoft = Color(0x4DA78BFA);
+  static const accentSoft = Color(0xFFC4A8FF);
+  static const accentBright = Color(0xFFE9DCFF);
+  static const link = Color(0xFFB79CFF);
+  static const onAccent = Color(0xFF1A1625); // text/spinner on the light accent button
+
+  // Raised surfaces (menus, popovers, toasts, tiles).
+  static const surfaceBase = Color(0xFF141022);
+  static const menuSurface = Color(0xFF1B172C);
+  static const raised = Color(0xE61E1834);
+  static const raisedStrong = Color(0xF21E1834);
+  static const noticeSurface = Color(0xCC1A162B);
+  static const toastSurface = Color(0xEE161324);
+  static const tileTop = Color(0xFF1F1A33);
+  static const tileBottom = Color(0xFF151021);
+  static const splashGlow = Color(0xFF1A1130);
+
+  // Scrims and shadows.
+  static const ink = Color(0xFF000000); // video letterbox, text on amber
+  static const scrimBase = Color(0xFF0A0812);
+  static const scrimTop = Color(0x8C0A0812);
+  static const scrimClear = Color(0x000A0812);
+  static const canvasScrim = Color(0x9908070C);
+  static const barrier = Color(0x8C06050A);
+  static const shadowSoft = Color(0x59000000);
+  static const shadow = Color(0x66000000);
+  static const shadowStrong = Color(0xCC000000);
+  static const veilTop = Color(0x990B0A14);
+  static const veilMid = Color(0x5E0B0A14);
+  static const veilLow = Color(0x260B0A14);
+  static const veilClear = Color(0x000B0A14);
+
+  // Ambient glows.
+  static const glowDeep = Color(0x387C3AED);
+  static const glowEnd = Color(0x24C084FC);
+  static const glowIndigo = Color(0x296366F1);
+
+  // Banner / pill fills per kind.
+  static const bannerSuccess = Color(0xF20F1B14);
+  static const bannerDanger = Color(0xF2241315);
+  static const bannerInfo = Color(0xF216112B);
+  static const pillWarning = Color(0xBF2A200E);
+  static const pillInfo = Color(0xBF141022);
+  static const pillDanger = Color(0xB82A1414);
+  static const dangerSurface = Color(0xD92A1414);
+
+  // Notice amber (announcements, ad state).
+  static const notice = Color(0xFFFFB74D);
+
+  // Rewards: streak flame, podium metals, avatar frames.
+  static const streak = Color(0xFFFB923C);
+  static const silver = Color(0xFFCBD5E1);
+  static const bronze = Color(0xFFD08C60);
+  static const ember = Color(0xFFF97316);
+  static const halo = Color(0xFF38BDF8);
+  static const indigo = Color(0xFF818CF8);
+  static const cyan = Color(0xFF22D3EE);
+  static const laurelLight = Color(0xFFE9D5A1);
+  static const laurel = Color(0xFFB08D57);
+
   static const buttonGradient = LinearGradient(
     begin: .topLeft,
     end: .bottomRight,
@@ -43,6 +105,7 @@ abstract final class PTColors {
     colors: [primary, gradientEnd],
   );
 
+  static Color black(double opacity) => Colors.black.withValues(alpha: opacity);
   static Color white(double opacity) => Colors.white.withValues(alpha: opacity);
   static Color glass(double opacity) => glassBase.withValues(alpha: opacity);
   static Color dialogGlass(double opacity) => dialogGlassBase.withValues(alpha: opacity);

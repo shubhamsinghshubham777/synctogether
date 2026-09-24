@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
@@ -65,6 +67,17 @@ class RoomMenuData {
   PresentMember? presenceOf(String userId) => present.where((p) => p.userId == userId).firstOrNull;
 }
 
+/// A playback control the room moved out of a crowded control bar (source,
+/// file, audio track, subtitles on a narrow phone), listed above the room
+/// actions so it stays one tap from the bar's overflow button.
+class RoomMenuAction {
+  const RoomMenuAction({required this.icon, required this.label, required this.onTap});
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+}
+
 /// Anchored top-right glass menu: member list (presence + Host badge) and
 /// room actions. `Room.dc.html` overflow-menu detail.
 ///
@@ -84,6 +97,7 @@ Future<void> showRoomOverflowMenu({
   void Function(RoomMember member)? onAssignHost,
   void Function(RoomMember member)? onReportMember,
   void Function(RoomMember member)? onUnblockMember,
+  List<RoomMenuAction> playbackActions = const [],
 }) {
   return showGeneralDialog(
     context: context,
@@ -92,27 +106,41 @@ Future<void> showRoomOverflowMenu({
     barrierColor: Colors.transparent,
     transitionDuration: const Duration(milliseconds: 140),
     pageBuilder: (dialogContext, _, _) {
-      return SafeArea(
-        child: Align(
-          alignment: .topRight,
-          child: Padding(
-            padding: const EdgeInsets.only(top: 76, right: 24),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 300, maxHeight: 520),
-              child: Material(
-                type: .transparency,
-                child: _OverflowMenuPanel(
-                  data: data,
-                  onCopyInvite: onCopyInvite,
-                  onLeave: onLeave,
-                  onEndRoom: onEndRoom,
-                  onExtendRoom: onExtendRoom,
-                  onReportConcern: onReportConcern,
-                  onTransportLockChanged: onTransportLockChanged,
-                  onKick: onKick,
-                  onAssignHost: onAssignHost,
-                  onReportMember: onReportMember,
-                  onUnblockMember: onUnblockMember,
+      // SafeArea ignores the keyboard, so lift the bottom edge above it too:
+      // otherwise the last actions sit under an open keyboard.
+      return Padding(
+        padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(dialogContext).bottom),
+        child: SafeArea(
+          child: LayoutBuilder(
+            builder: (context, constraints) => Align(
+              alignment: .topRight,
+              child: Padding(
+                padding: const EdgeInsets.only(top: 76, right: 24),
+                // Width and height both give way to the window: 300 is wider than
+                // a 320 phone less its gutters, and 520 taller than a phone held
+                // sideways. The panel scrolls inside whatever height is left.
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxWidth: math.min(300, MediaQuery.sizeOf(dialogContext).width - 32),
+                    maxHeight: math.max(0, math.min(520, constraints.maxHeight - 76 - 16)),
+                  ),
+                  child: Material(
+                    type: .transparency,
+                    child: _OverflowMenuPanel(
+                      data: data,
+                      onCopyInvite: onCopyInvite,
+                      onLeave: onLeave,
+                      onEndRoom: onEndRoom,
+                      onExtendRoom: onExtendRoom,
+                      onReportConcern: onReportConcern,
+                      onTransportLockChanged: onTransportLockChanged,
+                      onKick: onKick,
+                      onAssignHost: onAssignHost,
+                      onReportMember: onReportMember,
+                      onUnblockMember: onUnblockMember,
+                      playbackActions: playbackActions,
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -146,9 +174,11 @@ class _OverflowMenuPanel extends StatefulWidget {
     required this.onTransportLockChanged,
     required this.onKick,
     this.onAssignHost,
+    this.playbackActions = const [],
   });
 
   final ValueListenable<RoomMenuData?> data;
+  final List<RoomMenuAction> playbackActions;
   final VoidCallback onCopyInvite;
   final VoidCallback onLeave;
   final VoidCallback onEndRoom;
@@ -213,7 +243,7 @@ class _OverflowMenuPanelState extends State<_OverflowMenuPanel> {
       radius: 20,
       opacity: 0.68,
       blur: 32,
-      baseColor: const Color(0xFF141022),
+      baseColor: PTColors.surfaceBase,
       borderColor: PTColors.white(0.14),
       child: SingleChildScrollView(
         child: Column(
@@ -278,6 +308,13 @@ class _OverflowMenuPanelState extends State<_OverflowMenuPanel> {
               padding: const EdgeInsets.fromLTRB(8, 0, 8, 10),
               child: Column(
                 children: [
+                  for (final action in widget.playbackActions)
+                    _ActionRow(
+                      icon: action.icon,
+                      iconColor: PTColors.textAccent,
+                      label: action.label,
+                      onTap: () => _dismiss(action.onTap),
+                    ),
                   _ActionRow(
                     icon: Symbols.link_rounded,
                     iconColor: PTColors.textAccent,
@@ -473,7 +510,11 @@ class _MemberRow extends StatelessWidget {
       duration: PTMotion.functional(context, PTMotion.state),
       curve: PTMotion.enter,
       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-      constraints: const BoxConstraints(maxWidth: 116),
+      // Grows a little with the text size so a scaled label still gets its
+      // word in before the ellipsis, but never crowds the name out of the row.
+      constraints: BoxConstraints(
+        maxWidth: math.min(MediaQuery.textScalerOf(context).scale(116), 150),
+      ),
       decoration: BoxDecoration(
         color: status.color.withValues(alpha: 0.13),
         borderRadius: BorderRadius.circular(999),

@@ -7,6 +7,7 @@ import 'package:synctogether/ui/glass.dart';
 import 'package:synctogether/ui/identity.dart';
 import 'package:synctogether/ui/pt_motion.dart';
 import 'package:synctogether/ui/pt_theme.dart';
+import 'package:synctogether/ui/responsive.dart';
 
 import '../../rewards/rewards_models.dart';
 
@@ -86,9 +87,11 @@ class ReadinessOverlay extends StatelessWidget {
     final t = reveal.clamp(0.0, 1.0);
     var row = 0;
     return Container(
-      color: const Color(0xFF0A0812).withValues(alpha: 0.7 * t),
+      color: PTColors.scrimBase.withValues(alpha: 0.7 * t),
       alignment: .center,
-      padding: EdgeInsets.all(compact ? 16 : 28),
+      // The scrim is full-bleed; the card keeps clear of whatever system
+      // insets reach it (none, once a parent SafeArea has consumed them).
+      padding: EdgeInsets.all(compact ? 16 : 28) + MediaQuery.paddingOf(context),
       child: SingleChildScrollView(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 460),
@@ -99,7 +102,7 @@ class ReadinessOverlay extends StatelessWidget {
               opacity: 0.72 * t,
               // Never exactly zero: a zero-sigma ImageFilter.blur is degenerate.
               blur: 6 + 28 * t,
-              baseColor: const Color(0xFF141022),
+              baseColor: PTColors.surfaceBase,
               borderColor: PTColors.white(0.14 * t),
               shadow: false,
               padding: EdgeInsets.all(compact ? 18 : 24),
@@ -280,7 +283,9 @@ class _MemberStatusRow extends StatelessWidget {
               onPressed: onKick,
             )
           else if (reserveKickSlot)
-            const SizedBox(width: _kickSlot),
+            // Matches the kick button's real footprint, which grows to the
+            // touch minimum on touch input.
+            SizedBox(width: inputOf(context) == .touch ? kMinTouchTarget : _kickSlot),
         ],
       ),
     );

@@ -129,12 +129,18 @@ class _FacecamRailState extends State<FacecamRail> {
         ];
 
         final rail = switch (widget.layout) {
+          // Scrolls rather than overflowing when a short (or keyboard-squeezed)
+          // window can't fit every tile; inside an unbounded slot it is inert.
           .railLeft => SizedBox(
             width: 200,
-            child: Column(crossAxisAlignment: .start, spacing: 10, children: tiles),
+            child: SingleChildScrollView(
+              child: Column(crossAxisAlignment: .start, spacing: 10, children: tiles),
+            ),
           ),
           .stripTop => Row(spacing: 8, children: [for (final t in tiles) Expanded(child: t)]),
-          .miniStackRight => Column(crossAxisAlignment: .end, spacing: 6, children: tiles),
+          .miniStackRight => SingleChildScrollView(
+            child: Column(crossAxisAlignment: .end, spacing: 6, children: tiles),
+          ),
         };
 
         return AnimatedSize(
@@ -235,9 +241,9 @@ class _FacecamTile extends StatelessWidget {
         borderRadius: BorderRadius.circular(radius),
         border: Border.all(
           color: speaking
-              ? const Color(0xFFC4A8FF)
+              ? PTColors.accentSoft
               : isSelf
-              ? const Color(0xFFC4A8FF).withValues(alpha: 0.85)
+              ? PTColors.accentSoft.withValues(alpha: 0.85)
               : PTColors.white(0.13),
           width: speaking || isSelf ? 2 : 1,
         ),
@@ -250,11 +256,7 @@ class _FacecamTile extends StatelessWidget {
             )
           else if (isSelf)
             BoxShadow(color: PTColors.primary.withValues(alpha: 0.25), spreadRadius: 3),
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.45),
-            blurRadius: 32,
-            offset: const Offset(0, 12),
-          ),
+          BoxShadow(color: PTColors.black(0.45), blurRadius: 32, offset: const Offset(0, 12)),
         ],
       ),
       child: ClipRRect(
@@ -272,7 +274,7 @@ class _FacecamTile extends StatelessWidget {
                   gradient: LinearGradient(
                     begin: .topLeft,
                     end: .bottomRight,
-                    colors: [Color(0xFF1F1A33), Color(0xFF151021)],
+                    colors: [PTColors.tileTop, PTColors.tileBottom],
                   ),
                 ),
                 child: Center(
@@ -299,18 +301,22 @@ class _FacecamTile extends StatelessWidget {
                               mainAxisSize: .min,
                               spacing: 5,
                               children: [
-                                AnimatedSize(
-                                  duration: PTMotion.functional(context, PTMotion.state),
-                                  curve: showNames ? PTMotion.enter : PTMotion.exit,
-                                  child: showNames
-                                      ? Text(
-                                          member.displayName,
-                                          style: PTText.finePrint.copyWith(
-                                            fontSize: 11,
-                                            color: PTColors.white(0.6),
-                                          ),
-                                        )
-                                      : const SizedBox.shrink(),
+                                Flexible(
+                                  child: AnimatedSize(
+                                    duration: PTMotion.functional(context, PTMotion.state),
+                                    curve: showNames ? PTMotion.enter : PTMotion.exit,
+                                    child: showNames
+                                        ? Text(
+                                            member.displayName,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: PTText.finePrint.copyWith(
+                                              fontSize: 11,
+                                              color: PTColors.white(0.6),
+                                            ),
+                                          )
+                                        : const SizedBox.shrink(),
+                                  ),
                                 ),
                                 Icon(
                                   member.privacyMode
@@ -351,7 +357,7 @@ class _FacecamTile extends StatelessWidget {
                         vertical: compact ? 2 : 3,
                       ),
                       decoration: BoxDecoration(
-                        color: const Color(0x9908070C),
+                        color: PTColors.canvasScrim,
                         borderRadius: BorderRadius.circular(999),
                       ),
                       child: Row(
@@ -363,7 +369,7 @@ class _FacecamTile extends StatelessWidget {
                               Symbols.crown_rounded,
                               size: compact ? 10 : 12,
                               fill: 1,
-                              color: const Color(0xFFFFB800),
+                              color: PTColors.premium,
                             ),
                           Text(
                             isSelf ? 'You' : member.displayName,
@@ -416,7 +422,7 @@ class _FacecamTile extends StatelessWidget {
                   width: compact ? 17 : 22,
                   height: compact ? 17 : 22,
                   decoration: BoxDecoration(
-                    color: const Color(0xD92A1414),
+                    color: PTColors.dangerSurface,
                     shape: .circle,
                     border: Border.all(color: PTColors.dangerBorder.withValues(alpha: 0.45)),
                   ),

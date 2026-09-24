@@ -69,19 +69,19 @@ void showPTSnackVia(
 
   final (Color background, Color border, Color accent, IconData icon) = switch (kind) {
     PTSnackKind.success => (
-      const Color(0xF20F1B14),
+      PTColors.bannerSuccess,
       PTColors.online.withValues(alpha: 0.35),
       PTColors.online,
       Symbols.check_circle_rounded,
     ),
     PTSnackKind.error => (
-      const Color(0xF2241315),
+      PTColors.bannerDanger,
       PTColors.dangerBorder.withValues(alpha: 0.35),
       PTColors.danger,
       Symbols.error_rounded,
     ),
     PTSnackKind.info => (
-      const Color(0xF216112B),
+      PTColors.bannerInfo,
       PTColors.white(0.16),
       PTColors.textAccent,
       Symbols.info_rounded,
@@ -107,11 +107,7 @@ void showPTSnackVia(
             border: Border.all(color: border),
             borderRadius: BorderRadius.circular(16),
             boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.45),
-                blurRadius: 32,
-                offset: const Offset(0, 12),
-              ),
+              BoxShadow(color: PTColors.black(0.45), blurRadius: 32, offset: const Offset(0, 12)),
             ],
           ),
           child: Row(
@@ -240,13 +236,13 @@ class _PTBannerState extends State<PTBanner> with TickerProviderStateMixin {
     final onDismiss = widget.onDismiss;
     final (Color bg, Color border, Color iconColor) = switch (kind) {
       PTBannerKind.warning => (
-        const Color(0xBF2A200E),
+        PTColors.pillWarning,
         PTColors.warningBorder.withValues(alpha: 0.35),
         PTColors.warning,
       ),
-      PTBannerKind.info => (const Color(0xBF141022), PTColors.white(0.14), PTColors.textAccent),
+      PTBannerKind.info => (PTColors.pillInfo, PTColors.white(0.14), PTColors.textAccent),
       PTBannerKind.error => (
-        const Color(0xB82A1414),
+        PTColors.pillDanger,
         PTColors.dangerBorder.withValues(alpha: 0.35),
         PTColors.danger,
       ),
@@ -263,35 +259,53 @@ class _PTBannerState extends State<PTBanner> with TickerProviderStateMixin {
         border: Border.all(color: border),
         borderRadius: BorderRadius.circular(18),
         boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.45),
-            blurRadius: 40,
-            offset: const Offset(0, 14),
-          ),
+          BoxShadow(color: PTColors.black(0.45), blurRadius: 40, offset: const Offset(0, 14)),
         ],
       ),
-      child: Row(
-        spacing: 14,
-        children: [
-          glyph,
-          Expanded(
-            child: Column(
-              crossAxisAlignment: .start,
-              spacing: 2,
-              children: [
-                Text(title, style: PTText.body.copyWith(fontSize: 14, fontWeight: .w600)),
-                if (subtitle != null)
-                  Text(
-                    subtitle,
-                    style: PTText.body.copyWith(fontSize: 12.5, color: PTColors.white(0.6)),
-                  ),
-              ],
-            ),
-          ),
-          if (widget.showActivity) const TypingDots(size: 5),
-          if (trailing != null) trailing,
-          if (onDismiss != null) _dismissButton(onDismiss, iconColor),
-        ],
+      // A trailing action (Retry, Extend) shares the text's row while there is
+      // room, and drops beneath it when narrow - squeezing it instead would
+      // shrink its touch target and truncate the one line that matters.
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final stacked =
+              trailing != null &&
+              constraints.maxWidth < 440 * MediaQuery.textScalerOf(context).scale(1);
+          final row = Row(
+            spacing: 14,
+            children: [
+              glyph,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: .start,
+                  spacing: 2,
+                  children: [
+                    Text(title, style: PTText.body.copyWith(fontSize: 14, fontWeight: .w600)),
+                    if (subtitle != null)
+                      Text(
+                        subtitle,
+                        style: PTText.body.copyWith(fontSize: 12.5, color: PTColors.white(0.6)),
+                      ),
+                  ],
+                ),
+              ),
+              if (widget.showActivity) const TypingDots(size: 5),
+              if (trailing != null && !stacked) trailing,
+              if (onDismiss != null) _dismissButton(onDismiss, iconColor),
+            ],
+          );
+          if (!stacked) return row;
+          return Column(
+            crossAxisAlignment: .stretch,
+            spacing: 10,
+            children: [
+              row,
+              Padding(
+                padding: const EdgeInsets.only(left: 36),
+                child: Align(alignment: .centerLeft, child: trailing),
+              ),
+            ],
+          );
+        },
       ),
     );
 

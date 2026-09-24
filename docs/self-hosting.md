@@ -6,7 +6,7 @@ This guide provides complete instructions for self-hosting your own SyncTogether
 
 ## 1. System Architecture
 
-SyncTogether consists of four modular layers designed for low latency, secure room state synchronization, and peer-to-peer AV facecams:
+SyncTogether consists of four modular layers designed for low latency, secure room state synchronization, and SFU-routed AV facecams (LiveKit relays media; clients never connect peer-to-peer):
 
 ```mermaid
 flowchart TD
@@ -16,7 +16,7 @@ flowchart TD
         DB[("PostgreSQL Database<br/>(Rooms, Members, Chat, RLS)")]
         Realtime["Supabase Realtime<br/>(Low-Latency Room Lockstep Sync)"]
         Auth["Supabase Auth<br/>(Guest Anonymous & Google OAuth)"]
-        Functions["Supabase Edge Functions<br/>(livekit-token, media-share, cleanup-r2)"]
+        Functions["Supabase Edge Functions<br/>(livekit-token, media-share, cleanup-r2, apple-iap)"]
     end
 
     subgraph AV ["Audio / Video Mesh"]
@@ -53,7 +53,7 @@ flowchart TD
 
 Before starting, ensure you have the following installed on your machine:
 
-1. **[FVM](https://fvm.app)** (Flutter Version Management) or **Flutter SDK 3.44.x+**:
+1. **[FVM](https://fvm.app)** (Flutter Version Management) or **Flutter SDK 3.44.8** (pinned in `.fvmrc`):
    ```bash
    dart pub global activate fvm
    fvm install
@@ -92,10 +92,11 @@ Before starting, ensure you have the following installed on your machine:
 #### Option 2: Self-Hosted Supabase Docker Stack
 If self-hosting the full Supabase container stack on your own server:
 1. Follow the official [Supabase Self-Hosting Guide with Docker](https://supabase.com/docs/guides/self-hosting/docker).
-2. Once the container stack is active (default API gateway at `http://localhost:54321` or `https://api.yourdomain.com`), apply the SyncTogether schema:
+2. Once the container stack is active (the self-hosted Kong gateway listens on `http://<host>:8000` by default - put TLS in front of it, e.g. `https://api.yourdomain.com`; `54321` is only the Supabase CLI's local dev port), apply the SyncTogether schema:
    ```bash
    supabase db push --db-url "postgresql://postgres:<your-db-password>@<db-host>:5432/postgres"
    ```
+3. The migrations schedule jobs with `pg_cron` and call Edge Functions with `pg_net`; both extensions ship in the official Supabase images, but confirm they are enabled if you run a custom Postgres.
 
 ---
 
@@ -108,16 +109,16 @@ SyncTogether uses LiveKit for ultra-low-latency voice and video facecam rails.
 2. Retrieve your **WebSocket URL** (`wss://<your-subdomain>.livekit.cloud`), **API Key**, and **API Secret** from **Settings → Keys**.
 
 #### Option 2: Self-Hosted LiveKit Server (Docker)
-1. A ready-to-use Docker compose setup is included in the repo. Edit `docker/livekit.yaml` to set your desired API keys:
+1. A ready-to-use Docker Compose setup is included in the repo (`docker-compose.selfhost.yml` + `docker/livekit.yaml`). **Replace the shipped `devkey` pair** in `docker/livekit.yaml` with your own, and set `use_external_ip: true` on a public VPS (it ships `false`, which only works on a LAN):
    ```yaml
    port: 7880
    rtc:
      tcp_port: 7881
      port_range_start: 50000
      port_range_end: 50100
-     use_external_ip: true # Set to true on a public VPS
+     use_external_ip: true
    keys:
-     my_livekit_key: my_livekit_secret_change_me_in_production
+     <your_api_key>: <your_api_secret>   # must match LIVEKIT_API_KEY / LIVEKIT_API_SECRET
    ```
 2. Start the LiveKit server:
    ```bash
@@ -127,6 +128,7 @@ SyncTogether uses LiveKit for ultra-low-latency voice and video facecam rails.
    - `7880/TCP`: HTTP / WebSocket signaling
    - `7881/TCP`: WebRTC TCP fallback
    - `50000-50100/UDP`: WebRTC media streams
+4. Clients connect over `wss://`, so terminate TLS for port 7880 behind a reverse proxy (Caddy, nginx, Traefik) on a domain such as `livekit.yourdomain.com`.
 
 ---
 
@@ -134,45 +136,58 @@ SyncTogether uses LiveKit for ultra-low-latency voice and video facecam rails.
 
 SyncTogether uses Supabase Edge Functions to mint short-lived LiveKit JWT access tokens and manage media sharing.
 
-1. Create or edit `supabase/functions/.env`:
+1. Copy `supabase/functions/.env.example` to `supabase/functions/.env` and fill in at least:
    ```bash
    LIVEKIT_API_KEY=<your-livekit-api-key>
    LIVEKIT_API_SECRET=<your-livekit-api-secret>
    LIVEKIT_URL=<your-livekit-websocket-url>
    ```
-2. Deploy the Edge Functions:
+2. Upload the secrets, then deploy:
    ```bash
-   # Deploy LiveKit token minter (required for voice/video facecams)
-   supabase functions deploy livekit-token
-
-   # Set server-side secrets in Supabase
    supabase secrets set --env-file supabase/functions/.env
+
+   # LiveKit token minter (required for voice/video facecams)
+   supabase functions deploy livekit-token
    ```
 
-*(Optional)* If you are enabling media file sharing via Cloudflare R2 / S3 storage:
+*(Optional)* Media file sharing via Cloudflare R2 (or any S3-compatible store) - set the four `CF_R2_*` secrets first:
 ```bash
 supabase functions deploy media-share
 supabase functions deploy cleanup-r2
 ```
 
+> [!IMPORTANT]
+> **R2 cleanup ships switched off.** The 5-minute cron calls `invoke_r2_cleanup()`, which does nothing until you tell it where `cleanup-r2` lives. Without this, deleted and expired shared videos are never removed from your bucket:
+> ```sql
+> update public.app_settings
+>    set value = jsonb_build_object(
+>      'enabled', true,
+>      'endpoint_url', 'https://<your-supabase-host>/functions/v1/cleanup-r2',
+>      'service_role_key', '<your-service-role-key>')
+>  where key = 'r2_cleanup';
+> ```
+
+`apple-iap` is only needed if you sell Premium through the Mac App Store (secrets `APPLE_BUNDLE_ID`, `APPLE_APP_APPLE_ID`); a self-hosted instance can skip it.
+
 ---
 
 ### Step 4: Authentication Configuration
 
-SyncTogether supports flexible authentication options through Supabase Auth:
+All auth settings live in `supabase/config.toml`, with secrets read from `supabase/.env` (copy `supabase/.env.example`). Push them with:
+```bash
+supabase config push
+```
+Auth config is **not** part of `supabase db push` - a migrated database with un-pushed auth config will fail in confusing ways. On a self-hosted Docker stack, set the equivalent `GOTRUE_*` variables in its `.env` instead.
 
-1. **Anonymous Guest Sign-in**: Enabled by default. Guests receive a temporary username (`Guest-xxxx`) and can immediately create/join rooms.
-   - *Cloudflare Turnstile (Optional)*: Protects against automated guest spam. To enable, create a widget in Cloudflare Turnstile, pass `TURNSTILE_SITE_KEY` via `--dart-define=TURNSTILE_SITE_KEY=...` (or `--dart-define-from-file=.env`), and configure `SUPABASE_AUTH_CAPTCHA_SECRET` in Supabase Auth settings.
+1. **Anonymous Guest Sign-in**: Enabled (`enable_anonymous_sign_ins = true`). Guests receive a temporary username (`Guest-xxxx`) and are purged after 3 days.
+   - **Cloudflare Turnstile is required as shipped**: `[auth.captcha]` is `enabled = true`, so the server rejects any guest sign-in without a token. Either create a Turnstile widget (add `localhost` to its hostname allow-list - the client serves the challenge from a loopback page), set `SUPABASE_AUTH_CAPTCHA_SECRET` in `supabase/.env` and build the client with `TURNSTILE_SITE_KEY`, **or** set `[auth.captcha] enabled = false` before pushing.
 2. **Google OAuth (Optional)**:
-   - In your Google Cloud Console, create a **Web Application OAuth Client**.
-   - Set the Authorized Redirect URI to:
-     `https://<your-supabase-ref>.supabase.co/auth/v1/callback`
-   - In Supabase Dashboard (**Authentication → Providers → Google**), enable Google and enter your Client ID and Client Secret.
-3. **Apple Sign-In (Optional)**:
-   - In Apple Developer portal, configure Sign in with Apple for your Services ID and bundle identifier (`app.synctogether`).
-   - In Supabase Dashboard (**Authentication → Providers → Apple**), enable Apple with your Services ID, Team ID, Key ID, and private key.
-4. **Passwordless Email OTP (Optional)**:
-   - Supabase Auth supports passwordless 6-digit email OTPs or magic links out of the box. Turnstile captcha verification protects email sign-in requests against abuse.
+   - In Google Cloud Console, create a **Web Application OAuth Client** with the Authorized Redirect URI `https://<your-supabase-host>/auth/v1/callback`.
+   - Put the ID and secret in `supabase/.env` as `SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID` / `SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET`.
+   - Keep `enable_manual_linking = true` - it is what lets a guest upgrade to Google in place; with it off every upgrade fails with `manual_linking_disabled`.
+   - Set `site_url` and `additional_redirect_urls` to your own web portal's domain.
+3. **Apple Sign-In (Optional)**: `[auth.external.apple]` lists the Services ID and bundle id (`app.synctogether.web,app.synctogether`) - change them to your own identifiers and set `SUPABASE_AUTH_EXTERNAL_APPLE_SECRET` (a 6-month ES256 JWT from your `.p8` key).
+4. **Email OTP (Optional)**: Email sign-in sends a 6-digit code using the template in `supabase/templates/magic_link.html`. Configure an SMTP provider (`[auth.email.smtp]`) for production - Supabase's built-in sender is heavily rate-limited.
 
 ---
 
@@ -223,6 +238,9 @@ fvm flutter build apk --release \
   --dart-define=LIVEKIT_URL="wss://<your-livekit-url>"
 ```
 
+> [!WARNING]
+> **Hardcoded `synctogether.app` URLs.** The client builds shareable invite links (`/join/<code>`), recap and profile links, and the Google OAuth desktop bridge (`/auth/desktop-callback`) against `https://synctogether.app` in release builds (`lib/rewards/rewards_service.dart`, `lib/auth/auth_service.dart`). A self-hosted build should change those to your own web portal's origin, otherwise invites point at the official site and Google sign-in redirects through it. Guests, in-app room codes and `synctogether://join/<code>` links work without any web portal.
+
 > [!TIP]
 > **VS Code & Define Files**: Instead of passing command-line arguments manually, you can configure these defines under `args` in `.vscode/launch.json` or maintain a local JSON file passed with `--dart-define-from-file=my_config.json`.
 
@@ -238,7 +256,7 @@ The web portal (`website/`) provides marketing pages, app download links, and we
    cp .env.example .env.local
    npm install
    ```
-2. Set `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` in `website/.env.local`. *(Note: Paddle billing variables are completely optional for self-hosted instances).*
+2. Set `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SERVICE_ROLE_KEY` and `NEXT_PUBLIC_SITE_URL` in `website/.env.local`. Paddle, PostHog and the `PROD_*` admin-dashboard variables are optional for self-hosted instances; see `website/.env.example` for the full list.
 3. Run or deploy:
    ```bash
    # Development
@@ -266,6 +284,9 @@ Pass these variables at compile-time via `--dart-define=KEY=VALUE` or `--dart-de
 | `SENTRY_DSN` | *No* | Sentry project DSN for client-side crash telemetry |
 | `POSTHOG_API_KEY` | *No* | PostHog public project key for product analytics |
 | `POSTHOG_HOST` | *No* | PostHog ingest host (defaults to `https://us.i.posthog.com`) |
+| `SUPABASE_URL_LOCAL` / `SUPABASE_PUBLISHABLE_KEY_LOCAL` | *No* | Debug builds only: preferred over `SUPABASE_URL` so a debug run never touches production. Ignored in release |
+
+In debug builds with no local values set, the client falls back to `http://127.0.0.1:54321` and Turnstile's always-pass test key. **A release build with no `SUPABASE_URL` has no backend at all** - always pass it.
 
 ### Edge Functions Secrets (`supabase/functions/.env`)
 
@@ -278,6 +299,21 @@ Pass these variables at compile-time via `--dart-define=KEY=VALUE` or `--dart-de
 | `CF_R2_ACCESS_KEY_ID` | *No* | Cloudflare R2 / S3 access key |
 | `CF_R2_SECRET_ACCESS_KEY` | *No* | Cloudflare R2 / S3 secret key |
 | `CF_R2_BUCKET_NAME` | *No* | Cloudflare R2 bucket name |
+| `APPLE_BUNDLE_ID` / `APPLE_APP_APPLE_ID` | *No* | Only for the `apple-iap` function (Mac App Store purchases) |
+
+`SUPABASE_URL`, `SUPABASE_ANON_KEY` and `SUPABASE_SERVICE_ROLE_KEY` are injected into Edge Functions by Supabase automatically; don't set them yourself.
+
+### Auth Secrets (`supabase/.env`, used by `supabase config push`)
+
+| Variable | Required? | Description |
+|---|---|---|
+| `SUPABASE_AUTH_CAPTCHA_SECRET` | **Yes**, unless captcha is disabled | Cloudflare Turnstile secret key |
+| `SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID` / `_SECRET` | *No* | Google OAuth client |
+| `SUPABASE_AUTH_EXTERNAL_APPLE_SECRET` | *No* | Apple Sign-In client secret JWT |
+
+### Tuning Limits
+
+Room sizes, session lengths, AV level, media-sharing quotas and reward thresholds are database rows (`tier_limits`, `app_settings`, `reward_config`), not code - change them with an `update`. See [feature-toggles.md](feature-toggles.md) for every key.
 
 ---
 
@@ -291,14 +327,10 @@ supabase db push
 ```
 
 ### Checking Edge Functions Logs
-```bash
-supabase functions logs livekit-token
-supabase functions logs media-share
-supabase functions logs cleanup-r2
-```
+The Supabase CLI has no log-tailing command for deployed functions. On Supabase Cloud use **Dashboard → Edge Functions → <function> → Logs**; on a self-hosted stack read the functions container (`docker logs -f supabase-edge-functions`). Locally, `supabase functions serve` prints logs to the terminal.
 
 ### Secrets Backup and Recovery (`scripts/secrets.sh`)
-SyncTogether provides a secrets bundling script to safely pack, encrypt, and restore all environment and certificate secrets across the repository:
+Packs every local secret file (`.env` files, certificates, keys) into one encrypted bundle and restores them to their original paths:
 ```bash
 # Encrypt and package all repository secrets into a safe backup bundle
 ./scripts/secrets.sh pack
@@ -324,4 +356,4 @@ SyncTogether is licensed under the **PolyForm Noncommercial License 1.0.0 (PolyF
  
 - **Permitted**: You are 100% free to self-host, run, inspect, and modify SyncTogether for yourself, your family, your community, or non-commercial/educational purposes.
 - **Prohibited**: You may not sell SyncTogether, offer it as a commercial hosted service (SaaS), or use it for commercial organizational purposes without an explicit commercial license.
-- See the [LICENSE](LICENSE) file for complete legal terms.
+- See the [LICENSE](../LICENSE) file for complete legal terms.

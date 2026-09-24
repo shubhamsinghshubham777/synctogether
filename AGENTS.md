@@ -79,16 +79,20 @@ npm --prefix website test               # Run webhook idempotency & signature te
 
 Detailed domain-specific architecture and guidelines are split into progressive disclosure rules:
 
-* **[Realtime & Sync Protocol](file:///.agents/rules/sync-and-realtime.md)**: Realtime channel contracts, presence rate limits (5 calls / 30s), authority election, readiness gate lockstep, YouTube IFrame intent model.
-* **[Backend, Database & Entitlements](file:///.agents/rules/backend-and-entitlements.md)**: Supabase RLS policies, RPC invariants (`create_room`, `join_room`, `end_room`, `delete_room`), tier limits (`guest`/`free`/`premium`), Paddle webhook processing, and pgTAP testing.
-* **[Auth, Security & Platform Specifics](file:///.agents/rules/auth-and-platform.md)**: Google OAuth PKCE deep linking, Cloudflare Turnstile loopback bridge, Windows WebView2 runtime, TLS root cert overrides, Sparkle/WinSparkle self-updates.
-* **[UI Design System & Telemetry](file:///.agents/rules/ui-and-av.md)**: Glass rendering rules, LiveKit AV rails, diagnostics vs. analytics doctrines, and generated asset tools.
+* **[Realtime & Sync Protocol](.agents/rules/sync-and-realtime.md)**: Realtime channel contracts, presence rate limits (5 calls / 30s), authority election, readiness gate lockstep, YouTube IFrame intent model.
+* **[Backend, Database & Entitlements](.agents/rules/backend-and-entitlements.md)**: Supabase RLS policies, RPC invariants (`create_room`, `join_room`, `end_room`, `delete_room`), tier limits (`guest`/`free`/`premium`), Paddle webhook processing, and pgTAP testing.
+* **[Auth, Security & Platform Specifics](.agents/rules/auth-and-platform.md)**: Google OAuth PKCE deep linking, Cloudflare Turnstile loopback bridge, Windows WebView2 runtime, TLS root cert overrides, Sparkle/WinSparkle self-updates.
+* **UI Design System, AV & Telemetry**: no separate rules file - see the Conventions and Architecture sections of `CLAUDE.md` (glass rendering, LiveKit AV rails, diagnostics vs. analytics, generated asset tools).
 
 ---
 
 ## 5. Skills & Slash Commands
 
 Use the following workspace skills and slash commands:
+
+> [!IMPORTANT]
+> **`.agents/skills/` is the only real copy of every skill.** `.claude/skills` is a symlink to it (and `.agents/workflows/*.md` are symlinks to individual `SKILL.md` files), so Claude Code and other agents read the same file. Add or edit skills under `.agents/skills/<name>/SKILL.md` only - never create a regular file under `.claude/skills`, or the two copies drift apart.
+
 - `/flutter-bump <version>`: Upgrades and synchronizes the pinned Flutter/Dart SDK across `.fvmrc`, `pubspec.yaml`, and CI workflows.
 - `/release [version]`: Automates semantic version calculation, changelog generation, and installer build dispatch.
 - **Skills Available**:
@@ -96,3 +100,4 @@ Use the following workspace skills and slash commands:
   - `test-pgtap`: Running and debugging SQL database tests.
   - `test-room-sync`: Testing two synchronized client instances locally.
   - `generate-assets`: Regenerating sound, emoji, certificate, and icon assets.
+  - `document-cleanup`: Auditing docs against the code, fixing drift and deleting obsolete docs.

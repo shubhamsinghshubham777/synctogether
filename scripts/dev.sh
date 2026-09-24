@@ -14,6 +14,7 @@
 # Flags:
 #   --flutter, -f                   Launch primary Flutter client (Instance A)
 #   --instance-b, -b                Launch secondary isolated Flutter client (Instance B)
+#   --ios, -i                       Launch Flutter client on connected iOS device
 #   --hookdeck, -w                  Start Hookdeck / Paddle webhook tunnel
 # ==============================================================================
 
@@ -267,6 +268,7 @@ repair_email_templates() {
 spin_up() {
   local launch_flutter=false
   local launch_instance_b=false
+  local launch_ios=false
   local launch_tunnel=false
 
   # Parse all flags
@@ -274,6 +276,7 @@ spin_up() {
     case "$1" in
       --flutter|-f) launch_flutter=true ;;
       --instance-b|-b) launch_instance_b=true ;;
+      --ios|-i) launch_ios=true ;;
       --hookdeck|--tunnel|-w) launch_tunnel=true ;;
     esac
     shift
@@ -420,6 +423,7 @@ spin_up() {
   fi
   echo -e "\n${BOLD}${CYAN}Available Dev Commands:${NC}"
   echo -e "  • Primary Flutter Client (A):  ${YELLOW}fvm flutter run -d macos${NC} (or ./scripts/dev.sh -f)"
+  echo -e "  • iOS Device Client:           ${YELLOW}./scripts/run-ios.sh${NC} (or ./scripts/dev.sh -i)"
   echo -e "  • Second Isolated Client (B):  ${YELLOW}./scripts/run-instance-b.sh${NC} (or ./scripts/dev.sh -b)"
   echo -e "  • Run All Test Suites:         ${YELLOW}./scripts/dev.sh test${NC}"
   echo -e "  • Reset Local Database:        ${YELLOW}./scripts/dev.sh reset${NC}"
@@ -440,6 +444,9 @@ spin_up() {
   elif [ "$launch_flutter" = true ]; then
     info "Launching primary Flutter client (Instance A)..."
     fvm flutter run -d macos
+  elif [ "$launch_ios" = true ]; then
+    info "Launching iOS client on connected device via ./scripts/run-ios.sh..."
+    "$REPO_ROOT/scripts/run-ios.sh"
   fi
 }
 

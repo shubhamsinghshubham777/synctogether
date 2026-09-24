@@ -51,6 +51,16 @@
             "deviceId": "macos"
         },
         {
+            "name": "debug (iOS Device - LAN Backend)",
+            "request": "launch",
+            "type": "dart",
+            "deviceId": "ios",
+            "args": [
+                "--dart-define-from-file=.env",
+                "--dart-define=SUPABASE_URL_LOCAL=http://Shubhams-Mac-mini.local:54321"
+            ]
+        },
+        {
             "name": "debug (iOS Simulator)",
             "request": "launch",
             "type": "dart",

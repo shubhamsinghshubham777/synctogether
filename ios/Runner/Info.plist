@@ -41,6 +41,8 @@
 	<string>SyncTogether uses your camera for facecams during watch parties.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>SyncTogether uses your microphone for voice chat during watch parties.</string>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>SyncTogether connects to your local development backend or peers on your local network.</string>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsLocalNetworking</key>

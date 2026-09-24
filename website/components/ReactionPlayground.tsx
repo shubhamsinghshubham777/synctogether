@@ -229,7 +229,7 @@ export function ReactionPlayground() {
           </div>
           <Link
             href="/pricing"
-            className="block text-center text-xs text-[color:var(--pt-premium)] hover:underline underline-offset-2"
+            className="block text-center text-xs text-[color:var(--pt-premium)] underline underline-offset-2"
           >
             16 more with Premium
           </Link>

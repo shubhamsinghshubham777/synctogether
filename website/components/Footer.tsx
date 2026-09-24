@@ -94,6 +94,21 @@ export function Footer() {
                 </Link>
               </li>
               <li>
+                <Link href="/vs/syncplay" className="hover:text-white transition-colors">
+                  vs Syncplay
+                </Link>
+              </li>
+              <li>
+                <Link href="/vs/discord" className="hover:text-white transition-colors">
+                  vs Discord
+                </Link>
+              </li>
+              <li>
+                <Link href="/vs/teleparty" className="hover:text-white transition-colors">
+                  vs Teleparty
+                </Link>
+              </li>
+              <li>
                 <Link href="/faq" className="hover:text-white transition-colors">
                   Frequently Asked Questions
                 </Link>

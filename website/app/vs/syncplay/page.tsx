@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { ComparisonPage } from "@/components/ComparisonPage";
+import { SITE_CONFIG } from "@/lib/constants";
 
 export const metadata: Metadata = {
   title: "Syncplay Alternative with Voice, Video and File Sharing",
@@ -20,9 +21,19 @@ export default function VsSyncplayPage() {
         </>
       }
       intro="Syncplay is free, open source, cross-platform and genuinely good at the hard part: keeping local video files in lockstep across machines. It has been doing this for over a decade. If it already works for you, there is a reasonable argument that you should keep using it, and this page will not pretend otherwise. What follows is what SyncTogether does that Syncplay does not."
+      lastChecked="2026-09-24"
       rows={[
         { feature: "Local file sync", ours: "yes", theirs: "yes" },
-        { feature: "Free and open source", ours: "partial", theirs: "yes" },
+        { feature: "Open source", ours: (
+            <a
+              href={SITE_CONFIG.githubRepo}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline underline-offset-2 hover:text-white"
+            >
+              Source-available
+            </a>
+          ), theirs: "yes" },
         { feature: "Linux support", ours: "no", theirs: "yes" },
         { feature: "Self-hostable server", ours: "yes", theirs: "yes" },
         { feature: "Requires installing and configuring a player", ours: "no", theirs: "yes" },

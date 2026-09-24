@@ -133,13 +133,22 @@ export function TierConfigurator() {
               key === "premium" ? (isPriceLoading ? "…" : `${monthlyFormatted}/mo`) : "Free";
 
             return (
-              <div
+              // A card is a preset: pressing it moves both sliders to that tier's
+              // ceiling, which also makes it the recommendation and swaps the CTA.
+              <button
+                type="button"
                 key={key}
-                className={`relative rounded-2xl border p-5 space-y-3 transition-[transform,box-shadow,border-color,opacity] duration-300 ease-out ${
+                onClick={() => {
+                  setPeople(Math.max(2, Math.min(16, tier.limits.members)));
+                  setHours(Math.max(1, Math.min(24, Math.round(tier.limits.totalSessionMinutes / 60))));
+                }}
+                aria-pressed={isCheapest}
+                aria-label={`Show what ${tier.name} covers: ${tier.limits.members} people, ${formatTierSession(tier.limits.totalSessionMinutes)} sessions`}
+                className={`group relative text-left rounded-2xl border p-5 space-y-3 cursor-pointer hover:-translate-y-0.5 hover:border-purple-300/50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-purple-300 transition-[transform,box-shadow,border-color,opacity] duration-300 ease-out ${
                   isCheapest
                     ? "border-purple-400/60 bg-gradient-to-b from-purple-500/15 to-transparent shadow-[0_0_32px_-8px_rgba(139,92,246,0.5)] scale-[1.03]"
                     : "border-white/10 bg-white/[0.02] scale-100"
-                } ${sufficient ? "opacity-100" : "opacity-45"}`}
+                } ${sufficient ? "opacity-100" : "opacity-55 hover:opacity-90"}`}
               >
                 {isCheapest && (
                   <span className="absolute -top-3 left-1/2 -translate-x-1/2 inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-purple-500 text-white text-[10px] font-bold uppercase tracking-wider shadow-lg">
@@ -158,11 +167,11 @@ export function TierConfigurator() {
                 </div>
 
                 <div className="flex items-center gap-3 text-xs">
-                  <span className={`flex items-center gap-1 ${membersShort ? "text-red-400" : "text-gray-400"}`}>
+                  <span className={`flex items-center gap-1 ${membersShort ? "text-amber-300/90" : "text-gray-400"}`}>
                     {membersShort ? <Lock className="w-3.5 h-3.5" /> : <Users className="w-3.5 h-3.5" />}
                     {tier.limits.members}
                   </span>
-                  <span className={`flex items-center gap-1 ${sessionShort ? "text-red-400" : "text-gray-400"}`}>
+                  <span className={`flex items-center gap-1 ${sessionShort ? "text-amber-300/90" : "text-gray-400"}`}>
                     {sessionShort ? <Lock className="w-3.5 h-3.5" /> : <Clock className="w-3.5 h-3.5" />}
                     {formatTierSession(tier.limits.totalSessionMinutes)}
                   </span>
@@ -171,19 +180,22 @@ export function TierConfigurator() {
                 {/* One line, same two sentences, on every card at every setting -
                     a card with an extra sentence is a card of a different height,
                     and one that appears and disappears as the sliders move reflows
-                    all three. The red is what carries "this is the limit you just
-                    crossed", spelled out in words because the red number above it
+                    all three. The amber is what carries "this is the limit you just
+                    crossed", spelled out in words because the amber number above it
                     is invisible to a screen reader. */}
                 <p className="text-[11px] leading-snug">
-                  <span className={membersShort ? "text-red-300/80" : "text-gray-500"}>
+                  <span className={membersShort ? "text-amber-200/80" : "text-gray-500"}>
                     {tier.name} rooms hold {tier.limits.members}.
                   </span>{" "}
-                  <span className={sessionShort ? "text-red-300/80" : "text-gray-500"}>
+                  <span className={sessionShort ? "text-amber-200/80" : "text-gray-500"}>
                     Sessions run {formatTierSession(tier.limits.totalSessionMinutes)}.
                   </span>
                 </p>
 
-              </div>
+                <span className="block text-[11px] font-medium text-purple-300/0 group-hover:text-purple-300/90 group-focus-visible:text-purple-300/90 transition-colors">
+                  {isCheapest ? "Your pick" : `Try ${tier.name} →`}
+                </span>
+              </button>
             );
           })}
         </div>
@@ -210,6 +222,19 @@ export function TierConfigurator() {
             <PTButton href="/download" variant="primary" size="lg">
               Download free
             </PTButton>
+          )}
+          {cheapest !== "premium" && cheapest !== null && (
+            <p className="mt-3 text-xs text-gray-500">
+              Need more?{" "}
+              <button
+                type="button"
+                onClick={() => goPremium("annual")}
+                disabled={isLoadingCheckout || isPriceLoading}
+                className="text-[color:var(--pt-premium)] font-semibold hover:underline cursor-pointer"
+              >
+                Go Premium{isPriceLoading ? "" : ` - ${monthlyFormatted}/mo`}
+              </button>
+            </p>
           )}
         </div>
       </div>

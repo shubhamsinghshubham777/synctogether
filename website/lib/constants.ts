@@ -163,7 +163,7 @@ export const FAQ_ITEMS = [
       },
       {
         q: "Is SyncTogether free?",
-        a: "Yes! Both Guest and Free tiers are 100% free with no ads or tracking. We offer a paid Premium tier for extended sessions, 16-member rooms, and video facecams."
+        a: "Yes! Both Guest and Free tiers are 100% free with no ads, and product analytics you can switch off. We offer a paid Premium tier for extended sessions, 16-member rooms, and video facecams."
       }
     ]
   },

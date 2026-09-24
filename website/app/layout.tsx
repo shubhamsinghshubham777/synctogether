@@ -125,11 +125,15 @@ export default function RootLayout({
       lang="en"
       className={`${spaceGrotesk.variable} ${outfit.variable} ${jetbrainsMono.variable} dark`}
       style={{ colorScheme: "dark" }}
+      suppressHydrationWarning
     >
       <head>
         <meta name="color-scheme" content="dark" />
         <meta name="theme-color" content="#08070C" />
         <meta name="awin-verification" content="Awin" />
+        {/* Marks JS as live before first paint, so scroll reveals can hide content
+            without a no-JS visitor ever seeing an empty page. */}
+        <script dangerouslySetInnerHTML={{ __html: "document.documentElement.classList.add('js')" }} />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLdOrg) }}

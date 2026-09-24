@@ -1,4 +1,4 @@
-import Image from "next/image";
+import { FadeImage } from "@/components/motion/FadeImage";
 
 /**
  * Full-bleed product shot, deliberately not a card. It is the one place on the
@@ -21,7 +21,7 @@ export function ProductShot() {
           dissolves into the page instead of ending on a hard seam. */}
       <div className="relative">
         <div className="relative w-full max-w-[1600px] mx-auto">
-          <Image
+          <FadeImage
             src="/shots/room-theater.jpg"
             alt="A SyncTogether room: a film playing full-screen with four facecam tiles down the left edge, the room code and remaining time along the top, and the shared transport bar across the bottom."
             width={1920}

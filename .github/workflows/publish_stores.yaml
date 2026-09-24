@@ -12,6 +12,11 @@ on:
         type: boolean
         required: true
         default: true
+      publish_to_ios_app_store:
+        description: "Build and upload to iOS App Store Connect (IPA)"
+        type: boolean
+        required: true
+        default: false
   workflow_call:
     inputs:
       publish_to_microsoft_store:
@@ -24,6 +29,11 @@ on:
         type: boolean
         required: false
         default: true
+      publish_to_ios_app_store:
+        description: "Build and upload to iOS App Store Connect (IPA)"
+        type: boolean
+        required: false
+        default: false
 permissions:
   contents: read
   pull-requests: read
@@ -56,11 +66,20 @@ jobs:
       publish_to_store: true
     secrets: inherit
 
+  ios-app-store:
+    name: iOS App Store (IPA)
+    needs: tests
+    if: ${{ inputs.publish_to_ios_app_store }}
+    uses: ./.github/workflows/publish_ios_app_store.yaml
+    with:
+      publish_to_store: true
+    secrets: inherit
+
   summary:
     name: Store Release Summary
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    needs: [ tests, microsoft-store, mac-app-store ]
+    needs: [ tests, microsoft-store, mac-app-store, ios-app-store ]
     if: always()
     steps:
       - name: Generate Summary Report
@@ -83,6 +102,12 @@ jobs:
             echo "| Mac App Store | macOS (Universal/x64/arm64) | PKG (Sandboxed) | Disabled (STORE_BUILD) | $MAS_STATUS |" >> $GITHUB_STEP_SUMMARY
           else
             echo "| Mac App Store | macOS (Universal/x64/arm64) | PKG (Sandboxed) | Disabled (STORE_BUILD) | Skipped |" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          if [ "${{ inputs.publish_to_ios_app_store }}" = "true" ]; then
+            echo "| iOS App Store | iOS / iPadOS | IPA | N/A | ${{ needs.ios-app-store.result }} |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| iOS App Store | iOS / iPadOS | IPA | N/A | Skipped |" >> $GITHUB_STEP_SUMMARY
           fi
 
           echo "" >> $GITHUB_STEP_SUMMARY

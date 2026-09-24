@@ -15,6 +15,35 @@ the synthesized `FileInfoEvent` in `_handleStateResponse`
 (`lib/sync/sync_service.dart`) - in one move, not a half-migration. Nothing is
 blocked meanwhile.
 
+## WebKit display-link crash with the YouTube embed (macOS) - Sentry FLUTTER-4H
+
+**Symptom:** `EXC_BAD_ACCESS` / `KERN_INVALID_ADDRESS at 0x10` on a
+`CVDisplayLink` IO thread, entirely inside WebKit:
+`CVDisplayLink::performIO -> WebKit::DisplayLink::displayLinkCallback ->
+WebKit::DisplayLink::notifyObserversDisplayDidRefresh`. No app, Flutter or
+flutter_inappwebview frame is on the crashing thread. One event so far (1.7.1,
+macOS 26.5 build 25F71, Mac14,2 with 8 GB, 2026-09-23).
+
+**What the breadcrumbs show:** the host was alone in a room, switched to YouTube,
+and the embed loaded and reached `cued`. The room then sat idle for about 45 s
+before the crash. Nothing was torn down or navigated in that time: no mode
+switch, no leave, no fullscreen toggle, no webview disposal. The main thread was
+in ordinary Dart work. Free memory was only about 226 MB, so the machine was
+under heavy memory pressure.
+
+**Assessment:** a null observer dereferenced inside WebKit's display-link
+observer list. That points to a race inside WebKit itself on macOS 26, not to a
+lifecycle mistake of ours. The usual app-side cause, disposing or reparenting a
+WKWebView while its display link fires, is absent from the trail. Nothing
+changed in our code, because there is no call site to fix.
+
+**If it recurs:** check whether the events cluster on one macOS build (that
+means an OS bug, so file it with Apple Feedback and wait for a point release),
+on low free memory, or near a display change (lid, external monitor,
+fullscreen). If breadcrumbs start showing an embed disposal or a mode switch
+just before the crash, it becomes ours: look at `PTYouTubeEmbed` teardown
+and `ObjectKey(controller)` rebuilds.
+
 ## Cursor flicker over the room screen in YouTube mode (macOS)
 
 **Symptom:** whenever the pointer moves over the video area or the media

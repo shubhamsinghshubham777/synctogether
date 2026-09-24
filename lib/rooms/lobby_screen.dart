@@ -1839,10 +1839,13 @@ class _Wordmark extends StatelessWidget {
                 children: [
                   if (AppVersion.label case final version?) ...[
                     TextSpan(
-                      text: Env.usingLocalStack ? '$version · local' : version,
+                      // Demo mode is mocked end to end, so the local stack is
+                      // not what it is exercising - and it is what shoots
+                      // the marketing screenshots.
+                      text: _flagLocal ? '$version · local' : version,
                       style: PTText.mono.copyWith(
                         fontSize: compact ? 10 : 11,
-                        color: Env.usingLocalStack ? PTColors.warning : PTColors.white(0.4),
+                        color: _flagLocal ? PTColors.warning : PTColors.white(0.4),
                       ),
                     ),
                     const TextSpan(text: '  ·  '),
@@ -1858,3 +1861,5 @@ class _Wordmark extends StatelessWidget {
     );
   }
 }
+
+bool get _flagLocal => Env.usingLocalStack && !kDemoMode;

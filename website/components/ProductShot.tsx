@@ -13,7 +13,7 @@ export function ProductShot() {
           This is the room
         </p>
         <h2 className="text-3xl sm:text-4xl font-extrabold text-white font-[family-name:var(--font-space-grotesk)]">
-          Everyone on the same frame, faces down the side.
+          Same frame, same room: faces, chat, all of it.
         </h2>
       </div>
 
@@ -23,7 +23,7 @@ export function ProductShot() {
         <div className="relative w-full max-w-[1600px] mx-auto">
           <FadeImage
             src="/shots/room-theater.jpg"
-            alt="A SyncTogether room: a film playing full-screen with four facecam tiles down the left edge, the room code and remaining time along the top, and the shared transport bar across the bottom."
+            alt="A SyncTogether room: a film playing full-screen with four facecam tiles down the left edge, the room code and remaining time along the top, the party chat open on the right, and the shared transport bar across the bottom."
             width={1920}
             height={1080}
             sizes="100vw"

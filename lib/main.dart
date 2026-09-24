@@ -36,6 +36,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:window_manager/window_manager.dart';
 
 const bool kCaptureStore = bool.fromEnvironment('CAPTURE_STORE', defaultValue: false);
+const bool kCaptureWebsite = bool.fromEnvironment('CAPTURE_WEBSITE', defaultValue: false);
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -143,7 +144,9 @@ class _MainAppState extends State<MainApp> with WidgetsBindingObserver {
     _appLinks.getInitialLink().then((uri) {
       if (uri != null) _onDeepLink(uri, source: 'cold_start');
     });
-    if (kCaptureStore) {
+    if (kCaptureWebsite) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => runWebsiteCaptureFlow(router));
+    } else if (kCaptureStore) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         runStoreCaptureFlow(context, router);
       });

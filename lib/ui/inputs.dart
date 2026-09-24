@@ -592,3 +592,53 @@ class _PTSwitch extends StatelessWidget {
     );
   }
 }
+
+/// A glass checkbox row: the whole tile toggles.
+class PTCheckTile extends StatelessWidget {
+  const PTCheckTile({super.key, required this.label, required this.value, required this.onChanged});
+
+  final String label;
+
+  final bool value;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: .opaque,
+      onTap: () => onChanged(!value),
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            color: PTColors.white(0.05),
+            border: Border.all(color: PTColors.white(0.12)),
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Row(
+            spacing: 12,
+            children: [
+              AnimatedContainer(
+                duration: Durations.short2,
+                width: 22,
+                height: 22,
+                alignment: .center,
+                decoration: BoxDecoration(
+                  gradient: value ? PTColors.buttonGradient : null,
+                  color: value ? null : PTColors.white(0.06),
+                  border: Border.all(color: value ? Colors.transparent : PTColors.white(0.22)),
+                  borderRadius: BorderRadius.circular(7),
+                ),
+                child: value
+                    ? const Icon(Symbols.check_rounded, size: 15, color: Colors.white)
+                    : null,
+              ),
+              Expanded(child: Text(label, style: PTText.body.copyWith(fontSize: 13.5))),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}

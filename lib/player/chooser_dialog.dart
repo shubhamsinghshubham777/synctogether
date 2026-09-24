@@ -3,6 +3,7 @@ import 'package:material_symbols_icons/symbols.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:synctogether/player/track_label.dart';
 import 'package:synctogether/player/youtube/pt_youtube_controller.dart';
+import 'package:synctogether/ui/glass.dart';
 import 'package:synctogether/ui/pt_theme.dart';
 
 /// Body for [showGlassDialog]: audio/subtitle track picker styled per the
@@ -32,7 +33,7 @@ class ChooserDialog<T> extends StatelessWidget {
       children: [
         Padding(
           padding: const EdgeInsets.only(left: 6),
-          child: Text(type, style: PTText.cardHeading),
+          child: Text(type, textScaler: dialogHeadingScaler(context), style: PTText.cardHeading),
         ),
         // No inner scroller: showGlassDialog already scrolls the body within a
         // keyboard-aware height, and a nested 320px one outgrew that on short

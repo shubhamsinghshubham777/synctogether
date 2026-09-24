@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:synctogether/rooms/room_models.dart';
 import 'package:synctogether/ui/buttons.dart';
+import 'package:synctogether/ui/glass.dart';
 import 'package:synctogether/ui/pt_theme.dart';
 
 class EndedRoomDialog extends StatelessWidget {
@@ -29,6 +30,8 @@ class EndedRoomDialog extends StatelessWidget {
       children: [
         Row(
           spacing: 13,
+          // Top-aligned: a heading that wraps keeps its icon by the first line.
+          crossAxisAlignment: .start,
           children: [
             Container(
               width: 44,
@@ -45,7 +48,11 @@ class EndedRoomDialog extends StatelessWidget {
                 crossAxisAlignment: .start,
                 spacing: 2,
                 children: [
-                  Text('Watch session ended', style: PTText.cardHeading),
+                  Text(
+                    'Watch session ended',
+                    textScaler: dialogHeadingScaler(context),
+                    style: PTText.cardHeading,
+                  ),
                   Text(
                     room.name,
                     style: PTText.mono.copyWith(fontSize: 12, color: PTColors.textAccent),
@@ -86,32 +93,30 @@ class EndedRoomDialog extends StatelessWidget {
           child: Column(
             spacing: 8,
             children: [
-              Row(
+              PTButtonBar(
                 spacing: 10,
-                children: [
-                  Expanded(
-                    child: PTButton(
-                      label: 'Start fresh room',
-                      icon: Symbols.add_rounded,
-                      variant: .primary,
-                      height: 44,
-                      onPressed: () {
-                        Navigator.of(context).pop();
-                        onStartFresh();
-                      },
-                    ),
+                buttons: [
+                  PTButton(
+                    maxLines: 2,
+                    label: 'Start fresh room',
+                    icon: Symbols.add_rounded,
+                    variant: .primary,
+                    height: 44,
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                      onStartFresh();
+                    },
                   ),
-                  Expanded(
-                    child: PTButton(
-                      label: 'Get Premium',
-                      icon: Symbols.workspace_premium_rounded,
-                      variant: .secondary,
-                      height: 44,
-                      onPressed: () {
-                        Navigator.of(context).pop();
-                        onUpgrade();
-                      },
-                    ),
+                  PTButton(
+                    maxLines: 2,
+                    label: 'Get Premium',
+                    icon: Symbols.workspace_premium_rounded,
+                    variant: .secondary,
+                    height: 44,
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                      onUpgrade();
+                    },
                   ),
                 ],
               ),

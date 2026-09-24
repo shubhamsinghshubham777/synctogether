@@ -238,34 +238,43 @@ class _LoginScreenState extends State<LoginScreen> {
       body: AmbientBackground(
         child: PTResponsive(
           // Tablets fall back here too, hence the SafeArea.
-          desktop: (_) => SafeArea(
-            child: Center(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(vertical: 24),
-                child: Center(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 440),
-                    child: GlassPanel(
-                      radius: 28,
-                      opacity: 0.5,
-                      blur: 32,
-                      padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 44),
-                      child: Column(
-                        mainAxisSize: .min,
-                        children: [
-                          const _Brand(),
-                          const SizedBox(height: 34),
-                          _actions(),
-                          const SizedBox(height: 26),
-                          const PTEntrance(delay: Duration(milliseconds: 240), child: _TermsNote()),
-                        ],
+          // A short window (the 900x600 desktop minimum) tightens the card's
+          // vertical rhythm so it fits whole, rather than scrolling its terms
+          // line off the bottom.
+          desktop: (context) {
+            final short = MediaQuery.sizeOf(context).height < 720;
+            return SafeArea(
+              child: Center(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(vertical: 24),
+                  child: Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 440),
+                      child: GlassPanel(
+                        radius: 28,
+                        opacity: 0.5,
+                        blur: 32,
+                        padding: EdgeInsets.symmetric(horizontal: 40, vertical: short ? 24 : 44),
+                        child: Column(
+                          mainAxisSize: .min,
+                          children: [
+                            _Brand(compact: short),
+                            SizedBox(height: short ? 20 : 34),
+                            _actions(),
+                            SizedBox(height: short ? 18 : 26),
+                            const PTEntrance(
+                              delay: Duration(milliseconds: 240),
+                              child: _TermsNote(),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
                 ),
               ),
-            ),
-          ),
+            );
+          },
           landscape: (_) => SafeArea(
             child: Row(
               children: [
@@ -594,13 +603,16 @@ class _LoginScreenState extends State<LoginScreen> {
 }
 
 class _Brand extends StatelessWidget {
-  const _Brand({this.large = false});
+  const _Brand({this.large = false, this.compact = false});
 
   final bool large;
 
+  /// Short desktop windows: a smaller mark so the whole card fits.
+  final bool compact;
+
   @override
   Widget build(BuildContext context) {
-    final logoSize = large ? 84.0 : 72.0;
+    final logoSize = large ? 84.0 : (compact ? 56.0 : 72.0);
     return Column(
       mainAxisSize: .min,
       children: [
@@ -625,10 +637,13 @@ class _Brand extends StatelessWidget {
             child: Icon(Icons.play_arrow_rounded, size: logoSize * 0.53, color: Colors.white),
           ),
         ),
-        SizedBox(height: large ? 26 : 22),
+        SizedBox(height: large ? 26 : (compact ? 14 : 22)),
         PTEntrance(
           delay: const Duration(milliseconds: 60),
-          child: Text('SyncTogether', style: PTText.display.copyWith(fontSize: large ? 32 : 30)),
+          child: Text(
+            'SyncTogether',
+            style: PTText.display.copyWith(fontSize: large ? 32 : (compact ? 26 : 30)),
+          ),
         ),
         const SizedBox(height: 8),
         PTEntrance(

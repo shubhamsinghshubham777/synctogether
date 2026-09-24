@@ -10,6 +10,7 @@ import '../support/screen_matrix.dart';
 /// out - that every control respects the system insets, then unmounts so periodic timers (lobby polling,
 /// loaders) are cancelled before the test ends.
 Future<void> finishCase(WidgetTester tester) async {
+  await captureScreenshot(tester);
   expectNoOverflow(tester);
   if (insetCheckActive) {
     await expectRespectsInsets(tester);

@@ -34,6 +34,11 @@ class StreakChip extends StatelessWidget {
   /// board, which is where the sign-in card lives.
   final bool locked;
 
+  /// Glyphs grow with the text (capped), so the flame is not a dot beside
+  /// large type.
+  static double _glyph(BuildContext context, double size) =>
+      MediaQuery.textScalerOf(context).clamp(maxScaleFactor: 1.6).scale(size);
+
   @override
   Widget build(BuildContext context) {
     if (locked) return _locked(context);
@@ -53,12 +58,17 @@ class StreakChip extends StatelessWidget {
         spacing: 7,
         children: [
           SizedBox.square(
-            dimension: 18,
+            dimension: _glyph(context, 18),
             child: Stack(
               alignment: .center,
               children: [
                 if (streak.qualifiedToday)
-                  Icon(Symbols.local_fire_department_rounded, size: 17, fill: 1, color: colour)
+                  Icon(
+                    Symbols.local_fire_department_rounded,
+                    size: _glyph(context, 17),
+                    fill: 1,
+                    color: colour,
+                  )
                 else ...[
                   // Determinate, so this is the documented exception to the
                   // PTLoader rule rather than a stray spinner - it reports how
@@ -70,7 +80,12 @@ class StreakChip extends StatelessWidget {
                     backgroundColor: PTColors.white(0.12),
                     valueColor: AlwaysStoppedAnimation(colour),
                   ),
-                  Icon(Symbols.local_fire_department_rounded, size: 10, fill: 1, color: colour),
+                  Icon(
+                    Symbols.local_fire_department_rounded,
+                    size: _glyph(context, 10),
+                    fill: 1,
+                    color: colour,
+                  ),
                 ],
               ],
             ),
@@ -90,32 +105,32 @@ class StreakChip extends StatelessWidget {
     );
   }
 
+  // Dimmed through its colours, not an `Opacity`: fading a glass pill makes
+  // its BackdropFilter blur an empty layer (the glass rendering trap).
   Widget _locked(BuildContext context) {
-    return Opacity(
-      opacity: 0.62,
-      child: GlassPill(
-        onTap: onTap,
-        padding: EdgeInsets.symmetric(horizontal: compact ? 9 : 12, vertical: 7),
-        child: Row(
-          mainAxisSize: .min,
-          spacing: 7,
-          children: [
-            Icon(
-              Symbols.local_fire_department_rounded,
-              size: 17,
-              fill: 1,
-              color: PTColors.white(0.45),
+    return GlassPill(
+      onTap: onTap,
+      opacity: 0.35,
+      padding: EdgeInsets.symmetric(horizontal: compact ? 9 : 12, vertical: 7),
+      child: Row(
+        mainAxisSize: .min,
+        spacing: 7,
+        children: [
+          Icon(
+            Symbols.local_fire_department_rounded,
+            size: _glyph(context, 17),
+            fill: 1,
+            color: PTColors.white(0.3),
+          ),
+          Text(
+            compact ? 'Streaks' : 'Sign in for streaks',
+            style: PTText.body.copyWith(
+              fontSize: 13,
+              fontWeight: .w600,
+              color: PTColors.white(0.42),
             ),
-            Text(
-              compact ? 'Streaks' : 'Sign in for streaks',
-              style: PTText.body.copyWith(
-                fontSize: 13,
-                fontWeight: .w600,
-                color: PTColors.white(0.6),
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

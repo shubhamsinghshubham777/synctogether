@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:livekit_client/livekit_client.dart' as lk;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -82,6 +83,21 @@ RoomMenuData _menuData() {
 }
 
 void main() {
+  // livekit's `Hardware` singleton enumerates devices through flutter_webrtc
+  // the first time anything touches it. With no plugin that throws
+  // asynchronously, and a screenshot's `runAsync` gives the error room to
+  // land inside whichever case got there first - so answer it with no devices.
+  setUpAll(() {
+    final messenger = TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    messenger.setMockMethodCallHandler(
+      const MethodChannel('FlutterWebRTC.Method'),
+      (call) async => call.method == 'getSources' ? {'sources': <Object>[]} : null,
+    );
+    messenger.setMockMethodCallHandler(
+      const MethodChannel('FlutterWebRTC.Event'),
+      (_) async => null,
+    );
+  });
   setUp(() async {
     SharedPreferences.setMockInitialValues({});
     await DevicePreferenceService.instance.init(await SharedPreferences.getInstance());

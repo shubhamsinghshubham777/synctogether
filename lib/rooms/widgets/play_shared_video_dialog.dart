@@ -3,6 +3,7 @@ import 'package:material_symbols_icons/symbols.dart';
 import 'package:synctogether/player/youtube/youtube_links.dart';
 import 'package:synctogether/ui/buttons.dart';
 import 'package:synctogether/ui/loader.dart';
+import 'package:synctogether/ui/glass.dart';
 import 'package:synctogether/ui/pt_theme.dart';
 
 class PlaySharedVideoDialog extends StatelessWidget {
@@ -44,6 +45,7 @@ class PlaySharedVideoDialog extends StatelessWidget {
         Text(
           'Play this video?',
           textAlign: .center,
+          textScaler: dialogHeadingScaler(context),
           style: PTText.screenTitle.copyWith(fontSize: 20),
         ),
         const SizedBox(height: 8),
@@ -53,22 +55,19 @@ class PlaySharedVideoDialog extends StatelessWidget {
           style: PTText.body.copyWith(fontSize: 13.5, color: PTColors.white(0.55)),
         ),
         const SizedBox(height: 20),
-        Row(
-          spacing: 12,
-          children: [
-            Expanded(
-              child: PTButton(
-                label: 'Not now',
-                variant: .secondary,
-                onPressed: () => Navigator.of(context).pop(false),
-              ),
+        PTButtonBar(
+          buttons: [
+            PTButton(
+              maxLines: 2,
+              label: 'Not now',
+              variant: .secondary,
+              onPressed: () => Navigator.of(context).pop(false),
             ),
-            Expanded(
-              child: PTButton(
-                label: 'Play it',
-                icon: Symbols.play_arrow_rounded,
-                onPressed: () => Navigator.of(context).pop(true),
-              ),
+            PTButton(
+              maxLines: 2,
+              label: 'Play it',
+              icon: Symbols.play_arrow_rounded,
+              onPressed: () => Navigator.of(context).pop(true),
             ),
           ],
         ),

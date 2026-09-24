@@ -116,13 +116,14 @@ Future<void> showRoomOverflowMenu({
               alignment: .topRight,
               child: Padding(
                 padding: const EdgeInsets.only(top: 76, right: 24),
-                // Width and height both give way to the window: 300 is wider than
-                // a 320 phone less its gutters, and 520 taller than a phone held
-                // sideways. The panel scrolls inside whatever height is left.
+                // Width gives way to the window (300 is wider than a 320 phone
+                // less its gutters). Height is whatever the window leaves: a fixed
+                // cap cut the last action in half on windows with room to spare.
+                // The panel scrolls only when the window is genuinely short.
                 child: ConstrainedBox(
                   constraints: BoxConstraints(
                     maxWidth: math.min(300, MediaQuery.sizeOf(dialogContext).width - 32),
-                    maxHeight: math.max(0, math.min(520, constraints.maxHeight - 76 - 16)),
+                    maxHeight: math.max(0, constraints.maxHeight - 76 - 16),
                   ),
                   child: Material(
                     type: .transparency,
@@ -150,10 +151,13 @@ Future<void> showRoomOverflowMenu({
     },
     transitionBuilder: (context, animation, _, child) {
       final curved = CurvedAnimation(parent: animation, curve: Curves.easeOutCubic);
-      return FadeTransition(
-        opacity: curved,
-        child: SlideTransition(
-          position: Tween(begin: const Offset(0, -0.02), end: Offset.zero).animate(curved),
+      // Slide + scale, never fade: the menu is a GlassPanel, and an opacity
+      // layer over its BackdropFilter blurs an empty layer (the glass trap).
+      return SlideTransition(
+        position: Tween(begin: const Offset(0, -0.02), end: Offset.zero).animate(curved),
+        child: ScaleTransition(
+          scale: Tween(begin: 0.96, end: 1.0).animate(curved),
+          alignment: Alignment.topRight,
           child: child,
         ),
       );

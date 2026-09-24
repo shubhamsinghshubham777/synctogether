@@ -554,6 +554,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       spacing: 14,
       children: [
         _ActionRow(
+          minRowWidth: 220,
           children: [
             Expanded(child: Text('Watching', style: PTText.panelHeading)),
             PTButton(
@@ -1447,6 +1448,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 child: Text(
                   profile.displayName,
                   key: ValueKey(profile.displayName),
+                  maxLines: 2,
+                  textAlign: vertical ? .center : .start,
                   overflow: .ellipsis,
                   style: PTText.screenTitle,
                 ),
@@ -1715,15 +1718,20 @@ class _SetPasswordDialogState extends State<_SetPasswordDialog> {
 /// row cannot fit; below that point the last child drops under the rest,
 /// right-aligned, instead of overflowing.
 class _ActionRow extends StatelessWidget {
-  const _ActionRow({required this.children});
+  const _ActionRow({required this.children, this.minRowWidth = 360});
 
   final List<Widget> children;
+
+  /// Width (before text scaling) below which the trailing action drops
+  /// beneath the rest. A heading with one short button needs far less room
+  /// than a card with an icon, two lines of copy and a CTA.
+  final double minRowWidth;
 
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, box) {
-        final needed = MediaQuery.textScalerOf(context).scale(360);
+        final needed = MediaQuery.textScalerOf(context).scale(minRowWidth);
         if (box.maxWidth >= needed) {
           return Row(spacing: 12, children: children);
         }

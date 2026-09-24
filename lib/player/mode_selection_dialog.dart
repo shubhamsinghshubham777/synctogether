@@ -22,30 +22,27 @@ class ModeSelectionDialog extends StatelessWidget {
         crossAxisAlignment: .start,
         spacing: 14,
         children: [
-          Text('Leave room?', style: PTText.cardHeading),
+          GlassDialogHeader(title: 'Leave room?', titleStyle: PTText.cardHeading),
           Text(
             'Are you sure you want to leave this room? You will return to the lobby.',
             style: PTText.body.copyWith(fontSize: 14, color: PTColors.white(0.65), height: 1.5),
           ),
-          Row(
-            spacing: 12,
-            children: [
-              Expanded(
-                child: PTButton(
-                  label: 'Stay',
-                  variant: .secondary,
-                  height: 42,
-                  onPressed: () => Navigator.of(dialogContext).pop(false),
-                ),
+          PTButtonBar(
+            buttons: [
+              PTButton(
+                maxLines: 2,
+                label: 'Stay',
+                variant: .secondary,
+                height: 42,
+                onPressed: () => Navigator.of(dialogContext).pop(false),
               ),
-              Expanded(
-                child: PTButton(
-                  label: 'Leave room',
-                  variant: .destructive,
-                  icon: Symbols.logout_rounded,
-                  height: 42,
-                  onPressed: () => Navigator.of(dialogContext).pop(true),
-                ),
+              PTButton(
+                maxLines: 2,
+                label: 'Leave room',
+                variant: .destructive,
+                icon: Symbols.logout_rounded,
+                height: 42,
+                onPressed: () => Navigator.of(dialogContext).pop(true),
               ),
             ],
           ),
@@ -67,29 +64,17 @@ class ModeSelectionDialog extends StatelessWidget {
         child: Column(
           mainAxisSize: .min,
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const SizedBox(width: 36),
-                Expanded(
-                  child: PTEntrance(
-                    duration: PTMotion.state,
-                    offset: 8,
-                    child: Text(
-                      'What are we watching?',
-                      textAlign: TextAlign.center,
-                      style: PTText.screenTitle.copyWith(fontSize: 20),
-                    ),
-                  ),
-                ),
-                PTIconButton(
-                  icon: Symbols.close_rounded,
-                  iconSize: 20,
-                  size: 36,
-                  tooltip: 'Leave room',
-                  onPressed: () => _handleClose(context),
-                ),
-              ],
+            PTEntrance(
+              duration: PTMotion.state,
+              offset: 8,
+              child: GlassDialogHeader(
+                title: 'What are we watching?',
+                centered: true,
+                spacing: 0,
+                closeIconSize: 20,
+                closeTooltip: 'Leave room',
+                onClose: () => _handleClose(context),
+              ),
             ),
             const SizedBox(height: 8),
             PTEntrance(
@@ -103,36 +88,41 @@ class ModeSelectionDialog extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 18),
-            Row(
-              spacing: 14,
-              children: [
-                Expanded(
-                  child: PTEntrance(
-                    delay: const Duration(milliseconds: 80),
-                    duration: PTMotion.state,
-                    offset: 8,
-                    child: _SourceOption(
-                      icon: Symbols.video_file_rounded,
-                      label: 'Local file',
-                      description: 'Play from your device',
-                      onTap: () => Navigator.of(context).pop(InitialMode.local),
-                    ),
+            LayoutBuilder(
+              builder: (context, constraints) {
+                // Two cards side by side need room for "Local file" at the
+                // reader's text size; short of that they become full-width
+                // rows, the phone-native shape, rather than wrapping mid-word.
+                final compact = constraints.maxWidth < MediaQuery.textScalerOf(context).scale(320);
+                final options = [
+                  _SourceOption(
+                    icon: Symbols.video_file_rounded,
+                    label: 'Local file',
+                    description: 'Play from your device',
+                    compact: compact,
+                    onTap: () => Navigator.of(context).pop(InitialMode.local),
                   ),
-                ),
-                Expanded(
-                  child: PTEntrance(
-                    delay: const Duration(milliseconds: 120),
-                    duration: PTMotion.state,
-                    offset: 8,
-                    child: _SourceOption(
-                      icon: Symbols.smart_display_rounded,
-                      label: 'YouTube',
-                      description: 'Paste a link',
-                      onTap: () => Navigator.of(context).pop(InitialMode.youtube),
-                    ),
+                  _SourceOption(
+                    icon: Symbols.smart_display_rounded,
+                    label: 'YouTube',
+                    description: 'Paste a link',
+                    compact: compact,
+                    onTap: () => Navigator.of(context).pop(InitialMode.youtube),
                   ),
-                ),
-              ],
+                ];
+                final entered = [
+                  for (final (i, option) in options.indexed)
+                    PTEntrance(
+                      delay: Duration(milliseconds: 80 + 40 * i),
+                      duration: PTMotion.state,
+                      offset: 8,
+                      child: option,
+                    ),
+                ];
+                return compact
+                    ? Column(crossAxisAlignment: .stretch, spacing: 10, children: entered)
+                    : Row(spacing: 14, children: [for (final e in entered) Expanded(child: e)]);
+              },
             ),
           ],
         ),
@@ -147,8 +137,10 @@ class _SourceOption extends StatefulWidget {
     required this.label,
     required this.description,
     required this.onTap,
+    this.compact = false,
   });
 
+  final bool compact;
   final IconData icon;
   final String label;
   final String description;
@@ -177,7 +169,9 @@ class _SourceOptionState extends State<_SourceOption> {
           curve: PTMotion.enter,
           child: AnimatedContainer(
             duration: PTMotion.functional(context, PTMotion.hover),
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 22),
+            padding: widget.compact
+                ? const EdgeInsets.symmetric(horizontal: 16, vertical: 14)
+                : const EdgeInsets.symmetric(horizontal: 14, vertical: 22),
             decoration: BoxDecoration(
               color: _hovered ? PTColors.primary.withValues(alpha: 0.18) : PTColors.white(0.05),
               border: Border.all(
@@ -187,19 +181,40 @@ class _SourceOptionState extends State<_SourceOption> {
               ),
               borderRadius: BorderRadius.circular(18),
             ),
-            child: Column(
-              mainAxisSize: .min,
-              spacing: 9,
-              children: [
-                Icon(widget.icon, size: 38, fill: 1, color: PTColors.textAccent),
-                Text(widget.label, style: PTText.buttonLabel),
-                Text(
-                  widget.description,
-                  textAlign: .center,
-                  style: PTText.finePrint.copyWith(color: PTColors.white(0.5)),
-                ),
-              ],
-            ),
+            child: widget.compact
+                ? Row(
+                    spacing: 14,
+                    children: [
+                      Icon(widget.icon, size: 30, fill: 1, color: PTColors.textAccent),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: .start,
+                          spacing: 2,
+                          children: [
+                            Text(widget.label, style: PTText.buttonLabel),
+                            Text(
+                              widget.description,
+                              style: PTText.finePrint.copyWith(color: PTColors.white(0.5)),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Icon(Symbols.chevron_right_rounded, size: 20, color: PTColors.white(0.4)),
+                    ],
+                  )
+                : Column(
+                    mainAxisSize: .min,
+                    spacing: 9,
+                    children: [
+                      Icon(widget.icon, size: 38, fill: 1, color: PTColors.textAccent),
+                      Text(widget.label, style: PTText.buttonLabel),
+                      Text(
+                        widget.description,
+                        textAlign: .center,
+                        style: PTText.finePrint.copyWith(color: PTColors.white(0.5)),
+                      ),
+                    ],
+                  ),
           ),
         ),
       ),

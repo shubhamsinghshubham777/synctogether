@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 
 import 'glass.dart';
 import 'loader.dart';
@@ -50,8 +51,13 @@ class PTButton extends StatefulWidget {
     this.height = 50,
     this.expand = true,
     this.loading = false,
+    this.maxLines = 1,
   });
 
+  /// Lines the label may wrap to before it ellipsizes. Past one, the button
+  /// grows past [height] to hold them - opt in where the layout around the
+  /// button can take that (a dialog's actions), not in fixed-height slots.
+  final int maxLines;
   final String label;
   final VoidCallback? onPressed;
   final PTButtonVariant variant;
@@ -95,9 +101,9 @@ class _PTButtonState extends State<PTButton> {
 
     final label = Text(
       widget.label,
-      // The button is a fixed height, so a label that wraps gets clipped
-      // rather than growing the button. Degrade to an ellipsis instead.
-      maxLines: 1,
+      // A label that no longer fits ellipsizes, unless the caller let it wrap
+      // ([maxLines]); either way one line keeps the button at [height].
+      maxLines: widget.maxLines,
       overflow: .ellipsis,
       textAlign: .center,
       style: PTText.buttonLabel.copyWith(
@@ -112,27 +118,34 @@ class _PTButtonState extends State<PTButton> {
       switchOutCurve: PTMotion.exit,
       child: widget.loading
           ? PTLoader(key: const ValueKey('loading'), size: 20, color: foreground)
-          : LayoutBuilder(
+          : _IntrinsicLabel(
               key: const ValueKey('label'),
-              builder: (context, constraints) {
-                // A squeezed button (narrow window, large text) keeps its
-                // words and sheds the icons first: each costs 29px the label
-                // could have used, and a fixed-width glyph cannot ellipsize.
-                final icons = (widget.icon != null ? 1 : 0) + (widget.trailingIcon != null ? 1 : 0);
-                final showIcons = constraints.maxWidth >= icons * 29 + 56;
-                return Row(
-                  mainAxisSize: .min,
-                  mainAxisAlignment: .center,
-                  spacing: 10,
-                  children: [
-                    if (showIcons && widget.icon != null)
-                      Icon(widget.icon, size: 19, color: foreground),
-                    Flexible(child: label),
-                    if (showIcons && widget.trailingIcon != null)
-                      Icon(widget.trailingIcon, size: 19, color: foreground),
-                  ],
-                );
-              },
+              label: widget.label,
+              style: label.style!,
+              icons: (widget.icon != null ? 1 : 0) + (widget.trailingIcon != null ? 1 : 0),
+              maxLines: widget.maxLines,
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  // A squeezed button (narrow window, large text) keeps its
+                  // words and sheds the icons first: each costs 29px the label
+                  // could have used, and a fixed-width glyph cannot ellipsize.
+                  final icons =
+                      (widget.icon != null ? 1 : 0) + (widget.trailingIcon != null ? 1 : 0);
+                  final showIcons = constraints.maxWidth >= icons * 29 + 40;
+                  return Row(
+                    mainAxisSize: .min,
+                    mainAxisAlignment: .center,
+                    spacing: 10,
+                    children: [
+                      if (showIcons && widget.icon != null)
+                        Icon(widget.icon, size: 19, color: foreground),
+                      Flexible(child: label),
+                      if (showIcons && widget.trailingIcon != null)
+                        Icon(widget.trailingIcon, size: 19, color: foreground),
+                    ],
+                  );
+                },
+              ),
             ),
     );
 
@@ -147,10 +160,11 @@ class _PTButtonState extends State<PTButton> {
           duration: Durations.short2,
           opacity: enabled || widget.loading ? 1 : 0.45,
           child: Container(
-            height: widget.height,
+            constraints: BoxConstraints(minHeight: widget.height),
             width: widget.expand ? double.infinity : null,
-            padding: widget.expand ? null : const EdgeInsets.symmetric(horizontal: 22),
-            alignment: .center,
+            // Vertical padding only matters once a label wraps or scales past
+            // the minimum height; horizontal keeps big text off the edges.
+            padding: EdgeInsets.symmetric(horizontal: widget.expand ? 8 : 22, vertical: 2),
             decoration: BoxDecoration(
               gradient: gradient,
               color: color,
@@ -172,7 +186,9 @@ class _PTButtonState extends State<PTButton> {
                     borderRadius: BorderRadius.circular(16),
                   )
                 : null,
-            child: content,
+            // Hug the content (not fill the parent) so a loose parent still
+            // gets a [height]-tall button.
+            child: Center(widthFactor: widget.expand ? null : 1, heightFactor: 1, child: content),
           ),
         ),
       ),
@@ -689,3 +705,156 @@ const _googleRed = Color(0xFFEA4335);
 const _googleBlue = Color(0xFF4285F4);
 const _googleYellow = Color(0xFFFBBC05);
 const _googleGreen = Color(0xFF34A853);
+
+/// A dialog's row of actions: side by side while every label fits on one
+/// line, stacked full-width once any would not (narrow screen, large text).
+///
+/// [buttons] are given in row order. Stacked, the primary action moves to the
+/// top, nearest the content it acts on (see [_stackOrder]). Side by side
+/// the buttons share the width equally, exactly as `Expanded` did before.
+class PTButtonBar extends StatelessWidget {
+  const PTButtonBar({super.key, required this.buttons, this.spacing = 12, this.alignEnd = false});
+
+  final List<PTButton> buttons;
+
+  /// Side by side, hug the labels and sit at the trailing edge (the desktop
+  /// settings shape) instead of sharing the width. Give such buttons
+  /// `expand: false`.
+  final bool alignEnd;
+  final double spacing;
+
+  /// The width [button] needs to show its label on one line with its icons.
+  static double _needed(BuildContext context, PTButton button) {
+    final painter = TextPainter(
+      text: TextSpan(
+        text: button.label,
+        style: PTText.buttonLabel.copyWith(fontWeight: button.variant == .primary ? .w600 : .w500),
+      ),
+      textScaler: MediaQuery.textScalerOf(context),
+      textDirection: TextDirection.ltr,
+      maxLines: 1,
+    )..layout();
+    final icons = (button.icon != null ? 1 : 0) + (button.trailingIcon != null ? 1 : 0);
+    final width = painter.width + icons * 29 + 2 * (button.expand ? 8 : 22) + 4;
+    painter.dispose();
+    return width;
+  }
+
+  /// Stacked, the primary action leads; without one, the row's last button
+  /// (its confirm, destructive or not) does.
+  List<PTButton> _stackOrder() {
+    final primary = buttons.where((b) => b.variant == .primary).toList();
+    if (primary.isEmpty) return buttons.reversed.toList();
+    return [...primary, ...buttons.where((b) => b.variant != .primary)];
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final free = constraints.maxWidth - spacing * (buttons.length - 1);
+        final needed = [for (final b in buttons) _needed(context, b)];
+        final fits = alignEnd
+            ? needed.fold(0.0, (a, b) => a + b) <= free
+            : needed.every((w) => w <= free / buttons.length);
+        if (fits && alignEnd) {
+          return Row(mainAxisAlignment: .end, spacing: spacing, children: buttons);
+        }
+        if (fits) {
+          return Row(
+            spacing: spacing,
+            children: [for (final b in buttons) Expanded(child: b)],
+          );
+        }
+        return Column(
+          mainAxisSize: .min,
+          crossAxisAlignment: .stretch,
+          spacing: spacing * 0.75,
+          children: _stackOrder(),
+        );
+      },
+    );
+  }
+}
+
+/// Answers intrinsic queries for a button label from the text alone, so a
+/// [PTButton] can sit under `IntrinsicHeight`/`IntrinsicWidth` (login, lobby)
+/// even though its icon shedding needs a `LayoutBuilder`, which cannot report
+/// intrinsic dimensions. The answer is the one-line label plus its icons -
+/// what the button shows whenever it has the room.
+class _IntrinsicLabel extends SingleChildRenderObjectWidget {
+  const _IntrinsicLabel({
+    super.key,
+    required this.label,
+    required this.style,
+    required this.icons,
+    required this.maxLines,
+    required super.child,
+  });
+
+  final String label;
+  final TextStyle style;
+  final int icons;
+  final int maxLines;
+
+  @override
+  _RenderIntrinsicLabel createRenderObject(BuildContext context) => _RenderIntrinsicLabel(
+    label: label,
+    style: style,
+    icons: icons,
+    maxLines: maxLines,
+    scaler: MediaQuery.textScalerOf(context),
+  );
+
+  @override
+  void updateRenderObject(BuildContext context, _RenderIntrinsicLabel renderObject) {
+    renderObject
+      ..label = label
+      ..style = style
+      ..icons = icons
+      ..maxLines = maxLines
+      ..scaler = MediaQuery.textScalerOf(context);
+  }
+}
+
+class _RenderIntrinsicLabel extends RenderProxyBox {
+  _RenderIntrinsicLabel({
+    required this.label,
+    required this.style,
+    required this.icons,
+    required this.maxLines,
+    required this.scaler,
+  });
+
+  String label;
+  TextStyle style;
+  int icons;
+  int maxLines;
+  TextScaler scaler;
+
+  /// Mirrors the build: icons show when [width] leaves the label room, and
+  /// the label wraps to at most [maxLines] lines.
+  Size _measure([double width = double.infinity]) {
+    final showIcons = width >= icons * 29 + 40;
+    final iconWidth = showIcons ? icons * 29.0 : 0.0;
+    final painter = TextPainter(
+      text: TextSpan(text: label, style: style),
+      textScaler: scaler,
+      textDirection: TextDirection.ltr,
+      maxLines: maxLines,
+      ellipsis: '\u2026',
+    )..layout(maxWidth: math.max(0, width - iconWidth));
+    final size = Size(painter.width + iconWidth, painter.height);
+    painter.dispose();
+    return size;
+  }
+
+  @override
+  double computeMinIntrinsicWidth(double height) => _measure().width;
+  @override
+  double computeMaxIntrinsicWidth(double height) => _measure().width;
+  @override
+  double computeMinIntrinsicHeight(double width) => _measure(width).height;
+  @override
+  double computeMaxIntrinsicHeight(double width) => _measure(width).height;
+}

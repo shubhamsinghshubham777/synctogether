@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:synctogether/ui/inputs.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:synctogether/rooms/widgets/media_sharing_prompt_dialog.dart';
 import 'package:synctogether/rooms/widgets/sharing_progress_indicator.dart';
@@ -84,11 +85,11 @@ void main() {
       expect(find.textContaining('150 MB'), findsOneWidget);
 
       // Check remember checkbox
-      await tester.tap(find.byType(Checkbox));
+      await tester.tap(find.byType(PTCheckTile));
       await tester.pumpAndSettle();
 
       // Tap "Share with room"
-      await tester.tap(find.text('Share with Room'));
+      await tester.tap(find.text('Share with room'));
       await tester.pumpAndSettle();
 
       expect(result, isNotNull);
@@ -121,7 +122,7 @@ void main() {
       await tester.tap(find.text('Open Dialog'));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('Play Locally Only'));
+      await tester.tap(find.text('Play locally'));
       await tester.pumpAndSettle();
 
       expect(result, isNotNull);

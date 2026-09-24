@@ -97,6 +97,9 @@ class MediaQuotaDialogBody extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Row(
                 spacing: 12,
+                // Pinned to the top so a heading that wraps at large text
+                // keeps the tile beside its first line, not its middle.
+                crossAxisAlignment: .start,
                 children: [
                   Container(
                     width: 46,
@@ -123,7 +126,11 @@ class MediaQuotaDialogBody extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Media Sharing Quota', style: PTText.cardHeading),
+                        Text(
+                          'Media Sharing Quota',
+                          textScaler: dialogHeadingScaler(context),
+                          style: PTText.cardHeading,
+                        ),
                         Text(
                           isPrem
                               ? 'Unlimited with Premium'
@@ -353,6 +360,7 @@ class MediaQuotaDialogBody extends StatelessWidget {
                           },
                         ),
                         PTButton(
+                          maxLines: 2,
                           label: 'Sign in with Email (Free 2.5 GB)',
                           icon: Symbols.mail_rounded,
                           variant: .secondary,
@@ -371,6 +379,7 @@ class MediaQuotaDialogBody extends StatelessWidget {
                         ),
                         actionRow(
                           PTButton(
+                            maxLines: 2,
                             label: 'Go Premium (Unlimited)',
                             icon: Symbols.crown_rounded,
                             variant: .secondary,
@@ -380,6 +389,7 @@ class MediaQuotaDialogBody extends StatelessWidget {
                             },
                           ),
                           PTButton(
+                            maxLines: 2,
                             label: 'Got it',
                             variant: .secondary,
                             expand: false,
@@ -389,9 +399,14 @@ class MediaQuotaDialogBody extends StatelessWidget {
                       ],
                     )
                   : isPrem
-                  ? PTButton(label: 'Got it', onPressed: () => Navigator.of(context).pop())
+                  ? PTButton(
+                      maxLines: 2,
+                      label: 'Got it',
+                      onPressed: () => Navigator.of(context).pop(),
+                    )
                   : actionRow(
                       PTButton(
+                        maxLines: 2,
                         label: quotaContext?.reason == .singleFileLimitExceeded
                             ? 'Upgrade for 10.0 GB Files'
                             : 'Get Unlimited with Premium',
@@ -405,6 +420,7 @@ class MediaQuotaDialogBody extends StatelessWidget {
                         },
                       ),
                       PTButton(
+                        maxLines: 2,
                         label: 'Got it',
                         variant: .secondary,
                         expand: false,

@@ -3416,7 +3416,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
       message,
       kind: kind,
       bottomInset: switch (layoutOf(context)) {
-        .desktop => 180,
+        .desktop || .tablet => 180,
         .landscape => 120,
         .portrait => 70,
       },
@@ -4061,11 +4061,14 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
                               reactions: _reactionStream!,
                               assets: _reactionAssets,
                               spawnBottom: switch (layoutOf(context)) {
-                                PTLayout.desktop => 180,
+                                PTLayout.desktop || PTLayout.tablet => 180,
                                 PTLayout.landscape => 150,
                                 PTLayout.portrait => 96,
                               },
-                              compact: layoutOf(context) != PTLayout.desktop,
+                              compact: switch (layoutOf(context)) {
+                                .desktop || .tablet => false,
+                                _ => true,
+                              },
                             ),
                           ),
                         ),
@@ -4884,7 +4887,6 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
             child: GestureDetector(
               behavior: .opaque,
               onTap: _toggleControlsVisible,
-              onDoubleTap: _toggleFullscreen,
               child: _video(),
             ),
           ),

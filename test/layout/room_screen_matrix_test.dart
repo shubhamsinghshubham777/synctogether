@@ -331,7 +331,7 @@ void main() {
         expect(bar, findsOneWidget);
         // Rects are global, so a scaled-down row shows up as smaller targets.
         Rect rectOf(Finder f) => tester.getRect(find.descendant(of: bar, matching: f).first);
-        expect(rectOf(find.byTooltip('Mic on')).width, closeTo(44, 0.5));
+        expect(rectOf(find.byTooltip('Mic on (D)')).width, closeTo(44, 0.5));
         expect(rectOf(find.byType(PTPlayButton)).width, closeTo(52, 0.5));
         expect(find.descendant(of: bar, matching: find.byTooltip('Subtitles')), findsNothing);
         await _finish(tester);

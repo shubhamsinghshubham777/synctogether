@@ -42,29 +42,11 @@ class _Disclosure extends StatelessWidget {
           children: [
             Padding(
               padding: const EdgeInsets.only(right: 8),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: .start,
-                      spacing: 4,
-                      children: [
-                        Text('What we collect', style: PTText.screenTitle.copyWith(fontSize: 20)),
-                        Text(
-                          'All of it. This is the complete list - there is no second one.',
-                          style: PTText.caption,
-                        ),
-                      ],
-                    ),
-                  ),
-                  PTIconButton(
-                    icon: Symbols.close_rounded,
-                    iconSize: 18,
-                    size: 36,
-                    tooltip: 'Close',
-                    onPressed: () => Navigator.of(context).pop(),
-                  ),
-                ],
+              child: GlassDialogHeader(
+                title: 'What we collect',
+                subtitle: 'All of it. This is the complete list - there is no second one.',
+                titleGap: 4,
+                onClose: () => Navigator.of(context).pop(),
               ),
             ),
             const SizedBox(height: 18),
@@ -82,7 +64,11 @@ class _Disclosure extends StatelessWidget {
             const SizedBox(height: 18),
             Padding(
               padding: const EdgeInsets.only(right: 8),
-              child: PTButton(label: 'Got it', onPressed: () => Navigator.of(context).pop()),
+              child: PTButton(
+                maxLines: 2,
+                label: 'Got it',
+                onPressed: () => Navigator.of(context).pop(),
+              ),
             ),
           ],
         );

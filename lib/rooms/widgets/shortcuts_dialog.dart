@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:synctogether/platform.dart';
 import 'package:synctogether/ui/buttons.dart';
+import 'package:synctogether/ui/glass.dart';
 import 'package:synctogether/ui/pt_theme.dart';
 
 class ShortcutsDialog extends StatelessWidget {
@@ -44,6 +45,7 @@ class ShortcutsDialog extends StatelessWidget {
         Text(
           'Keyboard shortcuts',
           textAlign: .center,
+          textScaler: dialogHeadingScaler(context),
           style: PTText.screenTitle.copyWith(fontSize: 20),
         ),
         const SizedBox(height: 8),
@@ -71,6 +73,7 @@ class ShortcutsDialog extends StatelessWidget {
         ),
         const SizedBox(height: 22),
         PTButton(
+          maxLines: 2,
           label: 'Got it',
           icon: Symbols.check_rounded,
           onPressed: () => Navigator.of(context).pop(),

@@ -4,6 +4,7 @@ import 'package:synctogether/auth/auth_service.dart';
 import 'package:synctogether/platform.dart';
 import 'package:synctogether/ui/buttons.dart';
 import 'package:synctogether/ui/pt_motion.dart';
+import 'package:synctogether/ui/glass.dart';
 import 'package:synctogether/ui/pt_theme.dart';
 
 class ExtendRoomDialog extends StatefulWidget {
@@ -28,6 +29,8 @@ class _ExtendRoomDialogState extends State<ExtendRoomDialog> {
       children: [
         Row(
           spacing: 13,
+          // Top-aligned: a heading that wraps keeps its icon by the first line.
+          crossAxisAlignment: .start,
           children: [
             Container(
               width: 46,
@@ -48,7 +51,11 @@ class _ExtendRoomDialogState extends State<ExtendRoomDialog> {
               child: Column(
                 crossAxisAlignment: .start,
                 children: [
-                  Text('Keep it going', style: PTText.cardHeading),
+                  Text(
+                    'Keep it going',
+                    textScaler: dialogHeadingScaler(context),
+                    style: PTText.cardHeading,
+                  ),
                   Text(
                     '${_label(widget.headroomMinutes)} of room time left to spend',
                     style: PTText.caption.copyWith(fontSize: 12, fontWeight: .w400),
@@ -72,23 +79,21 @@ class _ExtendRoomDialogState extends State<ExtendRoomDialog> {
         ),
         Padding(
           padding: const EdgeInsets.only(top: 6),
-          child: Row(
+          child: PTButtonBar(
             spacing: 11,
-            children: [
-              Expanded(
-                child: PTButton(
-                  label: 'Not now',
-                  variant: .secondary,
-                  height: 48,
-                  onPressed: () => Navigator.of(context).pop(),
-                ),
+            buttons: [
+              PTButton(
+                maxLines: 2,
+                label: 'Not now',
+                variant: .secondary,
+                height: 48,
+                onPressed: () => Navigator.of(context).pop(),
               ),
-              Expanded(
-                child: PTButton(
-                  label: 'Add ${_label(_selected)}',
-                  height: 48,
-                  onPressed: () => Navigator.of(context).pop(_selected),
-                ),
+              PTButton(
+                maxLines: 2,
+                label: 'Add ${_label(_selected)}',
+                height: 48,
+                onPressed: () => Navigator.of(context).pop(_selected),
               ),
             ],
           ),
@@ -176,25 +181,24 @@ class PremiumTeaseDialog extends StatelessWidget {
       crossAxisAlignment: .start,
       spacing: 14,
       children: [
-        Row(
+        GlassDialogHeader(
+          title: headline,
+          titleStyle: PTText.cardHeading,
           spacing: 13,
-          children: [
-            Container(
-              width: 46,
-              height: 46,
-              decoration: BoxDecoration(
-                gradient: PTColors.brandGradient,
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: const Icon(
-                Symbols.workspace_premium_rounded,
-                size: 24,
-                fill: 1,
-                color: Colors.white,
-              ),
+          leading: Container(
+            width: 46,
+            height: 46,
+            decoration: BoxDecoration(
+              gradient: PTColors.brandGradient,
+              borderRadius: BorderRadius.circular(14),
             ),
-            Expanded(child: Text(headline, style: PTText.cardHeading)),
-          ],
+            child: const Icon(
+              Symbols.workspace_premium_rounded,
+              size: 24,
+              fill: 1,
+              color: Colors.white,
+            ),
+          ),
         ),
         Text(
           body,
@@ -234,27 +238,25 @@ class PremiumTeaseDialog extends StatelessWidget {
 
   Widget _teaseActions(BuildContext context) {
     if (_isDesktop) {
-      return Row(
+      return PTButtonBar(
         spacing: 11,
-        children: [
-          Expanded(
-            child: PTButton(
-              label: 'Maybe later',
-              variant: .secondary,
-              height: 48,
-              onPressed: () => Navigator.of(context).pop(),
-            ),
+        buttons: [
+          PTButton(
+            maxLines: 2,
+            label: 'Maybe later',
+            variant: .secondary,
+            height: 48,
+            onPressed: () => Navigator.of(context).pop(),
           ),
-          Expanded(
-            child: PTButton(
-              label: 'Go Premium',
-              icon: Symbols.crown_rounded,
-              height: 48,
-              onPressed: () {
-                Navigator.of(context).pop();
-                (onUpgrade ?? onNotify)?.call();
-              },
-            ),
+          PTButton(
+            maxLines: 2,
+            label: 'Go Premium',
+            icon: Symbols.crown_rounded,
+            height: 48,
+            onPressed: () {
+              Navigator.of(context).pop();
+              (onUpgrade ?? onNotify)?.call();
+            },
           ),
         ],
       );
@@ -279,6 +281,7 @@ class PremiumTeaseDialog extends StatelessWidget {
           ),
         ),
         PTButton(
+          maxLines: 2,
           label: 'Close',
           variant: .secondary,
           height: 48,
@@ -312,6 +315,7 @@ class PremiumTeaseDialog extends StatelessWidget {
             },
           ),
         PTButton(
+          maxLines: 2,
           label: 'Maybe later',
           variant: .secondary,
           height: 48,

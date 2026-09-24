@@ -235,7 +235,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
             child: _Tile(
               label: 'Rank',
               value: rankOrdinal(rank),
-              suffix: _scope.title.toLowerCase(),
+              suffix: _scope.title.toLowerCase().replaceFirst('your ', ''),
               icon: Symbols.trophy_rounded,
               tint: PTColors.premium,
             ),
@@ -669,8 +669,37 @@ class _BoardRow extends StatelessWidget {
       3 => PTColors.bronze,
       _ => null,
     };
+    // Below ~360 logical px (before text scaling) the streak column starves
+    // the name to a few letters, so it folds into the subtitle line instead.
+    return LayoutBuilder(
+      builder: (context, box) {
+        final compact = box.maxWidth < MediaQuery.textScalerOf(context).scale(360);
+        return _build(medal, compact);
+      },
+    );
+  }
+
+  Widget _streak() => Row(
+    mainAxisSize: .min,
+    spacing: 3,
+    children: [
+      const Icon(Symbols.local_fire_department_rounded, size: 14, fill: 1, color: PTColors.streak),
+      Text(
+        '${row.streak}',
+        style: PTText.finePrint.copyWith(fontSize: 12, color: PTColors.white(0.7)),
+      ),
+    ],
+  );
+
+  Widget _build(Color? medal, bool compact) {
+    final watched = Text(
+      '${formatWatchHours(row.watched)} watched',
+      maxLines: 1,
+      overflow: .ellipsis,
+      style: PTText.finePrint.copyWith(fontSize: 11),
+    );
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      padding: EdgeInsets.symmetric(horizontal: compact ? 12 : 16, vertical: 10),
       decoration: BoxDecoration(
         color: row.isMe ? PTColors.primary.withValues(alpha: 0.12) : Colors.transparent,
         border: row.isMe
@@ -678,10 +707,10 @@ class _BoardRow extends StatelessWidget {
             : null,
       ),
       child: Row(
-        spacing: 12,
+        spacing: compact ? 10 : 12,
         children: [
           SizedBox(
-            width: 26,
+            width: compact ? 20 : 26,
             child: FittedBox(
               fit: .scaleDown,
               child: Text(
@@ -714,34 +743,22 @@ class _BoardRow extends StatelessWidget {
                   overflow: .ellipsis,
                   style: PTText.body.copyWith(fontSize: 14, fontWeight: .w600),
                 ),
-                Text(
-                  '${formatWatchHours(row.watched)} watched',
-                  maxLines: 1,
-                  overflow: .ellipsis,
-                  style: PTText.finePrint.copyWith(fontSize: 11),
-                ),
+                if (compact && row.streak > 0)
+                  Row(
+                    spacing: 8,
+                    children: [
+                      _streak(),
+                      Flexible(child: watched),
+                    ],
+                  )
+                else
+                  watched,
               ],
             ),
           ),
-          if (row.streak > 0)
-            Row(
-              mainAxisSize: .min,
-              spacing: 3,
-              children: [
-                const Icon(
-                  Symbols.local_fire_department_rounded,
-                  size: 14,
-                  fill: 1,
-                  color: PTColors.streak,
-                ),
-                Text(
-                  '${row.streak}',
-                  style: PTText.finePrint.copyWith(fontSize: 12, color: PTColors.white(0.7)),
-                ),
-              ],
-            ),
+          if (!compact && row.streak > 0) _streak(),
           SizedBox(
-            width: 56,
+            width: compact ? 48 : 56,
             child: FittedBox(
               fit: .scaleDown,
               alignment: .centerRight,

@@ -235,17 +235,11 @@ class _CameraCaptureDialogState extends State<CameraCaptureDialog> {
       mainAxisSize: .min,
       crossAxisAlignment: .stretch,
       children: [
-        Row(
-          mainAxisAlignment: .spaceBetween,
-          children: [
-            Text('Take Profile Photo', style: PTText.cardHeading.copyWith(fontSize: 17)),
-            PTIconButton(
-              icon: Symbols.close_rounded,
-              size: 32,
-              iconSize: 18,
-              onPressed: () => Navigator.of(context).pop(),
-            ),
-          ],
+        GlassDialogHeader(
+          title: 'Take Profile Photo',
+          titleStyle: PTText.cardHeading.copyWith(fontSize: 17),
+          closeSize: 32,
+          onClose: () => Navigator.of(context).pop(),
         ),
         const SizedBox(height: 20),
         LayoutBuilder(
@@ -271,26 +265,23 @@ class _CameraCaptureDialogState extends State<CameraCaptureDialog> {
           ),
         ],
         const SizedBox(height: 24),
-        Row(
-          spacing: 12,
-          children: [
-            Expanded(
-              child: PTButton(
-                label: 'Cancel',
-                variant: .secondary,
-                height: 44,
-                onPressed: () => Navigator.of(context).pop(),
-              ),
+        PTButtonBar(
+          buttons: [
+            PTButton(
+              maxLines: 2,
+              label: 'Cancel',
+              variant: .secondary,
+              height: 44,
+              onPressed: () => Navigator.of(context).pop(),
             ),
-            Expanded(
-              child: PTButton(
-                label: 'Capture',
-                icon: Symbols.photo_camera_rounded,
-                variant: .primary,
-                height: 44,
-                loading: _capturing,
-                onPressed: (_initializing || _error != null) ? null : _capturePhoto,
-              ),
+            PTButton(
+              maxLines: 2,
+              label: 'Capture',
+              icon: Symbols.photo_camera_rounded,
+              variant: .primary,
+              height: 44,
+              loading: _capturing,
+              onPressed: (_initializing || _error != null) ? null : _capturePhoto,
             ),
           ],
         ),

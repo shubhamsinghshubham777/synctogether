@@ -79,10 +79,16 @@ class _ReportDialogState extends State<_ReportDialog> {
       children: [
         Row(
           spacing: 10,
+          // Top-aligned: a heading that wraps keeps its icon by the first line.
+          crossAxisAlignment: .start,
           children: [
             const Icon(Symbols.flag_rounded, size: 22, color: PTColors.warningBorder),
             Expanded(
-              child: Text('Report a concern', style: PTText.screenTitle.copyWith(fontSize: 18)),
+              child: Text(
+                'Report a concern',
+                textScaler: dialogHeadingScaler(context),
+                style: PTText.screenTitle.copyWith(fontSize: 18),
+              ),
             ),
           ],
         ),
@@ -164,32 +170,29 @@ class _ReportDialogState extends State<_ReportDialog> {
           style: PTText.finePrint.copyWith(color: PTColors.white(0.5)),
         ),
         const SizedBox(height: 16),
-        Row(
-          spacing: 12,
-          children: [
-            Expanded(
-              child: PTButton(
-                label: 'Cancel',
-                variant: .secondary,
-                onPressed: () => Navigator.of(context).pop(),
-              ),
+        PTButtonBar(
+          buttons: [
+            PTButton(
+              maxLines: 2,
+              label: 'Cancel',
+              variant: .secondary,
+              onPressed: () => Navigator.of(context).pop(),
             ),
-            Expanded(
-              child: PTButton(
-                label: 'Send report',
-                icon: Symbols.send_rounded,
-                // A report with no category is not triageable, so the button
-                // waits rather than filing something nobody can act on.
-                onPressed: _reason == null
-                    ? null
-                    : () => Navigator.of(context).pop(
-                        ReportOutcome(
-                          reason: _reason!,
-                          details: _details.text.trim().isEmpty ? null : _details.text.trim(),
-                          block: _block && !widget.alreadyBlocked,
-                        ),
+            PTButton(
+              maxLines: 2,
+              label: 'Send report',
+              icon: Symbols.send_rounded,
+              // A report with no category is not triageable, so the button
+              // waits rather than filing something nobody can act on.
+              onPressed: _reason == null
+                  ? null
+                  : () => Navigator.of(context).pop(
+                      ReportOutcome(
+                        reason: _reason!,
+                        details: _details.text.trim().isEmpty ? null : _details.text.trim(),
+                        block: _block && !widget.alreadyBlocked,
                       ),
-              ),
+                    ),
             ),
           ],
         ),

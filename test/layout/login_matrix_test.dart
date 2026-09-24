@@ -7,6 +7,7 @@ import 'layout_support.dart';
 void main() {
   screenMatrix('login/providers', (tester, c, s) async {
     await pumpAtSize(tester, const LoginScreen(), c, textScale: s);
+    await tester.pump(const Duration(milliseconds: 1500)); // entrance choreography
     await finishCase(tester);
   });
 

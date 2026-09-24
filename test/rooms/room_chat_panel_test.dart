@@ -250,6 +250,22 @@ void main() {
     );
 
     expect(find.byTooltip('Report message'), findsOneWidget);
+    // Touch: the actions are hidden (and untappable) until the message is tapped.
+    expect(
+      tester
+          .widget<IgnorePointer>(
+            find
+                .ancestor(
+                  of: find.byTooltip('Report message'),
+                  matching: find.byType(IgnorePointer),
+                )
+                .first,
+          )
+          .ignoring,
+      isTrue,
+    );
+    await tester.tap(find.textContaining('inappropriate content'));
+    await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('Report message'));
     await tester.pumpAndSettle();
 

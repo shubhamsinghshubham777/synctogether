@@ -25,8 +25,6 @@ class RecapPerson {
   final AvatarFrame? frame;
 }
 
-const double _kRecapContentWidth = 414;
-
 /// Shown when a session ends. Returns true if the user shared it.
 ///
 /// This is the artefact the whole word-of-mouth loop is built on, so its one
@@ -44,22 +42,7 @@ Future<bool> showRecapDialog({
     context: context,
     width: 470,
     padding: const EdgeInsets.fromLTRB(28, 26, 28, 24),
-    // The card is screenshot art, so a narrow screen scales it rather than
-    // reflowing it: 414 is its content width at the 470 cap.
-    builder: (context) => LayoutBuilder(
-      builder: (context, constraints) {
-        final body = _RecapBody(recap: recap, people: people, selfId: selfId);
-        // Large text grows the card's layout width in step, so the art keeps
-        // its 1.0x proportions and is then scaled down to fit as one image.
-        final width = MediaQuery.textScalerOf(context).scale(_kRecapContentWidth);
-        if (constraints.maxWidth >= width) return body;
-        return FittedBox(
-          fit: .scaleDown,
-          alignment: .topCenter,
-          child: SizedBox(width: width, child: body),
-        );
-      },
-    ),
+    builder: (context) => _RecapBody(recap: recap, people: people, selfId: selfId),
   );
   return shared ?? false;
 }
@@ -116,57 +99,44 @@ class _RecapBodyState extends State<_RecapBody> {
       mainAxisSize: .min,
       crossAxisAlignment: .stretch,
       children: [
-        Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: .start,
-                spacing: 2,
-                children: [
-                  Text('That was a good one', style: PTText.screenTitle.copyWith(fontSize: 21)),
-                  Text(
-                    '${formatWatchTime(recap.length)} in sync with '
-                    '${recap.peakMembers - 1} other${recap.peakMembers == 2 ? '' : 's'}.',
-                    style: PTText.caption,
-                  ),
-                ],
-              ),
-            ),
-            PTIconButton(
-              icon: Symbols.close_rounded,
-              iconSize: 18,
-              size: 36,
-              tooltip: 'Close',
-              onPressed: () => Navigator.of(context).pop(_url != null),
-            ),
-          ],
+        GlassDialogHeader(
+          title: 'That was a good one',
+          titleStyle: PTText.screenTitle.copyWith(fontSize: 21),
+          subtitle:
+              '${formatWatchTime(recap.length)} in sync with '
+              '${recap.peakMembers - 1} other${recap.peakMembers == 2 ? '' : 's'}.',
+          onClose: () => Navigator.of(context).pop(_url != null),
         ),
         const SizedBox(height: 20),
-        Row(
-          spacing: 10,
-          children: [
-            Expanded(
-              child: _Stat(
-                icon: Symbols.schedule_rounded,
-                value: formatWatchTime(recap.length),
-                label: 'watched',
-              ),
-            ),
-            Expanded(
-              child: _Stat(
-                icon: Symbols.mood_rounded,
-                value: '${recap.reactions}',
-                label: 'reactions',
-              ),
-            ),
-            Expanded(
-              child: _Stat(
-                icon: Symbols.forum_rounded,
-                value: '${recap.messages}',
-                label: 'messages',
-              ),
-            ),
-          ],
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final stats = [
+              (Symbols.schedule_rounded, formatWatchTime(recap.length), 'watched'),
+              (Symbols.mood_rounded, '${recap.reactions}', 'reactions'),
+              (Symbols.forum_rounded, '${recap.messages}', 'messages'),
+            ];
+            // Three tiles need ~80px each at the reader's text size; short of
+            // that they become full-width rows rather than truncated numbers.
+            final stacked = constraints.maxWidth < MediaQuery.textScalerOf(context).scale(240);
+            if (stacked) {
+              return Column(
+                spacing: 8,
+                children: [
+                  for (final (icon, value, label) in stats)
+                    _Stat(icon: icon, value: value, label: label, inline: true),
+                ],
+              );
+            }
+            return Row(
+              spacing: 10,
+              children: [
+                for (final (icon, value, label) in stats)
+                  Expanded(
+                    child: _Stat(icon: icon, value: value, label: label),
+                  ),
+              ],
+            );
+          },
         ),
         if (recap.superlatives.isNotEmpty) ...[
           const SizedBox(height: 20),
@@ -192,6 +162,7 @@ class _RecapBodyState extends State<_RecapBody> {
         ],
         const SizedBox(height: 22),
         PTButton(
+          maxLines: 2,
           label: _url != null ? 'Copy link again' : 'Share this',
           icon: _url != null ? Symbols.link_rounded : Symbols.ios_share_rounded,
           loading: _sharing,
@@ -219,8 +190,10 @@ class _RecapBodyState extends State<_RecapBody> {
 }
 
 class _Stat extends StatelessWidget {
-  const _Stat({required this.icon, required this.value, required this.label});
+  const _Stat({required this.icon, required this.value, required this.label, this.inline = false});
 
+  /// A full-width row (icon, value, label) for a narrow card.
+  final bool inline;
   final IconData icon;
   final String value;
   final String label;
@@ -232,20 +205,39 @@ class _Stat extends StatelessWidget {
       opacity: 0.4,
       blur: 16,
       shadow: false,
-      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-      child: Column(
-        spacing: 4,
-        children: [
-          Icon(icon, size: 17, color: PTColors.textAccent),
-          Text(
-            value,
-            maxLines: 1,
-            overflow: .ellipsis,
-            style: PTText.cardHeading.copyWith(fontSize: 15),
-          ),
-          Text(label, style: PTText.finePrint.copyWith(fontSize: 10)),
-        ],
-      ),
+      padding: inline
+          ? const EdgeInsets.symmetric(vertical: 10, horizontal: 14)
+          : const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+      child: inline
+          ? Row(
+              spacing: 10,
+              children: [
+                Icon(icon, size: 17, color: PTColors.textAccent),
+                Expanded(
+                  child: Text.rich(
+                    TextSpan(
+                      children: [
+                        TextSpan(text: value, style: PTText.cardHeading.copyWith(fontSize: 15)),
+                        TextSpan(text: '  $label', style: PTText.finePrint.copyWith(fontSize: 11)),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            )
+          : Column(
+              spacing: 4,
+              children: [
+                Icon(icon, size: 17, color: PTColors.textAccent),
+                Text(
+                  value,
+                  maxLines: 1,
+                  overflow: .ellipsis,
+                  style: PTText.cardHeading.copyWith(fontSize: 15),
+                ),
+                Text(label, style: PTText.finePrint.copyWith(fontSize: 10)),
+              ],
+            ),
     );
   }
 }
@@ -259,63 +251,71 @@ class _AwardRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      spacing: 12,
+    final winner = Row(
+      mainAxisSize: .min,
+      spacing: 7,
       children: [
-        Container(
-          width: 34,
-          height: 34,
-          decoration: BoxDecoration(
-            shape: .circle,
-            color: PTColors.primary.withValues(alpha: 0.14),
-          ),
-          alignment: .center,
-          child: Icon(
-            superlativeIcon(superlative.key),
-            size: 17,
-            fill: 1,
-            color: PTColors.textAccent,
-          ),
+        PTAvatar(
+          userId: superlative.userId,
+          displayName: superlative.displayName,
+          avatarUrl: person?.avatarUrl,
+          frame: person?.frame,
+          size: 24,
         ),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: .start,
-            children: [
-              Text(
-                superlative.key.title,
-                style: PTText.body.copyWith(fontSize: 14, fontWeight: .w600),
-              ),
-              Text(superlative.key.blurb, style: PTText.finePrint.copyWith(fontSize: 11)),
-            ],
-          ),
-        ),
-        // A winner's name is user input of any length; cap it so the award
-        // title keeps the room and the name ellipsizes instead.
-        ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 150),
-          child: Row(
-            mainAxisSize: .min,
-            spacing: 7,
-            children: [
-              PTAvatar(
-                userId: superlative.userId,
-                displayName: superlative.displayName,
-                avatarUrl: person?.avatarUrl,
-                frame: person?.frame,
-                size: 24,
-              ),
-              Flexible(
-                child: Text(
-                  isSelf ? 'You' : superlative.displayName,
-                  maxLines: 1,
-                  overflow: .ellipsis,
-                  style: PTText.finePrint.copyWith(fontSize: 12, color: PTColors.white(0.8)),
-                ),
-              ),
-            ],
+        Flexible(
+          child: Text(
+            isSelf ? 'You' : superlative.displayName,
+            maxLines: 1,
+            overflow: .ellipsis,
+            style: PTText.finePrint.copyWith(fontSize: 12, color: PTColors.white(0.8)),
           ),
         ),
       ],
+    );
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Beside the award while there is room for both; under its blurb on
+        // a narrow card, where a 150px name column would squeeze the title.
+        final below = constraints.maxWidth < MediaQuery.textScalerOf(context).scale(340);
+        return Row(
+          spacing: 12,
+          crossAxisAlignment: below ? .start : .center,
+          children: [
+            Container(
+              width: 34,
+              height: 34,
+              decoration: BoxDecoration(
+                shape: .circle,
+                color: PTColors.primary.withValues(alpha: 0.14),
+              ),
+              alignment: .center,
+              child: Icon(
+                superlativeIcon(superlative.key),
+                size: 17,
+                fill: 1,
+                color: PTColors.textAccent,
+              ),
+            ),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: .start,
+                children: [
+                  Text(
+                    superlative.key.title,
+                    style: PTText.body.copyWith(fontSize: 14, fontWeight: .w600),
+                  ),
+                  Text(superlative.key.blurb, style: PTText.finePrint.copyWith(fontSize: 11)),
+                  if (below) Padding(padding: const EdgeInsets.only(top: 6), child: winner),
+                ],
+              ),
+            ),
+            // A winner's name is user input of any length; cap it so the
+            // award title keeps the room and the name ellipsizes instead.
+            if (!below)
+              ConstrainedBox(constraints: const BoxConstraints(maxWidth: 150), child: winner),
+          ],
+        );
+      },
     );
   }
 }

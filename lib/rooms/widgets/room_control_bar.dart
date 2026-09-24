@@ -506,112 +506,196 @@ class _RoomControlBarState extends State<RoomControlBar> {
 
   Widget _compactRow() {
     final actions = widget.actions;
-    // Every fixed button is a 44px PTIconButton. Below the width that fits
-    // them all plus a half-size transport cluster, the whole row scales down
-    // together instead of overflowing - a 320-390 portrait phone carries every
-    // source control here. At any wider slot the row lays out 1:1.
-    final fixedButtons = [
-      if (widget.avAvailable) true,
-      if (widget.avAvailable && (widget.camAvailable || actions.onCamLocked != null)) true,
-      actions.onReact != null,
-      actions.onSwitchSource != null,
-      actions.onOpenFile != null,
-      actions.onAudioTracks != null,
-      actions.onSubtitles != null,
-      actions.onHideControls != null,
-      actions.onFullscreenToggle != null,
-    ].where((b) => b).length;
-    final minWidth = fixedButtons * 44.0 + 4 + 84;
+    // Every fixed button is a 44px PTIconButton; the transport cluster is
+    // 168 at 1:1. When everything fits, one row. When it doesn't, the source
+    // controls drop to a second row instead of the whole row scaling its
+    // touch targets down (the old FittedBox made a 412 phone's play button
+    // a sliver). Only a slot too narrow even for the top row still scales.
+    const transport = 172.0;
+    final rightCount = [
+      actions.onSwitchSource,
+      actions.onOpenFile,
+      actions.onAudioTracks,
+      actions.onSubtitles,
+      actions.onHideControls,
+      actions.onFullscreenToggle,
+    ].where((a) => a != null).length;
+    final leftWidth =
+        (widget.avAvailable
+            ? 44.0 + (widget.camAvailable || actions.onCamLocked != null ? 48.0 : 0.0)
+            : 0.0) +
+        (actions.onReact != null ? 44.0 : 0.0);
     return LayoutBuilder(
       builder: (context, constraints) {
-        final row = _compactRowContent();
-        if (!constraints.hasBoundedWidth || constraints.maxWidth >= minWidth) return row;
+        if (!constraints.hasBoundedWidth) return _compactRowContent();
+        final width = constraints.maxWidth;
+        // Nothing right of the transport (secondary controls in the menu):
+        // mirror the left group so the play button sits dead centre.
+        final canBalance = width - 2 * leftWidth >= transport;
+        if (rightCount == 0) {
+          return _compactRowContent(balance: canBalance ? leftWidth : 0);
+        }
+        if (width >= leftWidth + transport + rightCount * 44.0) return _compactRowContent();
+        if (width >= leftWidth + transport) {
+          return _compactTwoRows(balance: canBalance ? leftWidth : 0);
+        }
+        final min = leftWidth + transport;
         return FittedBox(
           fit: .scaleDown,
-          child: SizedBox(width: minWidth, child: row),
+          child: SizedBox(width: min, child: _compactTwoRows(balance: 0)),
         );
       },
     );
   }
 
-  Widget _compactRowContent() {
+  List<Widget> _compactLeft() {
     final actions = widget.actions;
-    return Row(
-      children: [
-        if (widget.avAvailable)
-          Row(
-            // Tight: on a 320 phone this row carries every source control too.
-            spacing: 4,
-            children: [
+    return [
+      if (widget.avAvailable)
+        Row(
+          // Tight: on a 320 phone this row carries every source control too.
+          spacing: 4,
+          children: [
+            PTIconButton(
+              icon: Symbols.mic_rounded,
+              active: widget.micOn,
+              glass: false,
+              borderRadius: BorderRadius.circular(12),
+              iconSize: 20,
+              tooltip: widget.micOn ? 'Mute mic' : 'Mic on',
+              onPressed: () => actions.onMicToggle(!widget.micOn),
+            ),
+            if (widget.camAvailable)
               PTIconButton(
-                icon: Symbols.mic_rounded,
-                active: widget.micOn,
+                icon: Symbols.videocam_rounded,
+                active: widget.camOn,
                 glass: false,
                 borderRadius: BorderRadius.circular(12),
                 iconSize: 20,
-                tooltip: widget.micOn ? 'Mute mic' : 'Mic on',
-                onPressed: () => actions.onMicToggle(!widget.micOn),
-              ),
-              if (widget.camAvailable)
-                PTIconButton(
-                  icon: Symbols.videocam_rounded,
-                  active: widget.camOn,
-                  glass: false,
-                  borderRadius: BorderRadius.circular(12),
-                  iconSize: 20,
-                  tooltip: widget.camOn ? 'Camera off' : 'Camera on',
-                  onPressed: () => actions.onCamToggle(!widget.camOn),
-                )
-              else if (actions.onCamLocked != null)
-                Tooltip(
-                  message: 'Video facecams (Premium)',
-                  child: Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      PTIconButton(
-                        icon: Symbols.videocam_off_rounded,
-                        active: false,
-                        glass: false,
-                        borderRadius: BorderRadius.circular(12),
-                        iconSize: 18,
-                        onPressed: actions.onCamLocked,
-                      ),
-                      Positioned(
-                        bottom: 2,
-                        right: 2,
-                        child: Container(
-                          padding: const EdgeInsets.all(2),
-                          decoration: BoxDecoration(
-                            color: PTColors.raised,
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: PTColors.accentBorder.withValues(alpha: 0.5),
-                              width: 1,
-                            ),
-                          ),
-                          child: const Icon(
-                            Symbols.lock_rounded,
-                            size: 8,
-                            fill: 1,
-                            color: PTColors.textAccent,
+                tooltip: widget.camOn ? 'Camera off' : 'Camera on',
+                onPressed: () => actions.onCamToggle(!widget.camOn),
+              )
+            else if (actions.onCamLocked != null)
+              Tooltip(
+                message: 'Video facecams (Premium)',
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    PTIconButton(
+                      icon: Symbols.videocam_off_rounded,
+                      active: false,
+                      glass: false,
+                      borderRadius: BorderRadius.circular(12),
+                      iconSize: 18,
+                      onPressed: actions.onCamLocked,
+                    ),
+                    Positioned(
+                      bottom: 2,
+                      right: 2,
+                      child: Container(
+                        padding: const EdgeInsets.all(2),
+                        decoration: BoxDecoration(
+                          color: PTColors.raised,
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: PTColors.accentBorder.withValues(alpha: 0.5),
+                            width: 1,
                           ),
                         ),
+                        child: const Icon(
+                          Symbols.lock_rounded,
+                          size: 8,
+                          fill: 1,
+                          color: PTColors.textAccent,
+                        ),
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-            ],
-          ),
-        if (actions.onReact != null)
-          PTIconButton(
-            icon: Symbols.add_reaction_rounded,
-            active: widget.reactOpen,
-            glass: false,
-            borderRadius: BorderRadius.circular(12),
-            iconSize: 21,
-            tooltip: widget.reactOpen ? 'Close reactions' : 'React',
-            onPressed: actions.onReact,
-          ),
+              ),
+          ],
+        ),
+      if (actions.onReact != null)
+        PTIconButton(
+          icon: Symbols.add_reaction_rounded,
+          active: widget.reactOpen,
+          glass: false,
+          borderRadius: BorderRadius.circular(12),
+          iconSize: 21,
+          tooltip: widget.reactOpen ? 'Close reactions' : 'React',
+          onPressed: actions.onReact,
+        ),
+    ];
+  }
+
+  List<Widget> _compactRight() {
+    final actions = widget.actions;
+    return [
+      // Source controls belong here too - this row is what portrait,
+      // landscape and any narrow desktop window actually render, so leaving
+      // them out of it left those layouts with no way to pick anything.
+      if (actions.onSwitchSource != null)
+        PTIconButton(
+          icon: Symbols.smart_display_rounded,
+          glass: false,
+          borderRadius: BorderRadius.circular(12),
+          iconSize: 21,
+          tooltip: 'Switch source',
+          onPressed: actions.onSwitchSource,
+        ),
+      if (actions.onOpenFile != null)
+        PTIconButton(
+          icon: Symbols.folder_open_rounded,
+          glass: false,
+          borderRadius: BorderRadius.circular(12),
+          iconSize: 21,
+          tooltip: actions.openFileTooltip ?? 'Open file',
+          onPressed: actions.onOpenFile,
+        ),
+      if (actions.onAudioTracks != null)
+        PTIconButton(
+          icon: Symbols.audiotrack_rounded,
+          glass: false,
+          borderRadius: BorderRadius.circular(12),
+          iconSize: 21,
+          tooltip: 'Audio track',
+          onPressed: actions.onAudioTracks,
+        ),
+      if (actions.onSubtitles != null)
+        PTIconButton(
+          icon: Symbols.subtitles_rounded,
+          glass: false,
+          borderRadius: BorderRadius.circular(12),
+          iconSize: 21,
+          tooltip: 'Subtitles',
+          onPressed: actions.onSubtitles,
+        ),
+      if (actions.onHideControls != null)
+        PTIconButton(
+          icon: Symbols.keyboard_arrow_down_rounded,
+          glass: false,
+          borderRadius: BorderRadius.circular(12),
+          iconSize: 21,
+          tooltip: 'Hide controls (H)',
+          onPressed: actions.onHideControls,
+        ),
+      if (actions.onFullscreenToggle != null)
+        PTIconButton(
+          icon: widget.fullscreen ? Symbols.fullscreen_exit_rounded : Symbols.fullscreen_rounded,
+          glass: false,
+          borderRadius: BorderRadius.circular(12),
+          iconSize: 21,
+          tooltip: widget.fullscreen ? 'Exit fullscreen (F)' : 'Fullscreen (F)',
+          onPressed: actions.onFullscreenToggle,
+        ),
+    ];
+  }
+
+  Widget _compactRowContent({double balance = 0, bool includeRight = true}) {
+    final actions = widget.actions;
+    return Row(
+      children: [
+        ..._compactLeft(),
         Expanded(
           // Icon-only, so it shrinks rather than overflows when a narrow phone
           // also carries every source control; at normal widths it is 1:1.
@@ -648,63 +732,25 @@ class _RoomControlBarState extends State<RoomControlBar> {
             ),
           ),
         ),
-        // Source controls belong here too - this row is what portrait,
-        // landscape and any narrow desktop window actually render, so leaving
-        // them out of it left those layouts with no way to pick anything.
-        if (actions.onSwitchSource != null)
-          PTIconButton(
-            icon: Symbols.smart_display_rounded,
-            glass: false,
-            borderRadius: BorderRadius.circular(12),
-            iconSize: 21,
-            tooltip: 'Switch source',
-            onPressed: actions.onSwitchSource,
-          ),
-        if (actions.onOpenFile != null)
-          PTIconButton(
-            icon: Symbols.folder_open_rounded,
-            glass: false,
-            borderRadius: BorderRadius.circular(12),
-            iconSize: 21,
-            tooltip: actions.openFileTooltip ?? 'Open file',
-            onPressed: actions.onOpenFile,
-          ),
-        if (actions.onAudioTracks != null)
-          PTIconButton(
-            icon: Symbols.audiotrack_rounded,
-            glass: false,
-            borderRadius: BorderRadius.circular(12),
-            iconSize: 21,
-            tooltip: 'Audio track',
-            onPressed: actions.onAudioTracks,
-          ),
-        if (actions.onSubtitles != null)
-          PTIconButton(
-            icon: Symbols.subtitles_rounded,
-            glass: false,
-            borderRadius: BorderRadius.circular(12),
-            iconSize: 21,
-            tooltip: 'Subtitles',
-            onPressed: actions.onSubtitles,
-          ),
-        if (actions.onHideControls != null)
-          PTIconButton(
-            icon: Symbols.keyboard_arrow_down_rounded,
-            glass: false,
-            borderRadius: BorderRadius.circular(12),
-            iconSize: 21,
-            tooltip: 'Hide controls (H)',
-            onPressed: actions.onHideControls,
-          ),
-        if (actions.onFullscreenToggle != null)
-          PTIconButton(
-            icon: widget.fullscreen ? Symbols.fullscreen_exit_rounded : Symbols.fullscreen_rounded,
-            glass: false,
-            borderRadius: BorderRadius.circular(12),
-            iconSize: 21,
-            tooltip: widget.fullscreen ? 'Exit fullscreen (F)' : 'Fullscreen (F)',
-            onPressed: actions.onFullscreenToggle,
-          ),
+        if (balance > 0) SizedBox(width: balance),
+        if (includeRight) ..._compactRight(),
+      ],
+    );
+  }
+
+  /// Too narrow for one row at 1:1: transport (with mic/cam/react) keeps the
+  /// top row, and the source controls move to an evenly spaced row beneath -
+  /// rather than the whole bar scaling its touch targets down.
+  Widget _compactTwoRows({required double balance}) {
+    return Column(
+      mainAxisSize: .min,
+      spacing: 4,
+      children: [
+        _compactRowContent(balance: balance, includeRight: false),
+        SizedBox(
+          width: double.infinity,
+          child: Wrap(alignment: WrapAlignment.spaceEvenly, children: _compactRight()),
+        ),
       ],
     );
   }

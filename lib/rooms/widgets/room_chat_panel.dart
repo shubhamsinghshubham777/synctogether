@@ -522,10 +522,11 @@ class _MessageRowState extends State<_MessageRow> {
 
   @override
   Widget build(BuildContext context) {
-    final copyButton = AnimatedOpacity(
-      duration: PTMotion.functional(context, PTMotion.hover),
-      opacity: !isDesktop || _hovered ? 1 : 0,
-      child: PTIconButton(
+    // Pointer: actions appear on hover. Touch has no hover, and permanently
+    // visible icons beside every bubble read as clutter, so a tap on the
+    // message reveals them instead (long-press stays text selection).
+    final copyButton = _action(
+      PTIconButton(
         icon: Symbols.content_copy_rounded,
         onPressed: _copy,
         size: 26,
@@ -537,10 +538,8 @@ class _MessageRowState extends State<_MessageRow> {
     );
 
     final reportButton = widget.onReport != null
-        ? AnimatedOpacity(
-            duration: PTMotion.functional(context, PTMotion.hover),
-            opacity: !isDesktop || _hovered ? 1 : 0,
-            child: PTIconButton(
+        ? _action(
+            PTIconButton(
               icon: Symbols.flag_rounded,
               onPressed: () => widget.onReport!(widget.message),
               size: 26,
@@ -552,12 +551,29 @@ class _MessageRowState extends State<_MessageRow> {
           )
         : null;
 
+    final row = widget.own ? _own(copyButton) : _other(copyButton, reportButton);
     return MouseRegion(
       onEnter: (_) => setState(() => _hovered = true),
       onExit: (_) => setState(() => _hovered = false),
-      child: widget.own ? _own(copyButton) : _other(copyButton, reportButton),
+      child: isDesktop
+          ? row
+          : GestureDetector(
+              behavior: .translucent,
+              onTap: () => setState(() => _hovered = !_hovered),
+              child: row,
+            ),
     );
   }
+
+  /// A per-message action: invisible and untappable until revealed.
+  Widget _action(Widget button) => IgnorePointer(
+    ignoring: !_hovered,
+    child: AnimatedOpacity(
+      duration: PTMotion.functional(context, PTMotion.hover),
+      opacity: _hovered ? 1 : 0,
+      child: button,
+    ),
+  );
 
   Widget _other(Widget copyButton, Widget? reportButton) {
     final message = widget.message;
@@ -609,8 +625,9 @@ class _MessageRowState extends State<_MessageRow> {
             ],
           ),
         ),
-        copyButton,
-        if (reportButton != null) reportButton,
+        // Stacked, not side by side: two 26 px buttons in a row cost a 300 px
+        // docked panel a third of its bubble width.
+        Column(mainAxisSize: .min, children: [copyButton, ?reportButton]),
       ],
     );
   }

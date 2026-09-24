@@ -101,30 +101,13 @@ class _SharedRecapsState extends State<_SharedRecaps> {
           children: [
             Padding(
               padding: const EdgeInsets.only(right: 8),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: .start,
-                      spacing: 4,
-                      children: [
-                        Text('Shared recaps', style: PTText.screenTitle.copyWith(fontSize: 20)),
-                        Text(
-                          'Public pages you have made. Deleting one breaks its link '
-                          'immediately, for everyone.',
-                          style: PTText.caption,
-                        ),
-                      ],
-                    ),
-                  ),
-                  PTIconButton(
-                    icon: Symbols.close_rounded,
-                    iconSize: 18,
-                    size: 36,
-                    tooltip: 'Close',
-                    onPressed: () => Navigator.of(context).pop(),
-                  ),
-                ],
+              child: GlassDialogHeader(
+                title: 'Shared recaps',
+                subtitle:
+                    'Public pages you have made. Deleting one breaks its link '
+                    'immediately, for everyone.',
+                titleGap: 4,
+                onClose: () => Navigator.of(context).pop(),
               ),
             ),
             const SizedBox(height: 18),

@@ -3,6 +3,7 @@ import 'package:material_symbols_icons/symbols.dart';
 import 'package:synctogether/player/youtube/youtube_links.dart';
 import 'package:synctogether/ui/buttons.dart';
 import 'package:synctogether/ui/inputs.dart';
+import 'package:synctogether/ui/glass.dart';
 import 'package:synctogether/ui/pt_theme.dart';
 
 /// Body for [showGlassDialog]; pops the validated URL string.
@@ -52,7 +53,11 @@ class _YouTubeUrlDialogState extends State<YouTubeUrlDialog> {
                 crossAxisAlignment: .start,
                 spacing: 5,
                 children: [
-                  Text('Paste a YouTube link', style: PTText.screenTitle.copyWith(fontSize: 20)),
+                  Text(
+                    'Paste a YouTube link',
+                    textScaler: dialogHeadingScaler(context),
+                    style: PTText.screenTitle.copyWith(fontSize: 20),
+                  ),
                   Text(
                     'It switches for everyone in the room.',
                     style: PTText.body.copyWith(fontSize: 13.5, color: PTColors.white(0.55)),
@@ -78,6 +83,7 @@ class _YouTubeUrlDialogState extends State<YouTubeUrlDialog> {
           spacing: 10,
           children: [
             PTButton(
+              maxLines: 2,
               label: 'Load video',
               trailingIcon: Symbols.arrow_forward_rounded,
               height: 46,
@@ -101,6 +107,7 @@ class _YouTubeUrlDialogState extends State<YouTubeUrlDialog> {
               ],
             ),
             PTButton(
+              maxLines: 2,
               label: 'Cancel',
               variant: .secondary,
               height: 46,

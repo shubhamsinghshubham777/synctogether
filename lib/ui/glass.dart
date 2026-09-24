@@ -1,6 +1,10 @@
+import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
+
+import 'buttons.dart';
 
 import 'pt_motion.dart';
 import 'pt_theme.dart';
@@ -310,4 +314,121 @@ EdgeInsets glassDialogPadding(EdgeInsetsGeometry? padding, double screenWidth) {
     left: base.left > _compactHorizontalPadding ? _compactHorizontalPadding : base.left,
     right: base.right > _compactHorizontalPadding ? _compactHorizontalPadding : base.right,
   );
+}
+
+/// Text scale for a dialog's heading. Headings follow the reader's text size
+/// at half the rate past 1.0x - Android 14's non-linear font scaling, applied
+/// by hand - so 2.0x body copy gets a 1.5x title. A title is already large; at
+/// full 2.0x on a phone it breaks mid-word and pushes the content off screen.
+TextScaler dialogHeadingScaler(BuildContext context) {
+  final factor = MediaQuery.textScalerOf(context).scale(100) / 100;
+  return TextScaler.linear(factor <= 1 ? factor : 1 + (factor - 1) / 2);
+}
+
+/// The title block every glass dialog opens with: an optional [leading] tile,
+/// a [title] with an optional [subtitle], and an optional close button.
+///
+/// While the title fits on one line the leading tile, title and close button
+/// share a centre line - the original design. Once it wraps, all three pin to
+/// the top instead, so the close button stays in the corner rather than
+/// floating halfway down a three-line heading.
+class GlassDialogHeader extends StatelessWidget {
+  const GlassDialogHeader({
+    super.key,
+    required this.title,
+    this.subtitle,
+    this.leading,
+    this.onClose,
+    this.closeTooltip = 'Close',
+    this.centered = false,
+    this.titleStyle,
+    this.subtitleStyle,
+    this.subtitleWidget,
+    this.closeSize = 36,
+    this.closeIconSize = 18,
+    this.spacing = 12,
+    this.titleGap = 2,
+    this.closeGlass = true,
+  });
+
+  /// Whether the close button draws its glass disc.
+  final bool closeGlass;
+
+  /// Space between the title and its subtitle.
+  final double titleGap;
+
+  final String title;
+  final String? subtitle;
+
+  /// Replaces [subtitle] when the line needs more than plain text.
+  final Widget? subtitleWidget;
+  final Widget? leading;
+  final VoidCallback? onClose;
+  final String closeTooltip;
+
+  /// Centres the title (and balances the close button with a spacer).
+  final bool centered;
+  final TextStyle? titleStyle;
+  final TextStyle? subtitleStyle;
+  final double closeSize;
+  final double closeIconSize;
+  final double spacing;
+
+  @override
+  Widget build(BuildContext context) {
+    final style = titleStyle ?? PTText.screenTitle.copyWith(fontSize: 20);
+    final scaler = dialogHeadingScaler(context);
+    final align = centered ? TextAlign.center : TextAlign.start;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Room the title actually gets: the row minus the close button (twice
+        // when centred, for the balancing spacer). The leading tile's width is
+        // unknown here, so a leading header decides on the title alone.
+        final reserved = onClose == null ? 0.0 : (closeSize + spacing) * (centered ? 2 : 1);
+        final painter =
+            TextPainter(
+              text: TextSpan(text: title, style: style),
+              textScaler: scaler,
+              textDirection: TextDirection.ltr,
+            )..layout(
+              maxWidth: math.max(0, constraints.maxWidth - reserved - (leading != null ? 56 : 0)),
+            );
+        final wraps = painter.computeLineMetrics().length > 1;
+        painter.dispose();
+
+        final text = Column(
+          crossAxisAlignment: centered ? .center : .start,
+          mainAxisSize: .min,
+          spacing: titleGap,
+          children: [
+            Text(title, textAlign: align, textScaler: scaler, style: style),
+            if (subtitleWidget != null)
+              subtitleWidget!
+            else if (subtitle != null)
+              Text(subtitle!, textAlign: align, style: subtitleStyle ?? PTText.caption),
+          ],
+        );
+        return Row(
+          crossAxisAlignment: wraps ? .start : .center,
+          spacing: spacing,
+          children: [
+            if (leading != null) leading!,
+            // The balancing spacer only earns its width while the title fits
+            // one line; once it wraps, the title gets that width back.
+            if (centered && onClose != null && !wraps) SizedBox(width: closeSize),
+            Expanded(child: text),
+            if (onClose != null)
+              PTIconButton(
+                icon: Symbols.close_rounded,
+                iconSize: closeIconSize,
+                size: closeSize,
+                tooltip: closeTooltip,
+                glass: closeGlass,
+                onPressed: onClose,
+              ),
+          ],
+        );
+      },
+    );
+  }
 }

@@ -239,6 +239,9 @@ Future<_Harness> _pumpRoom(
 /// [finishCase], then outlasts the room's 10 s "announce the file without a
 /// duration" fallback, a `timeout` that is not tied to the widget's life.
 Future<void> _finish(WidgetTester tester) async {
+  // Let entrances (roster stagger, banner slides) land before the capture, so
+  // the screenshot is the settled screen rather than a mid-animation frame.
+  await tester.pump(const Duration(seconds: 2));
   await finishCase(tester);
   await tester.pump(const Duration(seconds: 11));
 }
@@ -268,6 +271,10 @@ void main() {
 
   screenMatrix('room readiness overlay', (tester, c, s) async {
     await _pumpRoom(tester, c, s, members: 7, allReady: false);
+    // The roster stagger's delays are real-zone timers here, so give the real
+    // clock a moment or every row after the first captures invisible.
+    await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 400)));
+    await tester.pump(const Duration(seconds: 1));
     await _finish(tester);
   });
 

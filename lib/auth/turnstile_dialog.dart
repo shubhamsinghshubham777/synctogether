@@ -222,7 +222,7 @@ function onloadTurnstile() {
       crossAxisAlignment: .start,
       spacing: 14,
       children: [
-        Text('Quick check', style: PTText.cardHeading),
+        Text('Quick check', textScaler: dialogHeadingScaler(context), style: PTText.cardHeading),
         Text(
           _failed ? _failureMessage : "Just making sure you're human - takes a second.",
           style: PTText.body.copyWith(fontSize: 13.5, color: PTColors.white(0.6)),
@@ -236,6 +236,7 @@ function onloadTurnstile() {
           ),
         if (_failed && _errorCode == 'webview2-missing') ...[
           PTButton(
+            maxLines: 2,
             label: 'Download WebView2 Runtime',
             icon: Icons.download_rounded,
             height: 44,
@@ -247,6 +248,7 @@ function onloadTurnstile() {
               style: PTText.caption.copyWith(color: PTColors.white(0.5), fontSize: 12),
             ),
           PTButton(
+            maxLines: 2,
             label: 'Close',
             variant: .secondary,
             height: 40,
@@ -266,6 +268,7 @@ function onloadTurnstile() {
           ),
           if (_failed)
             PTButton(
+              maxLines: 2,
               label: 'Close',
               variant: .secondary,
               height: 40,

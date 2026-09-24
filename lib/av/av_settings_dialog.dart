@@ -372,26 +372,14 @@ class _AvSettingsDialogContentState extends State<_AvSettingsDialogContent> {
           mainAxisSize: .min,
           crossAxisAlignment: .start,
           children: [
-            Row(
-              children: [
-                const Icon(Symbols.tune_rounded, size: 22, color: PTColors.textAccent),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    'Audio & Video Settings',
-                    style: PTText.cardHeading,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                PTIconButton(
-                  icon: Symbols.close_rounded,
-                  size: 32,
-                  iconSize: 18,
-                  glass: false,
-                  onPressed: () => Navigator.of(context).pop(),
-                ),
-              ],
+            GlassDialogHeader(
+              title: 'Audio & Video Settings',
+              titleStyle: PTText.cardHeading,
+              leading: const Icon(Symbols.tune_rounded, size: 22, color: PTColors.textAccent),
+              spacing: 10,
+              closeSize: 32,
+              closeGlass: false,
+              onClose: () => Navigator.of(context).pop(),
             ),
             const SizedBox(height: 16),
             Container(height: 1, color: PTColors.white(0.08)),
@@ -449,30 +437,28 @@ class _AvSettingsDialogContentState extends State<_AvSettingsDialogContent> {
               ),
             ),
             const SizedBox(height: 20),
-            // Flexible so a squeezed window shrinks the buttons (their labels
-            // ellipsize) instead of overflowing the row.
-            Row(
-              mainAxisAlignment: .end,
+            // Hugging the trailing edge while both fit; stacked full-width
+            // (Save on top) on a squeezed window, never ellipsized.
+            PTButtonBar(
+              alignEnd: true,
               spacing: 10,
-              children: [
-                Flexible(
-                  child: PTButton(
-                    label: 'Cancel',
-                    height: 38,
-                    variant: .secondary,
-                    expand: false,
-                    onPressed: () => Navigator.of(context).pop(),
-                  ),
+              buttons: [
+                PTButton(
+                  maxLines: 2,
+                  label: 'Cancel',
+                  height: 38,
+                  variant: .secondary,
+                  expand: false,
+                  onPressed: () => Navigator.of(context).pop(),
                 ),
-                Flexible(
-                  child: PTButton(
-                    label: 'Save',
-                    height: 38,
-                    variant: .primary,
-                    expand: false,
-                    loading: _saving,
-                    onPressed: _saving ? null : _saveAndClose,
-                  ),
+                PTButton(
+                  maxLines: 2,
+                  label: 'Save',
+                  height: 38,
+                  variant: .primary,
+                  expand: false,
+                  loading: _saving,
+                  onPressed: _saving ? null : _saveAndClose,
                 ),
               ],
             ),

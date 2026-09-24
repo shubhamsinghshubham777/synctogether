@@ -58,6 +58,7 @@ class ReadinessOverlay extends StatelessWidget {
     this.onStartWithout,
     this.startWithoutLabel,
     this.compact = false,
+    this.chromeInsets = EdgeInsets.zero,
     this.reveal = 1,
     this.premiumMembers = const {},
     this.memberFrames = const {},
@@ -78,6 +79,10 @@ class ReadinessOverlay extends StatelessWidget {
   final VoidCallback? onStartWithout;
   final String? startWithoutLabel;
   final bool compact;
+
+  /// The part of the video box covered by floating chrome; the card centres
+  /// in what is left.
+  final EdgeInsets chromeInsets;
   final double reveal;
   final Set<String> premiumMembers;
   final Map<String, AvatarFrame> memberFrames;
@@ -86,12 +91,58 @@ class ReadinessOverlay extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = reveal.clamp(0.0, 1.0);
     var row = 0;
+    // The scrim is full-bleed; the card keeps clear of whatever system insets
+    // reach it (none, once a parent SafeArea has consumed them) and of the
+    // floating chrome.
+    final padding =
+        EdgeInsets.all(compact ? 12 : 24) + MediaQuery.paddingOf(context) + chromeInsets;
+    return LayoutBuilder(
+      builder: (context, box) {
+        // Dense: the video box is a phone's strip (or the chrome leaves little
+        // of it). A roster that could never show cannot be the reason the
+        // buttons scroll out of reach - it lives in the member list anyway.
+        final room = box.maxHeight - padding.vertical;
+        final dense = room < 300;
+        // Side-by-side buttons only while both labels fit whole.
+        final sideBySide =
+            box.maxWidth - padding.horizontal >= MediaQuery.textScalerOf(context).scale(330);
+        return _build(context, t, padding, dense, sideBySide, room < 200 ? 2 : 3, () => row++);
+      },
+    );
+  }
+
+  Widget _build(
+    BuildContext context,
+    double t,
+    EdgeInsets padding,
+    bool dense,
+    bool sideBySide,
+    int headlineLines,
+    int Function() nextRow,
+  ) {
+    final actions = [
+      if (onLocateFile != null)
+        PTButton(
+          // Just the action - the headline directly above already names the
+          // file, and release names are long enough to swamp the panel.
+          label: dense ? 'Locate copy' : 'Locate your copy',
+          icon: Symbols.folder_open_rounded,
+          expand: true,
+          onPressed: onLocateFile,
+        ),
+      if (onStartWithout != null)
+        PTButton(
+          label: dense ? 'Start anyway' : (startWithoutLabel ?? 'Start without them'),
+          icon: Symbols.fast_forward_rounded,
+          variant: .secondary,
+          expand: true,
+          onPressed: onStartWithout,
+        ),
+    ];
     return Container(
       color: PTColors.scrimBase.withValues(alpha: 0.7 * t),
       alignment: .center,
-      // The scrim is full-bleed; the card keeps clear of whatever system
-      // insets reach it (none, once a parent SafeArea has consumed them).
-      padding: EdgeInsets.all(compact ? 16 : 28) + MediaQuery.paddingOf(context),
+      padding: padding,
       child: SingleChildScrollView(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 460),
@@ -130,6 +181,8 @@ class ReadinessOverlay extends StatelessWidget {
                         Expanded(
                           child: Text(
                             headline,
+                            maxLines: dense ? headlineLines : null,
+                            overflow: dense ? .ellipsis : null,
                             // Media names run long ("Movie.2005.1080p.BluRay…"), and
                             // at the headline size they turn the panel into a wall
                             // of bold text. Step down once past a sentence or so.
@@ -145,7 +198,7 @@ class ReadinessOverlay extends StatelessWidget {
                       ],
                     ),
                     if (uploadProgressWidget != null) uploadProgressWidget!,
-                    if (members.isNotEmpty)
+                    if (members.isNotEmpty && !dense)
                       Column(
                         mainAxisSize: .min,
                         children: [
@@ -154,7 +207,7 @@ class ReadinessOverlay extends StatelessWidget {
                             // "we're all here" moment; stagger the roster so it
                             // assembles rather than appearing whole.
                             PTEntrance(
-                              delay: Duration(milliseconds: 40 * row++),
+                              delay: Duration(milliseconds: 40 * nextRow()),
                               offset: 8,
                               child: _MemberStatusRow(
                                 member: member,
@@ -174,24 +227,10 @@ class ReadinessOverlay extends StatelessWidget {
                             ),
                         ],
                       ),
-                    if (onLocateFile != null)
-                      PTButton(
-                        // Just the action - the headline directly above already
-                        // names the file, and release names are long enough to
-                        // swamp the panel if repeated here.
-                        label: 'Locate your copy',
-                        icon: Symbols.folder_open_rounded,
-                        expand: true,
-                        onPressed: onLocateFile,
-                      ),
-                    if (onStartWithout != null)
-                      PTButton(
-                        label: startWithoutLabel ?? 'Start without them',
-                        icon: Symbols.fast_forward_rounded,
-                        variant: .secondary,
-                        expand: true,
-                        onPressed: onStartWithout,
-                      ),
+                    if (dense && sideBySide && actions.length > 1)
+                      Row(spacing: 10, children: [for (final a in actions) Expanded(child: a)])
+                    else
+                      ...actions,
                   ],
                 ),
               ),

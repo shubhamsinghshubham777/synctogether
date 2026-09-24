@@ -1,8 +1,13 @@
+import 'dart:convert';
+import 'dart:io';
+import 'dart:ui' as ui show ImageByteFormat;
 import 'dart:ui' show DisplayFeature, DisplayFeatureState, DisplayFeatureType;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart' show HitTestResult;
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show OffsetLayer;
+import 'package:flutter/services.dart' show FontLoader, rootBundle;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:synctogether/ui/pt_theme.dart';
 import 'package:synctogether/ui/responsive.dart';
@@ -146,6 +151,9 @@ Future<void> pumpAtSize(
     tester.view.reset();
     tester.platformDispatcher.clearTextScaleFactorTestValue();
   });
+  // Real fonts, not the test font: Ahem's square glyphs hide overflows the
+  // shipped metrics produce (and screenshots are unreadable without them).
+  await tester.runAsync(_loadFonts);
   await tester.pumpWidget(
     wrapInApp
         ? MaterialApp(
@@ -401,10 +409,12 @@ void screenMatrix(
           original?.call(details);
         };
         _insetCheckActive = checkInsets;
+        _currentCase = '$screen @ ${c.name} x$s';
         try {
           await body(tester, c, s);
         } finally {
           _insetCheckActive = false;
+          _currentCase = null;
           FlutterError.onError = original;
           _captured.clear();
           debugDefaultTargetPlatformOverride = null;
@@ -412,4 +422,49 @@ void screenMatrix(
       });
     }
   }
+}
+
+String? _currentCase;
+
+/// `fvm flutter test test/layout --dart-define=SCREENSHOTS=true` writes a PNG of
+/// every matrix case to `build/screenshots/`, rendered with the real fonts, so a
+/// layout that fits but looks wrong - which no assertion can catch - gets seen.
+const kScreenshots = bool.fromEnvironment('SCREENSHOTS');
+
+/// Text scales captured when [kScreenshots] is on (all of them is thousands).
+const _screenshotScales = {'x1.0', 'x2.0'};
+
+bool _fontsLoaded = false;
+
+Future<void> _loadFonts() async {
+  if (_fontsLoaded) return;
+  _fontsLoaded = true;
+  final manifest = json.decode(await rootBundle.loadString('FontManifest.json')) as List;
+  for (final entry in manifest.cast<Map<String, dynamic>>()) {
+    final loader = FontLoader(entry['family'] as String);
+    for (final font in (entry['fonts'] as List).cast<Map<String, dynamic>>()) {
+      loader.addFont(rootBundle.load(font['asset'] as String));
+    }
+    await loader.load();
+  }
+}
+
+/// Captures the current frame as `build/screenshots/<case>.png` when
+/// [kScreenshots] is on; a no-op otherwise.
+Future<void> captureScreenshot(WidgetTester tester) async {
+  final name = _currentCase;
+  if (!kScreenshots || name == null) return;
+  if (!_screenshotScales.any(name.endsWith)) return;
+  final view = tester.binding.renderViews.first;
+  final layer = view.debugLayer! as OffsetLayer;
+  final size = tester.view.physicalSize / tester.view.devicePixelRatio;
+  final bytes = await tester.runAsync(() async {
+    final image = await layer.toImage(Offset.zero & size);
+    final data = await image.toByteData(format: ui.ImageByteFormat.png);
+    return data!.buffer.asUint8List();
+  });
+  final file = name.replaceAll(RegExp(r'[^A-Za-z0-9.@-]+'), '_');
+  File('build/screenshots/$file.png')
+    ..createSync(recursive: true)
+    ..writeAsBytesSync(bytes!);
 }

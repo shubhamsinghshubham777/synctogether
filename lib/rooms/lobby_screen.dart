@@ -26,6 +26,7 @@ import 'package:synctogether/rewards/widgets/streak_chip.dart';
 import 'package:synctogether/rooms/room_service.dart';
 import 'package:synctogether/rooms/widgets/ended_room_dialog.dart';
 import 'package:synctogether/rooms/widgets/extend_room_dialog.dart';
+import 'package:synctogether/rooms/widgets/lobby_header.dart';
 import 'package:synctogether/rooms/widgets/my_rooms_section.dart';
 import 'package:synctogether/updates/update_service.dart';
 import 'package:synctogether/ui/banners.dart';
@@ -641,45 +642,191 @@ class _LobbyScreenState extends State<LobbyScreen> {
     );
   }
 
-  /// Header chips for the wide layouts. A `Wrap` rather than a `Row`: with
-  /// every chip showing (streak, quota, premium, profile, logout) the row
-  /// needs ~1000 px, so below that the chips go compact and the profile pill
-  /// becomes the bare avatar, and anything still too wide wraps to a second
-  /// line instead of overflowing.
-  Widget _desktopHeader(double width) {
-    // Scaled with the text: at 2.0x the full pill row needs twice the room.
-    final narrow = width < MediaQuery.textScalerOf(context).scale(1000);
-    return Row(
-      crossAxisAlignment: .start,
-      children: [
-        const Flexible(
-          child: FittedBox(fit: .scaleDown, alignment: .centerLeft, child: _Wordmark()),
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: Wrap(
-            alignment: .end,
-            crossAxisAlignment: .center,
-            spacing: 12,
-            runSpacing: 8,
-            children: [
-              if (_showStreakChip) _streakChip(compact: narrow),
-              if (_showQuotaChip) _mediaQuotaChip(compact: narrow),
-              if (_showPremiumChip) _premiumChip(),
-              if (narrow) _avatarButton(size: 42) else _profilePill(),
-              PTIconButton(
-                icon: Symbols.logout_rounded,
-                iconSize: 20,
-                size: 42,
-                tooltip: 'Log out',
-                onPressed: AuthService.instance.signOut,
-              ),
-            ],
+  /// The lobby's one-row header: wordmark on the left, actions right-aligned.
+  ///
+  /// It never wraps. [FirstFit] tries progressively tighter action sets and
+  /// keeps the first that fits the measured width - full pills, then compact
+  /// chips, then the avatar's account menu absorbing logout, quota, premium
+  /// and finally the streak - so a phone shows the wordmark, a chip or two and
+  /// the avatar, and a narrow desktop window never drops a button to a second
+  /// line. Touch layouts start at the account-menu level: phones have never had
+  /// a bare logout button in the header.
+  Widget _header({required bool compact, bool greeting = false}) {
+    final touch = compact;
+    final levels = touch ? const [2, 3, 4] : const [0, 1, 2, 3, 4];
+    // The wordmark is not a flex child: two flex children would split the row
+    // 50/50 and starve the actions of the wordmark's unused half. It keeps its
+    // natural width, only scaling down past 60% of the row (320 at 2x text).
+    return LayoutBuilder(
+      builder: (context, box) => Row(
+        children: [
+          ConstrainedBox(
+            constraints: BoxConstraints(maxWidth: box.maxWidth * 0.6),
+            child: FittedBox(
+              fit: .scaleDown,
+              alignment: .centerLeft,
+              child: _Wordmark(compact: compact),
+            ),
           ),
+          SizedBox(width: compact ? 12 : 24),
+          Expanded(
+            child: FirstFit(
+              children: [
+                if (greeting)
+                  for (final level in levels.take(2))
+                    Row(
+                      mainAxisSize: .min,
+                      mainAxisAlignment: .spaceBetween,
+                      children: [
+                        const _Greeting(style: PTText.panelHeading, align: .centerLeft),
+                        const SizedBox(width: 20),
+                        _actions(level, avatarSize: _glyph(36)),
+                      ],
+                    ),
+                for (final level in levels)
+                  Row(
+                    mainAxisSize: .min,
+                    mainAxisAlignment: .end,
+                    children: [_actions(level, avatarSize: _glyph(compact ? 36 : 42))],
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// One candidate action set for [_header]. Levels, widest first:
+  /// 0 full pills + profile pill + logout; 1 compact chips + avatar + logout;
+  /// 2 compact chips + crown-only premium + account menu (logout moves in);
+  /// 3 streak + account menu (quota, premium move in); 4 account menu alone.
+  Widget _actions(int level, {required double avatarSize}) {
+    final compact = level >= 1;
+    return Row(
+      mainAxisSize: .min,
+      spacing: compact ? 8 : 12,
+      children: [
+        if (_showStreakChip && level <= 3) _streakChip(compact: compact),
+        if (_showQuotaChip && level <= 2) _mediaQuotaChip(compact: compact),
+        if (_showPremiumChip && level <= 2) _premiumChip(iconOnly: level == 2),
+        if (level == 0)
+          _profilePill()
+        else if (level == 1)
+          _avatarButton(size: avatarSize)
+        else
+          _avatarButton(size: avatarSize, menuLevel: level),
+        if (level <= 1)
+          PTIconButton(
+            icon: Symbols.logout_rounded,
+            iconSize: _glyph(20),
+            size: avatarSize,
+            tooltip: 'Log out',
+            onPressed: AuthService.instance.signOut,
+          ),
+      ],
+    );
+  }
+
+  /// Icon and avatar sizes that grow with the text, capped: at 2x text a 16px
+  /// glyph beside 26px type reads as a stray dot, but doubling every avatar
+  /// would crowd the header just as much.
+  double _glyph(double size) =>
+      MediaQuery.textScalerOf(context).clamp(maxScaleFactor: 1.6).scale(size);
+
+  Future<void> _openAccountMenu(BuildContext anchorContext, int level) {
+    final box = anchorContext.findRenderObject()! as RenderBox;
+    final anchor = box.localToGlobal(Offset.zero) & box.size;
+    final profile = ProfileService.instance.profile;
+    final entitlement = EntitlementService.instance;
+    final guest = profile?.isGuest ?? true;
+    final streak = RewardsService.instance.state.streak;
+    return showLobbyAccountMenu(
+      context: context,
+      anchor: anchor,
+      header: Row(
+        spacing: 12,
+        children: [
+          PTAvatar(
+            userId: profile?.id ?? '',
+            displayName: profile?.displayName ?? '?',
+            avatarUrl: profile?.avatarUrl,
+            size: 40,
+            premium: entitlement.isPremium,
+          ),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: .start,
+              mainAxisSize: .min,
+              spacing: 2,
+              children: [
+                Text(
+                  profile?.displayName ?? '…',
+                  maxLines: 1,
+                  overflow: .ellipsis,
+                  style: PTText.body.copyWith(fontSize: 15, fontWeight: .w600),
+                ),
+                Text(
+                  guest
+                      ? 'Guest'
+                      : entitlement.isPremium
+                      ? 'Premium'
+                      : 'Free plan',
+                  style: PTText.caption.copyWith(
+                    color: entitlement.isPremium ? PTColors.premium : PTColors.white(0.5),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+      items: [
+        if (_showStreakChip && level >= 4)
+          LobbyMenuItem(
+            icon: Symbols.local_fire_department_rounded,
+            color: guest || streak.current == 0 ? null : PTColors.streak,
+            label: guest
+                ? 'Sign in for streaks'
+                : streak.current > 0
+                ? 'Streak'
+                : 'Start a streak',
+            detail: !guest && streak.current > 0 ? '${streak.current} days' : null,
+            onTap: () => context.go('/lobby/leaderboard'),
+          ),
+        if (_showQuotaChip && level >= 3)
+          LobbyMenuItem(
+            icon: entitlement.isPremium ? Symbols.crown_rounded : Symbols.cloud_queue_rounded,
+            label: 'Upload quota',
+            detail: _quotaLabel(compact: true),
+            color: entitlement.isPremium ? PTColors.textAccent : null,
+            onTap: () => showMediaQuotaDialog(context),
+          ),
+        if (_showPremiumChip && level >= 3)
+          LobbyMenuItem(
+            icon: Symbols.crown_rounded,
+            label: 'Go Premium',
+            color: PTColors.textAccent,
+            onTap: () => context.go('/lobby/subscribe?source=lobby_chip'),
+          ),
+      ],
+      footer: [
+        LobbyMenuItem(
+          icon: Symbols.person_rounded,
+          label: 'Profile & settings',
+          onTap: () => context.go('/lobby/profile'),
+        ),
+        const LobbyMenuItem(
+          icon: Symbols.logout_rounded,
+          label: 'Log out',
+          danger: true,
+          onTap: _signOut,
         ),
       ],
     );
   }
+
+  static void _signOut() => AuthService.instance.signOut();
 
   /// Desktop, and tablets through the `tablet → desktop` fallback: a tablet in
   /// portrait (600-840 wide) keeps the two-column cards, so the gutters shrink
@@ -692,7 +839,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
         children: [
           Padding(
             padding: EdgeInsets.symmetric(horizontal: gutter, vertical: 28),
-            child: _desktopHeader(width),
+            child: _header(compact: false),
           ),
           Expanded(
             child: ScrollFadeEdge(
@@ -771,35 +918,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
             crossAxisAlignment: .start,
             spacing: 18,
             children: [
-              // Wrap, not Row: on a 320-wide phone the wordmark plus every chip
-              // does not fit on one line.
-              Row(
-                crossAxisAlignment: .start,
-                children: [
-                  const Flexible(
-                    child: FittedBox(
-                      fit: .scaleDown,
-                      alignment: .centerLeft,
-                      child: _Wordmark(compact: true),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Wrap(
-                      alignment: .end,
-                      crossAxisAlignment: .center,
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        if (_showStreakChip) _streakChip(compact: true),
-                        if (_showQuotaChip) _mediaQuotaChip(compact: true),
-                        if (_showPremiumChip) _premiumChip(),
-                        _avatarButton(),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
+              _header(compact: true),
               if (UpdateService.instance.hasUpdate) _updateBanner(),
               Padding(
                 padding: const EdgeInsets.only(top: 8),
@@ -835,47 +954,9 @@ class _LobbyScreenState extends State<LobbyScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           spacing: 14,
           children: [
-            // The greeting only takes the leftover width, and the chips scale
-            // down rather than overflow: an SE in landscape (547 usable) cannot
-            // hold wordmark + greeting + three chips + avatar on one line. Not
-            // a Wrap - landscape has no height to give a second header line
-            // (390 tall, less a keyboard).
-            Row(
-              children: [
-                const Flexible(
-                  child: FittedBox(
-                    fit: .scaleDown,
-                    alignment: .centerLeft,
-                    child: _Wordmark(compact: true),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                if (MediaQuery.sizeOf(context).width >= MediaQuery.textScalerOf(context).scale(760))
-                  const Expanded(
-                    child: _Greeting(style: PTText.panelHeading, align: .centerLeft),
-                  )
-                else
-                  const Spacer(),
-                const SizedBox(width: 8),
-                Flexible(
-                  flex: 2,
-                  child: FittedBox(
-                    fit: .scaleDown,
-                    alignment: .centerRight,
-                    child: Row(
-                      mainAxisSize: .min,
-                      spacing: 8,
-                      children: [
-                        if (_showStreakChip) _streakChip(compact: true),
-                        if (_showQuotaChip) _mediaQuotaChip(compact: true),
-                        if (_showPremiumChip) _premiumChip(),
-                        _avatarButton(size: 36),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
+            // The greeting rides in the header only when it fits whole next to
+            // the chips; otherwise it gives way rather than truncating.
+            _header(compact: true, greeting: true),
             if (UpdateService.instance.hasUpdate) _updateBanner(),
             Expanded(
               child: Row(
@@ -999,7 +1080,23 @@ class _LobbyScreenState extends State<LobbyScreen> {
     );
   }
 
-  Widget _premiumChip() {
+  Widget _premiumChip({bool iconOnly = false}) {
+    final crown = Icon(
+      Symbols.crown_rounded,
+      size: _glyph(16),
+      fill: 1,
+      color: PTColors.textAccent,
+    );
+    if (iconOnly) {
+      return Tooltip(
+        message: 'Go Premium',
+        child: GlassPill(
+          onTap: () => context.go('/lobby/subscribe?source=lobby_chip'),
+          padding: const EdgeInsets.all(8),
+          child: crown,
+        ),
+      );
+    }
     return GlassPill(
       onTap: () => context.go('/lobby/subscribe?source=lobby_chip'),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
@@ -1007,22 +1104,31 @@ class _LobbyScreenState extends State<LobbyScreen> {
         mainAxisSize: .min,
         spacing: 6,
         children: [
-          const Icon(Symbols.crown_rounded, size: 16, fill: 1, color: PTColors.textAccent),
-          Flexible(
-            child: Text(
-              'Go Premium',
-              maxLines: 1,
-              overflow: .ellipsis,
-              style: PTText.body.copyWith(
-                fontSize: 13,
-                fontWeight: .w600,
-                color: PTColors.textAccent,
-              ),
+          crown,
+          Text(
+            'Go Premium',
+            maxLines: 1,
+            style: PTText.body.copyWith(
+              fontSize: 13,
+              fontWeight: .w600,
+              color: PTColors.textAccent,
             ),
           ),
         ],
       ),
     );
+  }
+
+  /// Remaining weekly upload allowance. Compact drops the noun - the cloud
+  /// icon and the tooltip carry it.
+  String _quotaLabel({required bool compact}) {
+    final profile = ProfileService.instance.profile;
+    final limits = EntitlementService.instance.limitsOrFallback;
+    if (EntitlementService.instance.isPremium) return compact ? 'Unlimited' : 'Unlimited quota';
+    final weeklyLimit = limits.mediaSharingWeeklyBytes;
+    final remaining = profile?.remainingWeeklyBytes(weeklyLimit) ?? weeklyLimit;
+    final bytes = Profile.formatBytes(remaining);
+    return compact ? bytes : '$bytes quota';
   }
 
   Widget _mediaQuotaChip({bool compact = false}) {
@@ -1034,52 +1140,45 @@ class _LobbyScreenState extends State<LobbyScreen> {
     final weeklyLimit = limits.mediaSharingWeeklyBytes;
     final remainingBytes = profile?.remainingWeeklyBytes(weeklyLimit) ?? weeklyLimit;
     final isLow = remainingBytes < 1024 * 1024 * 1024 && !isGuest && !isPrem;
+    final colour = isPrem
+        ? PTColors.textAccent
+        : isLow
+        ? PTColors.warning
+        : null;
 
-    return GlassPill(
+    final chip = GlassPill(
       onTap: () => showMediaQuotaDialog(context),
-      padding: EdgeInsets.symmetric(horizontal: compact ? 9 : 12, vertical: 7),
+      padding: EdgeInsets.symmetric(horizontal: compact ? 10 : 12, vertical: 7),
       child: Row(
-        mainAxisSize: MainAxisSize.min,
+        mainAxisSize: .min,
         spacing: 6,
         children: [
           Icon(
             isPrem ? Symbols.crown_rounded : Symbols.cloud_queue_rounded,
-            size: 16,
+            size: _glyph(16),
             fill: 1,
-            color: isPrem
-                ? PTColors.textAccent
-                : isLow
-                ? PTColors.warning
-                : PTColors.white(0.75),
+            color: colour ?? PTColors.white(0.75),
           ),
-          Flexible(
-            child: Text(
-              isPrem
-                  ? (compact ? 'Unlimited' : 'Unlimited quota')
-                  : '${Profile.formatBytes(remainingBytes)} quota',
-              style: PTText.body.copyWith(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: isPrem
-                    ? PTColors.textAccent
-                    : isLow
-                    ? PTColors.warning
-                    : PTColors.white(0.85),
-              ),
-              maxLines: 1,
-              overflow: .ellipsis,
+          Text(
+            _quotaLabel(compact: compact),
+            maxLines: 1,
+            style: PTText.body.copyWith(
+              fontSize: 13,
+              fontWeight: .w600,
+              color: colour ?? PTColors.white(0.85),
             ),
           ),
         ],
       ),
     );
+    return compact ? Tooltip(message: 'Weekly upload quota', child: chip) : chip;
   }
 
   Widget _profilePill() {
     final profile = ProfileService.instance.profile;
     return GlassPill(
       onTap: () => context.go('/lobby/profile'),
-      padding: const EdgeInsets.fromLTRB(8, 7, 16, 7),
+      padding: const EdgeInsets.fromLTRB(6, 5, 16, 5),
       child: Row(
         mainAxisSize: .min,
         spacing: 10,
@@ -1088,10 +1187,14 @@ class _LobbyScreenState extends State<LobbyScreen> {
             userId: profile?.id ?? '',
             displayName: profile?.displayName ?? '?',
             avatarUrl: profile?.avatarUrl,
-            size: 32,
+            size: _glyph(30),
             premium: EntitlementService.instance.isPremium,
           ),
-          Flexible(
+          // Capped rather than Flexible: the header measures candidates at
+          // their natural width, and a very long name should ellipsize here
+          // instead of collapsing the whole header to the account menu.
+          ConstrainedBox(
+            constraints: BoxConstraints(maxWidth: MediaQuery.textScalerOf(context).scale(180)),
             child: Text(
               profile?.displayName ?? '…',
               maxLines: 1,
@@ -1104,17 +1207,30 @@ class _LobbyScreenState extends State<LobbyScreen> {
     );
   }
 
-  Widget _avatarButton({double size = 40}) {
+  /// [menuLevel] set: the avatar opens the account menu holding whatever that
+  /// header level left out. Unset: it goes straight to the profile.
+  Widget _avatarButton({double size = 40, int? menuLevel}) {
     final profile = ProfileService.instance.profile;
-    return GestureDetector(
-      onTap: () => context.go('/lobby/profile'),
-      child: PTAvatar(
-        userId: profile?.id ?? '',
-        displayName: profile?.displayName ?? '?',
-        avatarUrl: profile?.avatarUrl,
-        size: size,
-        ringColor: PTColors.white(0.15),
-        premium: EntitlementService.instance.isPremium,
+    return Builder(
+      builder: (anchor) => Semantics(
+        button: true,
+        label: menuLevel == null ? 'Profile' : 'Account menu',
+        child: MouseRegion(
+          cursor: SystemMouseCursors.click,
+          child: GestureDetector(
+            onTap: menuLevel == null
+                ? () => context.go('/lobby/profile')
+                : () => _openAccountMenu(anchor, menuLevel),
+            child: PTAvatar(
+              userId: profile?.id ?? '',
+              displayName: profile?.displayName ?? '?',
+              avatarUrl: profile?.avatarUrl,
+              size: size,
+              ringColor: PTColors.white(0.15),
+              premium: EntitlementService.instance.isPremium,
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -1359,22 +1475,25 @@ class _LobbyScreenState extends State<LobbyScreen> {
           ),
           child: Row(
             children: [
-              const Icon(Symbols.video_library_rounded, color: PTColors.textAccent, size: 20),
+              Icon(Symbols.video_library_rounded, color: PTColors.textAccent, size: _glyph(20)),
               const SizedBox(width: 10),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Pre-upload video (Optional)',
-                      style: PTText.body.copyWith(fontSize: 12, fontWeight: FontWeight.w500),
+                      'Pre-upload video (optional)',
+                      style: PTText.body.copyWith(fontSize: 13, fontWeight: FontWeight.w500),
                     ),
+                    const SizedBox(height: 2),
+                    // Two lines, not one: the quota and the per-file cap are both
+                    // the point, and one line cut the cap to "Up t…" on phones.
                     Text(
                       quotaSubtitle,
-                      maxLines: 1,
+                      maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: PTText.caption.copyWith(
-                        fontSize: 10,
+                        fontSize: 11,
                         color: isLow ? PTColors.warning : PTColors.white(0.5),
                       ),
                     ),
@@ -1511,18 +1630,22 @@ class _LobbyScreenState extends State<LobbyScreen> {
   }
 
   Widget _cardHeader(IconData icon, String title, String subtitle, {required bool compact}) {
+    final box = _glyph(compact ? 40 : 44);
+    // Top-aligned: at large text the title wraps, and a centred tile then
+    // floats beside the middle of three lines.
     return Row(
+      crossAxisAlignment: .start,
       spacing: compact ? 12 : 14,
       children: [
         Container(
-          width: compact ? 40 : 44,
-          height: compact ? 40 : 44,
+          width: box,
+          height: box,
           decoration: BoxDecoration(
             color: PTColors.primary.withValues(alpha: 0.25),
             border: Border.all(color: PTColors.accentBorder.withValues(alpha: 0.4)),
             borderRadius: BorderRadius.circular(compact ? 13 : 14),
           ),
-          child: Icon(icon, size: compact ? 21 : 23, fill: 1, color: PTColors.textAccent),
+          child: Icon(icon, size: _glyph(compact ? 21 : 23), fill: 1, color: PTColors.textAccent),
         ),
         Expanded(
           child: Column(
@@ -1578,7 +1701,7 @@ class _Greeting extends StatelessWidget {
             twoLine ? 'Hey $name,\nready to watch?' : 'Hey $name, ready to watch?',
             key: ValueKey(name),
             style: style,
-            maxLines: twoLine ? 2 : 1,
+            maxLines: twoLine ? 3 : 1,
             overflow: TextOverflow.ellipsis,
           ),
         );
@@ -1705,26 +1828,29 @@ class _Wordmark extends StatelessWidget {
                 color: Colors.white,
               ),
             ),
-            Row(
-              mainAxisSize: .min,
-              spacing: 6,
-              children: [
-                if (AppVersion.label case final version?)
-                  Text(
-                    Env.usingLocalStack ? '$version · local' : version,
-                    style: PTText.mono.copyWith(
-                      fontSize: compact ? 10 : 11,
-                      color: Env.usingLocalStack ? PTColors.warning : PTColors.white(0.4),
-                    ),
-                  ),
-                Text(
-                  AppVersion.label != null ? '· synctogether.app' : 'synctogether.app',
-                  style: PTText.caption.copyWith(
-                    fontSize: compact ? 10 : 11,
-                    color: PTColors.white(0.35),
-                  ),
+            // One rich text, not a Row of fragments: a Row's fixed gap next
+            // to a text-embedded separator read as "local ·synctogether.app".
+            Text.rich(
+              TextSpan(
+                style: PTText.caption.copyWith(
+                  fontSize: compact ? 10 : 11,
+                  color: PTColors.white(0.35),
                 ),
-              ],
+                children: [
+                  if (AppVersion.label case final version?) ...[
+                    TextSpan(
+                      text: Env.usingLocalStack ? '$version · local' : version,
+                      style: PTText.mono.copyWith(
+                        fontSize: compact ? 10 : 11,
+                        color: Env.usingLocalStack ? PTColors.warning : PTColors.white(0.4),
+                      ),
+                    ),
+                    const TextSpan(text: '  ·  '),
+                  ],
+                  const TextSpan(text: 'synctogether.app'),
+                ],
+              ),
+              maxLines: 1,
             ),
           ],
         ),

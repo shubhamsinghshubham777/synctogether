@@ -1,4 +1,5 @@
-import Image from "next/image";
+import { FadeImage } from "@/components/motion/FadeImage";
+import { Reveal } from "@/components/motion/Reveal";
 import { GlassPanel } from "@/components/GlassPanel";
 import { HeroStage } from "@/components/hero/HeroStage";
 import { DownloadCTA } from "@/components/hero/DownloadCTA";
@@ -55,7 +56,7 @@ export default async function HomePage() {
 
       <TrustStrip />
 
-      <ProductShot />
+      <Reveal><ProductShot /></Reveal>
 
       {/* 2. HOW IT WORKS */}
       <section className="relative py-12 md:py-16 bg-[#090812] border-y border-purple-500/10">
@@ -118,7 +119,7 @@ export default async function HomePage() {
         </div>
       </section>
 
-      <WhyNotScreenShare />
+      <Reveal><WhyNotScreenShare /></Reveal>
 
       {/* 3. CORE FEATURES */}
       <section id="features" className="relative py-12 md:py-16 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
@@ -152,7 +153,7 @@ export default async function HomePage() {
             </p>
           </div>
           <div className="order-1 lg:order-2 rounded-2xl overflow-hidden border border-white/10 shadow-2xl shadow-purple-900/20">
-            <Image
+            <FadeImage
               src="/shots/room-source.jpg"
               alt="The SyncTogether source picker over a paused film, asking &quot;What are we watching?&quot; with two choices: Local file, play from your device, and YouTube, paste a link."
               width={1920}
@@ -240,7 +241,7 @@ export default async function HomePage() {
       </section>
 
       {/* 4. TIER PREVIEW SECTION */}
-      <TierPreviewSection />
+      <Reveal><TierPreviewSection /></Reveal>
 
       {/* 5. BOTTOM DOWNLOAD CTA */}
       <section className="relative py-12 md:py-16 px-4 sm:px-6 lg:px-8 max-w-5xl mx-auto text-center">

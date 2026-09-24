@@ -276,7 +276,10 @@ export function HeroStage() {
       </div>
 
       <div className="flex flex-col items-center gap-6">
-        <SyncToggle synced={phase === "synced"} onToggle={toggleSync} disabled={phase === "syncing"} />
+        <div className="flex flex-col items-center gap-2">
+          <SyncToggle synced={phase === "synced"} onToggle={toggleSync} disabled={phase === "syncing"} />
+          <p className="text-xs text-gray-500">Flip it - see what movie night looks like without us.</p>
+        </div>
         <DownloadCTA />
       </div>
     </div>

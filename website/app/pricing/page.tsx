@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { PricingTable } from "@/components/PricingTable";
 import { TierConfigurator } from "@/components/pricing/TierConfigurator";
 import { PersistentRoomsBand } from "@/components/pricing/PersistentRoomsBand";
+import { Reveal } from "@/components/motion/Reveal";
 import { FAQAccordion } from "@/components/FAQAccordion";
 import { PaddleTransactionCheckout } from "@/components/PaddleTransactionCheckout";
 
@@ -31,11 +32,11 @@ export default function PricingPage() {
     },
     {
       q: "Does Premium work in the Mac App Store version?",
-      a: "No. The Mac App Store edition of SyncTogether is free-only \u2014 it ships without the Premium tier, so a subscription will not unlock anything there. If you subscribe, download the macOS app directly from this site to use your Premium features. The Windows app, from this site or the Microsoft Store, supports Premium normally."
+      a: "Yes. The Mac App Store edition sells Premium through the App Store, and a subscription bought here on the website unlocks it there too. A subscription bought through the App Store is managed and cancelled in your Apple account settings. The Windows app, from this site or the Microsoft Store, supports Premium normally."
     },
     {
       q: "What happens to my rooms if my subscription expires?",
-      a: "Your persistent rooms transition gracefully to standard Free tier limits with a 7-day grace period. No room data or history is deleted abruptly."
+      a: "Nothing is deleted. You keep Premium until the end of the period you paid for. After that, your rooms follow Free tier limits: the next time one is opened it holds 8 people and runs 4-hour sessions, and rooms beyond the Free limits stop staying open indefinitely. Resubscribe and new sessions get Premium limits again."
     }
   ];
 
@@ -51,10 +52,10 @@ export default function PricingPage() {
       {/* Header */}
       <div className="text-center max-w-3xl mx-auto space-y-4">
         <h1 className="text-4xl sm:text-6xl font-extrabold text-white tracking-tight font-[family-name:var(--font-space-grotesk)]">
-          Simple, transparent <span className="text-gradient-brand">pricing.</span>
+          Free for most nights. <span className="text-gradient-brand">Premium for the big ones.</span>
         </h1>
         <p className="text-lg text-gray-300">
-          Unlock the ultimate theater experience with real-time video facecams, 16-member rooms, and persistent memory.
+          Free rooms hold 8 people for 4 hours. Premium is for the whole group, the all-day marathon, and the room that never closes.
         </p>
       </div>
 
@@ -62,10 +63,10 @@ export default function PricingPage() {
       <TierConfigurator />
 
       {/* Persistent rooms - the pair-coded beat, above the table it sells */}
-      <PersistentRoomsBand />
+      <Reveal><PersistentRoomsBand /></Reveal>
 
       {/* Pricing Table (Interactive Component) */}
-      <PricingTable />
+      <Reveal><PricingTable /></Reveal>
 
       {/* Pricing FAQ Section */}
       <div className="max-w-4xl mx-auto pt-6 space-y-8">

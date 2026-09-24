@@ -8,7 +8,7 @@ const ITEMS: { icon: typeof GitBranch; label: string; href?: string }[] = [
   { icon: HardDrive, label: "Private by default" },
   { icon: ShieldCheck, label: "Signed & notarized" },
   { icon: RefreshCw, label: "Automatic updates" },
-  { icon: EyeOff, label: "No ads, no tracking" },
+  { icon: EyeOff, label: "No ads, analytics opt-out", href: "/privacy" },
   { icon: Undo2, label: "14-day refund", href: "/refund" },
 ];
 

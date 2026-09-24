@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:synctogether/diagnostics.dart';
-import 'package:synctogether/platform.dart';
 import 'package:synctogether/rooms/room_models.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -79,23 +78,7 @@ class TierLimits {
   );
 }
 
-/// The Apple App Store edition ships as a single free tier.
-///
-/// Guideline 3.1.1 objects to an app *unlocking* digital content bought
-/// outside it, not merely to the upsell that sells it - so suppressing the
-/// buttons while still honouring a web subscription is the shape Apple
-/// rejected. The downgrade therefore happens here, on the entitlement itself,
-/// and every affordance that reads it goes quiet for free.
-///
-/// Guests are left alone: `guest` is a capability floor, not a purchase.
-TierLimits applyStoreEditionCeiling(TierLimits limits, {bool? storeBuildOverride}) =>
-    (storeBuildOverride ?? isAppleStoreBuild) && limits.isPremium ? TierLimits.fallback : limits;
-
-/// Crowns are the one place another member's tier becomes visible, so the
-/// store edition has to answer no here too - otherwise a premium co-watcher
-/// advertises a tier this build does not sell.
-bool tierWearsCrown(String? tier, {bool? storeBuildOverride}) =>
-    !(storeBuildOverride ?? isAppleStoreBuild) && tier == kPremiumTier;
+bool tierWearsCrown(String? tier) => tier == kPremiumTier;
 
 Set<String> premiumMembersFrom(Map<String, String> tiers) => {
   for (final entry in tiers.entries)
@@ -118,6 +101,14 @@ class EntitlementService extends ChangeNotifier {
 
   TierLimits get limitsOrFallback => _limits ?? TierLimits.fallback;
 
+  Set<String> _premiumSources = const {};
+
+  /// Which payment rails entitle this account: `paddle`, `apple`, `manual`.
+  /// Both can be true at once - someone can hold a web and an App Store
+  /// subscription - and the subscription screen uses it to say where each is
+  /// managed and to stop a second purchase through the other rail.
+  Set<String> get premiumSources => _premiumSources;
+
   String get tier => _limits?.tier ?? kFreeTier;
   bool get isPremium => _limits?.isPremium ?? false;
 
@@ -134,7 +125,8 @@ class EntitlementService extends ChangeNotifier {
       final map = row is List
           ? (row.first as Map).cast<String, dynamic>()
           : (row as Map).cast<String, dynamic>();
-      _limits = applyStoreEditionCeiling(TierLimits.fromJson(map));
+      _limits = TierLimits.fromJson(map);
+      _premiumSources = _limits!.isPremium ? await _loadPremiumSources() : const {};
       notifyListeners();
       return _limits;
     } catch (e, s) {
@@ -143,14 +135,27 @@ class EntitlementService extends ChangeNotifier {
     }
   }
 
+  Future<Set<String>> _loadPremiumSources() async {
+    try {
+      final rows = await _client.rpc('my_premium_sources');
+      return {for (final r in (rows as List? ?? const [])) r as String};
+    } catch (e, s) {
+      reportNonFatal(e, s, during: 'loading premium sources');
+      return _premiumSources;
+    }
+  }
+
   void _ensureRealtimeSubscribed(String userId) {
     if (_subscriptionChannel != null) return;
     try {
-      _subscriptionChannel = _client.channel('public:subscriptions:$userId')
-        ..onPostgresChanges(
+      final channel = _client.channel('public:subscriptions:$userId');
+      // Both rails: a Paddle webhook writes `subscriptions`, an App Store
+      // purchase or renewal writes `apple_subscriptions`.
+      for (final table in const ['subscriptions', 'apple_subscriptions']) {
+        channel.onPostgresChanges(
           event: PostgresChangeEvent.all,
           schema: 'public',
-          table: 'subscriptions',
+          table: table,
           filter: PostgresChangeFilter(
             type: PostgresChangeFilterType.eq,
             column: 'user_id',
@@ -160,15 +165,16 @@ class EntitlementService extends ChangeNotifier {
             trace(
               'subscription realtime update received',
               category: 'auth',
-              data: {'eventType': payload.eventType.name},
+              data: {'table': table, 'eventType': payload.eventType.name},
             );
             _debounceTimer?.cancel();
             _debounceTimer = Timer(const Duration(milliseconds: 200), () {
               refresh();
             });
           },
-        )
-        ..subscribe();
+        );
+      }
+      _subscriptionChannel = channel..subscribe();
     } catch (e, s) {
       reportNonFatal(e, s, during: 'subscribing to subscription realtime channel');
     }
@@ -199,6 +205,7 @@ class EntitlementService extends ChangeNotifier {
       }
       _subscriptionChannel = null;
     }
+    _premiumSources = const {};
     if (_limits == null) return;
     _limits = null;
     notifyListeners();
@@ -206,7 +213,7 @@ class EntitlementService extends ChangeNotifier {
 
   @visibleForTesting
   void setLimitsForTesting(TierLimits? limits) {
-    _limits = limits == null ? null : applyStoreEditionCeiling(limits);
+    _limits = limits;
     notifyListeners();
   }
 }

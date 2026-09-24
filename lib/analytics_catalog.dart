@@ -318,6 +318,13 @@ const kAnalyticsEvents = <AnalyticsEventDoc>[
     properties: ['where you came from'],
   ),
   AnalyticsEventDoc(
+    event: 'app_store_purchase_started',
+    group: .premium,
+    what: 'You started an App Store purchase of Premium.',
+    why: 'Whether the App Store sheet loses people.',
+    properties: ['where you came from', 'monthly or annual'],
+  ),
+  AnalyticsEventDoc(
     event: 'purchase_confirmed',
     group: .premium,
     what: 'A Premium subscription became active on your account.',

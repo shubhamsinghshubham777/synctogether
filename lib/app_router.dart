@@ -11,7 +11,6 @@ import 'profile/entitlement_service.dart';
 import 'profile/profile_screen.dart';
 import 'profile/profile_service.dart';
 import 'profile/subscription_screen.dart';
-import 'platform.dart';
 import 'rewards/leaderboard_screen.dart';
 import 'rewards/rewards_service.dart';
 import 'rooms/lobby_screen.dart';
@@ -66,12 +65,6 @@ GoRouter buildRouter([Player? player]) {
           ),
           GoRoute(
             path: 'subscribe',
-            redirect: (context, state) {
-              if (isAppleStoreBuild) {
-                return '/lobby';
-              }
-              return null;
-            },
             pageBuilder: (context, state) =>
                 _sharedAxis(state, SubscriptionScreen(source: state.uri.queryParameters['source'])),
           ),

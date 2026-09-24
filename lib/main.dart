@@ -15,6 +15,7 @@ import 'package:synctogether/env.dart';
 import 'package:synctogether/mock/mock_dependencies.dart';
 import 'package:synctogether/mock/store_capture.dart';
 import 'package:synctogether/platform.dart';
+import 'package:synctogether/profile/apple_iap_service.dart';
 import 'package:synctogether/rewards/rewards_models.dart';
 import 'package:synctogether/rewards/rewards_service.dart';
 import 'package:synctogether/rewards/unlock_log.dart';
@@ -92,6 +93,7 @@ Future<void> _bootstrap() async {
   // Must follow initialize (it reads Supabase.instance) and precede runApp, so
   // the auth stream has an error handler before the first deep link can land.
   AuthService.instance.start();
+  AppleIapService.instance.start();
   runApp(const MainApp());
   if (supportsSelfUpdate) unawaited(UpdateService.instance.checkForUpdate());
 }

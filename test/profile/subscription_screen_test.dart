@@ -54,26 +54,26 @@ void main() {
       expect(find.text('Refresh status'), findsOneWidget);
     });
 
-    testWidgets(
-      'apple store build hides Go Premium button and suppresses external website steering text',
-      (tester) async {
-        await tester.pumpWidget(
-          _wrap(
-            const SubscriptionScreen(
-              desktopOverride: true,
-              storeBuildOverride: true,
-              appleStoreBuildOverride: true,
-            ),
+    testWidgets('apple store build sells through the App Store and never steers to the website', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _wrap(
+          const SubscriptionScreen(
+            desktopOverride: true,
+            storeBuildOverride: true,
+            appleStoreBuildOverride: true,
           ),
-        );
-        await tester.pump(const Duration(milliseconds: 100));
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 100));
 
-        expect(find.text('SyncTogether Premium'), findsOneWidget);
-        expect(find.text('Go Premium'), findsNothing);
-        expect(find.text('Subscriptions are managed on our website.'), findsNothing);
-        expect(find.text('Sign in to your account to access your subscription.'), findsOneWidget);
-        expect(find.text('Refresh status'), findsOneWidget);
-      },
-    );
+      expect(find.text('SyncTogether Premium'), findsOneWidget);
+      expect(find.text('Go Premium'), findsNothing);
+      expect(find.text('Subscriptions are managed on our website.'), findsNothing);
+      expect(find.textContaining('website'), findsNothing);
+      expect(find.text("Couldn't reach the App Store right now."), findsOneWidget);
+      expect(find.text('Try again'), findsOneWidget);
+    });
   });
 }

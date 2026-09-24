@@ -54,9 +54,12 @@ void main() {
       expect(micButton.onPressed, isNotNull);
       expect(camButton.onPressed, isNotNull);
 
-      expect(find.byWidgetPredicate((w) => w is Tooltip && w.message == 'Mic on'), findsOneWidget);
       expect(
-        find.byWidgetPredicate((w) => w is Tooltip && w.message == 'Camera on'),
+        find.byWidgetPredicate((w) => w is Tooltip && w.message == 'Mic on (D)'),
+        findsOneWidget,
+      );
+      expect(
+        find.byWidgetPredicate((w) => w is Tooltip && w.message == 'Camera on (E)'),
         findsOneWidget,
       );
 
@@ -103,11 +106,11 @@ void main() {
       );
 
       expect(
-        find.byWidgetPredicate((w) => w is Tooltip && w.message == 'Mute mic'),
+        find.byWidgetPredicate((w) => w is Tooltip && w.message == 'Mute mic (D)'),
         findsOneWidget,
       );
       expect(
-        find.byWidgetPredicate((w) => w is Tooltip && w.message == 'Camera off'),
+        find.byWidgetPredicate((w) => w is Tooltip && w.message == 'Camera off (E)'),
         findsOneWidget,
       );
     });

@@ -3000,6 +3000,12 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
       return KeyEventResult.ignored;
     }
 
+    // Toggles must not flap while the key is held.
+    final toggleKeys = {LogicalKeyboardKey.keyD, LogicalKeyboardKey.keyE, LogicalKeyboardKey.keyR};
+    if (event is KeyRepeatEvent && toggleKeys.contains(event.logicalKey)) {
+      return KeyEventResult.handled;
+    }
+
     var handled = true;
     switch (event.logicalKey) {
       case LogicalKeyboardKey.space:
@@ -3023,6 +3029,14 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
         return _toggleChatFromShortcut() ? KeyEventResult.handled : KeyEventResult.ignored;
       case LogicalKeyboardKey.keyV:
         return _toggleCamsFromShortcut() ? KeyEventResult.handled : KeyEventResult.ignored;
+      case LogicalKeyboardKey.keyD:
+        return _toggleFacecamFromShortcut('mic') ? KeyEventResult.handled : KeyEventResult.ignored;
+      case LogicalKeyboardKey.keyE:
+        return _toggleFacecamFromShortcut('cam') ? KeyEventResult.handled : KeyEventResult.ignored;
+      case LogicalKeyboardKey.keyR:
+        if (_privacyHidden || _sync == null) return KeyEventResult.ignored;
+        _toggleReact();
+        return KeyEventResult.handled;
       case LogicalKeyboardKey.keyF:
         _toggleFullscreen();
         return KeyEventResult.handled;
@@ -3611,6 +3625,20 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     if (_privacyHidden || _av == null) return false;
     setState(() => _camsVisible = !_camsVisible);
     _shortcutFocus.requestFocus();
+    return true;
+  }
+
+  /// D / E: mic and camera, Meet's mnemonics (M and V were already taken by
+  /// mute and the facecam rail).
+  bool _toggleFacecamFromShortcut(String kind) {
+    final av = _av;
+    if (_privacyHidden || av == null) return false;
+    if (kind == 'cam' && !av.canPublishCamera) {
+      _toggleFacecam('cam', true); // explains the voice-only room
+      return true;
+    }
+    _toggleFacecam(kind, !(kind == 'mic' ? av.micEnabled : av.camEnabled));
+    setState(() {});
     return true;
   }
 
@@ -5092,7 +5120,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
       child: PTIconButton(
         icon: Symbols.chat_bubble_rounded,
         active: _chatOpen,
-        tooltip: _chatOpen ? 'Close chat' : 'Party chat',
+        tooltip: _chatOpen ? 'Close chat (C)' : 'Party chat (C)',
         onPressed: _toggleChat,
       ),
     );

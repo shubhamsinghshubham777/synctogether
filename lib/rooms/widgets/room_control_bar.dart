@@ -276,7 +276,7 @@ class _RoomControlBarState extends State<RoomControlBar> {
                   glass: false,
                   borderRadius: BorderRadius.circular(12),
                   size: 42,
-                  tooltip: widget.micOn ? 'Mute mic' : 'Mic on',
+                  tooltip: widget.micOn ? 'Mute mic (D)' : 'Mic on (D)',
                   onPressed: () => actions.onMicToggle(!widget.micOn),
                 ),
               ),
@@ -291,7 +291,7 @@ class _RoomControlBarState extends State<RoomControlBar> {
                     glass: false,
                     borderRadius: BorderRadius.circular(12),
                     size: 42,
-                    tooltip: widget.camOn ? 'Camera off' : 'Camera on',
+                    tooltip: widget.camOn ? 'Camera off (E)' : 'Camera on (E)',
                     onPressed: () => actions.onCamToggle(!widget.camOn),
                   ),
                 )
@@ -343,7 +343,7 @@ class _RoomControlBarState extends State<RoomControlBar> {
                 borderRadius: BorderRadius.circular(12),
                 size: 42,
                 iconSize: 22,
-                tooltip: widget.reactOpen ? 'Close reactions' : 'React',
+                tooltip: widget.reactOpen ? 'Close reactions (R)' : 'React (R)',
                 onPressed: actions.onReact,
               ),
             if ((widget.avAvailable || actions.onReact != null) &&
@@ -454,7 +454,7 @@ class _RoomControlBarState extends State<RoomControlBar> {
                       glass: false,
                       size: 36,
                       iconSize: 20,
-                      tooltip: widget.volume == 0 ? 'Unmute' : 'Mute',
+                      tooltip: widget.volume == 0 ? 'Unmute (M)' : 'Mute (M)',
                       onPressed: actions.onToggleMute,
                     ),
                   ),
@@ -562,7 +562,7 @@ class _RoomControlBarState extends State<RoomControlBar> {
               glass: false,
               borderRadius: BorderRadius.circular(12),
               iconSize: 20,
-              tooltip: widget.micOn ? 'Mute mic' : 'Mic on',
+              tooltip: widget.micOn ? 'Mute mic (D)' : 'Mic on (D)',
               onPressed: () => actions.onMicToggle(!widget.micOn),
             ),
             if (widget.camAvailable)
@@ -572,7 +572,7 @@ class _RoomControlBarState extends State<RoomControlBar> {
                 glass: false,
                 borderRadius: BorderRadius.circular(12),
                 iconSize: 20,
-                tooltip: widget.camOn ? 'Camera off' : 'Camera on',
+                tooltip: widget.camOn ? 'Camera off (E)' : 'Camera on (E)',
                 onPressed: () => actions.onCamToggle(!widget.camOn),
               )
             else if (actions.onCamLocked != null)
@@ -622,7 +622,7 @@ class _RoomControlBarState extends State<RoomControlBar> {
           glass: false,
           borderRadius: BorderRadius.circular(12),
           iconSize: 21,
-          tooltip: widget.reactOpen ? 'Close reactions' : 'React',
+          tooltip: widget.reactOpen ? 'Close reactions (R)' : 'React (R)',
           onPressed: actions.onReact,
         ),
     ];

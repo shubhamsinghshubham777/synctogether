@@ -10,6 +10,7 @@ import 'package:synctogether/av/av_settings_dialog.dart';
 import 'package:synctogether/av/device_preference_service.dart';
 import 'package:synctogether/player/chooser_dialog.dart';
 import 'package:synctogether/player/mode_selection_dialog.dart';
+import 'package:synctogether/player/subtitles/subtitle_style_dialog.dart';
 import 'package:synctogether/player/youtube_url_dialog.dart';
 import 'package:synctogether/profile/entitlement_service.dart';
 import 'package:synctogether/profile/media_quota_dialog.dart';
@@ -139,8 +140,10 @@ void main() {
       selected: 'Deutsch',
       onChosen: (_) {},
       onAddFromFile: () {},
+      onStyle: () {},
     ),
   );
+  opener('subtitle-style', (context) => showSubtitleStyleDialog(context));
   glass('shortcuts', (_) => const ShortcutsDialog(facecams: true), width: 520);
   glass('kick-member', (_) => const KickMemberDialog(displayName: _longName));
   glass(

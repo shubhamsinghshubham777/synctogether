@@ -200,6 +200,9 @@ class _GlowBlob extends StatelessWidget {
 ///   to 20 below 400 logical pixels of screen width;
 /// - `sheetOnCompact: true` presents it as a bottom sheet under 480 width, for
 ///   long forms that read better thumb-side on a phone.
+/// - `dimBackground: false` drops the scrim and the backdrop blur, for a
+///   dialog whose point is what is behind it (the subtitle style sheet previews
+///   on the live video); [alignment] then docks it beside that content.
 Future<T?> showGlassDialog<T>({
   required BuildContext context,
   required WidgetBuilder builder,
@@ -208,6 +211,8 @@ Future<T?> showGlassDialog<T>({
   EdgeInsetsGeometry? padding,
   bool scrollable = true,
   bool sheetOnCompact = false,
+  bool dimBackground = true,
+  AlignmentGeometry alignment = Alignment.center,
 }) {
   bool isSheet(BuildContext context) =>
       sheetOnCompact && MediaQuery.sizeOf(context).width < kGlassSheetBreakpoint;
@@ -216,7 +221,7 @@ Future<T?> showGlassDialog<T>({
     context: context,
     barrierDismissible: barrierDismissible,
     barrierLabel: 'dialog',
-    barrierColor: PTColors.barrier,
+    barrierColor: dimBackground ? PTColors.barrier : PTColors.scrimClear,
     transitionDuration: PTMotion.panel,
     pageBuilder: (context, _, _) {
       final mq = MediaQuery.of(context);
@@ -237,7 +242,7 @@ Future<T?> showGlassDialog<T>({
             removeLeft: true,
             removeRight: true,
             child: Align(
-              alignment: sheet ? .bottomCenter : .center,
+              alignment: sheet ? .bottomCenter : alignment,
               child: ConstrainedBox(
                 constraints: BoxConstraints(maxWidth: sheet ? double.infinity : width),
                 child: Material(
@@ -270,9 +275,11 @@ Future<T?> showGlassDialog<T>({
               child: child,
             )
           : ScaleTransition(scale: Tween(begin: 0.96, end: 1.0).animate(curved), child: child);
+      final faded = FadeTransition(opacity: curved, child: moved);
+      if (!dimBackground) return faded;
       return BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 6 * animation.value, sigmaY: 6 * animation.value),
-        child: FadeTransition(opacity: curved, child: moved),
+        child: faded,
       );
     },
   );

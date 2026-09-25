@@ -16,6 +16,7 @@ class ChooserDialog<T> extends StatelessWidget {
     required this.onChosen,
     this.selected,
     this.onAddFromFile,
+    this.onStyle,
   });
 
   final String type;
@@ -23,6 +24,9 @@ class ChooserDialog<T> extends StatelessWidget {
   final ValueChanged<T> onChosen;
   final T? selected;
   final VoidCallback? onAddFromFile;
+
+  /// Opens the subtitle style sheet; listed under the tracks when set.
+  final VoidCallback? onStyle;
 
   @override
   Widget build(BuildContext context) {
@@ -62,18 +66,34 @@ class ChooserDialog<T> extends StatelessWidget {
                 onTap: () => onChosen(value),
               );
             }).nonNulls,
-            if (onAddFromFile != null) ...[
+            if (values.any((v) => v is SubtitleTrack && isBitmapSubtitle(v)))
+              Padding(
+                padding: const EdgeInsets.fromLTRB(6, 4, 6, 0),
+                child: Text(
+                  'Picture tracks are images from the disc and keep their own look - '
+                  'pick a text track to use your subtitle style.',
+                  style: PTText.caption,
+                ),
+              ),
+            if (onAddFromFile != null || onStyle != null)
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 4),
                 child: Divider(color: PTColors.white(0.12), height: 1),
               ),
+            if (onAddFromFile != null)
               _TrackRow(
                 label: 'Add from File...',
                 icon: Symbols.file_open_rounded,
                 isSelected: false,
                 onTap: onAddFromFile!,
               ),
-            ],
+            if (onStyle != null)
+              _TrackRow(
+                label: 'Subtitle style...',
+                icon: Symbols.format_paint_rounded,
+                isSelected: false,
+                onTap: onStyle!,
+              ),
           ],
         ),
       ],

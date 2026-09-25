@@ -118,6 +118,40 @@ String? resolveLanguageName(String? rawLanguage) {
   return trimmed[0].toUpperCase() + trimmed.substring(1);
 }
 
+/// mpv codec names of image-based subtitle formats: pictures burned on the
+/// disc (Blu-ray PGS, DVD VobSub, DVB, DivX XSUB). Their look is in the
+/// pixels, so no subtitle style can reach them.
+const _kBitmapSubtitleCodecs = {
+  'hdmv_pgs_subtitle',
+  'pgssub',
+  'dvd_subtitle',
+  'dvdsub',
+  'dvb_subtitle',
+  'dvbsub',
+  'xsub',
+};
+
+bool isBitmapSubtitle(SubtitleTrack track) =>
+    _kBitmapSubtitleCodecs.contains(track.codec?.toLowerCase());
+
+bool _isRealTrack(SubtitleTrack t) => t.id != 'no' && t.id != 'auto';
+
+/// When mpv auto-selected an image track, a text track in the same language
+/// to use instead - null when the selection is already text, or there is no
+/// alternative. Forced (signs-only) tracks are passed over when a full one
+/// exists, since swapping full dialogue for signs would be a downgrade.
+SubtitleTrack? preferredTextSubtitle(List<SubtitleTrack> tracks, String? selectedId) {
+  final selected = tracks.where((t) => t.id == selectedId && _isRealTrack(t)).firstOrNull;
+  if (selected == null || !isBitmapSubtitle(selected)) return null;
+  final lang = resolveLanguageName(selected.language);
+  final text = [
+    for (final t in tracks)
+      if (_isRealTrack(t) && !isBitmapSubtitle(t) && resolveLanguageName(t.language) == lang) t,
+  ];
+  bool forced(SubtitleTrack t) => (t.title ?? '').toLowerCase().contains('forced');
+  return text.where((t) => !forced(t)).firstOrNull ?? text.firstOrNull;
+}
+
 /// Compares two track instances by their underlying ID so selection is reliable.
 bool isTrackSelected(dynamic track, dynamic selected) {
   if (selected == null) return false;
@@ -157,7 +191,12 @@ String formatTrackLabel(dynamic track) {
     if (track.id == 'no') return 'Off';
     if (track.id == 'auto') return 'Auto';
 
-    return _assembleTrackLabel(id: track.id, language: track.language, title: track.title);
+    return _assembleTrackLabel(
+      id: track.id,
+      language: track.language,
+      title: track.title,
+      extraSuffix: isBitmapSubtitle(track) ? 'Picture' : null,
+    );
   }
 
   if (track is AudioTrack) {

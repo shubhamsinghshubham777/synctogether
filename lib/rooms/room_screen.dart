@@ -23,6 +23,10 @@ import 'package:synctogether/diagnostics.dart';
 import 'package:synctogether/platform.dart';
 import 'package:synctogether/player/chooser_dialog.dart';
 import 'package:synctogether/player/mode_selection_dialog.dart';
+import 'package:synctogether/player/subtitles/subtitle_applier.dart';
+import 'package:synctogether/player/subtitles/subtitle_style_dialog.dart';
+import 'package:synctogether/player/track_label.dart';
+import 'package:synctogether/player/video_surface.dart';
 import 'package:synctogether/player/youtube/pt_youtube_controller.dart';
 import 'package:synctogether/player/youtube/pt_youtube_embed.dart';
 import 'package:synctogether/player/youtube/youtube_links.dart';
@@ -75,6 +79,10 @@ const bool kDemoMode = bool.fromEnvironment('DEMO_MODE', defaultValue: false);
 
 enum PlaybackMode { local, youtube }
 
+/// Height of the dark band behind the floating controls: the bar (24 margin +
+/// ~110) plus a fade. Capped at 30% of the video on small surfaces.
+const kControlScrimHeight = 180.0;
+
 class RoomScreen extends StatefulWidget {
   const RoomScreen({
     super.key,
@@ -121,6 +129,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
   /// Null only when [RoomDependencies.videoView] replaces the default view,
   /// which is the only reader.
   VideoController? _controller;
+  SubtitleStyleApplier? _subtitleStyle;
   VideoController get controller => _controller!;
 
   Room? _room;
@@ -568,11 +577,24 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
   void initState() {
     super.initState();
     if (widget.player == null) {
+      // libass on every platform: the Flutter subtitle view only receives
+      // plain text, so ASS/SSA styling and older files' tracks came out
+      // unstyled or blank. Android's libass cannot see system fonts, hence
+      // the bundled fallback.
       _ownedPlayer = Player(
-        configuration: PlayerConfiguration(logLevel: MPVLogLevel.warn, libass: isDesktop),
+        configuration: const PlayerConfiguration(
+          logLevel: MPVLogLevel.warn,
+          libass: true,
+          libassAndroidFont: kAndroidSubtitleFontAsset,
+          libassAndroidFontName: kAndroidSubtitleFontName,
+        ),
       );
     }
-    if (widget.dependencies.videoView == null) _controller = VideoController(_player);
+    if (widget.dependencies.videoView == null) {
+      _controller = VideoController(_player);
+      _subtitleStyle = SubtitleStyleApplier(_player);
+      unawaited(applyVideoQualityOptions(_player));
+    }
     if (isDesktop) {
       windowManager.addListener(this);
       // Seed the fullscreen state in case the window was put into fullscreen
@@ -1036,6 +1058,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
 
   @override
   void dispose() {
+    _subtitleStyle?.dispose();
     ModerationService.instance.removeListener(_onBlocksChanged);
     if (_immersive) unawaited(_applySystemUi(immersive: false));
     if (isDesktop) windowManager.removeListener(this);
@@ -2033,6 +2056,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     try {
       await _player.open(Media(uri), play: false);
       unawaited(_suppressSecondarySubtitles());
+      unawaited(_preferTextSubtitleOnOpen());
       try {
         await (_player.platform as dynamic)?.setProperty('sub-auto', 'fuzzy');
       } catch (_) {}
@@ -2080,6 +2104,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
       _localLoadWatchdog?.cancel();
       _localLoadStalled = false;
       await _player.open(Media(dl.streamUrl.toString()), play: false);
+      unawaited(_preferTextSubtitleOnOpen());
       unawaited(_suppressSecondarySubtitles());
       _armLocalLoadWatchdog(fileName);
       if (seekTo != null) unawaited(_seekOnceLoaded(seekTo, fileName));
@@ -3763,6 +3788,12 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
                 Navigator.of(dialogContext).pop();
                 unawaited(_pickExternalSubtitleFile());
               },
+              onStyle: _subtitleStyle == null
+                  ? null
+                  : () {
+                      Navigator.of(dialogContext).pop();
+                      unawaited(showSubtitleStyleDialog(context));
+                    },
             )
           : ChooserDialog<AudioTrack>(
               type: 'Audio',
@@ -3841,7 +3872,11 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
             base.startsWith('$videoBase.') ||
             base.startsWith('$videoBase-') ||
             base.startsWith('${videoBase}_')) {
-          trace('found sidecar subtitle', category: 'media', data: {'path': entity.path});
+          trace(
+            'found sidecar subtitle',
+            category: 'media',
+            data: {'file': p.basename(entity.path)},
+          );
           final track = SubtitleTrack.uri(entity.path, title: p.basename(entity.path));
           await _player.setSubtitleTrack(track);
           unawaited(_suppressSecondarySubtitles());
@@ -3850,6 +3885,42 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
       }
     } catch (e, s) {
       reportNonFatal(e, s, during: 'scanning sidecar subtitles');
+    }
+  }
+
+  /// mpv auto-picks subtitles by language and takes the first match, which on
+  /// a Blu-ray rip is usually the PGS picture track - one no subtitle style
+  /// can reach. Once per *fresh* open, swap to a text track in the same
+  /// language. Not on the 403 re-sign reopen, which restores the viewer's own
+  /// choice, and never after they have picked a track themselves.
+  Future<void> _preferTextSubtitleOnOpen() async {
+    // No native player behind an injected video view (tests).
+    if (widget.dependencies.videoView != null) return;
+    try {
+      bool hasReal(Tracks t) => t.subtitle.any((s) => s.id != 'no' && s.id != 'auto');
+      var tracks = _player.state.tracks;
+      if (!hasReal(tracks)) {
+        final none = tracks;
+        tracks = await _player.stream.tracks
+            .firstWhere(hasReal, orElse: () => none)
+            .timeout(const Duration(seconds: 5));
+      }
+      if (!mounted) return;
+      final native = _player.platform;
+      if (native is! NativePlayer) return;
+      final sid = await native.getProperty('sid');
+      final pick = preferredTextSubtitle(tracks.subtitle, sid);
+      if (pick == null || !mounted) return;
+      await _player.setSubtitleTrack(pick);
+      trace(
+        'preferred a text subtitle over a picture track',
+        category: 'media',
+        data: {'from': sid, 'to': pick.id, 'language': pick.language},
+      );
+    } on TimeoutException {
+      // No subtitle tracks at all: nothing to prefer.
+    } catch (e, s) {
+      reportNonFatal(e, s, during: 'preferring a text subtitle track');
     }
   }
 
@@ -4301,6 +4372,9 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     );
   }
 
+  Widget _sizedVideo(Widget video) =>
+      VideoSurfaceSizer.supported ? VideoSurfaceSizer(controller: controller, child: video) : video;
+
   Widget _video() {
     return Stack(
       fit: .expand,
@@ -4308,11 +4382,14 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
         if (_mode == .local)
           _player.state.duration > Duration.zero || (!kDemoMode && !LiveKitService.isMockMode)
               ? widget.dependencies.videoView?.call(context, _player) ??
-                    Video(
-                      controller: controller,
-                      controls: NoVideoControls,
-                      subtitleViewConfiguration: const SubtitleViewConfiguration(
-                        padding: EdgeInsets.all(32),
+                    _sizedVideo(
+                      Video(
+                        controller: controller,
+                        controls: NoVideoControls,
+                        filterQuality: .medium,
+                        // libass draws subtitles into the frame; the Flutter
+                        // view must never draw a second copy.
+                        subtitleViewConfiguration: const SubtitleViewConfiguration(visible: false),
                       ),
                     )
               : Image.asset('assets/store/movie_still.jpg', fit: BoxFit.cover),
@@ -4446,14 +4523,36 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
               ),
             ),
         ],
-        // Bottom scrim so glass controls always sit on something dark.
-        const DecoratedBox(
-          decoration: BoxDecoration(
-            gradient: RadialGradient(
-              center: Alignment(0, 1.1),
-              radius: 1.2,
-              colors: [PTColors.scrimTop, PTColors.scrimClear],
-              stops: [0.0, 0.55],
+        // Bottom scrim so glass controls always sit on something dark - a
+        // band behind the controls, only while they show. libass draws
+        // subtitles *into* the video frame, so anything painted over the
+        // video paints over them too: the old full-height radial scrim, at its
+        // darkest exactly where centred subtitles sit, dimmed them ~37% while
+        // left/right-aligned lines stayed white. A plain gradient, so fading
+        // it breaks no glass.
+        Positioned.fill(
+          child: IgnorePointer(
+            child: LayoutBuilder(
+              builder: (context, c) => Align(
+                alignment: .bottomCenter,
+                child: AnimatedOpacity(
+                  opacity: _controlsVisible ? 1 : 0,
+                  duration: PTMotion.functional(context, Durations.medium2),
+                  child: SizedBox(
+                    width: double.infinity,
+                    height: math.min(kControlScrimHeight, c.maxHeight * 0.3),
+                    child: const DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: .bottomCenter,
+                          end: .topCenter,
+                          colors: [PTColors.scrimTop, PTColors.scrimClear],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
             ),
           ),
         ),

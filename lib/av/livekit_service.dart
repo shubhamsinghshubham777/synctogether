@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:livekit_client/livekit_client.dart' as lk;
@@ -7,6 +8,26 @@ import 'package:synctogether/diagnostics.dart';
 import 'package:synctogether/env.dart';
 import 'package:synctogether/rooms/room_models.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+
+/// Consecutive transient failures before an unreachable AV backend is worth a
+/// report (~45 s of 1/2/4/8/15 s backoff). Retries carry on regardless.
+const kAvReportAfterAttempts = 5;
+
+/// Whether [error] is the network or the server being unreachable: expected,
+/// retried with backoff, and not a bug on its own. A 4xx from the token
+/// function (not a member, bad request) is a real answer and is not transient.
+bool isTransientAvError(Object error) => switch (error) {
+  FunctionException(:final status) =>
+    status == 0 || status == 408 || status == 429 || status >= 500,
+  SocketException() ||
+  HttpException() ||
+  TimeoutException() ||
+  lk.MediaConnectException() ||
+  lk.TimeoutException() => true,
+  // NotAllowed is the SFU refusing our token - a real answer, like a 4xx.
+  lk.ConnectException(:final reason) => reason != lk.ConnectionErrorReason.NotAllowed,
+  _ => false,
+};
 
 enum AvConnectionState { disconnected, connecting, connected, reconnecting }
 
@@ -73,7 +94,7 @@ class LiveKitService extends ChangeNotifier {
     try {
       await _connectInternal();
     } catch (e, s) {
-      reportNonFatal(e, s, during: 'connecting to LiveKit for room $roomId');
+      _noteFailure(e, s, during: 'connecting to LiveKit for room $roomId');
       _setState(.disconnected);
       if (!_disposed) _scheduleReconnect();
       rethrow;
@@ -159,6 +180,25 @@ class LiveKitService extends ChangeNotifier {
     _scheduleReconnect();
   }
 
+  /// An unreachable backend is traced per attempt and reported once, when it
+  /// has stayed unreachable for [kAvReportAfterAttempts] tries - reporting
+  /// every attempt of an endless backoff made a dev stack without its
+  /// functions runtime (or a user offline) look like a flood of bugs.
+  void _noteFailure(Object e, StackTrace s, {required String during}) {
+    if (!isTransientAvError(e)) {
+      reportNonFatal(e, s, during: during);
+      return;
+    }
+    trace(
+      'av backend unreachable',
+      category: 'av',
+      data: {'room_id': roomId, 'attempt': _reconnectAttempts, 'error': '$e'},
+    );
+    if (_reconnectAttempts == kAvReportAfterAttempts) {
+      reportNonFatal(e, s, during: '$during (still unreachable after $_reconnectAttempts tries)');
+    }
+  }
+
   void _scheduleReconnect() {
     if (_disposed ||
         _reconnectTimer?.isActive == true ||
@@ -183,7 +223,7 @@ class LiveKitService extends ChangeNotifier {
       try {
         await _reconnect();
       } catch (e, s) {
-        reportNonFatal(e, s, during: 'av reconnection attempt for room $roomId');
+        _noteFailure(e, s, during: 'av reconnection attempt for room $roomId');
         _setState(.disconnected);
         if (!_disposed) _scheduleReconnect();
       }

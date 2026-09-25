@@ -93,6 +93,22 @@ abstract final class PTColors {
   static const laurelLight = Color(0xFFE9D5A1);
   static const laurel = Color(0xFFB08D57);
 
+  // Subtitles. The viewer picks these and libass draws them into the video,
+  // so they are the defaults and the offered swatches, not app chrome.
+  static const subtitleText = Color(0xFFFFFFFF);
+  static const subtitleOutline = Color(0xFF000000);
+  static const subtitleShadow = Color(0xFF000000);
+  static const subtitleSwatches = <Color>[
+    Color(0xFFFFFFFF),
+    Color(0xFFFFF4C2),
+    Color(0xFFFDE047),
+    Color(0xFF86EFAC),
+    Color(0xFF7DD3FC),
+    Color(0xFFF9A8D4),
+    Color(0xFF9CA3AF),
+    Color(0xFF000000),
+  ];
+
   static const buttonGradient = LinearGradient(
     begin: .topLeft,
     end: .bottomRight,

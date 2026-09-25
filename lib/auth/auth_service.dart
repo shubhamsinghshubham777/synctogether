@@ -7,6 +7,7 @@ import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:synctogether/player/subtitles/subtitle_prefs.dart';
 import 'package:synctogether/analytics.dart';
 import 'package:synctogether/diagnostics.dart';
 import 'package:synctogether/env.dart';
@@ -330,6 +331,7 @@ class AuthService {
       EntitlementService.instance.clear();
       ModerationService.instance.clear();
       unawaited(EmojiPrefs.instance.clear());
+      unawaited(SubtitlePrefs.instance.clear());
       Analytics.instance.reset();
       try {
         await CookieManager.instance().deleteAllCookies();
@@ -352,6 +354,7 @@ class AuthService {
       EntitlementService.instance.clear();
       ModerationService.instance.clear();
       unawaited(EmojiPrefs.instance.clear());
+      unawaited(SubtitlePrefs.instance.clear());
       Analytics.instance.reset();
       try {
         await CookieManager.instance().deleteAllCookies();

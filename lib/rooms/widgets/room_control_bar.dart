@@ -140,6 +140,9 @@ Duration extrapolatedPlayhead({
 /// How far the drawn playhead may run ahead of the last report.
 const kMaxExtrapolation = Duration(milliseconds: 1200);
 
+/// Floating bars at least this wide lay out like the docked theatre bar.
+const kFloatingBoardWidth = 1000.0;
+
 class _RoomControlBarState extends State<RoomControlBar> with SingleTickerProviderStateMixin {
   /// The playhead as drawn. Separate from `widget.position` so the per-frame
   /// advance rebuilds only the slider and readout, never the whole bar.
@@ -582,6 +585,15 @@ class _RoomControlBarState extends State<RoomControlBar> with SingleTickerProvid
   /// the subtitle key on the left, the transport dead centre, volume and
   /// fullscreen on the right. Everything else lives in the room menu.
   Widget _fullRow() {
+    // A wide floating bar (desktop fullscreen, or a big window short of the
+    // theatre height) follows the Desktop room board instead: transport
+    // first, on the left. The centred row is the minimum-window board's.
+    return LayoutBuilder(
+      builder: (context, box) => box.maxWidth >= kFloatingBoardWidth ? _dockedRow() : _centredRow(),
+    );
+  }
+
+  Widget _centredRow() {
     final actions = widget.actions;
     final left = [
       ..._avButtons(size: 36, outlined: false),

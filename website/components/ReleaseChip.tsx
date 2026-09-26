@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { ArrowRight, Sparkles } from "lucide-react";
 
 export interface ReleaseChipProps {
   /** Tag or version label, e.g. "v1.7.1". */
@@ -11,8 +10,8 @@ export interface ReleaseChipProps {
 }
 
 /**
- * Announcement chip displaying the latest release version with an animated sparkle,
- * violet glass styling, and a link to the changelog.
+ * Announcement tag for the latest release: a Cue dot and mono label on a Rail
+ * outline, linking to the changelog. Static - nothing pulses.
  */
 export function ReleaseChip({
   tag,
@@ -20,16 +19,16 @@ export function ReleaseChip({
   className = "",
 }: ReleaseChipProps) {
   const cleanTag = tag ? (tag.startsWith("SyncTogether ") ? tag.replace(/^SyncTogether\s+/, "") : tag) : "";
-  const label = cleanTag ? `SyncTogether ${cleanTag} is now live` : "SyncTogether is now live";
+  const version = cleanTag.replace(/^v/i, "");
+  const label = version ? `V${version} is out` : "New release out";
 
   return (
     <Link
       href={href}
-      className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-purple-500/10 border border-purple-400/30 text-purple-200 text-xs font-semibold shadow-inner hover:bg-purple-500/20 hover:border-purple-400/50 hover:text-white transition-all duration-200 group cursor-pointer ${className}`.trim()}
+      className={`group inline-flex items-center gap-2 rounded-[4px] border border-rail px-2 py-1 font-[family-name:var(--font-jetbrains-mono)] text-[11px] uppercase tracking-[0.1em] text-screen transition-colors duration-200 hover:border-beam-400/60 hover:text-screen ${className}`.trim()}
     >
-      <Sparkles className="w-3.5 h-3.5 text-amber-300 animate-pulse group-hover:scale-110 transition-transform" />
+      <span aria-hidden className="h-[7px] w-[7px] rounded-full bg-cue" />
       <span>{label}</span>
-      <ArrowRight className="w-3 h-3 text-purple-400 group-hover:translate-x-0.5 transition-transform" />
     </Link>
   );
 }

@@ -1,12 +1,13 @@
 import { gradientForSeed } from "@/lib/rewards";
 
-const FRAME_GRADIENTS: Record<string, [string, string]> = {
-  ember: ["#FBBF24", "#F97316"],
-  halo: ["#38BDF8", "#818CF8"],
-  pulse: ["#C084FC", "#8B5CF6"],
-  aurora: ["#4ADE80", "#A855F7"],
-  laurel: ["#E9D5A1", "#B08D57"],
-  aurum: ["#FBBF24", "#D97706"],
+/** Frames are a solid ring in a Booth colour - no gradients in the booth. */
+const FRAME_COLORS: Record<string, string> = {
+  ember: "#FF6A4D",
+  halo: "#6FD6C4",
+  pulse: "#FFB23F",
+  aurora: "#6FD6C4",
+  laurel: "#E8C877",
+  aurum: "#E8C877",
 };
 
 /**
@@ -15,7 +16,7 @@ const FRAME_GRADIENTS: Record<string, [string, string]> = {
  * Takes a hashed `seed` rather than a user id, because these pages are indexed,
  * cached and reshared - an account identifier on one would outlive any later
  * change of mind. Someone who never opted into a public profile has no name to
- * show, so they are a gradient and nothing else.
+ * show, so they are a flat colour picked from the seed and nothing else.
  */
 export function PublicAvatar({
   seed,
@@ -30,9 +31,9 @@ export function PublicAvatar({
   frame?: string | null;
   size?: number;
 }) {
-  const [from, to] = gradientForSeed(seed);
+  const [from] = gradientForSeed(seed);
   const letter = name ? name.trim().charAt(0).toUpperCase() : "";
-  const frameColors = frame ? FRAME_GRADIENTS[frame] : undefined;
+  const frameColor = frame ? FRAME_COLORS[frame] : undefined;
 
   const inner = (
     <div
@@ -42,27 +43,28 @@ export function PublicAvatar({
         height: size,
         background: avatar
           ? `url(${avatar}) center/cover`
-          : `linear-gradient(135deg, ${from}, ${to})`,
+          : from,
         fontSize: size * 0.38,
       }}
       aria-hidden={!name}
     >
-      {!avatar && <span className="font-semibold text-white">{letter}</span>}
+      {!avatar && (
+        <span className="font-extrabold text-white font-[family-name:var(--font-space-grotesk)]">{letter}</span>
+      )}
     </div>
   );
 
-  if (!frameColors) return inner;
+  if (!frameColor) return inner;
 
   return (
     <div
       className="rounded-full shrink-0"
       style={{
         padding: Math.max(2, size * 0.055),
-        background: `linear-gradient(135deg, ${frameColors[0]}, ${frameColors[1]})`,
-        boxShadow: `0 0 ${size * 0.22}px ${frameColors[1]}59`,
+        background: frameColor,
       }}
     >
-      <div className="rounded-full" style={{ padding: Math.max(1, size * 0.035), background: "#14101F" }}>
+      <div className="rounded-full" style={{ padding: Math.max(1, size * 0.035), background: "#121010" }}>
         {inner}
       </div>
     </div>

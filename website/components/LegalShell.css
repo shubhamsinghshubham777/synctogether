@@ -1,0 +1,59 @@
+/* Legal page additions over components/booth/booth.css: the notched pledge
+   ticket, numbered headings and the "On this page" index. */
+
+.legal-prose section[id] {
+  scroll-margin-top: 7rem;
+}
+
+/* Paper ticket with a notch bitten out of each short edge, mid-height. */
+.legal-prose .legal-pledge {
+  --notch: 11px;
+  padding: 2rem 2.5rem;
+  -webkit-mask:
+    radial-gradient(circle var(--notch) at 0 50%, #0000 98%, #000) left / 51% 100% no-repeat,
+    radial-gradient(circle var(--notch) at 100% 50%, #0000 98%, #000) right / 51% 100% no-repeat;
+  mask:
+    radial-gradient(circle var(--notch) at 0 50%, #0000 98%, #000) left / 51% 100% no-repeat,
+    radial-gradient(circle var(--notch) at 100% 50%, #0000 98%, #000) right / 51% 100% no-repeat;
+}
+
+@media (max-width: 639px) {
+  .legal-prose .legal-pledge {
+    padding: 1.5rem 1.5rem;
+  }
+}
+
+.legal-prose .legal-pledge .legal-pledge-eyebrow {
+  font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #A33A22;
+  font-weight: 500;
+}
+
+.legal-prose .legal-pledge .legal-pledge-title {
+  font-family: var(--font-display), system-ui, sans-serif;
+  font-weight: 800;
+  font-size: clamp(1.4rem, 2.4vw, 1.75rem);
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+  color: #121010;
+  margin-top: 0.5rem;
+}
+
+.legal-prose .legal-pledge p {
+  color: #3A2E24;
+  font-size: 1rem;
+  line-height: 1.65;
+}
+
+.legal-prose h2 .legal-num {
+  font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
+  font-weight: 500;
+  font-size: 0.875rem;
+  letter-spacing: 0.04em;
+  color: #FFB23F;
+  margin-right: 0.75rem;
+  vertical-align: 0.15em;
+}

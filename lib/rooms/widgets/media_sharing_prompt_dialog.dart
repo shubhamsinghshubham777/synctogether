@@ -56,51 +56,41 @@ class _MediaSharingPromptDialogState extends State<_MediaSharingPromptDialog> {
       mainAxisSize: .min,
       crossAxisAlignment: .stretch,
       children: [
-        const GlassDialogHeader(
-          title: 'Share with room?',
-          leading: Icon(Symbols.cloud_upload_rounded, size: 22, color: PTColors.textAccent),
-          spacing: 10,
-        ),
-        const SizedBox(height: 12),
-        Text.rich(
-          TextSpan(
-            children: [
-              const TextSpan(text: 'Share '),
-              TextSpan(
-                text: widget.fileName,
-                style: PTText.body.copyWith(fontSize: 14, fontWeight: .w600, color: Colors.white),
-              ),
-              TextSpan(text: ' ($sizeFormatted) with everyone in the room?'),
-            ],
+        const GlassDialogHeader(eyebrow: 'Projection', title: 'Share with the room?'),
+        const SizedBox(height: 16),
+        // The file, as a dashed mono ticket stub: name ellipsized, size right.
+        CustomPaint(
+          painter: const DashedRectPainter(color: PTColors.rail, radius: PTRadius.control),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            child: Row(
+              spacing: 10,
+              children: [
+                Icon(Symbols.draft_rounded, size: 17, color: PTColors.white(0.6)),
+                Expanded(
+                  child: Text(
+                    widget.fileName,
+                    maxLines: 1,
+                    overflow: .ellipsis,
+                    style: PTText.mono.copyWith(fontSize: 13, color: PTColors.fg),
+                  ),
+                ),
+                Text(sizeFormatted, style: PTText.mono.copyWith(fontSize: 12)),
+              ],
+            ),
           ),
-          style: PTText.body.copyWith(fontSize: 14, color: PTColors.white(0.7), height: 1.5),
         ),
         const SizedBox(height: 14),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          decoration: BoxDecoration(
-            color: PTColors.primary.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: PTColors.accentBorder.withValues(alpha: 0.2)),
-          ),
-          child: Row(
-            spacing: 10,
-            crossAxisAlignment: .start,
-            children: [
-              const Icon(Symbols.info_rounded, size: 18, color: PTColors.textAccent),
-              Expanded(
-                child: Text(
-                  'Sharing uploads the file to the cloud so room members can watch '
-                  'seamlessly without needing a local copy.',
-                  style: PTText.body.copyWith(fontSize: 12.5, color: PTColors.white(0.8)),
-                ),
-              ),
-            ],
-          ),
+        // Removal is queued, not instant (pending_r2_deletions), so the copy
+        // says "removed when the room closes" rather than promising a moment.
+        Text(
+          'We upload it once, so seats without a copy can stream it. '
+          "It's removed when the room closes.",
+          style: PTText.body.copyWith(fontSize: 14, color: PTColors.white(0.7), height: 1.5),
         ),
         const SizedBox(height: 12),
         PTCheckTile(
-          label: 'Remember my choice (you can change it in Profile settings)',
+          label: 'Remember my choice (change it in your profile)',
           value: _rememberChoice,
           onChanged: (v) => setState(() => _rememberChoice = v),
         ),

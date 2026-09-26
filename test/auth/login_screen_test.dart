@@ -56,6 +56,8 @@ void main() {
 
       expect(passwordField().obscureText, isTrue);
 
+      await tester.ensureVisible(find.byIcon(Symbols.visibility_rounded));
+      await tester.pump();
       await tester.tap(find.byIcon(Symbols.visibility_rounded));
       await tester.pump();
 

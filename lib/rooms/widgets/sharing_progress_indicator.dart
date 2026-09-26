@@ -55,14 +55,14 @@ class SharingProgressIndicator extends StatelessWidget {
     ].join(' • ');
 
     return ClipRRect(
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(PTRadius.control),
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           decoration: BoxDecoration(
             color: theme.colorScheme.surface.withValues(alpha: 0.85),
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(PTRadius.control),
             border: Border.all(
               color: isFailed
                   ? theme.colorScheme.error.withValues(alpha: 0.5)

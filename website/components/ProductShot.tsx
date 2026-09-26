@@ -8,13 +8,19 @@ import { FadeImage } from "@/components/motion/FadeImage";
 export function ProductShot() {
   return (
     <section className="relative py-10 md:py-14">
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 text-center space-y-3 mb-8 md:mb-10">
-        <p className="text-xs font-bold uppercase tracking-widest text-purple-400 font-mono">
-          This is the room
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 mb-8 md:mb-10 flex flex-col md:flex-row md:items-end md:justify-between gap-4 border-b border-rail pb-6">
+        <div className="space-y-3">
+          <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-screen/55">
+            Screen 01 · This is the room
+          </p>
+          <h2 className="font-[family-name:var(--font-display)] font-extrabold tracking-[-0.03em] leading-[0.95] text-4xl sm:text-5xl text-screen">
+            Same frame. Same room<span className="text-beam-400">.</span>
+          </h2>
+        </div>
+        <p className="max-w-sm text-screen/65 text-base leading-relaxed">
+          Faces down the side, the transport under the picture, and nothing painted over the
+          subtitles.
         </p>
-        <h2 className="text-3xl sm:text-4xl font-extrabold text-white font-[family-name:var(--font-space-grotesk)]">
-          Same frame, same room: faces, chat, all of it.
-        </h2>
       </div>
 
       {/* Edge-to-edge, with the canvas colour feathered back in so the shot
@@ -23,7 +29,7 @@ export function ProductShot() {
         <div className="relative w-full max-w-[1600px] mx-auto">
           <FadeImage
             src="/shots/room-theater.jpg"
-            alt="A SyncTogether room: a film playing full-screen with four facecam tiles down the left edge, the room code and remaining time along the top, the party chat open on the right, and the shared transport bar across the bottom."
+            alt="A SyncTogether room: a film playing with four facecam tiles down the left edge, the room name, paper room-code tag, in-sync indicator and remaining time along the top, and the shared transport bar under the picture."
             width={1920}
             height={1080}
             sizes="100vw"

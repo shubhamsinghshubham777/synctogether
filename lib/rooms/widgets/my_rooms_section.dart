@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:synctogether/rooms/room_models.dart';
+import 'package:synctogether/ui/booth.dart';
 import 'package:synctogether/ui/buttons.dart';
 import 'package:synctogether/ui/glass.dart';
 import 'package:synctogether/ui/loader.dart';
 import 'package:synctogether/ui/pt_motion.dart';
 import 'package:synctogether/ui/pt_theme.dart';
+
+/// List width at which room tickets pair up into two columns.
+const double kTicketTwoColumnWidth = 720;
 
 class MyRoomsSection extends StatelessWidget {
   const MyRoomsSection({
@@ -18,7 +22,12 @@ class MyRoomsSection extends StatelessWidget {
     this.onClearEnded,
     this.clearingEnded = false,
     this.compact = false,
+    this.framed = true,
   });
+
+  /// False drops the panel and uses the mono label heading - for a column
+  /// that is already its own surface (the desktop lobby's right side).
+  final bool framed;
 
   final List<MyRoom> rooms;
   final DateTime serverNow;
@@ -33,19 +42,24 @@ class MyRoomsSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final endedRooms = rooms.where((r) => !r.isLive && !r.room.persistent && r.isOwner).toList();
 
-    return GlassPanel(
-      radius: compact ? 24 : 26,
-      opacity: compact ? 0.55 : 0.5,
-      blur: compact ? 28 : 32,
-      padding: EdgeInsets.all(compact ? 20 : 28),
-      child: Column(
-        mainAxisSize: .min,
-        crossAxisAlignment: .start,
-        spacing: compact ? 14 : 18,
-        children: [
-          Row(
-            spacing: compact ? 8 : 10,
-            children: [
+    final body = Column(
+      mainAxisSize: .min,
+      crossAxisAlignment: .start,
+      spacing: compact ? 14 : 18,
+      children: [
+        Row(
+          spacing: compact ? 8 : 10,
+          children: [
+            if (!framed)
+              Expanded(
+                child: Text(
+                  'YOUR TICKETS · ${rooms.length}',
+                  maxLines: 1,
+                  overflow: .ellipsis,
+                  style: PTText.label,
+                ),
+              )
+            else ...[
               Icon(
                 Symbols.meeting_room_rounded,
                 size: compact ? 20 : 22,
@@ -59,7 +73,7 @@ class MyRoomsSection extends StatelessWidget {
                   TextSpan(
                     children: [
                       TextSpan(
-                        text: 'Your rooms',
+                        text: 'Your tickets',
                         style: compact
                             ? PTText.cardHeading.copyWith(fontSize: 16)
                             : PTText.cardHeading.copyWith(fontSize: 18),
@@ -75,21 +89,25 @@ class MyRoomsSection extends StatelessWidget {
                   ),
                 ),
               ),
-              if (endedRooms.isNotEmpty)
-                _ClearEndedButton(
-                  count: endedRooms.length,
-                  compact: compact,
-                  busy: clearingEnded,
-                  onPressed: onClearEnded != null && !clearingEnded
-                      ? () => onClearEnded!(endedRooms)
-                      : null,
-                ),
             ],
-          ),
-          Column(
-            mainAxisSize: .min,
-            spacing: 10,
-            children: [
+            if (endedRooms.isNotEmpty)
+              _ClearEndedButton(
+                count: endedRooms.length,
+                compact: compact,
+                busy: clearingEnded,
+                onPressed: onClearEnded != null && !clearingEnded
+                    ? () => onClearEnded!(endedRooms)
+                    : null,
+              ),
+          ],
+        ),
+        // Tickets pair up once each can keep a readable name beside its
+        // stub; below that they stack. A list, not a wrapped row, so a
+        // resize re-deals whole tickets rather than reflowing their insides.
+        LayoutBuilder(
+          builder: (context, box) {
+            final columns = box.maxWidth >= kTicketTwoColumnWidth ? 2 : 1;
+            final tickets = [
               for (final entry in rooms.asMap().entries)
                 PTEntrance(
                   key: ValueKey(entry.value.room.id),
@@ -100,17 +118,34 @@ class MyRoomsSection extends StatelessWidget {
                   child: _RoomRow(
                     entry: entry.value,
                     serverNow: serverNow,
-                    compact: compact,
+                    compact: compact || columns == 2,
                     busy: busyRoomId == entry.value.room.id,
                     onOpen: () => onOpen(entry.value),
                     onDelete: () => onDelete(entry.value),
                   ),
                 ),
-            ],
-          ),
-        ],
-      ),
+            ];
+            return Column(
+              mainAxisSize: .min,
+              spacing: 10,
+              children: [
+                for (var i = 0; i < tickets.length; i += columns)
+                  Row(
+                    crossAxisAlignment: .start,
+                    spacing: 10,
+                    children: [
+                      for (var j = i; j < i + columns; j++)
+                        Expanded(child: j < tickets.length ? tickets[j] : const SizedBox()),
+                    ],
+                  ),
+              ],
+            );
+          },
+        ),
+      ],
     );
+    if (!framed) return body;
+    return GlassPanel(padding: EdgeInsets.all(compact ? 20 : 28), child: body);
   }
 }
 
@@ -136,134 +171,144 @@ class _RoomRow extends StatefulWidget {
 }
 
 class _RoomRowState extends State<_RoomRow> {
-  bool _hovered = false;
-
   @override
   Widget build(BuildContext context) {
     final entry = widget.entry;
     final room = entry.room;
     final live = entry.isLive;
+    final compact = widget.compact;
+    // Paper is for what is showing now; everything else is a dark ticket on
+    // the booth. The fill tweens between the two when a room ends under you.
+    final ink = live ? PTColors.canvas : PTColors.fg;
+    final muted = ink.withValues(alpha: live ? 0.62 : 0.55);
 
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      onEnter: (_) => setState(() => _hovered = true),
-      onExit: (_) => setState(() => _hovered = false),
-      child: GestureDetector(
-        behavior: .opaque,
-        onTap: widget.busy ? null : widget.onOpen,
-        child: AnimatedContainer(
-          duration: PTMotion.functional(context, PTMotion.hover),
-          curve: PTMotion.enter,
-          padding: EdgeInsets.symmetric(horizontal: widget.compact ? 14 : 16, vertical: 13),
-          decoration: BoxDecoration(
-            color: PTColors.white(_hovered ? 0.09 : 0.05),
-            border: Border.all(color: PTColors.white(_hovered ? 0.16 : 0.09)),
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Row(
-            spacing: 12,
-            children: [
-              Container(
-                width: 38,
-                height: 38,
-                decoration: BoxDecoration(
-                  color: live ? PTColors.primary.withValues(alpha: 0.2) : PTColors.white(0.06),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(
-                  live ? Symbols.play_circle_rounded : Symbols.timer_off_rounded,
-                  size: 20,
-                  fill: 1,
-                  color: live ? PTColors.textAccent : PTColors.white(0.45),
-                ),
-              ),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: .start,
-                  spacing: 3,
-                  children: [
-                    // The badge may take at most 40% of the line and scales
-                    // down past that: a narrow tile at 2x text (split view,
-                    // SE landscape) would otherwise push it off the edge.
-                    LayoutBuilder(
-                      builder: (context, box) => Row(
-                        spacing: 8,
-                        children: [
-                          Flexible(
-                            child: Text(
-                              room.name,
-                              overflow: .ellipsis,
-                              style: PTText.body.copyWith(
-                                fontSize: 14,
-                                fontWeight: .w600,
-                                color: live ? PTColors.white(0.95) : PTColors.white(0.65),
-                              ),
-                            ),
-                          ),
-                          if (_badge(live, entry.isHost) case final badge?)
-                            ConstrainedBox(
-                              constraints: BoxConstraints(maxWidth: box.maxWidth * 0.4),
-                              child: FittedBox(fit: .scaleDown, child: badge),
-                            ),
-                        ],
-                      ),
+    return PTTicket(
+      paper: live,
+      stubWidth: compact ? 92 : 116,
+      onTap: widget.busy ? null : widget.onOpen,
+      semanticLabel: '${room.name}, ${_eyebrow(entry)}',
+      body: Padding(
+        padding: EdgeInsets.fromLTRB(compact ? 16 : 20, 14, 12, 14),
+        child: Column(
+          crossAxisAlignment: .start,
+          mainAxisSize: .min,
+          spacing: 5,
+          children: [
+            Row(
+              spacing: 6,
+              children: [
+                if (live)
+                  Container(
+                    width: 7,
+                    height: 7,
+                    decoration: const BoxDecoration(color: PTColors.liveInk, shape: .circle),
+                  ),
+                Flexible(
+                  child: Text(
+                    _eyebrow(entry).toUpperCase(),
+                    maxLines: 1,
+                    overflow: .ellipsis,
+                    style: PTText.label.copyWith(
+                      fontSize: 10,
+                      color: live ? PTColors.liveInk : muted,
                     ),
-                    Text(
-                      _subtitle(entry, widget.serverNow),
-                      overflow: .ellipsis,
-                      style: PTText.mono.copyWith(fontSize: 11, color: PTColors.white(0.45)),
-                    ),
-                  ],
-                ),
-              ),
-              if (widget.busy)
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 10),
-                  child: PTLoader(size: 18),
-                )
-              else ...[
-                PTIconButton(
-                  icon: Symbols.delete_rounded,
-                  size: 34,
-                  iconSize: 17,
-                  glass: false,
-                  tooltip: entry.isOwner
-                      ? 'Delete room'
-                      : 'Only the person who made this room can delete it',
-                  onPressed: entry.isOwner ? widget.onDelete : null,
-                ),
-                Icon(
-                  Symbols.chevron_right_rounded,
-                  size: 20,
-                  color: PTColors.white(_hovered ? 0.7 : 0.35),
+                  ),
                 ),
               ],
-            ],
-          ),
+            ),
+            // The badge may take at most 40% of the line and scales down past
+            // that: a narrow tile at 2x text (split view, SE landscape) would
+            // otherwise push it off the edge.
+            LayoutBuilder(
+              builder: (context, box) => Row(
+                spacing: 8,
+                children: [
+                  Flexible(
+                    child: Text(
+                      room.name,
+                      maxLines: 1,
+                      overflow: .ellipsis,
+                      style: PTText.cardHeading.copyWith(
+                        fontSize: compact ? 17 : 19,
+                        color: live ? ink : PTColors.white(0.8),
+                      ),
+                    ),
+                  ),
+                  if (_badge(live, entry.isHost) case final badge?)
+                    ConstrainedBox(
+                      constraints: BoxConstraints(maxWidth: box.maxWidth * 0.4),
+                      child: FittedBox(fit: .scaleDown, child: badge),
+                    ),
+                ],
+              ),
+            ),
+            Text(
+              _subtitle(entry, widget.serverNow),
+              maxLines: 1,
+              overflow: .ellipsis,
+              style: PTText.mono.copyWith(fontSize: 11, color: muted),
+            ),
+          ],
+        ),
+      ),
+      stub: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
+        child: Column(
+          mainAxisAlignment: .center,
+          spacing: 6,
+          children: [
+            FittedBox(
+              fit: .scaleDown,
+              child: Text(
+                room.code.toUpperCase(),
+                maxLines: 1,
+                style: PTText.mono.copyWith(
+                  fontSize: compact ? 13 : 15,
+                  fontWeight: .w600,
+                  letterSpacing: 1.2,
+                  color: live ? ink : PTColors.white(0.7),
+                ),
+              ),
+            ),
+            AnimatedSwitcher(
+              duration: PTMotion.functional(context, PTMotion.state),
+              child: widget.busy
+                  ? const SizedBox(key: ValueKey('busy'), height: 30, child: PTLoader(size: 16))
+                  : PTIconButton(
+                      key: const ValueKey('delete'),
+                      icon: Symbols.delete_rounded,
+                      size: 30,
+                      iconSize: 16,
+                      glass: false,
+                      color: live ? PTColors.canvas.withValues(alpha: 0.6) : null,
+                      tooltip: entry.isOwner
+                          ? 'Delete room'
+                          : 'Only the person who made this room can delete it',
+                      onPressed: entry.isOwner ? widget.onDelete : null,
+                    ),
+            ),
+          ],
         ),
       ),
     );
   }
 
+  static String _eyebrow(MyRoom entry) {
+    if (!entry.isLive) return 'Ended';
+    if (entry.room.persistent) return 'Saved · ${entry.memberCount} in';
+    return 'Now showing · ${entry.memberCount} in';
+  }
+
   static Widget? _badge(bool live, bool isHost) {
     if (live && isHost) {
+      // Inverted tag: ink on paper, the host's plate on the ticket.
       return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-        decoration: BoxDecoration(
-          color: PTColors.primary.withValues(alpha: 0.2),
-          borderRadius: BorderRadius.circular(6),
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        decoration: BoxDecoration(color: PTColors.canvas, borderRadius: BorderRadius.circular(2)),
+        child: Text(
+          'HOST',
+          style: PTText.label.copyWith(fontSize: 9, color: PTColors.fg, letterSpacing: 1),
         ),
-        child: Text('Host', style: PTText.mono.copyWith(fontSize: 9, color: PTColors.textAccent)),
-      );
-    }
-    if (!live) {
-      return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-        decoration: BoxDecoration(
-          color: PTColors.white(0.08),
-          borderRadius: BorderRadius.circular(6),
-        ),
-        child: Text('Ended', style: PTText.mono.copyWith(fontSize: 9, color: PTColors.white(0.5))),
       );
     }
     return null;
@@ -276,7 +321,7 @@ class _RoomRowState extends State<_RoomRow> {
     if (entry.isLive) {
       return '$people · ${_left(room.expiresAt.difference(serverNow))} left';
     }
-    return 'Session ended · Tap for options';
+    return 'Session over · tap for options';
   }
 
   static String _left(Duration d) {
@@ -309,7 +354,7 @@ class DeleteRoomDialog extends StatelessWidget {
               decoration: BoxDecoration(
                 color: PTColors.dangerBorder.withValues(alpha: 0.12),
                 border: Border.all(color: PTColors.dangerBorder.withValues(alpha: 0.3)),
-                borderRadius: BorderRadius.circular(14),
+                borderRadius: BorderRadius.circular(PTRadius.panel),
               ),
               child: const Icon(
                 Symbols.delete_forever_rounded,
@@ -423,7 +468,7 @@ class _ClearEndedButtonState extends State<_ClearEndedButton> {
             decoration: BoxDecoration(
               color: PTColors.white(_hovered ? 0.1 : 0.05),
               border: Border.all(color: PTColors.white(_hovered ? 0.18 : 0.1)),
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(PTRadius.control),
             ),
             child: Row(
               mainAxisSize: .min,
@@ -474,7 +519,7 @@ class ClearEndedRoomsDialog extends StatelessWidget {
               decoration: BoxDecoration(
                 color: PTColors.dangerBorder.withValues(alpha: 0.12),
                 border: Border.all(color: PTColors.dangerBorder.withValues(alpha: 0.3)),
-                borderRadius: BorderRadius.circular(14),
+                borderRadius: BorderRadius.circular(PTRadius.panel),
               ),
               child: const Icon(
                 Symbols.delete_sweep_rounded,

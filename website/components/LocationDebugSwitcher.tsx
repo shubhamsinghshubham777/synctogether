@@ -4,7 +4,9 @@ import { useState, useRef, useEffect } from "react";
 import { useIsClient } from "@/lib/useIsClient";
 import { usePricing } from "@/lib/usePricing";
 import { COUNTRY_CURRENCY_MAP, isLocalEnvironment } from "@/lib/pricing";
-import { Globe, MapPin, ChevronDown, Check } from "lucide-react";
+import { Globe, ChevronDown, Check } from "lucide-react";
+
+const mono = "font-[family-name:var(--font-jetbrains-mono)]";
 
 interface LocationDebugSwitcherProps {
   className?: string;
@@ -13,7 +15,7 @@ interface LocationDebugSwitcherProps {
 export function LocationDebugSwitcher({ className = "" }: LocationDebugSwitcherProps) {
   // Reads window.location, so it must not run until the client render.
   const isLocal = useIsClient() && isLocalEnvironment();
-  const { countryCode, currencyCode, isMocked, mockCountry, setMockCountry } =
+  const { countryCode, currencyCode, currencySymbol, isMocked, mockCountry, setMockCountry } =
     usePricing();
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -31,9 +33,16 @@ export function LocationDebugSwitcher({ className = "" }: LocationDebugSwitcherP
     };
   }, []);
 
-  // Strictly hide debug simulator on production / Vercel deployments
+  const chip = `${mono} inline-flex items-center gap-2 h-[38px] px-3 rounded-md border text-[11px] tracking-[0.08em] uppercase`;
+
+  // Production shows the active currency as a plain chip; the simulator
+  // dropdown is strictly local-only.
   if (!isLocal) {
-    return null;
+    return (
+      <span className={`${chip} border-rail text-gray-300 ${className}`} title="Prices shown in this currency">
+        {currencyCode} · {currencySymbol}
+      </span>
+    );
   }
 
   const activeConfig = COUNTRY_CURRENCY_MAP[countryCode] || COUNTRY_CURRENCY_MAP["US"];
@@ -46,36 +55,22 @@ export function LocationDebugSwitcher({ className = "" }: LocationDebugSwitcherP
         data-current-country={countryCode}
         data-current-currency={currencyCode}
         onClick={() => setIsOpen(!isOpen)}
-        className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all cursor-pointer shadow-sm ${
-          isMocked
-            ? "bg-amber-500/15 border-amber-400/40 text-amber-200 hover:bg-amber-500/25"
-            : "bg-purple-500/10 border-purple-400/20 text-purple-200 hover:bg-purple-500/20 hover:border-purple-400/40"
+        className={`${chip} cursor-pointer transition-colors ${
+          isMocked ? "border-beam-500/60 text-beam-400" : "border-rail text-gray-300 hover:text-white"
         }`}
-        title="Mock user location for currency and pricing testing"
+        title="Mock user location for currency and pricing testing (local only)"
       >
-        <MapPin className="w-3.5 h-3.5 text-purple-400" />
-        <span className="flex items-center gap-1.5">
-          <span>{activeConfig.flag}</span>
-          <span className="font-mono">{countryCode}</span>
-          <span className="text-gray-400 font-mono">({currencyCode})</span>
-        </span>
-        {isMocked && (
-          <span className="text-[9px] uppercase font-bold tracking-wider px-1.5 py-0.2 rounded bg-amber-400/20 text-amber-300 border border-amber-400/30">
-            Mocked
-          </span>
-        )}
-        <ChevronDown
-          className={`w-3 h-3 text-gray-400 transition-transform duration-200 ${
-            isOpen ? "rotate-180" : ""
-          }`}
-        />
+        <span>{currencyCode} · {currencySymbol}</span>
+        <span className="text-gray-500">{countryCode}</span>
+        {isMocked && <span className="text-[9px] text-beam-400">Mocked</span>}
+        <ChevronDown className={`w-3 h-3 text-gray-500 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`} />
       </button>
 
       {/* Dropdown Menu */}
       {isOpen && (
         <div
           id="mock-country-dropdown"
-          className="absolute right-0 mt-2 w-64 rounded-2xl bg-[#141024]/95 backdrop-blur-xl border border-purple-500/30 shadow-2xl p-2 z-50 animate-in fade-in zoom-in-95 duration-150 space-y-1 text-xs"
+          className="absolute right-0 mt-2 w-64 rounded-2xl bg-seat border border-rail shadow-2xl p-2 z-50 animate-in fade-in zoom-in-95 duration-150 space-y-1 text-xs"
         >
           <div className="px-2.5 py-1.5 border-b border-white/5 flex items-center justify-between">
             <span className="font-bold text-gray-300 uppercase tracking-wider text-[10px] font-mono">

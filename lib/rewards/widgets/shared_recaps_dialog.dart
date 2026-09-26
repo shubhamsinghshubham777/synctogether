@@ -88,7 +88,7 @@ class _SharedRecapsState extends State<_SharedRecaps> {
           physics: compact ? const NeverScrollableScrollPhysics() : null,
           padding: const EdgeInsets.only(right: 16),
           itemCount: recaps?.length ?? 0,
-          separatorBuilder: (_, _) => const SizedBox(height: 10),
+          separatorBuilder: (_, _) => const SizedBox.shrink(),
           itemBuilder: (context, i) => _RecapRow(
             recap: recaps![i],
             busy: _deleting.contains(recaps[i].id),
@@ -102,10 +102,9 @@ class _SharedRecapsState extends State<_SharedRecaps> {
             Padding(
               padding: const EdgeInsets.only(right: 8),
               child: GlassDialogHeader(
+                eyebrow: 'Programmes',
                 title: 'Shared recaps',
-                subtitle:
-                    'Public pages you have made. Deleting one breaks its link '
-                    'immediately, for everyone.',
+                subtitle: 'Taking one down breaks its link for everyone, at once.',
                 titleGap: 4,
                 onClose: () => Navigator.of(context).pop(),
               ),
@@ -147,11 +146,10 @@ class _RecapRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
-      decoration: BoxDecoration(
-        color: PTColors.white(0.03),
-        border: Border.all(color: PTColors.white(0.07)),
-        borderRadius: BorderRadius.circular(12),
+      // Hairline-ruled ledger rows rather than boxed cards.
+      padding: const EdgeInsets.fromLTRB(0, 12, 0, 12),
+      decoration: const BoxDecoration(
+        border: Border(bottom: BorderSide(color: PTColors.rail)),
       ),
       child: Row(
         spacing: 10,
@@ -171,7 +169,7 @@ class _RecapRow extends StatelessWidget {
                   '${formatWatchTime(recap.length)} · '
                   '${recap.people + 1} ${recap.people == 0 ? 'person' : 'people'} · '
                   '${recap.views} ${recap.views == 1 ? 'view' : 'views'}',
-                  style: PTText.finePrint.copyWith(fontSize: 11.5),
+                  style: PTText.label.copyWith(fontSize: 10.5, letterSpacing: 1),
                 ),
               ],
             ),

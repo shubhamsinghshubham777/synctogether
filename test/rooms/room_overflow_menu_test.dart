@@ -6,9 +6,7 @@ import 'package:synctogether/sync/sync_service.dart';
 
 void main() {
   group('RoomOverflowMenu', () {
-    testWidgets('displays Extend room duration for host and invokes callback on tap', (
-      tester,
-    ) async {
+    testWidgets('displays Extend room for host and invokes callback on tap', (tester) async {
       var extendTapped = false;
       final data = ValueNotifier<RoomMenuData?>(
         RoomMenuData(
@@ -60,15 +58,15 @@ void main() {
       await tester.tap(find.text('open'));
       await tester.pumpAndSettle();
 
-      expect(find.text('Extend room duration'), findsOneWidget);
+      expect(find.text('Extend room'), findsOneWidget);
 
-      await tester.tap(find.text('Extend room duration'));
+      await tester.tap(find.text('Extend room'));
       await tester.pumpAndSettle();
 
       expect(extendTapped, isTrue);
     });
 
-    testWidgets('does not display Extend room duration for non-host members', (tester) async {
+    testWidgets('does not display Extend room for non-host members', (tester) async {
       final data = ValueNotifier<RoomMenuData?>(
         RoomMenuData(
           members: [
@@ -119,7 +117,7 @@ void main() {
       await tester.tap(find.text('open'));
       await tester.pumpAndSettle();
 
-      expect(find.text('Extend room duration'), findsNothing);
+      expect(find.text('Extend room'), findsNothing);
     });
 
     testWidgets('triggers onReportConcern when tapped', (tester) async {

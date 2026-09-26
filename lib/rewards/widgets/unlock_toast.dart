@@ -3,6 +3,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../../ui/booth.dart';
 import '../../ui/glass.dart';
 import '../../ui/pt_motion.dart';
 import '../../ui/pt_theme.dart';
@@ -151,11 +152,17 @@ class UnlockCard extends StatelessWidget {
               mainAxisSize: .min,
               spacing: 14,
               children: [
-                BadgeArt(
-                  size: 52,
-                  achievementId: achievement.id,
-                  fallbackIcon: achievement.icon,
-                  fallbackColor: colour,
+                // Stamped onto the card just after it lands - the badge is
+                // the news, so it gets the one arrival beat.
+                StampIn(
+                  angle: -0.1,
+                  delay: const Duration(milliseconds: 160),
+                  child: BadgeArt(
+                    size: 52,
+                    achievementId: achievement.id,
+                    fallbackIcon: achievement.icon,
+                    fallbackColor: colour,
+                  ),
                 ),
                 Flexible(
                   child: Column(
@@ -164,7 +171,7 @@ class UnlockCard extends StatelessWidget {
                     spacing: 2,
                     children: [
                       Text(
-                        'Badge unlocked',
+                        'BADGE UNLOCKED',
                         style: PTText.finePrint.copyWith(
                           fontSize: 11,
                           color: colour,

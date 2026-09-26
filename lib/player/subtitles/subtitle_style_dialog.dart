@@ -117,8 +117,9 @@ class _SubtitleStyleSheetState extends State<SubtitleStyleSheet> {
       spacing: 18,
       children: [
         GlassDialogHeader(
+          eyebrow: 'Subtitles',
           title: 'Subtitle style',
-          subtitle: 'Changes show on the video as you make them.',
+          subtitle: 'The video is the preview. Changes land live.',
           onClose: () => Navigator.of(context).pop(),
         ),
         SubtitlePreview(style: s),
@@ -213,7 +214,7 @@ class _SubtitleStyleSheetState extends State<SubtitleStyleSheet> {
             onChanged: (v, persist) => _set(s.copyWith(blur: v), persist: persist),
           ),
           Text(
-            'Blur softens the outline too - subtitles draw them together.',
+            'Blur softens the outline too, since subtitles draw them together.',
             style: PTText.caption,
           ),
         ]),
@@ -303,7 +304,7 @@ class SubtitlePreview extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ClipRRect(
-      borderRadius: BorderRadius.circular(14),
+      borderRadius: BorderRadius.circular(PTRadius.panel),
       child: AspectRatio(
         aspectRatio: 16 / 9,
         child: LayoutBuilder(
@@ -392,7 +393,14 @@ class _Section extends StatelessWidget {
       crossAxisAlignment: .stretch,
       spacing: 10,
       children: [
-        Text(title, style: PTText.body.copyWith(fontSize: 13, fontWeight: .w600)),
+        // Hairline over a mono kicker: sections read as a programme, not cards.
+        Container(
+          padding: const EdgeInsets.only(top: 12),
+          decoration: const BoxDecoration(
+            border: Border(top: BorderSide(color: PTColors.rail)),
+          ),
+          child: Text(title.toUpperCase(), style: PTText.label),
+        ),
         ...children,
       ],
     );
@@ -507,9 +515,9 @@ class _Swatch extends StatelessWidget {
           height: 30,
           decoration: BoxDecoration(
             color: color,
-            shape: BoxShape.circle,
+            borderRadius: BorderRadius.circular(PTRadius.control),
             border: Border.all(
-              color: selected ? PTColors.accentBorder : PTColors.white(0.2),
+              color: selected ? PTColors.primary : PTColors.rail,
               width: selected ? 2.5 : 1,
             ),
           ),
@@ -534,17 +542,16 @@ class _Chip extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
           decoration: BoxDecoration(
-            color: selected ? PTColors.primary.withValues(alpha: 0.22) : PTColors.white(0.06),
-            border: Border.all(
-              color: selected ? PTColors.accentBorder.withValues(alpha: 0.45) : PTColors.white(0.1),
-            ),
-            borderRadius: BorderRadius.circular(999),
+            color: selected ? PTColors.aisle : Colors.transparent,
+            border: Border.all(color: selected ? PTColors.primary : PTColors.rail),
+            borderRadius: BorderRadius.circular(PTRadius.control),
           ),
           child: Text(
             label,
             style: PTText.body.copyWith(
               fontSize: 13,
-              color: selected ? PTColors.textAccent : PTColors.white(0.8),
+              fontWeight: selected ? .w600 : .w400,
+              color: selected ? PTColors.primary : PTColors.white(0.8),
             ),
           ),
         ),
@@ -567,9 +574,8 @@ class _FontRow extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
           decoration: BoxDecoration(
-            color: PTColors.white(0.06),
-            border: Border.all(color: PTColors.white(0.1)),
-            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: PTColors.rail),
+            borderRadius: BorderRadius.circular(PTRadius.control),
           ),
           child: Row(
             spacing: 10,
@@ -623,7 +629,11 @@ class _FontPickerState extends State<_FontPicker> {
       crossAxisAlignment: .stretch,
       spacing: 14,
       children: [
-        GlassDialogHeader(title: 'Font', onClose: () => Navigator.of(context).pop()),
+        GlassDialogHeader(
+          eyebrow: 'Subtitles',
+          title: 'Font',
+          onClose: () => Navigator.of(context).pop(),
+        ),
         PTTextField(
           controller: _query,
           hint: 'Search fonts',
@@ -654,10 +664,11 @@ class _FontPickerState extends State<_FontPicker> {
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
                         decoration: BoxDecoration(
-                          color: selected
-                              ? PTColors.primary.withValues(alpha: 0.22)
-                              : Colors.transparent,
-                          borderRadius: BorderRadius.circular(12),
+                          color: selected ? PTColors.aisle : Colors.transparent,
+                          border: Border.all(
+                            color: selected ? PTColors.primary : Colors.transparent,
+                          ),
+                          borderRadius: BorderRadius.circular(PTRadius.control),
                         ),
                         child: Text(
                           f?.name ?? 'Default font',

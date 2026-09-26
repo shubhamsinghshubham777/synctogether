@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:synctogether/rooms/room_models.dart';
+import 'package:synctogether/ui/booth.dart';
 import 'package:synctogether/ui/buttons.dart';
 import 'package:synctogether/ui/glass.dart';
 import 'package:synctogether/ui/pt_theme.dart';
@@ -25,38 +26,50 @@ class EndedRoomDialog extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       mainAxisSize: .min,
-      crossAxisAlignment: .start,
+      crossAxisAlignment: .stretch,
       spacing: 14,
       children: [
         Row(
-          spacing: 13,
-          // Top-aligned: a heading that wraps keeps its icon by the first line.
+          spacing: 16,
+          // Top-aligned: a heading that wraps keeps its stamp by the first line.
           crossAxisAlignment: .start,
           children: [
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: PTColors.white(0.08),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: PTColors.white(0.12)),
+            const PTStamp(
+              size: 64,
+              angle: -0.14,
+              child: Column(
+                mainAxisSize: .min,
+                children: [
+                  Text(
+                    'FIN',
+                    style: TextStyle(
+                      fontFamily: PTFonts.display,
+                      fontWeight: .w800,
+                      fontSize: 18,
+                      height: 1,
+                    ),
+                  ),
+                  Text(
+                    'ROOM',
+                    style: TextStyle(fontFamily: PTFonts.mono, fontSize: 7, letterSpacing: 1),
+                  ),
+                ],
               ),
-              child: Icon(Symbols.timer_off_rounded, size: 22, fill: 1, color: PTColors.white(0.5)),
             ),
             Expanded(
               child: Column(
                 crossAxisAlignment: .start,
-                spacing: 2,
+                spacing: 4,
                 children: [
                   Text(
-                    'Watch session ended',
-                    textScaler: dialogHeadingScaler(context),
-                    style: PTText.cardHeading,
+                    '${room.code} · closed'.toUpperCase(),
+                    style: PTText.label,
+                    overflow: TextOverflow.ellipsis,
                   ),
                   Text(
-                    room.name,
-                    style: PTText.mono.copyWith(fontSize: 12, color: PTColors.textAccent),
-                    overflow: TextOverflow.ellipsis,
+                    'That show has closed.',
+                    textScaler: dialogHeadingScaler(context),
+                    style: PTText.screenTitle.copyWith(fontSize: 24, height: 1.05),
                   ),
                 ],
               ),
@@ -64,78 +77,48 @@ class EndedRoomDialog extends StatelessWidget {
           ],
         ),
         Text(
-          'Free watch rooms are session-based and close once the party wraps up. '
-          'You can start a fresh room anytime, or upgrade to Premium to keep rooms saved permanently with dedicated invite links.',
-          style: PTText.body.copyWith(fontSize: 13.5, color: PTColors.white(0.65), height: 1.5),
-        ),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          decoration: BoxDecoration(
-            color: PTColors.primary.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: PTColors.accentBorder.withValues(alpha: 0.2)),
-          ),
-          child: Row(
-            spacing: 10,
-            children: [
-              const Icon(Symbols.workspace_premium_rounded, size: 20, color: PTColors.textAccent),
-              Expanded(
-                child: Text(
-                  'Premium keeps up to 20 rooms saved forever.',
-                  style: PTText.body.copyWith(fontSize: 12.5, color: PTColors.white(0.85)),
-                ),
-              ),
-            ],
-          ),
+          'Free rooms run one session. Open a fresh one for the next film.',
+          style: PTText.body.copyWith(fontSize: 14, color: PTColors.white(0.65), height: 1.5),
         ),
         Padding(
           padding: const EdgeInsets.only(top: 4),
-          child: Column(
-            spacing: 8,
-            children: [
-              PTButtonBar(
-                spacing: 10,
-                buttons: [
-                  PTButton(
-                    maxLines: 2,
-                    label: 'Start fresh room',
-                    icon: Symbols.add_rounded,
-                    variant: .primary,
-                    height: 44,
-                    onPressed: () {
-                      Navigator.of(context).pop();
-                      onStartFresh();
-                    },
-                  ),
-                  PTButton(
-                    maxLines: 2,
-                    label: 'Get Premium',
-                    icon: Symbols.workspace_premium_rounded,
-                    variant: .secondary,
-                    height: 44,
-                    onPressed: () {
-                      Navigator.of(context).pop();
-                      onUpgrade();
-                    },
-                  ),
-                ],
-              ),
-              if (isOwner)
-                Center(
-                  child: TextButton(
-                    style: TextButton.styleFrom(
-                      foregroundColor: PTColors.white(0.45),
-                      textStyle: PTText.caption.copyWith(fontSize: 12),
-                    ),
-                    onPressed: () {
-                      Navigator.of(context).pop();
-                      onDelete();
-                    },
-                    child: const Text('Remove from list'),
-                  ),
-                ),
-            ],
+          child: PTButton(
+            maxLines: 2,
+            label: 'Open a fresh room',
+            icon: Symbols.add_rounded,
+            height: 46,
+            onPressed: () {
+              Navigator.of(context).pop();
+              onStartFresh();
+            },
           ),
+        ),
+        // The Patron nudge is Brass text, never a second lit button.
+        Wrap(
+          alignment: WrapAlignment.spaceBetween,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          spacing: 12,
+          children: [
+            DialogTextButton(
+              label: 'Patron: 20 saved rooms',
+              color: PTColors.premium,
+              underline: false,
+              fontSize: 13,
+              onPressed: () {
+                Navigator.of(context).pop();
+                onUpgrade();
+              },
+            ),
+            if (isOwner)
+              DialogTextButton(
+                label: 'Remove from list',
+                fontSize: 13,
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  onDelete();
+                },
+              ),
+          ],
         ),
       ],
     );

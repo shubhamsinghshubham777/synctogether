@@ -1,16 +1,14 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import {
-  formatPoints,
-  getProfileCard,
-  seasonMonthLabel,
-  seasonRankLabel,
-} from "@/lib/rewards";
+import { formatPoints, getProfileCard } from "@/lib/rewards";
 import { SITE_CONFIG } from "@/lib/constants";
 import { PublicAvatar } from "@/components/rewards/PublicAvatar";
 import { StatTile } from "@/components/rewards/StatTile";
-import { BadgeChip } from "@/components/rewards/BadgeChip";
+import { BadgeTile } from "@/components/rewards/BadgeTile";
+import { SeasonTicket } from "@/components/rewards/SeasonTicket";
+import { PTButton } from "@/components/PTButton";
+import { Kicker, Headline, display, mono } from "@/components/booth/Booth";
 
 export const revalidate = 3600;
 
@@ -60,102 +58,108 @@ export default async function ProfilePage({
   if (!card) notFound();
 
   return (
-    <div className="relative py-12 md:py-20 px-4 sm:px-6 lg:px-8 max-w-2xl mx-auto space-y-10">
-      <div className="glow-blob-purple top-6 left-1/2 -translate-x-1/2 opacity-30" />
-
-      <header className="flex flex-col sm:flex-row items-center gap-5 text-center sm:text-left">
+    <div className="px-4 sm:px-6 lg:px-8 max-w-4xl mx-auto pt-8 pb-12 md:pt-12 md:pb-16 space-y-10">
+      <header className="flex items-center gap-5 sm:gap-6 min-w-0">
         <PublicAvatar
           seed={card.handle}
           name={card.name}
           avatar={card.avatar}
           frame={card.frame}
-          size={84}
+          size={80}
         />
-        <div className="space-y-1">
-          <h1 className="text-3xl font-extrabold text-white tracking-tight font-[family-name:var(--font-space-grotesk)]">
-            {card.name}
+        <div className="min-w-0 space-y-2">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <Headline className="text-[clamp(2.5rem,7vw,4rem)] break-words line-in">{card.name}</Headline>
             {card.premium && (
-              <span className="ml-2 align-middle text-sm text-[var(--pt-premium)]">★</span>
+              <span className={`${mono} rounded-[4px] border border-brass/60 px-2 py-0.5 text-[10px] tracking-[0.14em] text-brass`}>
+                ★ PATRON
+              </span>
             )}
-          </h1>
-          <p className="font-[family-name:var(--font-jetbrains-mono)] text-sm text-gray-400">
-            @{card.handle}
+          </div>
+          <p className={`${mono} text-xs text-gray-400 truncate`}>
+            @{card.handle} · watching since {monthYear(card.joined)}
           </p>
-          <p className="text-xs text-gray-500">Watching together since {card.joined}</p>
         </div>
       </header>
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <StatTile
-          value={`${card.streak}`}
-          label="day streak"
-          accent="text-[#FB923C]"
-        />
+      <section className="grid grid-cols-2 rounded-md bg-seat ring-1 ring-inset ring-rail" aria-label="Streak">
+        <div className="px-5 py-5 sm:px-6 sm:py-6 min-w-0">
+          <p className={`${mono} text-[11px] tracking-[0.14em] text-signal`}>CURRENT STREAK</p>
+          <p className="mt-3 flex items-baseline gap-2">
+            <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="text-signal self-center shrink-0">
+              <path d="M12 21c4 0 7-3 7-7 0-5-5-7-5-11-3 2-5 5-4 8-2-1-3-3-3-3-1 2-2 4-2 6 0 4 3 7 7 7z" />
+            </svg>
+            <span className={`${display} text-[clamp(2.5rem,7vw,3.75rem)] leading-none font-extrabold tracking-[-0.04em] text-signal tabular-nums`}>
+              {card.streak}
+            </span>
+            <span className="text-base text-gray-300">days</span>
+          </p>
+        </div>
+        <div className="px-5 py-5 sm:px-6 sm:py-6 border-l border-rail min-w-0">
+          <p className={`${mono} text-[11px] tracking-[0.14em] text-gray-500`}>BEST RUN</p>
+          <p className="mt-3 flex items-baseline gap-2">
+            <span className={`${display} text-[clamp(2.5rem,7vw,3.75rem)] leading-none font-extrabold tracking-[-0.04em] text-white tabular-nums`}>
+              {card.longest_streak}
+            </span>
+            <span className="text-base text-gray-300">days</span>
+          </p>
+        </div>
+      </section>
+
+      <div className="grid grid-cols-3 gap-x-4 sm:gap-x-6">
         <StatTile value={`${card.hours}h`} label="watched" />
         <StatTile value={`${card.co_watchers}`} label="watched with" />
-        <StatTile
-          value={formatPoints(card.points_week)}
-          label="points this week"
-          accent="text-[var(--pt-text-accent)]"
-        />
+        <StatTile value={formatPoints(card.points_week)} label="points this week" accent="text-beam-500" />
       </div>
 
       {card.seasons?.length > 0 && (
         <section className="space-y-4">
-          <h2 className="text-sm uppercase tracking-[0.16em] text-gray-400">Seasons</h2>
-          <div className="flex flex-wrap gap-2.5">
-            {card.seasons.map((award) => {
-              const color =
-                award.rank === 1 ? "#FBBF24" : award.rank === 2 ? "#CBD5E1" : "#D08C60";
-              return (
-                <span
-                  key={award.season}
-                  title={seasonRankLabel(award.rank)}
-                  className="inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold"
-                  style={{ color, background: `${color}1F`, border: `1px solid ${color}73` }}
-                >
-                  #{award.rank} · {seasonMonthLabel(award.season)}
-                </span>
-              );
-            })}
+          <Kicker tone="muted">Seasons</Kicker>
+          <div className="flex flex-wrap gap-4">
+            {card.seasons.map((award) => (
+              <SeasonTicket key={award.season} season={award.season} rank={award.rank} />
+            ))}
           </div>
         </section>
       )}
 
       {card.badges.length > 0 && (
         <section className="space-y-4">
-          <h2 className="text-sm uppercase tracking-[0.16em] text-gray-400">Badges</h2>
-          <div className="flex flex-wrap gap-2.5">
+          <Kicker tone="muted">Badges</Kicker>
+          <div className="flex flex-wrap gap-x-3 gap-y-5">
             {card.badges.map((badge) => (
-              <BadgeChip key={badge.id} title={badge.title} grade={badge.grade} />
+              <BadgeTile key={badge.id} title={badge.title} grade={badge.grade} />
             ))}
           </div>
         </section>
       )}
 
-      <div className="glass-panel rounded-2xl px-6 py-7 text-center space-y-4">
-        <p className="text-lg font-semibold text-white">
-          Longest streak: {card.longest_streak} days
-        </p>
-        <p className="text-sm text-gray-300">
-          Streaks count days you actually watched something with someone. Start one -
-          it is free.
-        </p>
-        <div className="flex flex-col sm:flex-row gap-3 justify-center">
-          <Link
-            href="/download"
-            className="btn-primary-gradient px-6 py-3 rounded-xl font-semibold text-white"
-          >
+      <section className="border-t border-rail pt-12 grid md:grid-cols-[1fr_auto] gap-8 items-end">
+        <div className="space-y-4 max-w-xl">
+          <Kicker tone="muted">Start one of your own</Kicker>
+          <Headline as="h2" className="text-3xl sm:text-4xl">Movie night, same second.</Headline>
+          <p className="text-gray-400 leading-relaxed">
+            Streaks count days you actually watched something with someone. Start one. It is free.
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
+          <PTButton href="/download" size="lg">
             Get {SITE_CONFIG.name}
-          </Link>
+          </PTButton>
           <Link
             href="/leaderboard"
-            className="px-6 py-3 rounded-xl font-semibold text-gray-200 border border-white/10 hover:border-white/25 transition-colors"
+            className="text-[15px] font-semibold text-white underline underline-offset-[6px] decoration-rail hover:decoration-beam-500 transition-colors"
           >
             See the leaderboard
           </Link>
         </div>
-      </div>
+      </section>
     </div>
   );
+}
+
+/** "2026-05-29" -> "May 2026", the board's form; anything unparseable passes through. */
+function monthYear(iso: string) {
+  const d = new Date(`${iso}T00:00:00Z`);
+  return Number.isNaN(d.getTime()) ? iso : d.toLocaleDateString("en-GB", { month: "short", year: "numeric", timeZone: "UTC" });
 }

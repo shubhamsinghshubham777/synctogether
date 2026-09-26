@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:synctogether/rooms/room_models.dart';
 import 'package:synctogether/sync/sync_service.dart';
+import 'package:synctogether/ui/booth.dart';
 import 'package:synctogether/ui/buttons.dart';
 import 'package:synctogether/ui/glass.dart';
 import 'package:synctogether/ui/identity.dart';
@@ -273,13 +274,20 @@ class _MemberStatusRow extends StatelessWidget {
       child: Row(
         spacing: 10,
         children: [
-          PTAvatar(
-            userId: member.userId,
-            displayName: member.displayName,
-            avatarUrl: member.avatarUrl,
-            size: 30,
-            premium: premium,
-            frame: frame,
+          // The ring turns Cue and ripples once as this member clears the
+          // gate - the room seeing them arrive.
+          ReadyRing(
+            diameter: 30,
+            ready: status.color == PTColors.online,
+            clip: false,
+            child: PTAvatar(
+              userId: member.userId,
+              displayName: member.displayName,
+              avatarUrl: member.avatarUrl,
+              size: 30,
+              premium: premium,
+              frame: frame,
+            ),
           ),
           Expanded(
             child: Text.rich(
@@ -331,8 +339,8 @@ class _MemberStatusRow extends StatelessWidget {
   }
 }
 
-/// Loading → Ready → Wrong file, animated. The tint crossfades with
-/// `AnimatedContainer` while the label swaps through an `AnimatedSwitcher`, so
+/// Loading → Ready → Wrong file, animated. The label swaps through an
+/// `AnimatedSwitcher`, so
 /// a member going green reads as a change of state rather than a redraw.
 /// The chip's width is fixed by its parent, so nothing reflows as labels swap.
 class _StatusChip extends StatelessWidget {
@@ -342,15 +350,9 @@ class _StatusChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedContainer(
-      duration: PTMotion.functional(context, PTMotion.state),
-      curve: PTMotion.enter,
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-      decoration: BoxDecoration(
-        color: status.color.withValues(alpha: 0.13),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: status.color.withValues(alpha: 0.3)),
-      ),
+    // A mono readout in the status colour, not a pill - pills are for people.
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
       child: AnimatedSwitcher(
         duration: PTMotion.functional(context, PTMotion.state),
         switchInCurve: PTMotion.enter,
@@ -363,10 +365,10 @@ class _StatusChip extends StatelessWidget {
           ),
         ),
         child: Text(
-          status.label,
+          status.label.toUpperCase(),
           key: ValueKey(status.label),
           overflow: .ellipsis,
-          style: PTText.finePrint.copyWith(color: status.color, fontWeight: .w500),
+          style: PTText.label.copyWith(fontSize: 12, letterSpacing: 1, color: status.color),
         ),
       ),
     );

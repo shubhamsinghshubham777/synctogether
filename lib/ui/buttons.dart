@@ -78,23 +78,20 @@ class _PTButtonState extends State<PTButton> {
   Widget build(BuildContext context) {
     final enabled = widget.onPressed != null && !widget.loading;
 
-    final (
-      Gradient? gradient,
-      Color? color,
-      Border? border,
-      Color foreground,
-    ) = switch (widget.variant) {
-      PTButtonVariant.primary => (PTColors.buttonGradient, null, null, Colors.white),
-      PTButtonVariant.secondary => (
+    final (Color color, Border? border, Color foreground) = switch (widget.variant) {
+      PTButtonVariant.primary => (
+        _hovered ? PTColors.accentSoft : PTColors.primary,
         null,
-        PTColors.white(_hovered ? 0.12 : 0.07),
-        Border.all(color: PTColors.white(0.14)),
-        Colors.white,
+        PTColors.onAccent,
+      ),
+      PTButtonVariant.secondary => (
+        _hovered ? PTColors.white(0.06) : Colors.transparent,
+        Border.all(color: PTColors.rail),
+        PTColors.fg,
       ),
       PTButtonVariant.destructive => (
-        null,
         _hovered ? PTColors.dangerBorder.withValues(alpha: 0.1) : Colors.transparent,
-        Border.all(color: PTColors.dangerBorder.withValues(alpha: 0.3)),
+        Border.all(color: PTColors.dangerBorder),
         PTColors.danger,
       ),
     };
@@ -159,33 +156,24 @@ class _PTButtonState extends State<PTButton> {
         child: AnimatedOpacity(
           duration: Durations.short2,
           opacity: enabled || widget.loading ? 1 : 0.45,
-          child: Container(
+          // Implicit: hover fill and the Beam glow tween in and out rather
+          // than snapping, and it costs nothing once they arrive.
+          child: AnimatedContainer(
+            duration: PTMotion.functional(context, PTMotion.hover),
+            curve: PTMotion.enter,
             constraints: BoxConstraints(minHeight: widget.height),
             width: widget.expand ? double.infinity : null,
             // Vertical padding only matters once a label wraps or scales past
             // the minimum height; horizontal keeps big text off the edges.
             padding: EdgeInsets.symmetric(horizontal: widget.expand ? 8 : 22, vertical: 2),
             decoration: BoxDecoration(
-              gradient: gradient,
               color: color,
               border: border,
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: widget.variant == .primary && enabled
-                  ? [
-                      BoxShadow(
-                        color: PTColors.primary.withValues(alpha: 0.45),
-                        blurRadius: 28,
-                        offset: const Offset(0, 10),
-                      ),
-                    ]
-                  : null,
+              borderRadius: BorderRadius.circular(PTRadius.control),
+              // Beam spill: the one lit control on screen glows like a
+              // projector lens, straight out, never a drop shadow.
+              boxShadow: widget.variant == .primary && enabled ? PTColors.beamSpill : null,
             ),
-            foregroundDecoration: widget.variant == .primary && _hovered && enabled
-                ? BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(16),
-                  )
-                : null,
             // Hug the content (not fill the parent) so a loose parent still
             // gets a [height]-tall button.
             child: Center(widthFactor: widget.expand ? null : 1, heightFactor: 1, child: content),
@@ -225,7 +213,7 @@ class PTIconButton extends StatefulWidget {
   final double iconSize;
   final String? tooltip;
 
-  /// Active = violet fill (e.g. chat open, mic on).
+  /// Active = Beam tint with a Beam hairline (e.g. chat open, mic on).
   final bool active;
 
   /// When false, renders borderless (bare icon on a hover circle).
@@ -262,18 +250,18 @@ class _PTIconButtonState extends State<PTIconButton> with SingleTickerProviderSt
 
   @override
   Widget build(BuildContext context) {
-    final radius = widget.borderRadius ?? BorderRadius.circular(999);
+    final radius = widget.borderRadius ?? BorderRadius.circular(PTRadius.control);
 
     final decoration = widget.active
         ? BoxDecoration(
-            color: PTColors.primary.withValues(alpha: 0.45),
-            border: Border.all(color: PTColors.accentSoft.withValues(alpha: 0.5)),
+            color: PTColors.primary.withValues(alpha: 0.16),
+            border: Border.all(color: PTColors.primary.withValues(alpha: 0.6)),
             borderRadius: radius,
           )
         : widget.glass
         ? BoxDecoration(
-            color: _hovered ? PTColors.white(0.12) : PTColors.glass(0.55),
-            border: Border.all(color: PTColors.white(0.13)),
+            color: _hovered ? PTColors.aisle : PTColors.glassBase,
+            border: Border.all(color: PTColors.rail),
             borderRadius: radius,
           )
         : BoxDecoration(
@@ -361,15 +349,9 @@ class PTPlayButton extends StatelessWidget {
             width: size,
             height: size,
             decoration: BoxDecoration(
-              gradient: PTColors.buttonGradient,
-              shape: .circle,
-              boxShadow: [
-                BoxShadow(
-                  color: PTColors.primary.withValues(alpha: 0.5),
-                  blurRadius: 26,
-                  offset: const Offset(0, 8),
-                ),
-              ],
+              color: enabled ? PTColors.primary : PTColors.aisle,
+              borderRadius: BorderRadius.circular(PTRadius.control),
+              boxShadow: enabled ? PTColors.beamSpill : null,
             ),
             // Cross-faded rather than an AnimatedIcon: AnimatedIcons.play_pause
             // draws Material's *sharp* glyphs, which read as a foreign icon set
@@ -389,7 +371,7 @@ class PTPlayButton extends StatelessWidget {
                 playing ? Icons.pause_rounded : Icons.play_arrow_rounded,
                 key: ValueKey(playing),
                 size: size * 0.55,
-                color: Colors.white,
+                color: PTColors.onAccent,
               ),
             ),
           ),
@@ -401,11 +383,23 @@ class PTPlayButton extends StatelessWidget {
 
 /// Google sign-in button: white pill w/ the multicolor G mark.
 class GoogleButton extends StatefulWidget {
-  const GoogleButton({super.key, required this.label, this.onPressed, this.loading = false});
+  const GoogleButton({
+    super.key,
+    required this.label,
+    this.onPressed,
+    this.loading = false,
+    this.outlined = false,
+  });
 
   final String label;
   final VoidCallback? onPressed;
   final bool loading;
+
+  /// A Rail-outlined dark button (Google's dark theme) instead of the light
+  /// fill - for a page whose one lit button is something else. The mark stays
+  /// Google's own four colours either way; branding does not allow a
+  /// single-colour G.
+  final bool outlined;
 
   @override
   State<GoogleButton> createState() => _GoogleButtonState();
@@ -429,15 +423,22 @@ class _GoogleButtonState extends State<GoogleButton> {
           height: 52,
           alignment: .center,
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: _hovered && enabled ? 1 : 0.92),
-            borderRadius: BorderRadius.circular(16),
+            color: widget.outlined
+                ? PTColors.white(_hovered && enabled ? 0.06 : 0)
+                : Colors.white.withValues(alpha: _hovered && enabled ? 1 : 0.92),
+            border: widget.outlined ? Border.all(color: PTColors.rail) : null,
+            borderRadius: BorderRadius.circular(PTRadius.control),
           ),
           child: AnimatedSwitcher(
             duration: PTMotion.functional(context, PTMotion.state),
             switchInCurve: PTMotion.enter,
             switchOutCurve: PTMotion.exit,
             child: widget.loading
-                ? const PTLoader(key: ValueKey('loading'), size: 20, color: PTColors.onAccent)
+                ? PTLoader(
+                    key: const ValueKey('loading'),
+                    size: 20,
+                    color: widget.outlined ? PTColors.fg : PTColors.onAccent,
+                  )
                 : Row(
                     key: const ValueKey('label'),
                     mainAxisSize: .min,
@@ -447,7 +448,9 @@ class _GoogleButtonState extends State<GoogleButton> {
                       Flexible(
                         child: Text(
                           widget.label,
-                          style: PTText.buttonLabel.copyWith(color: PTColors.onAccent),
+                          style: PTText.buttonLabel.copyWith(
+                            color: widget.outlined ? PTColors.fg : PTColors.onAccent,
+                          ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -577,7 +580,7 @@ class _AppleButtonState extends State<AppleButton> {
           decoration: BoxDecoration(
             color: PTColors.black(_hovered && enabled ? 1.0 : 0.88),
             border: Border.all(color: PTColors.white(_hovered && enabled ? 0.35 : 0.2), width: 1),
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(PTRadius.control),
           ),
           child: AnimatedSwitcher(
             duration: PTMotion.functional(context, PTMotion.state),
@@ -627,37 +630,31 @@ class _AppleMarkPainter extends CustomPainter {
 
     Path scaled(Path p) => p.transform(Matrix4.diagonal3Values(s, s, 1).storage);
 
-    // Leaf
+    // Apple's mark as published (the Simple Icons path the website's
+    // AppleLogo draws too), converted to absolute cubics - body, then leaf.
+    // A hand-traced approximation read as off at a glance.
     canvas.drawPath(
       scaled(
         Path()
-          ..moveTo(15.22, 4.93)
-          ..cubicTo(16.51, 3.37, 17.39, 1.2, 17.15, 0)
-          ..cubicTo(15.29, 0.07, 13.04, 1.23, 11.71, 2.79)
-          ..cubicTo(10.53, 4.16, 9.5, 6.38, 9.77, 8.53)
-          ..cubicTo(11.85, 8.69, 13.93, 7.49, 15.22, 4.93)
-          ..close(),
-      ),
-      paint,
-    );
-
-    // Body
-    canvas.drawPath(
-      scaled(
-        Path()
-          ..moveTo(17.14, 12.44)
-          ..cubicTo(17.11, 9.45, 19.57, 7.99, 19.68, 7.92)
-          ..cubicTo(18.29, 5.89, 16.14, 5.6, 15.39, 5.54)
-          ..cubicTo(13.56, 5.35, 11.79, 6.62, 10.87, 6.62)
-          ..cubicTo(9.94, 6.62, 8.5, 5.55, 7.0, 5.58)
-          ..cubicTo(5.05, 5.61, 3.25, 6.72, 2.25, 8.46)
-          ..cubicTo(0.23, 11.96, 1.73, 17.14, 3.71, 20.0)
-          ..cubicTo(4.68, 21.39, 5.77, 22.95, 7.28, 22.89)
-          ..cubicTo(8.73, 22.83, 9.28, 21.95, 11.04, 21.95)
-          ..cubicTo(12.8, 21.95, 13.31, 22.89, 14.83, 22.86)
-          ..cubicTo(16.38, 22.83, 17.36, 21.43, 18.32, 20.03)
-          ..cubicTo(19.44, 18.4, 19.9, 16.82, 19.93, 16.74)
-          ..cubicTo(19.89, 16.72, 17.17, 15.68, 17.14, 12.44)
+          ..moveTo(12.152, 6.896)
+          ..cubicTo(11.204, 6.896, 9.737, 5.818, 8.192, 5.856)
+          ..cubicTo(6.152, 5.883, 4.282, 7.039, 3.231, 8.87)
+          ..cubicTo(1.114, 12.545, 2.685, 17.973, 4.75, 20.96)
+          ..cubicTo(5.763, 22.414, 6.958, 24.05, 8.542, 23.999)
+          ..cubicTo(10.062, 23.934, 10.632, 23.012, 12.477, 23.012)
+          ..cubicTo(14.308, 23.012, 14.827, 23.999, 16.437, 23.96)
+          ..cubicTo(18.074, 23.934, 19.113, 22.48, 20.113, 21.012)
+          ..cubicTo(21.269, 19.324, 21.749, 17.687, 21.775, 17.597)
+          ..cubicTo(21.736, 17.584, 18.593, 16.376, 18.555, 12.74)
+          ..cubicTo(18.529, 9.7, 21.035, 8.246, 21.152, 8.181)
+          ..cubicTo(19.723, 6.091, 17.529, 5.857, 16.762, 5.805)
+          ..cubicTo(14.762, 5.649, 13.087, 6.895, 12.152, 6.895)
+          ..close()
+          ..moveTo(15.53, 3.83)
+          ..cubicTo(16.373, 2.818, 16.93, 1.403, 16.775, 0)
+          ..cubicTo(15.568, 0.052, 14.113, 0.805, 13.243, 1.818)
+          ..cubicTo(12.463, 2.714, 11.789, 4.156, 11.97, 5.532)
+          ..cubicTo(13.308, 5.636, 14.685, 4.844, 15.529, 3.831)
           ..close(),
       ),
       paint,

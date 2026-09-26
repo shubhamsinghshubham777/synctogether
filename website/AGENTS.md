@@ -24,8 +24,8 @@ This Next.js 16 application serves as the marketing site, downloads portal, lega
 3. **Cancellation Flow**: `/api/paddle/cancel` authenticates the caller via Supabase JWT, verifies subscription ownership, and requests cancellation at period end via the Paddle API.
 
 ### Design System & Styling
-- Styled with Tailwind CSS v4 with dark violet glassmorphism tokens matching the Flutter app.
-- Shared components in `components/`: `PTButton`, `GlassPanel`, `PlanCard`, `PricingTable`, `Header`, `Footer`. The homepage hero lives in `components/hero/` and drives the room mockups in `components/room-sim/`.
+- Styled with Tailwind CSS v4 in the Booth Light language shared with the Flutter app (dark only, warm matte neutrals, Beam amber for the one live action, no gradients or blur). `app/globals.css` `@theme` remaps the legacy `purple`/`indigo`/`gray`/`white` scales onto it - prefer `beam-*`, `booth`, `seat`, `rail`, `screen`, `signal`, `cue`, `brass` in new code.
+- Shared components in `components/`: `PTButton`, `GlassPanel`, `PlanCard`, `PricingTable`, `Header`, `Footer`, and `Ticket` (the notched invite/room-code object). Link-preview images use `lib/og-ticket.tsx`. The homepage hero lives in `components/hero/` and drives the room mockups in `components/room-sim/`.
 
 ### Testing & Verification
 - Unit test suite in `tests/` tests webhook signature verification, deduplication, and deactivation logic.

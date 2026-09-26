@@ -85,9 +85,10 @@ void main() {
   testWidgets('sheetOnCompact docks to the bottom on a narrow phone', (tester) async {
     await _open(tester, _cases.first, sheetOnCompact: true);
     expectNoOverflow(tester);
-    final panel = _panelRect(tester);
-    expect(panel.width, 320 - 32);
-    expect(panel.bottom, 568 - 16);
+    // Full width and docked flush to the bottom edge (the phone sheet board).
+    final panel = tester.getRect(find.byKey(kGlassSheetKey));
+    expect(panel.width, 320);
+    expect(panel.bottom, 568);
     debugDefaultTargetPlatformOverride = null;
   });
 

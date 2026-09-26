@@ -43,8 +43,9 @@ class _Disclosure extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.only(right: 8),
               child: GlassDialogHeader(
+                eyebrow: 'Usage data',
                 title: 'What we collect',
-                subtitle: 'All of it. This is the complete list - there is no second one.',
+                subtitle: 'All of it. There is no second list.',
                 titleGap: 4,
                 onClose: () => Navigator.of(context).pop(),
               ),
@@ -82,26 +83,14 @@ class _Disclosure extends StatelessWidget {
       crossAxisAlignment: .stretch,
       children: [
         _NeverPanel(),
-        const SizedBox(height: 20),
+        const SizedBox(height: 22),
         for (final entry in grouped.entries) ...[
           Padding(
-            padding: const EdgeInsets.only(bottom: 10),
-            child: Text(
-              entry.key.title,
-              style: PTText.finePrint.copyWith(
-                fontSize: 11,
-                letterSpacing: 0.8,
-                fontWeight: .w700,
-                color: PTColors.textAccent,
-              ),
-            ),
+            padding: const EdgeInsets.only(bottom: 4),
+            child: Text(entry.key.title.toUpperCase(), style: PTText.label),
           ),
-          for (final doc in entry.value)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: _EventRow(doc: doc),
-            ),
-          const SizedBox(height: 10),
+          for (final doc in entry.value) _EventRow(doc: doc),
+          const SizedBox(height: 20),
         ],
         Text(
           'Events are tied to your account ID and, before you sign in, to a '
@@ -117,13 +106,12 @@ class _Disclosure extends StatelessWidget {
 class _NeverPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return GlassPanel(
-      radius: 16,
-      opacity: 0.4,
-      blur: 16,
-      shadow: false,
-      borderColor: PTColors.online.withValues(alpha: 0.28),
+    return Container(
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(PTRadius.panel),
+        border: Border.all(color: PTColors.online.withValues(alpha: 0.45)),
+      ),
       child: Column(
         crossAxisAlignment: .start,
         spacing: 9,
@@ -147,14 +135,7 @@ class _NeverPanel extends StatelessWidget {
               children: [
                 Padding(
                   padding: const EdgeInsets.only(top: 5),
-                  child: Container(
-                    width: 4,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: PTColors.online.withValues(alpha: 0.7),
-                      shape: .circle,
-                    ),
-                  ),
+                  child: Container(width: 6, height: 1, color: PTColors.online),
                 ),
                 Expanded(
                   child: Text(line, style: PTText.finePrint.copyWith(fontSize: 12, height: 1.45)),
@@ -174,12 +155,11 @@ class _EventRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Hairline-ruled, not boxed: a list of facts reads as a ledger.
     return Container(
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-      decoration: BoxDecoration(
-        color: PTColors.white(0.03),
-        border: Border.all(color: PTColors.white(0.07)),
-        borderRadius: BorderRadius.circular(12),
+      padding: const EdgeInsets.symmetric(vertical: 11),
+      decoration: const BoxDecoration(
+        border: Border(bottom: BorderSide(color: PTColors.rail)),
       ),
       child: Column(
         crossAxisAlignment: .start,
@@ -193,7 +173,7 @@ class _EventRow extends StatelessWidget {
               style: PTText.finePrint.copyWith(
                 fontSize: 11,
                 fontFamily: PTFonts.mono,
-                color: PTColors.white(0.4),
+                color: PTColors.white(0.45),
                 height: 1.4,
               ),
             ),

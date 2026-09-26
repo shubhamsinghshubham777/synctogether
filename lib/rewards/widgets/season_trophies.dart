@@ -55,7 +55,7 @@ class _Trophy extends StatelessWidget {
   Widget build(BuildContext context) {
     final colour = SeasonTrophies.colorFor(award.rank);
     return Tooltip(
-      message: '${award.label} - ${award.monthLabel}',
+      message: '${award.label} · ${award.monthLabel}',
       child: Container(
         padding: const EdgeInsets.fromLTRB(7, 5, 12, 5),
         decoration: BoxDecoration(

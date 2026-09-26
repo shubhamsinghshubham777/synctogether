@@ -5,9 +5,11 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../diagnostics.dart';
 import '../../ui/banners.dart';
+import '../../ui/booth.dart';
 import '../../ui/buttons.dart';
 import '../../ui/glass.dart';
 import '../../ui/identity.dart';
+import '../../ui/pt_motion.dart';
 import '../../ui/pt_theme.dart';
 import '../reward_icons.dart';
 import '../rewards_logic.dart';
@@ -83,7 +85,7 @@ class _RecapBodyState extends State<_RecapBody> {
         trace('recap browser launch refused', category: 'rewards');
       }
       if (mounted) {
-        showPTSnack(context, 'Link copied - paste it anywhere.', kind: .success);
+        showPTSnack(context, 'Link copied. Paste it anywhere.', kind: .success);
       }
     } on RewardsFailure catch (failure) {
       if (!mounted) return;
@@ -100,63 +102,34 @@ class _RecapBodyState extends State<_RecapBody> {
       crossAxisAlignment: .stretch,
       children: [
         GlassDialogHeader(
-          title: 'That was a good one',
-          titleStyle: PTText.screenTitle.copyWith(fontSize: 21),
-          subtitle:
-              '${formatWatchTime(recap.length)} in sync with '
-              '${recap.peakMembers - 1} other${recap.peakMembers == 2 ? '' : 's'}.',
+          eyebrow: "Tonight's recap",
+          title: 'In sync with ${recap.peakMembers - 1} other${recap.peakMembers == 2 ? '' : 's'}',
+          subtitle: '${formatWatchTime(recap.length)} together, start to finish.',
           onClose: () => Navigator.of(context).pop(_url != null),
         ),
         const SizedBox(height: 20),
-        LayoutBuilder(
-          builder: (context, constraints) {
-            final stats = [
-              (Symbols.schedule_rounded, formatWatchTime(recap.length), 'watched'),
-              (Symbols.mood_rounded, '${recap.reactions}', 'reactions'),
-              (Symbols.forum_rounded, '${recap.messages}', 'messages'),
-            ];
-            // Three tiles need ~80px each at the reader's text size; short of
-            // that they become full-width rows rather than truncated numbers.
-            final stacked = constraints.maxWidth < MediaQuery.textScalerOf(context).scale(240);
-            if (stacked) {
-              return Column(
-                spacing: 8,
-                children: [
-                  for (final (icon, value, label) in stats)
-                    _Stat(icon: icon, value: value, label: label, inline: true),
-                ],
-              );
-            }
-            return Row(
-              spacing: 10,
-              children: [
-                for (final (icon, value, label) in stats)
-                  Expanded(
-                    child: _Stat(icon: icon, value: value, label: label),
-                  ),
-              ],
-            );
-          },
+        // The night as a paper stub: stats on Screen with Booth ink, torn
+        // along a perforation, the first award pressed onto it.
+        _RecapStub(
+          recap: recap,
+          lead: recap.superlatives.firstOrNull,
+          leadIsSelf: recap.superlatives.firstOrNull?.userId == widget.selfId,
         ),
-        if (recap.superlatives.isNotEmpty) ...[
-          const SizedBox(height: 20),
-          Text(
-            "Tonight's awards",
-            style: PTText.finePrint.copyWith(
-              fontSize: 11,
-              letterSpacing: 0.7,
-              fontWeight: .w600,
-              color: PTColors.white(0.5),
-            ),
-          ),
-          const SizedBox(height: 10),
-          for (final superlative in recap.superlatives)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: _AwardRow(
-                superlative: superlative,
-                person: widget.people[superlative.userId],
-                isSelf: superlative.userId == widget.selfId,
+        if (recap.superlatives.length > 1) ...[
+          const SizedBox(height: 16),
+          for (final (i, superlative) in recap.superlatives.skip(1).indexed)
+            PTEntrance(
+              delay: _awardDelay(i + 1),
+              duration: PTMotion.state,
+              offset: 8,
+              child: Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: _AwardRow(
+                  superlative: superlative,
+                  person: widget.people[superlative.userId],
+                  isSelf: superlative.userId == widget.selfId,
+                  stampDelay: _awardDelay(i + 1) + const Duration(milliseconds: 120),
+                ),
               ),
             ),
         ],
@@ -189,62 +162,124 @@ class _RecapBodyState extends State<_RecapBody> {
   }
 }
 
-class _Stat extends StatelessWidget {
-  const _Stat({required this.icon, required this.value, required this.label, this.inline = false});
+/// Awards follow the stats' count-up, one beat apart.
+Duration _awardDelay(int i) => Duration(milliseconds: 500 + 110 * i);
 
-  /// A full-width row (icon, value, label) for a narrow card.
-  final bool inline;
-  final IconData icon;
-  final String value;
-  final String label;
+class _RecapStub extends StatelessWidget {
+  const _RecapStub({required this.recap, this.lead, this.leadIsSelf = false});
+
+  final SessionRecap recap;
+  final Superlative? lead;
+  final bool leadIsSelf;
+
+  static const countUp = Duration(milliseconds: 900);
 
   @override
   Widget build(BuildContext context) {
-    return GlassPanel(
-      radius: 14,
-      opacity: 0.4,
-      blur: 16,
-      shadow: false,
-      padding: inline
-          ? const EdgeInsets.symmetric(vertical: 10, horizontal: 14)
-          : const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-      child: inline
-          ? Row(
-              spacing: 10,
+    const ink = PTColors.canvas;
+    final soft = PTColors.canvas.withValues(alpha: 0.6);
+    // Each value is a function of the count-up's progress, so the numbers
+    // roll up from zero once as the card lands. One-shot; reduce motion
+    // lands on the final numbers at once.
+    final stats = <(String Function(double), String)>[
+      ((t) => formatWatchTime(recap.length * t), 'WATCHED'),
+      ((t) => '${(recap.reactions * t).round()}', 'REACTIONS'),
+      ((t) => '${(recap.messages * t).round()}', 'MESSAGES'),
+    ];
+    return Container(
+      padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
+      decoration: BoxDecoration(
+        color: PTColors.fg,
+        borderRadius: BorderRadius.circular(PTRadius.panel),
+      ),
+      child: Column(
+        crossAxisAlignment: .start,
+        children: [
+          Text('ADMIT ${recap.peakMembers} · TONIGHT', style: PTText.label.copyWith(color: soft)),
+          const SizedBox(height: 10),
+          TweenAnimationBuilder<double>(
+            tween: Tween(begin: reducedMotion(context) ? 1 : 0, end: 1),
+            duration: countUp,
+            curve: PTMotion.enter,
+            builder: (context, t, _) => Wrap(
+              spacing: 22,
+              runSpacing: 10,
               children: [
-                Icon(icon, size: 17, color: PTColors.textAccent),
+                for (final (value, label) in stats)
+                  Column(
+                    crossAxisAlignment: .start,
+                    spacing: 2,
+                    children: [
+                      Text(
+                        value(t),
+                        style: PTText.display.copyWith(
+                          fontSize: 24,
+                          letterSpacing: -0.6,
+                          color: ink,
+                          fontFeatures: const [FontFeature.tabularFigures()],
+                        ),
+                      ),
+                      Text(label, style: PTText.label.copyWith(fontSize: 10, color: soft)),
+                    ],
+                  ),
+              ],
+            ),
+          ),
+          if (lead != null) ...[
+            const SizedBox(height: 14),
+            // The perforation.
+            SizedBox(
+              height: 1,
+              width: double.infinity,
+              child: CustomPaint(painter: DashedRectPainter(color: soft, dash: 5, gap: 4)),
+            ),
+            const SizedBox(height: 14),
+            Row(
+              spacing: 14,
+              children: [
+                PTStamp(
+                  size: 52,
+                  color: PTColors.liveInk,
+                  angle: -0.12,
+                  delay: _awardDelay(0),
+                  child: Icon(superlativeIcon(lead!.key), size: 22, fill: 1),
+                ),
                 Expanded(
-                  child: Text.rich(
-                    TextSpan(
-                      children: [
-                        TextSpan(text: value, style: PTText.cardHeading.copyWith(fontSize: 15)),
-                        TextSpan(text: '  $label', style: PTText.finePrint.copyWith(fontSize: 11)),
-                      ],
-                    ),
+                  child: Column(
+                    crossAxisAlignment: .start,
+                    spacing: 2,
+                    children: [
+                      Text(
+                        '${leadIsSelf ? 'You' : lead!.displayName} · ${lead!.key.title}',
+                        maxLines: 2,
+                        overflow: .ellipsis,
+                        style: PTText.body.copyWith(fontSize: 14, fontWeight: .w600, color: ink),
+                      ),
+                      Text(
+                        lead!.key.blurb,
+                        style: PTText.finePrint.copyWith(fontSize: 11.5, color: soft),
+                      ),
+                    ],
                   ),
                 ),
               ],
-            )
-          : Column(
-              spacing: 4,
-              children: [
-                Icon(icon, size: 17, color: PTColors.textAccent),
-                Text(
-                  value,
-                  maxLines: 1,
-                  overflow: .ellipsis,
-                  style: PTText.cardHeading.copyWith(fontSize: 15),
-                ),
-                Text(label, style: PTText.finePrint.copyWith(fontSize: 10)),
-              ],
             ),
+          ],
+        ],
+      ),
     );
   }
 }
 
 class _AwardRow extends StatelessWidget {
-  const _AwardRow({required this.superlative, this.person, this.isSelf = false});
+  const _AwardRow({
+    required this.superlative,
+    this.person,
+    this.isSelf = false,
+    this.stampDelay = Duration.zero,
+  });
 
+  final Duration stampDelay;
   final Superlative superlative;
   final RecapPerson? person;
   final bool isSelf;
@@ -281,20 +316,12 @@ class _AwardRow extends StatelessWidget {
           spacing: 12,
           crossAxisAlignment: below ? .start : .center,
           children: [
-            Container(
-              width: 34,
-              height: 34,
-              decoration: BoxDecoration(
-                shape: .circle,
-                color: PTColors.primary.withValues(alpha: 0.14),
-              ),
-              alignment: .center,
-              child: Icon(
-                superlativeIcon(superlative.key),
-                size: 17,
-                fill: 1,
-                color: PTColors.textAccent,
-              ),
+            PTStamp(
+              size: 34,
+              color: PTColors.primary,
+              angle: -0.12,
+              delay: stampDelay,
+              child: Icon(superlativeIcon(superlative.key), size: 17, fill: 1),
             ),
             Expanded(
               child: Column(

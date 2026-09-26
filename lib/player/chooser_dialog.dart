@@ -35,10 +35,7 @@ class ChooserDialog<T> extends StatelessWidget {
       crossAxisAlignment: .start,
       spacing: 14,
       children: [
-        Padding(
-          padding: const EdgeInsets.only(left: 6),
-          child: Text(type, textScaler: dialogHeadingScaler(context), style: PTText.cardHeading),
-        ),
+        GlassDialogHeader(eyebrow: 'Tracks', title: type),
         // No inner scroller: showGlassDialog already scrolls the body within a
         // keyboard-aware height, and a nested 320px one outgrew that on short
         // windows, leaving the last row unreachable below the safe edge.
@@ -70,26 +67,26 @@ class ChooserDialog<T> extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.fromLTRB(6, 4, 6, 0),
                 child: Text(
-                  'Picture tracks are images from the disc and keep their own look - '
-                  'pick a text track to use your subtitle style.',
+                  'Picture tracks are images from the disc and keep their own look. '
+                  'Pick a text track to use your subtitle style.',
                   style: PTText.caption,
                 ),
               ),
             if (onAddFromFile != null || onStyle != null)
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 4),
-                child: Divider(color: PTColors.white(0.12), height: 1),
+                child: Divider(color: PTColors.rail, height: 1),
               ),
             if (onAddFromFile != null)
               _TrackRow(
-                label: 'Add from File...',
+                label: 'Add from file…',
                 icon: Symbols.file_open_rounded,
                 isSelected: false,
                 onTap: onAddFromFile!,
               ),
             if (onStyle != null)
               _TrackRow(
-                label: 'Subtitle style...',
+                label: 'Subtitle style…',
                 icon: Symbols.format_paint_rounded,
                 isSelected: false,
                 onTap: onStyle!,
@@ -101,7 +98,7 @@ class ChooserDialog<T> extends StatelessWidget {
   }
 }
 
-class _TrackRow extends StatefulWidget {
+class _TrackRow extends StatelessWidget {
   const _TrackRow({required this.label, required this.isSelected, required this.onTap, this.icon});
 
   final String label;
@@ -110,65 +107,17 @@ class _TrackRow extends StatefulWidget {
   final IconData? icon;
 
   @override
-  State<_TrackRow> createState() => _TrackRowState();
-}
-
-class _TrackRowState extends State<_TrackRow> {
-  bool _hovered = false;
-
-  @override
   Widget build(BuildContext context) {
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      onEnter: (_) => setState(() => _hovered = true),
-      onExit: (_) => setState(() => _hovered = false),
-      child: GestureDetector(
-        onTap: widget.onTap,
-        child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
-          decoration: BoxDecoration(
-            color: widget.isSelected
-                ? PTColors.primary.withValues(alpha: 0.22)
-                : _hovered
-                ? PTColors.white(0.07)
-                : Colors.transparent,
-            border: Border.all(
-              color: widget.isSelected
-                  ? PTColors.accentBorder.withValues(alpha: 0.45)
-                  : Colors.transparent,
-            ),
-            borderRadius: BorderRadius.circular(14),
-          ),
-          child: Row(
-            children: [
-              if (widget.icon != null) ...[
-                Icon(
-                  widget.icon,
-                  size: 18,
-                  color: widget.isSelected ? PTColors.textAccent : PTColors.white(0.6),
-                ),
-                const SizedBox(width: 10),
-              ],
-              Expanded(
-                child: Text(
-                  widget.label,
-                  style: PTText.body.copyWith(
-                    fontSize: 14.5,
-                    color: widget.isSelected ? Colors.white : PTColors.white(0.8),
-                  ),
-                ),
-              ),
-              if (widget.isSelected)
-                const Icon(
-                  Symbols.check_circle_rounded,
-                  size: 18,
-                  fill: 1,
-                  color: PTColors.textAccent,
-                ),
-            ],
-          ),
-        ),
+    // Only the chosen track is outlined; the rest read as a plain list.
+    return DialogOptionRow(
+      label: label,
+      icon: icon,
+      selected: isSelected,
+      borderless: !isSelected,
+      onTap: onTap,
+      labelStyle: PTText.body.copyWith(
+        fontSize: 14.5,
+        color: isSelected ? PTColors.fg : PTColors.white(0.8),
       ),
     );
   }

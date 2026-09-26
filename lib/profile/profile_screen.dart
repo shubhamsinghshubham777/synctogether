@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:synctogether/app_version.dart';
 import 'package:synctogether/analytics.dart';
 import 'package:synctogether/analytics_consent.dart';
 import 'package:synctogether/analytics_disclosure_dialog.dart';
@@ -76,12 +77,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (state.isPremium || state.handle != null) return;
     _handleUpsellTracked = true;
     Analytics.instance.track('upgrade_cta_shown', {'surface': 'handle'});
-  }
-
-  @override
-  void dispose() {
-    _handleDisplay?.dispose();
-    super.dispose();
   }
 
   Future<void> _loadMediaSharingPreference() async {
@@ -157,7 +152,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           if (mounted) _snack('Profile photo updated!', kind: .success);
         } catch (e, s) {
           reportNonFatal(e, s, during: 'uploading camera avatar');
-          if (mounted) _snack("Couldn't update your photo - try a different image.");
+          if (mounted) _snack("Couldn't update your photo. Try a different image.");
         } finally {
           if (mounted) setState(() => _uploadingAvatar = false);
         }
@@ -179,7 +174,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       // "Try a different image" is a guess. Storage quota, a bucket policy or a
       // dead connection all land here, and only the log can tell them apart.
       reportNonFatal(e, s, during: 'uploading an avatar');
-      if (mounted) _snack("Couldn't update your photo - try a different image.");
+      if (mounted) _snack("Couldn't update your photo. Try a different image.");
     } finally {
       if (mounted) setState(() => _uploadingAvatar = false);
     }
@@ -231,7 +226,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         await ProfileService.instance.updateDisplayName(name);
       } catch (e, s) {
         reportNonFatal(e, s, during: 'saving the display name');
-        if (mounted) _snack("Couldn't save that name - give it another try.");
+        if (mounted) _snack("Couldn't save that name. Give it another try.");
       }
     }
   }
@@ -257,7 +252,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           if (EntitlementService.instance.premiumSources.contains('apple'))
             Text(
               'Your App Store subscription keeps renewing until you cancel it. '
-              'Cancel it in your App Store account settings first - deleting your '
+              'Cancel it in your App Store account settings first. Deleting your '
               "account here doesn't stop Apple billing you.",
               style: PTText.body.copyWith(fontSize: 14, color: PTColors.warning, height: 1.5),
             ),
@@ -296,13 +291,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
         // Account deletion has known server-side failure modes (a hosted room
         // still referencing the user), so the cause is worth keeping.
         reportNonFatal(e, s, during: 'deleting the account');
-        if (mounted) _snack("Couldn't delete the account right now - try again in a bit.");
+        if (mounted) _snack("Couldn't delete the account right now. Try again in a bit.");
       }
     }
   }
 
   void _snack(String message, {PTSnackKind kind = PTSnackKind.error}) =>
       showPTSnack(context, message, kind: kind);
+
+  /// Width at which the page splits into an identity column and a settings
+  /// column. Below it everything runs in one editorial column.
+  static const double _splitWidth = 1000;
 
   @override
   Widget build(BuildContext context) {
@@ -330,38 +329,141 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  /// Also the tablet layout (portrait and landscape) via the `tablet →
-  /// desktop` fallback: one centred stacked panel, which is what a 600-820
-  /// wide portrait iPad wants. The SafeArea covers tablet status bars.
+  /// Desktop and tablet (via the `tablet → desktop` fallback). Two columns
+  /// from [_splitWidth] up; a single centred column below it, which is what a
+  /// portrait iPad or a narrow desktop window wants.
+  /// Set while building the wide desktop split, where every settings section
+  /// is a Seat card in a grid instead of a ruled section in a column.
+  bool _cards = false;
+
   Widget _desktop(Profile profile) {
     return SafeArea(
-      child: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 28),
-            child: _backHeader(size: 42),
+      child: LayoutBuilder(
+        builder: (context, box) {
+          final split = box.maxWidth >= _splitWidth;
+          final gutter = box.maxWidth >= 720 ? 48.0 : 24.0;
+          if (split) return _wideSplit(profile);
+          _cards = false;
+          return Column(
+            children: [
+              Padding(
+                padding: EdgeInsets.fromLTRB(gutter, 24, gutter, 0),
+                child: _centred(640, _backHeader(size: 42)),
+              ),
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: EdgeInsets.fromLTRB(gutter, 32, gutter, 56),
+                  child: _centred(640, _oneColumn(profile, nameSize: 44)),
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  /// The Profile, desktop board: a full-height identity column behind a
+  /// hairline, and the settings as Seat cards - Membership across the top,
+  /// then two columns once there is room for them.
+  Widget _wideSplit(Profile profile) {
+    final guest = profile.isGuest;
+    final version = AppVersion.current;
+    return Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.fromLTRB(40, 16, 40, 16),
+          decoration: const BoxDecoration(
+            border: Border(bottom: BorderSide(color: PTColors.aisle)),
           ),
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(24, 36, 24, 48),
-              child: Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 520),
-                  child: GlassPanel(
-                    radius: 28,
-                    opacity: 0.5,
-                    blur: 32,
-                    padding: const EdgeInsets.symmetric(horizontal: 46, vertical: 44),
-                    child: profile.isGuest
-                        ? _guestBody(profile)
-                        : _accountBody(profile, header: .row),
+          child: Row(
+            children: [
+              Expanded(child: _backHeader(size: 40)),
+              if (version != null)
+                Text(version, style: PTText.mono.copyWith(fontSize: 11, color: PTColors.away)),
+            ],
+          ),
+        ),
+        Expanded(
+          child: Row(
+            crossAxisAlignment: .stretch,
+            children: [
+              Container(
+                width: 400,
+                decoration: const BoxDecoration(
+                  border: Border(right: BorderSide(color: PTColors.aisle)),
+                ),
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(56, 44, 40, 48),
+                  child: Builder(
+                    builder: (context) {
+                      _cards = false;
+                      return Column(
+                        crossAxisAlignment: .stretch,
+                        children: [
+                          _identityColumn(profile, nameSize: 48),
+                          const SizedBox(height: 32),
+                          _blockedSection(),
+                          _exitSection(guest),
+                        ],
+                      );
+                    },
                   ),
                 ),
               ),
-            ),
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(40, 36, 56, 48),
+                  child: LayoutBuilder(
+                    builder: (context, box) {
+                      _cards = true;
+                      final left = <Widget>[
+                        _accountSection(profile),
+                        _mediaQuotaSection(),
+                        _audioVideoSection(),
+                        if (supportsSelfUpdate) _updatesSection(),
+                      ];
+                      final right = <Widget>[if (!guest) _boardsSection(), _privacySection()];
+                      final twoUp = box.maxWidth >= 760;
+                      final cards = Column(
+                        crossAxisAlignment: .stretch,
+                        children: [
+                          _enter(1, _seatSection()),
+                          if (twoUp)
+                            Row(
+                              crossAxisAlignment: .start,
+                              spacing: 20,
+                              children: [
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: .stretch,
+                                    children: [for (final (i, w) in left.indexed) _enter(i + 2, w)],
+                                  ),
+                                ),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: .stretch,
+                                    children: [
+                                      for (final (i, w) in right.indexed) _enter(i + 2, w),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            )
+                          else
+                            for (final (i, w) in [...left, ...right].indexed) _enter(i + 2, w),
+                        ],
+                      );
+                      _cards = false;
+                      return cards;
+                    },
+                  ),
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -373,13 +475,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
       child: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
             child: _backHeader(titleSize: 18),
           ),
           Expanded(
             child: SingleChildScrollView(
-              padding: EdgeInsets.fromLTRB(22, 28, 22, 40 + MediaQuery.paddingOf(context).bottom),
-              child: profile.isGuest ? _guestBody(profile) : _accountBody(profile, header: .column),
+              padding: EdgeInsets.fromLTRB(22, 24, 22, 40 + MediaQuery.paddingOf(context).bottom),
+              child: profile.isGuest ? _oneColumn(profile, nameSize: 34) : _phoneColumn(profile),
             ),
           ),
         ],
@@ -387,6 +489,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  /// Phone landscape: height is the scarce thing, so the identity column and
+  /// the settings scroll independently side by side.
   Widget _landscape(Profile profile) {
     return SafeArea(
       minimum: const EdgeInsets.symmetric(horizontal: 44),
@@ -397,132 +501,237 @@ class _ProfileScreenState extends State<ProfileScreen> {
             child: _backHeader(iconSize: 19, size: 38, titleSize: 17),
           ),
           Expanded(
-            child: profile.isGuest
-                ? SingleChildScrollView(
-                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
-                    child: _guestBody(profile),
-                  )
-                : Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 14, 16, 22),
-                    child: Row(
-                      spacing: 36,
-                      children: [
-                        // 240 on a normal phone in landscape; an SE (667 wide,
-                        // less the notch gutters) needs the fields column more.
-                        SizedBox(
-                          width: MediaQuery.sizeOf(context).width < 720 ? 180 : 240,
-                          child: Center(
-                            child: SingleChildScrollView(
-                              child: _identityHeader(profile, vertical: true),
-                            ),
-                          ),
-                        ),
-                        Expanded(
-                          child: SingleChildScrollView(
-                            child: Column(
-                              mainAxisAlignment: .center,
-                              spacing: 12,
-                              children: [
-                                _nameField(profile),
-                                _emailField(profile),
-                                _passwordField(profile),
-                                _subscriptionSection(),
-                                _mediaQuotaSection(),
-                                _audioVideoSection(),
-                                if (supportsSelfUpdate) _updatesSection(),
-                                _blockedSection(),
-                                _privacySection(),
-                                Padding(
-                                  padding: const EdgeInsets.only(top: 6),
-                                  child: Row(
-                                    spacing: 11,
-                                    children: [
-                                      Expanded(
-                                        child: PTButton(
-                                          label: 'Log out',
-                                          icon: Symbols.logout_rounded,
-                                          variant: .secondary,
-                                          height: 46,
-                                          onPressed: AuthService.instance.signOut,
-                                        ),
-                                      ),
-                                      Expanded(
-                                        child: PTButton(
-                                          label: 'Delete account',
-                                          icon: Symbols.delete_rounded,
-                                          variant: .destructive,
-                                          height: 46,
-                                          onPressed: _confirmDeleteAccount,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+            child: _twoColumns(
+              profile,
+              // An SE (667 wide, less the notch gutters) needs the settings
+              // column more than a normal phone does.
+              identityWidth: MediaQuery.sizeOf(context).width < 720 ? 200 : 250,
+              gap: 32,
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 22),
+              nameSize: 26,
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _subscriptionSection() {
-    final isPrem = EntitlementService.instance.isPremium;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      decoration: BoxDecoration(
-        color: isPrem ? PTColors.primary.withValues(alpha: 0.12) : PTColors.white(0.04),
-        border: Border.all(
-          color: isPrem ? PTColors.accentBorder.withValues(alpha: 0.35) : PTColors.white(0.08),
+  Widget _centred(double maxWidth, Widget child) => Center(
+    child: ConstrainedBox(
+      constraints: BoxConstraints(maxWidth: maxWidth),
+      child: child,
+    ),
+  );
+
+  Widget _twoColumns(
+    Profile profile, {
+    required double identityWidth,
+    required double gap,
+    required EdgeInsets padding,
+    double maxWidth = double.infinity,
+    double nameSize = 48,
+  }) {
+    final scrollPadding = EdgeInsets.only(top: padding.top, bottom: padding.bottom);
+    return Padding(
+      padding: EdgeInsets.only(left: padding.left, right: padding.right),
+      child: _centred(
+        maxWidth,
+        Row(
+          crossAxisAlignment: .start,
+          children: [
+            SizedBox(
+              width: identityWidth,
+              child: SingleChildScrollView(
+                padding: scrollPadding,
+                child: _identityColumn(profile, nameSize: nameSize),
+              ),
+            ),
+            SizedBox(width: gap),
+            Expanded(
+              child: SingleChildScrollView(padding: scrollPadding, child: _settingsColumn(profile)),
+            ),
+          ],
         ),
-        borderRadius: BorderRadius.circular(16),
       ),
-      child: _ActionRow(
-        children: [
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              gradient: isPrem ? PTColors.brandGradient : null,
-              color: isPrem ? null : PTColors.white(0.08),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(
-              isPrem ? Symbols.crown_rounded : Symbols.workspace_premium_rounded,
-              size: 20,
-              fill: 1,
-              color: Colors.white,
-            ),
+    );
+  }
+
+  /// Phone portrait for an account: the identity collapses to one row, the
+  /// stats sit straight under it and membership is a card with a full-width
+  /// call to action - the page's one lit button - before the settings.
+  Widget _phoneColumn(Profile profile) {
+    final rewards = RewardsService.instance.state;
+    final isPrem = EntitlementService.instance.isPremium;
+    final streak = rewards.streak.current;
+    final badges = rewards.unlocked.length;
+    final since = profile.createdAt;
+    return Column(
+      crossAxisAlignment: .stretch,
+      children: [
+        _enter(
+          0,
+          Row(
+            spacing: 14,
+            children: [
+              _avatar(profile, size: 64),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: .start,
+                  spacing: 8,
+                  children: [
+                    MouseRegion(
+                      cursor: SystemMouseCursors.click,
+                      child: GestureDetector(
+                        behavior: .opaque,
+                        onTap: () => _editDisplayName(profile),
+                        child: Row(
+                          spacing: 8,
+                          children: [
+                            Flexible(
+                              child: Text(
+                                profile.displayName,
+                                maxLines: 2,
+                                overflow: .ellipsis,
+                                textScaler: _displayScaler(context),
+                                style: PTText.display.copyWith(fontSize: 28, height: 1.02),
+                              ),
+                            ),
+                            Icon(Symbols.edit_rounded, size: 17, color: PTColors.white(0.55)),
+                          ],
+                        ),
+                      ),
+                    ),
+                    Row(
+                      spacing: 10,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            border: Border.all(
+                              color: isPrem ? PTColors.premiumBorder : PTColors.rail,
+                            ),
+                            borderRadius: BorderRadius.circular(2),
+                          ),
+                          child: Text(
+                            isPrem ? 'PATRON SEAT' : 'FREE SEAT',
+                            style: PTText.label.copyWith(
+                              fontSize: 10,
+                              color: isPrem ? PTColors.premium : PTColors.fg,
+                            ),
+                          ),
+                        ),
+                        if (since != null)
+                          Flexible(
+                            child: Text(
+                              'since ${_monthName(since.month)} ${since.year}',
+                              maxLines: 1,
+                              overflow: .ellipsis,
+                              style: PTText.caption.copyWith(fontWeight: .w400),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: .start,
-              spacing: 2,
-              children: [
-                Text(
-                  isPrem ? 'Premium Plan' : 'Free Tier',
-                  style: PTText.body.copyWith(fontWeight: .w600, color: Colors.white),
+        ),
+        const SizedBox(height: 22),
+        _enter(
+          1,
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'WATCHING · $badges ${badges == 1 ? 'BADGE' : 'BADGES'}',
+                  style: PTText.label,
                 ),
-                Text(
-                  isPrem
-                      ? 'Video facecams, 24h rooms & more'
-                      : 'Upgrade for video facecams & persistent rooms',
-                  style: PTText.finePrint.copyWith(color: PTColors.white(0.55)),
+              ),
+              PTPressable(
+                onTap: () => context.go('/lobby/leaderboard'),
+                // 44pt tall: this is a touch layout.
+                child: Container(
+                  height: 44,
+                  color: Colors.transparent,
+                  child: Row(
+                    mainAxisSize: .min,
+                    spacing: 6,
+                    children: [
+                      const Icon(Symbols.trophy_rounded, size: 16, color: PTColors.fg),
+                      Text('Leaderboard', style: PTText.body.copyWith(fontWeight: .w600)),
+                      Icon(Symbols.chevron_right_rounded, size: 18, color: PTColors.white(0.6)),
+                    ],
+                  ),
                 ),
-              ],
-            ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 14),
+        _enter(
+          2,
+          Row(
+            crossAxisAlignment: .start,
+            spacing: 16,
+            children: [
+              Expanded(
+                child: _numeral(
+                  '$streak',
+                  'day streak',
+                  color: streak > 0 ? PTColors.ember : PTColors.fg,
+                ),
+              ),
+              Expanded(child: _numeral(formatWatchHours(rewards.totals.watched), 'watched')),
+              Expanded(child: _numeral('${rewards.totals.coWatchers}', 'watched with')),
+            ],
+          ),
+        ),
+        const SizedBox(height: 20),
+        _enter(3, _membershipCard(isPrem)),
+        const SizedBox(height: 12),
+        _settingsColumn(profile, withSeat: false),
+      ],
+    );
+  }
+
+  Widget _membershipCard(bool isPrem) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: PTColors.glassBase,
+        borderRadius: BorderRadius.circular(PTRadius.panel),
+        border: Border.all(color: PTColors.aisle),
+      ),
+      child: Column(
+        crossAxisAlignment: .stretch,
+        spacing: 12,
+        children: [
+          Text('MEMBERSHIP', style: PTText.label),
+          Row(
+            crossAxisAlignment: .end,
+            spacing: 10,
+            children: [
+              Expanded(
+                child: Text(
+                  isPrem ? 'Patron seat' : 'Free seat',
+                  style: PTText.cardHeading.copyWith(
+                    fontSize: 20,
+                    color: isPrem ? PTColors.premium : null,
+                  ),
+                ),
+              ),
+              Text(
+                isPrem ? '16 seats · video · 24h' : '8 seats · voice · 4h',
+                style: PTText.caption.copyWith(fontWeight: .w400),
+              ),
+            ],
           ),
           PTButton(
-            label: isPrem ? 'Manage' : 'Go Premium',
+            label: isPrem ? 'Manage' : 'Get a Patron seat',
             variant: isPrem ? .secondary : .primary,
             icon: isPrem ? Symbols.arrow_forward_rounded : Symbols.crown_rounded,
-            height: 38,
-            expand: false,
+            height: 48,
             onPressed: () => context.go('/lobby/subscribe?source=profile'),
           ),
         ],
@@ -530,33 +739,240 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _updatesSection() {
-    if (!supportsSelfUpdate) return const SizedBox.shrink();
-    return ListenableBuilder(
-      listenable: UpdateService.instance,
-      builder: (context, _) => PTToggleRow(
-        icon: Symbols.system_update_alt_rounded,
-        title: 'Automatically download updates',
-        subtitle:
-            'Download updates silently in the background so you can restart immediately when ready.',
-        value: UpdateService.instance.autoDownload,
-        onChanged: (enabled) => UpdateService.instance.setAutoDownload(enabled),
+  Widget _oneColumn(Profile profile, {required double nameSize}) {
+    return Column(
+      crossAxisAlignment: .stretch,
+      children: [
+        _identityColumn(profile, nameSize: nameSize),
+        const SizedBox(height: 36),
+        _settingsColumn(profile),
+      ],
+    );
+  }
+
+  /// One-shot stagger. Capped so the last section never waits noticeably.
+  Widget _enter(int index, Widget child) => PTEntrance(
+    delay: Duration(milliseconds: 45 * index.clamp(0, 7)),
+    offset: 10,
+    child: child,
+  );
+
+  // ─── Identity column ────────────────────────────────────────────────────
+
+  Widget _identityColumn(Profile profile, {required double nameSize}) {
+    final guest = profile.isGuest;
+    return Column(
+      crossAxisAlignment: .start,
+      children: [
+        _enter(0, Text(guest ? 'GUEST SEAT' : 'YOUR SEAT', style: PTText.label)),
+        const SizedBox(height: 18),
+        _enter(1, guest ? _guestAvatar() : _avatar(profile)),
+        const SizedBox(height: 22),
+        _enter(2, _nameBlock(profile, nameSize)),
+        const SizedBox(height: 32),
+        if (guest) _enter(3, _keepIdentity()) else _enter(3, _watchingBlock()),
+      ],
+    );
+  }
+
+  Widget _guestAvatar() {
+    return Container(
+      width: 112,
+      height: 112,
+      decoration: BoxDecoration(
+        color: PTColors.aisle,
+        shape: .circle,
+        border: Border.all(color: PTColors.rail, width: 2),
+      ),
+      child: Icon(Symbols.person_rounded, size: 48, fill: 1, color: PTColors.white(0.4)),
+    );
+  }
+
+  Widget _avatar(Profile profile, {double size = 112}) {
+    final rewards = RewardsService.instance.state;
+    final button = size < 80 ? 28.0 : 36.0;
+    return SizedBox(
+      width: size + 4,
+      height: size + 4,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          // A fresh photo scale-pulses itself in - confirmation the user is
+          // already looking at, so no snackbar is needed for the happy path.
+          PTEntrance(
+            key: ValueKey(profile.avatarUrl),
+            offset: 0,
+            scaleFrom: 0.9,
+            fade: false,
+            duration: PTMotion.state,
+            child: PTAvatar(
+              userId: profile.id,
+              displayName: profile.displayName,
+              avatarUrl: profile.avatarUrl,
+              frame: rewards.equippedFrame,
+              premium: EntitlementService.instance.isPremium,
+              size: size,
+              ringColor: PTColors.rail,
+            ),
+          ),
+          Positioned.fill(
+            child: IgnorePointer(
+              child: AnimatedOpacity(
+                opacity: _uploadingAvatar ? 1 : 0,
+                duration: PTMotion.functional(context, PTMotion.state),
+                child: const DecoratedBox(
+                  decoration: BoxDecoration(color: PTColors.canvasScrim, shape: .circle),
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            bottom: 0,
+            right: 0,
+            child: MouseRegion(
+              cursor: SystemMouseCursors.click,
+              child: PTPressable(
+                onTap: _uploadingAvatar ? null : _showAvatarOptions,
+                child: Container(
+                  width: button,
+                  height: button,
+                  decoration: BoxDecoration(
+                    color: PTColors.aisle,
+                    borderRadius: BorderRadius.circular(PTRadius.control),
+                    border: Border.all(color: PTColors.rail),
+                  ),
+                  child: AnimatedSwitcher(
+                    duration: PTMotion.functional(context, PTMotion.state),
+                    switchInCurve: PTMotion.enter,
+                    switchOutCurve: PTMotion.exit,
+                    child: _uploadingAvatar
+                        ? PTLoader(key: const ValueKey('uploading'), size: button / 2)
+                        : Icon(
+                            Symbols.photo_camera_rounded,
+                            key: const ValueKey('idle'),
+                            size: button / 2,
+                            fill: 1,
+                            color: PTColors.fg.withValues(alpha: 0.85),
+                          ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _rewardsSection() {
-    final rewards = RewardsService.instance;
-    final state = rewards.state;
-    final streak = state.streak;
+  Widget _nameBlock(Profile profile, double nameSize) {
+    final isPrem = EntitlementService.instance.isPremium;
+    final since = profile.createdAt;
+    final sinceLabel = since != null
+        ? 'Watching together since ${_monthName(since.month)} ${since.year}'
+        : 'Watching together';
     return Column(
       crossAxisAlignment: .start,
-      spacing: 14,
+      spacing: 10,
       children: [
+        AnimatedSwitcher(
+          duration: PTMotion.functional(context, PTMotion.state),
+          switchInCurve: PTMotion.enter,
+          switchOutCurve: PTMotion.exit,
+          layoutBuilder: (current, previous) =>
+              Stack(alignment: .topLeft, children: [...previous, ?current]),
+          child: Text(
+            profile.displayName,
+            key: ValueKey(profile.displayName),
+            maxLines: 3,
+            overflow: .ellipsis,
+            // Display type is already large; letting it grow at the body rate
+            // turns a long name into three clipped fragments at 2x.
+            textScaler: _displayScaler(context),
+            style: PTText.display.copyWith(fontSize: nameSize, height: 1.02),
+          ),
+        ),
+        if (profile.isGuest)
+          const GuestBadge()
+        else
+          Row(
+            spacing: 8,
+            children: [
+              if (isPrem)
+                const Icon(Symbols.crown_rounded, size: 15, fill: 1, color: PTColors.premium),
+              Flexible(
+                child: Text(
+                  isPrem ? 'PATRON SEAT' : 'FREE SEAT',
+                  style: PTText.label.copyWith(
+                    color: isPrem ? PTColors.premium : PTColors.white(0.7),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        if (!profile.isGuest) Text(sinceLabel, style: PTText.caption.copyWith(fontWeight: .w400)),
+      ],
+    );
+  }
+
+  /// The guest's one real move: keep this seat by signing in. No box - a Beam
+  /// rule down the side marks it as the thing on this page worth doing.
+  Widget _keepIdentity() {
+    return Container(
+      padding: const EdgeInsets.only(left: 18),
+      decoration: const BoxDecoration(
+        border: Border(left: BorderSide(color: PTColors.primary, width: 2)),
+      ),
+      child: Column(
+        crossAxisAlignment: .stretch,
+        spacing: 14,
+        children: [
+          Text('Keep your identity', style: PTText.cardHeading),
+          Text(
+            'Sign in to pick a name and photo, and keep them across '
+            'devices. Your current session carries over.',
+            style: PTText.body.copyWith(fontSize: 14, color: PTColors.white(0.65), height: 1.5),
+          ),
+          if (AuthService.instance.isAppleSupported)
+            AppleButton(
+              label: 'Sign in with Apple',
+              onPressed: () async {
+                try {
+                  await AuthService.instance.linkAppleIdentity();
+                } catch (e, s) {
+                  reportNonFatal(e, s, during: 'linking an Apple identity to a guest');
+                  if (mounted) _snack("Couldn't start Apple sign-in. Try again.");
+                }
+              },
+            ),
+          GoogleButton(
+            label: 'Sign in with Google',
+            onPressed: () async {
+              try {
+                await AuthService.instance.linkGoogleIdentity();
+              } catch (e, s) {
+                reportNonFatal(e, s, during: 'linking a Google identity to a guest');
+                if (mounted) _snack("Couldn't start Google sign-in. Try again.");
+              }
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _watchingBlock() {
+    final rewards = RewardsService.instance;
+    final state = rewards.state;
+    final streak = state.streak.current;
+    return Column(
+      crossAxisAlignment: .stretch,
+      spacing: 18,
+      children: [
+        const _Rule(),
         _ActionRow(
-          minRowWidth: 220,
+          minRowWidth: 200,
           children: [
-            Expanded(child: Text('Watching', style: PTText.panelHeading)),
+            Expanded(child: Text('WATCHING', style: PTText.label)),
             PTButton(
               label: 'Leaderboard',
               variant: .secondary,
@@ -568,29 +984,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ],
         ),
         Row(
-          spacing: 10,
+          crossAxisAlignment: .start,
+          spacing: 16,
           children: [
             Expanded(
-              child: _statTile(
-                Symbols.local_fire_department_rounded,
-                '${streak.current}',
+              child: _numeral(
+                '$streak',
                 'day streak',
+                color: streak > 0 ? PTColors.ember : PTColors.fg,
               ),
             ),
-            Expanded(
-              child: _statTile(
-                Symbols.schedule_rounded,
-                formatWatchHours(state.totals.watched),
-                'watched',
-              ),
-            ),
-            Expanded(
-              child: _statTile(
-                Symbols.diversity_3_rounded,
-                '${state.totals.coWatchers}',
-                'watched with',
-              ),
-            ),
+            Expanded(child: _numeral(formatWatchHours(state.totals.watched), 'watched')),
+            Expanded(child: _numeral('${state.totals.coWatchers}', 'watched with')),
           ],
         ),
         if (rewards.referrals > 0)
@@ -601,8 +1006,180 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
         if (state.seasons.isNotEmpty) SeasonTrophies(seasons: state.seasons),
         BadgeShelf(state: state, crossAxisCount: 4),
+      ],
+    );
+  }
+
+  TextScaler _displayScaler(BuildContext context) =>
+      MediaQuery.textScalerOf(context).clamp(maxScaleFactor: 1.25);
+
+  /// A stat set as type, not a tile: the numeral carries it.
+  Widget _numeral(String value, String label, {Color color = PTColors.fg}) {
+    return Column(
+      crossAxisAlignment: .start,
+      spacing: 4,
+      children: [
+        FittedBox(
+          fit: .scaleDown,
+          alignment: .centerLeft,
+          child: Text(
+            value,
+            maxLines: 1,
+            textScaler: _displayScaler(context),
+            style: PTText.display.copyWith(fontSize: 38, color: color),
+          ),
+        ),
+        Text(
+          label.toUpperCase(),
+          maxLines: 2,
+          overflow: .ellipsis,
+          style: PTText.label.copyWith(fontSize: 10),
+        ),
+      ],
+    );
+  }
+
+  // ─── Settings column ────────────────────────────────────────────────────
+
+  Widget _settingsColumn(Profile profile, {bool withSeat = true}) {
+    final guest = profile.isGuest;
+    final sections = <Widget>[
+      if (withSeat) _seatSection(),
+      _accountSection(profile),
+      if (!guest) _boardsSection(),
+      _mediaQuotaSection(),
+      _audioVideoSection(),
+      if (supportsSelfUpdate) _updatesSection(),
+      _blockedSection(),
+      _privacySection(),
+      _exitSection(guest),
+    ];
+    return Column(
+      crossAxisAlignment: .stretch,
+      children: [for (var i = 0; i < sections.length; i++) _enter(i + 1, sections[i])],
+    );
+  }
+
+  Widget _seatSection() {
+    final isPrem = EntitlementService.instance.isPremium;
+    return _Section(
+      card: _cards,
+      kicker: 'Membership',
+      children: [
+        _settingRow(
+          title: isPrem
+              ? 'Patron seat'
+              : (ProfileService.instance.profile?.isGuest ?? false)
+              ? 'Guest seat'
+              : 'Free seat',
+          subtitle: isPrem
+              ? '16-seat rooms with video facecams, 24-hour rooms and up to 20 saved.'
+              : (ProfileService.instance.profile?.isGuest ?? false)
+              ? 'Rooms of 4 for an hour. Sign in for free rooms of 8 and four-hour sessions.'
+              : 'Rooms of 8 with voice, 4 hours a session. A Patron seat brings 16-seat '
+                    'rooms, video facecams, 24-hour and saved rooms.',
+          titleColor: isPrem ? PTColors.premium : null,
+          minRowWidth: 420,
+          trailing: PTButton(
+            label: isPrem ? 'Manage' : 'Get a Patron seat',
+            variant: isPrem ? .secondary : .primary,
+            icon: isPrem ? Symbols.arrow_forward_rounded : Symbols.crown_rounded,
+            height: 38,
+            expand: false,
+            onPressed: () => context.go('/lobby/subscribe?source=profile'),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _accountSection(Profile profile) {
+    if (profile.isGuest) {
+      return _Section(
+        card: _cards,
+        kicker: 'Account',
+        children: [
+          Opacity(
+            opacity: 0.5,
+            child: _settingRow(
+              title: 'Display name',
+              subtitle: profile.displayName,
+              trailing: Icon(Symbols.lock_rounded, size: 17, fill: 1, color: PTColors.white(0.6)),
+            ),
+          ),
+        ],
+      );
+    }
+    return _Section(
+      card: _cards,
+      kicker: 'Account',
+      children: [
+        MouseRegion(
+          cursor: SystemMouseCursors.click,
+          child: GestureDetector(
+            behavior: .opaque,
+            onTap: () => _editDisplayName(profile),
+            child: _settingRow(
+              key: ValueKey('name-${profile.displayName}'),
+              title: 'Display name',
+              subtitle: profile.displayName,
+              subtitleStrong: true,
+              trailing: Icon(Symbols.edit_rounded, size: 18, color: PTColors.white(0.45)),
+            ),
+          ),
+        ),
+        const _Rule(faint: true),
+        _settingRow(
+          title: 'Email',
+          subtitle: profile.email ?? '-',
+          subtitleStrong: true,
+          trailing: Icon(Symbols.lock_rounded, size: 17, fill: 1, color: PTColors.white(0.35)),
+        ),
+        Text(
+          "Linked to your Google account, so it can't be changed.",
+          style: PTText.finePrint.copyWith(color: PTColors.white(0.35)),
+        ),
+        ..._passwordRows(profile),
+      ],
+    );
+  }
+
+  /// Lets an account set a password, so email sign-in is not code-only.
+  ///
+  /// There is deliberately no "you already have one" state: Supabase exposes
+  /// no flag for it, and inferring it from the identity list would be wrong
+  /// for anyone who signed up with a one-time code. Setting a password is
+  /// idempotent, so the control reads the same either way.
+  List<Widget> _passwordRows(Profile profile) {
+    if (profile.isGuest || (profile.email ?? '').isEmpty) return const [];
+    return [
+      const _Rule(faint: true),
+      _settingRow(
+        title: 'Password',
+        subtitle: 'Sign in with a password instead of a code',
+        minRowWidth: 380,
+        trailing: PTButton(
+          label: 'Set password',
+          variant: .secondary,
+          height: 34,
+          expand: false,
+          onPressed: () => unawaited(_setPassword()),
+        ),
+      ),
+      Text(
+        'Optional. A 6-digit code always works, so forgetting this can never lock you out.',
+        style: PTText.finePrint.copyWith(color: PTColors.white(0.35)),
+      ),
+    ];
+  }
+
+  Widget _boardsSection() {
+    final state = RewardsService.instance.state;
+    return _Section(
+      card: _cards,
+      kicker: 'On the boards',
+      children: [
         PTToggleRow(
-          icon: Symbols.trophy_rounded,
           title: 'Show me on leaderboards',
           subtitle:
               'Your name, avatar, streak and rank become visible to people you '
@@ -614,21 +1191,337 @@ class _ProfileScreenState extends State<ProfileScreen> {
             unawaited(RewardsService.instance.setPublicProfile(value));
           },
         ),
-        if (state.publicProfile) _handleField(state),
-        if (state.availableFrames.isNotEmpty) _framePicker(state),
-        Row(
+        if (state.publicProfile) ...[const _Rule(faint: true), _handleRow(state)],
+        if (state.availableFrames.isNotEmpty) ...[const _Rule(faint: true), _framePicker(state)],
+        _link('Manage shared recaps', () => showSharedRecapsDialog(context)),
+      ],
+    );
+  }
+
+  Widget _handleRow(RewardState state) {
+    final handle = state.handle;
+    // A handle is permanent, globally unique and first-come, which makes it the
+    // one thing here worth squatting - so it is the Premium perk. Being *on*
+    // the board is free; having a page of your own is not.
+    if (!state.isPremium && handle == null) {
+      return MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: PTPressable(
+          onTap: () {
+            Analytics.instance.track('upgrade_cta_clicked', {
+              'surface': 'handle',
+              'action': 'notify',
+            });
+            context.go('/lobby/subscribe?source=handle');
+          },
+          child: _settingRow(
+            title: 'Public handle',
+            titleTag: const DialogTag('Patron', tone: DialogTagTone.premium),
+            subtitle:
+                'Patron seats get a page at synctogether.app/u/you, with your streak and '
+                'badges on it.',
+            minRowWidth: 360,
+            trailing: IgnorePointer(
+              child: PTButton(
+                label: 'Get a handle',
+                variant: .secondary,
+                icon: Symbols.crown_rounded,
+                height: 36,
+                expand: false,
+                onPressed: () {},
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: PTPressable(
+        onTap: () => unawaited(_editHandle(state)),
+        child: _settingRow(
+          key: ValueKey('handle-$handle'),
+          title: 'Public handle',
+          subtitle: handle == null ? 'Pick one to get a shareable page' : '@$handle',
+          subtitleStrong: handle != null,
+          trailing: Icon(Symbols.edit_rounded, size: 18, color: PTColors.white(0.45)),
+        ),
+      ),
+    );
+  }
+
+  Widget _framePicker(RewardState state) {
+    final profile = ProfileService.instance.profile;
+    final frames = state.availableFrames.toList()..sort((a, b) => a.index.compareTo(b.index));
+    return Column(
+      crossAxisAlignment: .start,
+      spacing: 12,
+      children: [
+        Text('Avatar frame', style: PTText.body.copyWith(fontSize: 14, fontWeight: .w600)),
+        Wrap(
+          spacing: 12,
+          runSpacing: 12,
           children: [
-            Flexible(
-              child: PTPressable(
-                onTap: () => showSharedRecapsDialog(context),
-                child: Text(
-                  'Manage shared recaps',
-                  style: PTText.caption.copyWith(
-                    color: PTColors.textAccent,
-                    decoration: TextDecoration.underline,
-                    fontWeight: FontWeight.w500,
+            for (final frame in [null, ...frames])
+              PTPressable(
+                onTap: () => unawaited(_equip(frame)),
+                child: AnimatedOpacity(
+                  opacity: state.equippedFrame == frame ? 1 : 0.45,
+                  duration: PTMotion.functional(context, PTMotion.state),
+                  child: PTAvatar(
+                    userId: profile?.id ?? '',
+                    displayName: profile?.displayName ?? '?',
+                    avatarUrl: profile?.avatarUrl,
+                    frame: frame,
+                    size: 40,
                   ),
                 ),
+              ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _mediaQuotaSection() {
+    final profile = ProfileService.instance.profile;
+    final limits = EntitlementService.instance.limitsOrFallback;
+    final isPrem = EntitlementService.instance.isPremium;
+    final isGuest = profile?.isGuest ?? true;
+
+    final weeklyLimit = limits.mediaSharingWeeklyBytes;
+    final usedBytes = profile?.r2UploadBytes7d ?? 0;
+    final remainingBytes = profile?.remainingWeeklyBytes(weeklyLimit) ?? weeklyLimit;
+    final fractionUsed = weeklyLimit > 0 ? (usedBytes / weeklyLimit).clamp(0.0, 1.0) : 0.0;
+
+    return _Section(
+      card: _cards,
+      kicker: 'Media sharing',
+      trailing: _link('Details', () => showMediaQuotaDialog(context)),
+      children: [
+        Text(
+          'Media Sharing Bandwidth',
+          style: PTText.body.copyWith(fontSize: 14, fontWeight: .w600),
+        ),
+        if (isPrem)
+          Text(
+            'Unlimited weekly uploads active with your Premium subscription.',
+            style: PTText.finePrint.copyWith(color: PTColors.white(0.6)),
+          )
+        else if (!isGuest) ...[
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  '${Profile.formatBytes(remainingBytes)} available of ${Profile.formatBytes(weeklyLimit)}',
+                  style: PTText.finePrint.copyWith(color: PTColors.white(0.6)),
+                  overflow: .ellipsis,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                '${Profile.formatBytes(usedBytes)} used',
+                style: PTText.mono.copyWith(color: PTColors.textAccent, fontSize: 11),
+              ),
+            ],
+          ),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(2),
+            child: LinearProgressIndicator(
+              value: fractionUsed,
+              backgroundColor: PTColors.aisle,
+              valueColor: AlwaysStoppedAnimation<Color>(
+                fractionUsed > 0.85 ? PTColors.warning : PTColors.textAccent,
+              ),
+              minHeight: 3,
+            ),
+          ),
+        ] else
+          Text(
+            'Sign in for a free 2.5 GB weekly streaming quota.',
+            style: PTText.finePrint.copyWith(color: PTColors.white(0.5)),
+          ),
+        if (limits.canShareMedia) ...[
+          const _Rule(faint: true),
+          PTToggleRow(
+            title: 'Auto-share local videos with room',
+            subtitle: _mediaSharingRememberedChoice == null
+                ? 'Currently asks every time you pick a local video. Toggle on to always upload and share, or off to always play locally.'
+                : (_mediaSharingRememberedChoice!
+                      ? 'Always uploads and shares local videos with room members.'
+                      : 'Always plays local videos locally without uploading.'),
+            value: _mediaSharingRememberedChoice ?? false,
+            onChanged: (enabled) => _setMediaSharingPreference(enabled),
+          ),
+          if (_mediaSharingRememberedChoice != null)
+            _link('Reset to ask every time', _resetMediaSharingPreference),
+        ],
+      ],
+    );
+  }
+
+  Widget _audioVideoSection() {
+    return _Section(
+      card: _cards,
+      kicker: 'Sound & picture',
+      children: [
+        _settingRow(
+          title: 'Audio & Video',
+          subtitle: 'Microphone, camera, and speaker defaults',
+          minRowWidth: 380,
+          trailing: PTButton(
+            label: 'Configure',
+            variant: .secondary,
+            icon: Symbols.arrow_forward_rounded,
+            height: 38,
+            expand: false,
+            onPressed: () => showAvSettingsDialog(context),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _updatesSection() {
+    if (!supportsSelfUpdate) return const SizedBox.shrink();
+    return _Section(
+      card: _cards,
+      kicker: 'Updates',
+      children: [
+        ListenableBuilder(
+          listenable: UpdateService.instance,
+          builder: (context, _) => PTToggleRow(
+            title: 'Automatically download updates',
+            subtitle:
+                'Download updates silently in the background so you can restart immediately when ready.',
+            value: UpdateService.instance.autoDownload,
+            onChanged: (enabled) => UpdateService.instance.setAutoDownload(enabled),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// The list of people this account has blocked, with a way back.
+  ///
+  /// A block the user cannot see is a block the user cannot undo. It renders
+  /// nothing when the list is empty rather than an empty state: this sits in
+  /// a settings screen most people will never need, and a bare "Blocked
+  /// people" heading only invites the question.
+  Widget _blockedSection() {
+    return ListenableBuilder(
+      listenable: ModerationService.instance,
+      builder: (context, _) {
+        final blocked = ModerationService.instance.blockedUsers;
+        if (blocked.isEmpty) return const SizedBox.shrink();
+        return _Section(
+          card: _cards,
+          kicker: 'Blocked people',
+          children: [
+            Text(
+              'You will not see their messages or cameras in any room.',
+              style: PTText.finePrint.copyWith(color: PTColors.white(0.55)),
+            ),
+            for (final user in blocked)
+              Row(
+                spacing: 12,
+                children: [
+                  PTAvatar(
+                    userId: user.userId,
+                    displayName: user.displayName,
+                    avatarUrl: user.avatarUrl,
+                    size: 32,
+                  ),
+                  Expanded(
+                    child: Text(
+                      user.displayName,
+                      overflow: .ellipsis,
+                      style: PTText.body.copyWith(fontSize: 14, fontWeight: .w500),
+                    ),
+                  ),
+                  PTButton(
+                    label: 'Unblock',
+                    variant: .secondary,
+                    height: 34,
+                    expand: false,
+                    onPressed: () => unawaited(_unblock(user)),
+                  ),
+                ],
+              ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _privacySection() {
+    return _Section(
+      card: _cards,
+      kicker: 'Privacy',
+      children: [
+        ListenableBuilder(
+          listenable: AnalyticsConsent.instance,
+          builder: (context, _) {
+            final sharing = !AnalyticsConsent.instance.optedOut;
+            return Column(
+              crossAxisAlignment: .stretch,
+              spacing: 12,
+              children: [
+                PTToggleRow(
+                  title: 'Share usage data',
+                  subtitle:
+                      'Counts of things like rooms created and features used, so we know what '
+                      'to build next. Never your chats, file names or links. Turning this off '
+                      'also pauses streaks, badges and leaderboards, since they are built from the '
+                      'same records, and a switch that leaves some of it running would not be '
+                      'much of a switch.',
+                  value: sharing,
+                  onChanged: (shareData) => AnalyticsConsent.instance.setOptedOut(!shareData),
+                ),
+                _link('See exactly what we collect', () => showAnalyticsDisclosure(context)),
+                AnimatedSize(
+                  duration: PTMotion.functional(context, PTMotion.state),
+                  curve: PTMotion.enter,
+                  alignment: .topLeft,
+                  child: sharing
+                      ? const SizedBox(width: double.infinity)
+                      : Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.only(left: 14),
+                          decoration: const BoxDecoration(
+                            border: Border(left: BorderSide(color: PTColors.rail, width: 2)),
+                          ),
+                          child: Text(
+                            'Nothing is being collected. Your streak is paused where it was, not '
+                            'lost. Turn this back on and it picks up from the next session.',
+                            style: PTText.finePrint.copyWith(fontSize: 12, height: 1.45),
+                          ),
+                        ),
+                ),
+              ],
+            );
+          },
+        ),
+        PTButtonBar(
+          buttons: [
+            PTButton(
+              label: 'Privacy policy',
+              variant: .secondary,
+              icon: Symbols.open_in_new_rounded,
+              height: 36,
+              onPressed: () => launchUrl(
+                Uri.parse('https://synctogether.app/privacy'),
+                mode: LaunchMode.externalApplication,
+              ),
+            ),
+            PTButton(
+              label: 'Terms of service',
+              variant: .secondary,
+              icon: Symbols.open_in_new_rounded,
+              height: 36,
+              onPressed: () => launchUrl(
+                Uri.parse('https://synctogether.app/terms'),
+                mode: LaunchMode.externalApplication,
               ),
             ),
           ],
@@ -637,91 +1530,153 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _statTile(IconData icon, String value, String label) {
-    return GlassPanel(
-      radius: 14,
-      opacity: 0.4,
-      blur: 16,
-      shadow: false,
-      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
-      child: Column(
-        spacing: 3,
+  Widget _exitSection(bool guest) {
+    if (guest) {
+      return _Section(
+        card: _cards,
+        kicker: 'Leave',
         children: [
-          Icon(icon, size: 16, fill: 1, color: PTColors.textAccent),
-          Text(value, style: PTText.cardHeading.copyWith(fontSize: 17)),
-          Text(
-            label,
-            maxLines: 1,
-            overflow: .ellipsis,
-            style: PTText.finePrint.copyWith(fontSize: 10.5),
+          PTButton(
+            label: 'End guest session',
+            icon: Symbols.logout_rounded,
+            variant: .secondary,
+            onPressed: AuthService.instance.signOut,
           ),
         ],
-      ),
+      );
+    }
+    return _Section(
+      card: _cards,
+      kicker: 'Leave',
+      children: [
+        PTButtonBar(
+          buttons: [
+            PTButton(
+              label: 'Log out',
+              icon: Symbols.logout_rounded,
+              variant: .secondary,
+              onPressed: () {
+                unawaited(UnlockLog.instance.clear());
+                AuthService.instance.signOut();
+              },
+            ),
+            PTButton(
+              label: 'Delete account',
+              icon: Symbols.delete_rounded,
+              variant: .destructive,
+              onPressed: _confirmDeleteAccount,
+            ),
+          ],
+        ),
+      ],
     );
   }
 
-  TextEditingController? _handleDisplay;
-  String? _handleDisplayText;
-
-  /// Owned by the State, and rebuilt only when the text actually changes.
-  ///
-  /// Both branches of the handle field are read-only displays behind a
-  /// `PTPressable`, and a `TextEditingController` minted inline is a
-  /// `ChangeNotifier` allocated and abandoned on every rebuild - of which this
-  /// screen has plenty, since it rebuilds on three separate services. Assigning
-  /// `.text` on a shared controller is the other wrong answer: that notifies
-  /// its listeners, and doing it from `build` is a `markNeedsBuild` during
-  /// build. A handle changes at most once per visit, so minting a fresh one on
-  /// the change is both cheap and quiet. The superseded controller is disposed
-  /// after the frame, once the field has let go of it.
-  TextEditingController _handleController(String text) {
-    final current = _handleDisplay;
-    if (current != null && _handleDisplayText == text) return current;
-    if (current != null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) => current.dispose());
-    }
-    _handleDisplayText = text;
-    return _handleDisplay = TextEditingController(text: text);
-  }
-
-  Widget _handleField(RewardState state) {
-    final handle = state.handle;
-    final controller = _handleController(handle == null ? '' : '@$handle');
-    // A handle is permanent, globally unique and first-come, which makes it the
-    // one thing here worth squatting - so it is the Premium perk. Being *on*
-    // the board is free; having a page of your own is not.
-    if (!state.isPremium && handle == null) {
-      return PTPressable(
-        onTap: () {
-          Analytics.instance.track('upgrade_cta_clicked', {
-            'surface': 'handle',
-            'action': 'notify',
-          });
-          context.go('/lobby/subscribe?source=handle');
-        },
-        child: IgnorePointer(
-          child: PTTextField(
-            controller: controller,
-            label: 'Public handle',
-            hint: 'Premium - gives you a page at synctogether.app/u/you',
-            enabled: false,
-            suffixIcon: const Icon(Symbols.crown_rounded, size: 18, color: PTColors.premium),
+  /// A settings row: title over a quieter line, trailing control at the end.
+  /// Drops the control beneath the text when the row cannot hold both.
+  Widget _settingRow({
+    Key? key,
+    required String title,
+    required String subtitle,
+    required Widget trailing,
+    bool subtitleStrong = false,
+    Color? titleColor,
+    Widget? titleTag,
+    double minRowWidth = 300,
+  }) {
+    return _ActionRow(
+      key: key,
+      minRowWidth: minRowWidth,
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: .start,
+            spacing: 3,
+            children: [
+              Row(
+                spacing: 8,
+                children: [
+                  Flexible(
+                    child: Text(
+                      title,
+                      style: PTText.body.copyWith(
+                        fontSize: 14,
+                        fontWeight: .w600,
+                        color: titleColor,
+                      ),
+                    ),
+                  ),
+                  ?titleTag,
+                ],
+              ),
+              Text(
+                subtitle,
+                overflow: .ellipsis,
+                maxLines: 3,
+                style: subtitleStrong
+                    ? PTText.body.copyWith(fontSize: 14, color: PTColors.white(0.7))
+                    : PTText.body.copyWith(
+                        fontSize: 12.5,
+                        color: PTColors.white(0.5),
+                        height: 1.45,
+                      ),
+              ),
+            ],
           ),
         ),
-      );
-    }
-    return PTPressable(
-      onTap: () => unawaited(_editHandle(state)),
-      child: IgnorePointer(
-        child: PTTextField(
-          key: ValueKey('handle-$handle'),
-          controller: controller,
-          label: 'Public handle',
-          hint: 'Pick one to get a shareable page',
-          enabled: false,
-          suffixIcon: Icon(Symbols.edit_rounded, size: 18, color: PTColors.white(0.4)),
+        trailing,
+      ],
+    );
+  }
+
+  Widget _link(String label, VoidCallback onTap) {
+    return Row(
+      mainAxisSize: .min,
+      children: [
+        // Flexible, not a bare child: a longer translation at phone width
+        // would otherwise overflow outright.
+        Flexible(
+          child: MouseRegion(
+            cursor: SystemMouseCursors.click,
+            child: PTPressable(
+              onTap: onTap,
+              child: Text(
+                label,
+                style: PTText.caption.copyWith(
+                  color: PTColors.link,
+                  decoration: TextDecoration.underline,
+                  decorationColor: PTColors.link.withValues(alpha: 0.5),
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ),
         ),
-      ),
+      ],
+    );
+  }
+
+  Widget _backHeader({double iconSize = 20, double size = 44, double? titleSize}) {
+    return Row(
+      spacing: 14,
+      children: [
+        PTIconButton(
+          icon: Symbols.arrow_back_rounded,
+          iconSize: iconSize,
+          size: size,
+          onPressed: () => context.go('/lobby'),
+        ),
+        Flexible(
+          child: Text(
+            'Profile',
+            maxLines: 1,
+            overflow: .ellipsis,
+            style: titleSize == null
+                ? PTText.cardHeading
+                : PTText.cardHeading.copyWith(fontSize: titleSize),
+          ),
+        ),
+      ],
     );
   }
 
@@ -737,7 +1692,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         children: [
           Text('Pick a handle', style: PTText.cardHeading),
           Text(
-            'This becomes synctogether.app/u/yourhandle - a page with your streak '
+            'This becomes synctogether.app/u/yourhandle, a page with your streak '
             'and badges on it that you can link to.',
             style: PTText.caption,
           ),
@@ -786,38 +1741,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  Widget _framePicker(RewardState state) {
-    final profile = ProfileService.instance.profile;
-    final frames = state.availableFrames.toList()..sort((a, b) => a.index.compareTo(b.index));
-    return Column(
-      crossAxisAlignment: .start,
-      spacing: 10,
-      children: [
-        Text('Avatar frame', style: PTText.caption),
-        Wrap(
-          spacing: 12,
-          runSpacing: 12,
-          children: [
-            for (final frame in [null, ...frames])
-              PTPressable(
-                onTap: () => unawaited(_equip(frame)),
-                child: Opacity(
-                  opacity: state.equippedFrame == frame ? 1 : 0.5,
-                  child: PTAvatar(
-                    userId: profile?.id ?? '',
-                    displayName: profile?.displayName ?? '?',
-                    avatarUrl: profile?.avatarUrl,
-                    frame: frame,
-                    size: 40,
-                  ),
-                ),
-              ),
-          ],
-        ),
-      ],
-    );
-  }
-
   Future<void> _equip(AvatarFrame? frame) async {
     try {
       await RewardsService.instance.equipFrame(frame);
@@ -827,712 +1750,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  /// The list of people this account has blocked, with a way back.
-  ///
-  /// A block the user cannot see is a block the user cannot undo. It renders
-  /// nothing when the list is empty rather than an empty state: this sits in
-  /// a settings screen most people will never need, and a bare "Blocked
-  /// people" heading only invites the question.
-  Widget _blockedSection() {
-    return ListenableBuilder(
-      listenable: ModerationService.instance,
-      builder: (context, _) {
-        final blocked = ModerationService.instance.blockedUsers;
-        if (blocked.isEmpty) return const SizedBox.shrink();
-        return Column(
-          crossAxisAlignment: .start,
-          spacing: 10,
-          children: [
-            Text('Blocked people', style: PTText.cardHeading.copyWith(fontSize: 15)),
-            Text(
-              'You will not see their messages or cameras in any room.',
-              style: PTText.finePrint.copyWith(color: PTColors.white(0.55)),
-            ),
-            for (final user in blocked)
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                decoration: BoxDecoration(
-                  color: PTColors.white(0.04),
-                  border: Border.all(color: PTColors.white(0.08)),
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: Row(
-                  spacing: 12,
-                  children: [
-                    PTAvatar(
-                      userId: user.userId,
-                      displayName: user.displayName,
-                      avatarUrl: user.avatarUrl,
-                      size: 32,
-                    ),
-                    Expanded(
-                      child: Text(
-                        user.displayName,
-                        overflow: .ellipsis,
-                        style: PTText.body.copyWith(fontSize: 14, fontWeight: .w500),
-                      ),
-                    ),
-                    PTButton(
-                      label: 'Unblock',
-                      variant: .secondary,
-                      height: 34,
-                      expand: false,
-                      onPressed: () => unawaited(_unblock(user)),
-                    ),
-                  ],
-                ),
-              ),
-          ],
-        );
-      },
-    );
-  }
-
   Future<void> _unblock(BlockedUser user) async {
     try {
       await ModerationService.instance.unblock(user.userId);
       if (mounted) _snack('${user.displayName} is unblocked.', kind: .success);
     } catch (_) {
-      if (mounted) _snack("Couldn't unblock them - try again.");
+      if (mounted) _snack("Couldn't unblock them. Try again.");
     }
-  }
-
-  Widget _privacySection() {
-    return Column(
-      crossAxisAlignment: .start,
-      spacing: 12,
-      children: [
-        ListenableBuilder(
-          listenable: AnalyticsConsent.instance,
-          builder: (context, _) {
-            final sharing = !AnalyticsConsent.instance.optedOut;
-            return Column(
-              crossAxisAlignment: .start,
-              spacing: 10,
-              children: [
-                PTToggleRow(
-                  icon: Symbols.insights_rounded,
-                  title: 'Share usage data',
-                  subtitle:
-                      'Counts of things like rooms created and features used, so we know what '
-                      'to build next. Never your chats, file names or links. Turning this off '
-                      'also pauses streaks, badges and leaderboards - they are built from the '
-                      'same records, and a switch that leaves some of it running would not be '
-                      'much of a switch.',
-                  value: sharing,
-                  onChanged: (shareData) => AnalyticsConsent.instance.setOptedOut(!shareData),
-                ),
-                Padding(
-                  padding: const EdgeInsets.only(left: 52),
-                  child: Row(
-                    children: [
-                      // Flexible, not a bare child: the indent leaves ~350px at
-                      // phone width, which this label sits right on the edge of,
-                      // and a longer translation would overflow outright.
-                      Flexible(
-                        child: PTPressable(
-                          onTap: () => showAnalyticsDisclosure(context),
-                          child: Text(
-                            'See exactly what we collect',
-                            style: PTText.caption.copyWith(
-                              color: PTColors.textAccent,
-                              decoration: TextDecoration.underline,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                if (!sharing)
-                  Container(
-                    padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-                    decoration: BoxDecoration(
-                      color: PTColors.white(0.04),
-                      border: Border.all(color: PTColors.white(0.09)),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      'Nothing is being collected. Your streak is paused where it was, not '
-                      'lost - turn this back on and it picks up from the next session.',
-                      style: PTText.finePrint.copyWith(fontSize: 12, height: 1.45),
-                    ),
-                  ),
-              ],
-            );
-          },
-        ),
-        PTButtonBar(
-          buttons: [
-            PTButton(
-              label: 'Privacy policy',
-              variant: .secondary,
-              icon: Symbols.open_in_new_rounded,
-              height: 36,
-              onPressed: () => launchUrl(
-                Uri.parse('https://synctogether.app/privacy'),
-                mode: LaunchMode.externalApplication,
-              ),
-            ),
-            PTButton(
-              label: 'Terms of service',
-              variant: .secondary,
-              icon: Symbols.open_in_new_rounded,
-              height: 36,
-              onPressed: () => launchUrl(
-                Uri.parse('https://synctogether.app/terms'),
-                mode: LaunchMode.externalApplication,
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _backHeader({double iconSize = 20, double size = 44, double? titleSize}) {
-    return Row(
-      spacing: 14,
-      children: [
-        PTIconButton(
-          icon: Symbols.arrow_back_rounded,
-          iconSize: iconSize,
-          size: size,
-          onPressed: () => context.go('/lobby'),
-        ),
-        Flexible(
-          child: Text(
-            'Profile',
-            maxLines: 1,
-            overflow: .ellipsis,
-            style: titleSize == null
-                ? PTText.cardHeading
-                : PTText.cardHeading.copyWith(fontSize: titleSize),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _mediaQuotaSection() {
-    final profile = ProfileService.instance.profile;
-    final limits = EntitlementService.instance.limitsOrFallback;
-    final isPrem = EntitlementService.instance.isPremium;
-    final isGuest = profile?.isGuest ?? true;
-
-    final weeklyLimit = limits.mediaSharingWeeklyBytes;
-    final usedBytes = profile?.r2UploadBytes7d ?? 0;
-    final remainingBytes = profile?.remainingWeeklyBytes(weeklyLimit) ?? weeklyLimit;
-    final fractionUsed = weeklyLimit > 0 ? (usedBytes / weeklyLimit).clamp(0.0, 1.0) : 0.0;
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      decoration: BoxDecoration(
-        color: PTColors.white(0.04),
-        border: Border.all(color: PTColors.white(0.08)),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        spacing: 8,
-        children: [
-          Row(
-            children: [
-              const Icon(Symbols.cloud_queue_rounded, size: 20, color: PTColors.textAccent),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  'Media Sharing Bandwidth',
-                  style: PTText.body.copyWith(fontWeight: FontWeight.w600, color: Colors.white),
-                ),
-              ),
-              GestureDetector(
-                onTap: () => showMediaQuotaDialog(context),
-                child: Text(
-                  'Details',
-                  style: PTText.caption.copyWith(
-                    color: PTColors.textAccent,
-                    decoration: TextDecoration.underline,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          if (isPrem)
-            Text(
-              'Unlimited weekly uploads active with your Premium subscription.',
-              style: PTText.finePrint.copyWith(color: PTColors.white(0.6)),
-            )
-          else if (!isGuest) ...[
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  child: Text(
-                    '${Profile.formatBytes(remainingBytes)} available of ${Profile.formatBytes(weeklyLimit)}',
-                    style: PTText.finePrint.copyWith(color: PTColors.white(0.6)),
-                    overflow: .ellipsis,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  '${Profile.formatBytes(usedBytes)} used',
-                  style: PTText.mono.copyWith(color: PTColors.textAccent, fontSize: 11),
-                ),
-              ],
-            ),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(3),
-              child: LinearProgressIndicator(
-                value: fractionUsed,
-                backgroundColor: PTColors.white(0.1),
-                valueColor: AlwaysStoppedAnimation<Color>(
-                  fractionUsed > 0.85 ? PTColors.warning : PTColors.textAccent,
-                ),
-                minHeight: 4,
-              ),
-            ),
-          ] else
-            Text(
-              'Sign in for a free 2.5 GB weekly streaming quota.',
-              style: PTText.finePrint.copyWith(color: PTColors.white(0.5)),
-            ),
-          if (limits.canShareMedia) ...[
-            const Divider(height: 20),
-            PTToggleRow(
-              icon: Symbols.cloud_sync_rounded,
-              title: 'Auto-share local videos with room',
-              subtitle: _mediaSharingRememberedChoice == null
-                  ? 'Currently asks every time you pick a local video. Toggle on to always upload and share, or off to always play locally.'
-                  : (_mediaSharingRememberedChoice!
-                        ? 'Always uploads and shares local videos with room members.'
-                        : 'Always plays local videos locally without uploading.'),
-              value: _mediaSharingRememberedChoice ?? false,
-              onChanged: (enabled) => _setMediaSharingPreference(enabled),
-            ),
-            if (_mediaSharingRememberedChoice != null)
-              Padding(
-                padding: const EdgeInsets.only(top: 2, left: 52),
-                child: Row(
-                  children: [
-                    PTPressable(
-                      onTap: _resetMediaSharingPreference,
-                      child: Text(
-                        'Reset to ask every time',
-                        style: PTText.caption.copyWith(
-                          color: PTColors.textAccent,
-                          decoration: TextDecoration.underline,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _audioVideoSection() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      decoration: BoxDecoration(
-        color: PTColors.white(0.04),
-        border: Border.all(color: PTColors.white(0.08)),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: _ActionRow(
-        children: [
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              color: PTColors.white(0.08),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: const Icon(Symbols.tune_rounded, size: 20, color: PTColors.textAccent),
-          ),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              spacing: 2,
-              children: [
-                Text(
-                  'Audio & Video',
-                  style: PTText.body.copyWith(fontWeight: FontWeight.w600, color: Colors.white),
-                ),
-                Text(
-                  'Microphone, camera, and speaker defaults',
-                  style: PTText.finePrint.copyWith(color: PTColors.white(0.55)),
-                ),
-              ],
-            ),
-          ),
-          PTButton(
-            label: 'Configure',
-            variant: .secondary,
-            icon: Symbols.arrow_forward_rounded,
-            height: 38,
-            expand: false,
-            onPressed: () => showAvSettingsDialog(context),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _accountBody(Profile profile, {required _HeaderStyle header}) {
-    return Column(
-      mainAxisSize: .min,
-      crossAxisAlignment: .start,
-      spacing: 24,
-      children: [
-        _identityHeader(profile, vertical: header == .column),
-        _subscriptionSection(),
-        _rewardsSection(),
-        _mediaQuotaSection(),
-        _audioVideoSection(),
-        _nameField(profile),
-        _emailField(profile),
-        _passwordField(profile),
-        const Divider(),
-        if (supportsSelfUpdate) ...[_updatesSection(), const Divider()],
-        _blockedSection(),
-        _privacySection(),
-        const Divider(),
-        Column(
-          spacing: 12,
-          children: [
-            PTButton(
-              label: 'Log out',
-              icon: Symbols.logout_rounded,
-              variant: .secondary,
-              onPressed: () {
-                unawaited(UnlockLog.instance.clear());
-                AuthService.instance.signOut();
-              },
-            ),
-            PTButton(
-              label: 'Delete account',
-              icon: Symbols.delete_rounded,
-              variant: .destructive,
-              onPressed: _confirmDeleteAccount,
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _guestBody(Profile profile) {
-    return Column(
-      mainAxisSize: .min,
-      crossAxisAlignment: .stretch,
-      spacing: 22,
-      children: [
-        Column(
-          spacing: 14,
-          children: [
-            Container(
-              width: 104,
-              height: 104,
-              decoration: BoxDecoration(
-                color: PTColors.white(0.08),
-                shape: .circle,
-                border: Border.all(
-                  color: PTColors.white(0.2),
-                  width: 2,
-                  strokeAlign: BorderSide.strokeAlignOutside,
-                ),
-              ),
-              child: Icon(Symbols.person_rounded, size: 44, fill: 1, color: PTColors.white(0.4)),
-            ),
-            Column(
-              spacing: 8,
-              children: [
-                Text(profile.displayName, style: PTText.screenTitle.copyWith(fontSize: 23)),
-                const GuestBadge(),
-              ],
-            ),
-          ],
-        ),
-        Opacity(
-          opacity: 0.45,
-          child: IgnorePointer(
-            child: PTTextField(
-              controller: TextEditingController(text: profile.displayName),
-              label: 'Display name',
-              enabled: false,
-              suffixIcon: Icon(Symbols.lock_rounded, size: 17, fill: 1, color: PTColors.white(0.6)),
-            ),
-          ),
-        ),
-        Container(
-          padding: const EdgeInsets.all(22),
-          decoration: BoxDecoration(
-            color: PTColors.primary.withValues(alpha: 0.12),
-            border: Border.all(color: PTColors.accentBorder.withValues(alpha: 0.3)),
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: Column(
-            crossAxisAlignment: .start,
-            spacing: 14,
-            children: [
-              Row(
-                spacing: 12,
-                children: [
-                  const Icon(
-                    Symbols.auto_awesome_rounded,
-                    size: 24,
-                    fill: 1,
-                    color: PTColors.textAccent,
-                  ),
-                  Flexible(
-                    child: Text(
-                      'Keep your identity',
-                      style: PTText.cardHeading.copyWith(fontSize: 16),
-                    ),
-                  ),
-                ],
-              ),
-              Text(
-                'Sign in to pick a name and photo, and keep them across '
-                'devices. Your current session carries over.',
-                style: PTText.body.copyWith(
-                  fontSize: 13.5,
-                  color: PTColors.white(0.65),
-                  height: 1.5,
-                ),
-              ),
-              if (AuthService.instance.isAppleSupported)
-                AppleButton(
-                  label: 'Sign in with Apple',
-                  onPressed: () async {
-                    try {
-                      await AuthService.instance.linkAppleIdentity();
-                    } catch (e, s) {
-                      reportNonFatal(e, s, during: 'linking an Apple identity to a guest');
-                      if (mounted) _snack("Couldn't start Apple sign-in - try again.");
-                    }
-                  },
-                ),
-              GoogleButton(
-                label: 'Sign in with Google',
-                onPressed: () async {
-                  try {
-                    await AuthService.instance.linkGoogleIdentity();
-                  } catch (e, s) {
-                    reportNonFatal(e, s, during: 'linking a Google identity to a guest');
-                    if (mounted) _snack("Couldn't start Google sign-in - try again.");
-                  }
-                },
-              ),
-            ],
-          ),
-        ),
-        _subscriptionSection(),
-        _mediaQuotaSection(),
-        _audioVideoSection(),
-        const Divider(),
-        if (supportsSelfUpdate) ...[_updatesSection(), const Divider()],
-        _blockedSection(),
-        _privacySection(),
-        PTButton(
-          label: 'End guest session',
-          icon: Symbols.logout_rounded,
-          variant: .secondary,
-          onPressed: AuthService.instance.signOut,
-        ),
-      ],
-    );
-  }
-
-  Widget _identityHeader(Profile profile, {required bool vertical}) {
-    final since = profile.createdAt;
-    final sinceLabel = since != null
-        ? 'Watching together since ${_monthName(since.month)} ${since.year}'
-        : 'Watching together';
-
-    final avatar = Stack(
-      clipBehavior: Clip.none,
-      children: [
-        // A fresh photo scale-pulses itself in - confirmation the user is
-        // already looking at, so no snackbar is needed for the happy path.
-        PTEntrance(
-          key: ValueKey(profile.avatarUrl),
-          offset: 0,
-          scaleFrom: 0.9,
-          fade: false,
-          duration: PTMotion.state,
-          child: PTAvatar(
-            userId: profile.id,
-            displayName: profile.displayName,
-            avatarUrl: profile.avatarUrl,
-            size: 96,
-            ringColor: PTColors.white(0.15),
-          ),
-        ),
-        Positioned.fill(
-          child: IgnorePointer(
-            child: AnimatedOpacity(
-              opacity: _uploadingAvatar ? 1 : 0,
-              duration: PTMotion.functional(context, PTMotion.state),
-              child: const DecoratedBox(
-                decoration: BoxDecoration(color: PTColors.canvasScrim, shape: .circle),
-              ),
-            ),
-          ),
-        ),
-        Positioned(
-          bottom: -2,
-          right: -2,
-          child: MouseRegion(
-            cursor: SystemMouseCursors.click,
-            child: PTPressable(
-              onTap: _uploadingAvatar ? null : _showAvatarOptions,
-              child: Container(
-                width: 34,
-                height: 34,
-                decoration: BoxDecoration(
-                  color: PTColors.raisedStrong,
-                  shape: .circle,
-                  border: Border.all(color: PTColors.accentBorder.withValues(alpha: 0.5)),
-                ),
-                child: AnimatedSwitcher(
-                  duration: PTMotion.functional(context, PTMotion.state),
-                  switchInCurve: PTMotion.enter,
-                  switchOutCurve: PTMotion.exit,
-                  child: _uploadingAvatar
-                      ? const PTLoader(
-                          key: ValueKey('uploading'),
-                          size: 18,
-                          color: PTColors.textAccent,
-                        )
-                      : const Icon(
-                          Symbols.photo_camera_rounded,
-                          key: ValueKey('idle'),
-                          size: 17,
-                          fill: 1,
-                          color: PTColors.textAccent,
-                        ),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-
-    final text = Column(
-      crossAxisAlignment: vertical ? .center : .start,
-      spacing: 4,
-      children: [
-        Row(
-          mainAxisSize: .min,
-          mainAxisAlignment: vertical ? .center : .start,
-          spacing: 10,
-          children: [
-            Flexible(
-              child: AnimatedSwitcher(
-                duration: PTMotion.functional(context, PTMotion.state),
-                switchInCurve: PTMotion.enter,
-                switchOutCurve: PTMotion.exit,
-                child: Text(
-                  profile.displayName,
-                  key: ValueKey(profile.displayName),
-                  maxLines: 2,
-                  textAlign: vertical ? .center : .start,
-                  overflow: .ellipsis,
-                  style: PTText.screenTitle,
-                ),
-              ),
-            ),
-            if (EntitlementService.instance.isPremium) const PremiumBadge(),
-          ],
-        ),
-        Text(sinceLabel, style: PTText.caption.copyWith(fontWeight: .w400)),
-      ],
-    );
-
-    if (vertical) {
-      return Center(child: Column(spacing: 14, children: [avatar, text]));
-    }
-    return Row(
-      spacing: 24,
-      children: [
-        avatar,
-        Expanded(child: text),
-      ],
-    );
-  }
-
-  Widget _nameField(Profile profile) {
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      child: GestureDetector(
-        behavior: .opaque,
-        onTap: () => _editDisplayName(profile),
-        child: IgnorePointer(
-          child: PTTextField(
-            key: ValueKey('name-${profile.displayName}'),
-            controller: TextEditingController(text: profile.displayName),
-            label: 'Display name',
-            enabled: false,
-            suffixIcon: Icon(Symbols.edit_rounded, size: 18, color: PTColors.white(0.4)),
-          ),
-        ),
-      ),
-    );
-  }
-
-  /// Lets an account set a password, so email sign-in is not code-only.
-  ///
-  /// There is deliberately no "you already have one" state: Supabase exposes
-  /// no flag for it, and inferring it from the identity list would be wrong
-  /// for anyone who signed up with a one-time code. Setting a password is
-  /// idempotent, so the control reads the same either way.
-  Widget _passwordField(Profile profile) {
-    if (profile.isGuest || (profile.email ?? '').isEmpty) return const SizedBox.shrink();
-    return Column(
-      crossAxisAlignment: .start,
-      spacing: 8,
-      children: [
-        Text('Password', style: PTText.caption),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-          decoration: BoxDecoration(
-            color: PTColors.white(0.03),
-            border: Border.all(color: PTColors.white(0.07)),
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: _ActionRow(
-            children: [
-              Expanded(
-                child: Text(
-                  'Sign in with a password instead of a code',
-                  style: PTText.body.copyWith(color: PTColors.white(0.5)),
-                ),
-              ),
-              PTButton(
-                label: 'Set password',
-                variant: .secondary,
-                height: 34,
-                expand: false,
-                onPressed: () => unawaited(_setPassword()),
-              ),
-            ],
-          ),
-        ),
-        Text(
-          'Optional. A 6-digit code always works, so forgetting this can never lock you out.',
-          style: PTText.finePrint.copyWith(color: PTColors.white(0.35)),
-        ),
-      ],
-    );
   }
 
   Future<void> _setPassword() async {
@@ -1547,41 +1771,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
       if (mounted) _snack('Password saved. You can sign in with it next time.', kind: .success);
     } catch (e, s) {
       reportNonFatal(e, s, during: 'setting an account password');
-      if (mounted) _snack("Couldn't save that password - try again.");
+      if (mounted) _snack("Couldn't save that password. Try again.");
     }
-  }
-
-  Widget _emailField(Profile profile) {
-    return Column(
-      crossAxisAlignment: .start,
-      spacing: 8,
-      children: [
-        Text('Email', style: PTText.caption),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-          decoration: BoxDecoration(
-            color: PTColors.white(0.03),
-            border: Border.all(color: PTColors.white(0.07)),
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                child: Text(
-                  profile.email ?? '-',
-                  style: PTText.body.copyWith(color: PTColors.white(0.5)),
-                ),
-              ),
-              Icon(Symbols.lock_rounded, size: 17, fill: 1, color: PTColors.white(0.35)),
-            ],
-          ),
-        ),
-        Text(
-          "Linked to your Google account - can't be changed.",
-          style: PTText.finePrint.copyWith(color: PTColors.white(0.35)),
-        ),
-      ],
-    );
   }
 
   String _monthName(int month) => const [
@@ -1600,7 +1791,76 @@ class _ProfileScreenState extends State<ProfileScreen> {
   ][month - 1];
 }
 
-enum _HeaderStyle { row, column }
+/// A ruled settings section: a Rail hairline, a mono uppercase kicker, then
+/// rows. No box - the rule and the kicker do the grouping.
+class _Section extends StatelessWidget {
+  const _Section({required this.kicker, required this.children, this.trailing, this.card = false});
+
+  final String kicker;
+  final List<Widget> children;
+  final Widget? trailing;
+
+  /// A Seat card (the wide desktop grid) rather than a ruled section.
+  final bool card;
+
+  @override
+  Widget build(BuildContext context) {
+    if (card) {
+      return Container(
+        margin: const EdgeInsets.only(bottom: 20),
+        padding: const EdgeInsets.fromLTRB(22, 20, 22, 22),
+        decoration: BoxDecoration(
+          color: PTColors.glassBase,
+          border: Border.all(color: PTColors.aisle),
+          borderRadius: BorderRadius.circular(PTRadius.panel),
+        ),
+        child: Column(
+          crossAxisAlignment: .stretch,
+          spacing: 16,
+          children: [
+            Row(
+              spacing: 12,
+              children: [
+                Expanded(child: Text(kicker.toUpperCase(), style: PTText.label)),
+                ?trailing,
+              ],
+            ),
+            ...children,
+          ],
+        ),
+      );
+    }
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 30),
+      child: Column(
+        crossAxisAlignment: .stretch,
+        spacing: 16,
+        children: [
+          const _Rule(),
+          Row(
+            spacing: 12,
+            children: [
+              Expanded(child: Text(kicker.toUpperCase(), style: PTText.label)),
+              ?trailing,
+            ],
+          ),
+          ...children,
+        ],
+      ),
+    );
+  }
+}
+
+/// A one-pixel hairline. [faint] separates rows inside a section.
+class _Rule extends StatelessWidget {
+  const _Rule({this.faint = false});
+
+  final bool faint;
+
+  @override
+  Widget build(BuildContext context) =>
+      SizedBox(height: 1, child: ColoredBox(color: faint ? PTColors.aisle : PTColors.rail));
+}
 
 /// Collects a new account password. Pops the password, or null if cancelled.
 class _SetPasswordDialog extends StatefulWidget {
@@ -1714,7 +1974,7 @@ class _SetPasswordDialogState extends State<_SetPasswordDialog> {
 /// row cannot fit; below that point the last child drops under the rest,
 /// right-aligned, instead of overflowing.
 class _ActionRow extends StatelessWidget {
-  const _ActionRow({required this.children, this.minRowWidth = 360});
+  const _ActionRow({super.key, required this.children, this.minRowWidth = 360});
 
   final List<Widget> children;
 

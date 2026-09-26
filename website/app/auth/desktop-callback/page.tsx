@@ -3,18 +3,11 @@
 import { Suspense, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { GlassPanel } from "@/components/GlassPanel";
+import { Ticket } from "@/components/Ticket";
+import { Kicker, Headline, Stamp, display, mono } from "@/components/booth/Booth";
 import { PTButton } from "@/components/PTButton";
 import confetti from "canvas-confetti";
-import {
-  Check,
-  AlertCircle,
-  ArrowUpRight,
-  ArrowRight,
-  Sparkles,
-  Layers,
-} from "lucide-react";
-import { SyncTogetherIcon } from "@/components/Icons";
+import { ArrowUpRight, ArrowRight } from "lucide-react";
 
 
 function DesktopCallbackContent() {
@@ -46,7 +39,7 @@ function DesktopCallbackContent() {
         particleCount: 45,
         spread: 60,
         origin: { y: 0.65 },
-        colors: ["#8B5CF6", "#A855F7", "#4ADE80", "#C9B8FF"],
+        colors: ["#FFB23F", "#FFB23F", "#6FD6C4", "#FFB23F"],
         disableForReducedMotion: true,
       });
     } catch {
@@ -71,125 +64,99 @@ function DesktopCallbackContent() {
 
   if (isError) {
     return (
-      <GlassPanel
-        glow="purple"
-        className="p-8 sm:p-10 space-y-6 max-w-md w-full border-rose-500/25 bg-[#120F20]/90 text-center relative shadow-2xl"
-      >
-        {/* Error Icon */}
-        <div className="mx-auto w-16 h-16 rounded-2xl bg-rose-500/10 border border-rose-500/30 flex items-center justify-center text-rose-400 shadow-lg shadow-rose-500/10">
-          <AlertCircle className="w-8 h-8" />
-        </div>
-
-        <div className="space-y-2">
-          <h1 className="text-2xl font-bold text-white font-[family-name:var(--font-space-grotesk)]">
-            Sign-in Incomplete
-          </h1>
-          <p className="text-xs text-gray-400 leading-relaxed max-w-xs mx-auto">
+      <div className="w-full max-w-xl space-y-8">
+        <div className="space-y-5">
+          <Kicker tone="signal">Sign-in incomplete</Kicker>
+          <Headline className="text-[clamp(2.5rem,7vw,4.5rem)]">
+            <span className="line-in">The ticket</span>
+            <span className="line-in [animation-delay:90ms]">didn&apos;t print.</span>
+          </Headline>
+          <p className="text-lg text-gray-400 leading-relaxed max-w-md break-words">
             {errorMessage || "We couldn't finish signing you in. Please try again."}
           </p>
         </div>
 
-        <div className="pt-2 flex flex-col gap-2.5">
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-4">
           <PTButton
             variant="primary"
-            size="md"
-            className="w-full justify-center"
+            size="lg"
             onClick={handleManualOpen}
             rightIcon={<ArrowRight className="w-4 h-4" />}
           >
-            Return to App
+            Return to the app
           </PTButton>
-
           <Link
             href="/auth"
-            className="text-xs text-purple-300/80 hover:text-purple-200 transition-colors py-1.5"
+            className="text-[15px] font-semibold text-white underline underline-offset-[6px] decoration-rail hover:decoration-beam-500 transition-colors"
           >
             Try signing in again
           </Link>
         </div>
-      </GlassPanel>
+      </div>
     );
   }
 
   return (
-    <GlassPanel
-      glow="purple"
-      className="p-8 sm:p-10 max-w-md w-full border-white/10 bg-[#120F20]/95 text-center relative shadow-2xl space-y-6"
-    >
-      {/* Unified Hero: Brand Icon with Integrated Success Badge */}
-      <div className="relative mx-auto w-20 h-20 flex items-center justify-center">
-        {/* Ambient Halo */}
-        <div className="absolute inset-0 rounded-2xl bg-purple-500/20 blur-xl animate-pulse pointer-events-none" />
-
-        {/* SyncTogether Icon */}
-        <div className="w-16 h-16 flex items-center justify-center drop-shadow-[0_8px_24px_rgba(139,92,246,0.4)]">
-          <SyncTogetherIcon className="w-full h-full" />
-        </div>
-
-
-        {/* Integrated Checkmark Badge */}
-        <div className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-emerald-500 text-black flex items-center justify-center shadow-lg shadow-emerald-500/40 border-2 border-[#120F20] animate-in zoom-in-50 duration-300">
-          <Check className="w-4 h-4 stroke-[3]" />
-        </div>
-      </div>
-
-      {/* Typography */}
-      <div className="space-y-2">
-        <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight font-[family-name:var(--font-space-grotesk)]">
-          You&apos;re All Set!
-        </h1>
-        <p className="text-xs sm:text-sm text-gray-300/90 leading-relaxed max-w-xs mx-auto">
-          Successfully signed in. We&apos;ve sent your session to the SyncTogether desktop app.
+    <div className="w-full max-w-5xl grid lg:grid-cols-[1fr_1.05fr] gap-12 lg:gap-16 items-center">
+      <div className="space-y-6 order-2 lg:order-1">
+        <Kicker tone="cue">Login successful</Kicker>
+        <Headline className="text-[clamp(2.75rem,7vw,5rem)]">
+          <span className="line-in">You&apos;re in.</span>
+          <span className="line-in [animation-delay:90ms] text-beam-500">Back to the booth.</span>
+        </Headline>
+        <p className="text-lg text-gray-400 leading-relaxed max-w-md">
+          We&apos;ve handed your session to the SyncTogether app. If it didn&apos;t come forward
+          on its own, open it below, then this tab can go.
         </p>
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-4 pt-2">
+          <PTButton
+            variant="primary"
+            size="lg"
+            onClick={handleManualOpen}
+            rightIcon={<ArrowUpRight className="w-4 h-4" />}
+          >
+            Open SyncTogether
+          </PTButton>
+          <Link
+            href="/account"
+            className="text-[15px] font-semibold text-white underline underline-offset-[6px] decoration-rail hover:decoration-beam-500 transition-colors"
+          >
+            Your account on the web
+          </Link>
+        </div>
       </div>
 
-      {/* Action Area */}
-      <div className="space-y-3 pt-1">
-        <PTButton
-          variant="primary"
-          size="lg"
-          className="w-full justify-center shadow-xl shadow-purple-950/50"
-          onClick={handleManualOpen}
-          rightIcon={<ArrowUpRight className="w-4 h-4" />}
+      <div className="relative order-1 lg:order-2 pt-6 pr-4 sm:pr-8">
+        <Ticket
+          animate
+          stub={
+            <span className={`${mono} text-sm sm:text-lg font-semibold tracking-[0.08em]`}>ADMIT&nbsp;1</span>
+          }
         >
-          Open SyncTogether
-        </PTButton>
-
-        <p className="text-xs text-gray-400 leading-relaxed">
-          If SyncTogether didn&apos;t open automatically, click the button above. You can safely close this browser tab.
-        </p>
+          <p className={`${mono} text-[10px] sm:text-[11px] tracking-[0.14em] text-[#6B5F52]`}>
+            DESKTOP · SIGN-IN
+          </p>
+          <p className={`${display} mt-1.5 text-2xl sm:text-4xl font-extrabold tracking-[-0.035em] leading-[0.95]`}>
+            Your seat is held.
+          </p>
+          <p className="mt-2 text-xs sm:text-sm text-[#5A4F44] truncate">synctogether://auth-callback</p>
+        </Ticket>
+        <div className="absolute right-0 -top-2 sm:-top-4">
+          <Stamp top="LOGIN" main="OK" bottom="SIGNED IN" tone="signal" tilt={12} />
+        </div>
       </div>
-
-      {/* Helpful Subtle Footer Links */}
-      <div className="pt-4 border-t border-white/[0.06] flex items-center justify-between text-[11px] text-gray-500 px-1">
-        <span className="flex items-center gap-1">
-          <Sparkles className="w-3 h-3 text-purple-400/80" />
-          <span>Sync & Watch in 4K</span>
-        </span>
-        <Link
-          href="/account"
-          className="text-purple-400/80 hover:text-purple-300 transition-colors inline-flex items-center gap-1"
-        >
-          <Layers className="w-3 h-3" />
-          <span>Web Dashboard</span>
-        </Link>
-      </div>
-    </GlassPanel>
+    </div>
   );
 }
 
 export default function DesktopCallbackPage() {
   return (
-    <div className="min-h-[80vh] flex items-center justify-center px-4 py-12 relative overflow-hidden">
-      {/* Subtle Background Glows */}
-      <div className="glow-blob-purple top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 opacity-25 pointer-events-none" />
-      <div className="glow-blob-gold top-1/3 right-1/4 opacity-10 pointer-events-none" />
-
+    <div className="min-h-[80vh] flex items-center justify-center px-4 sm:px-6 lg:px-8 py-12 md:py-12">
       <Suspense
         fallback={
-          <GlassPanel className="p-8 max-w-md w-full text-center text-sm text-gray-400">
-            Completing authentication...
-          </GlassPanel>
+          <p className={`${mono} text-xs tracking-[0.16em] uppercase text-gray-500`}>
+            Completing authentication…
+          </p>
         }
       >
         <DesktopCallbackContent />

@@ -30,14 +30,20 @@ import 'package:synctogether/rooms/widgets/lobby_header.dart';
 import 'package:synctogether/rooms/widgets/my_rooms_section.dart';
 import 'package:synctogether/updates/update_service.dart';
 import 'package:synctogether/ui/banners.dart';
+import 'package:synctogether/ui/booth.dart';
+import 'package:synctogether/ui/loader.dart';
 import 'package:synctogether/ui/buttons.dart';
 import 'package:synctogether/ui/glass.dart';
 import 'package:synctogether/ui/identity.dart';
 import 'package:synctogether/ui/inputs.dart';
+import 'package:synctogether/ui/logo.dart';
 import 'package:synctogether/ui/pt_motion.dart';
 import 'package:synctogether/ui/pt_theme.dart';
 import 'package:synctogether/ui/responsive.dart';
 import 'package:synctogether/ui/scroll_fade.dart';
+
+/// Width below which the desktop lobby stacks into a single column.
+const double kLobbySplitWidth = 960;
 
 class LobbyScreen extends StatefulWidget {
   const LobbyScreen({super.key});
@@ -54,6 +60,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
   bool _creating = false;
   bool _joining = false;
   int _codeShake = 0;
+  _PhonePanel _phonePanel = _PhonePanel.none;
   String? _busyRoomId;
   bool _clearingEndedRooms = false;
   Timer? _myRoomsPollTimer;
@@ -557,6 +564,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
       busyRoomId: _busyRoomId,
       clearingEnded: _clearingEndedRooms,
       compact: compact,
+      framed: false,
       onOpen: _openMyRoom,
       onDelete: _deleteMyRoom,
       onClearEnded: _clearEndedRooms,
@@ -569,7 +577,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
   Future<bool> _endBlockingRoom(Room live) async {
     try {
       await RoomService.instance.endRoom(live.id);
-      if (mounted) _snack("That's a wrap - your old room has ended.", kind: .success);
+      if (mounted) _snack('House lights up. Your old room has ended.', kind: .success);
       return true;
     } catch (e, s) {
       final failure = RoomErrorCode.fromError(e);
@@ -651,7 +659,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
   /// the avatar, and a narrow desktop window never drops a button to a second
   /// line. Touch layouts start at the account-menu level: phones have never had
   /// a bare logout button in the header.
-  Widget _header({required bool compact, bool greeting = false}) {
+  Widget _header({required bool compact}) {
     final touch = compact;
     final levels = touch ? const [2, 3, 4] : const [0, 1, 2, 3, 4];
     // The wordmark is not a flex child: two flex children would split the row
@@ -672,17 +680,6 @@ class _LobbyScreenState extends State<LobbyScreen> {
           Expanded(
             child: FirstFit(
               children: [
-                if (greeting)
-                  for (final level in levels.take(2))
-                    Row(
-                      mainAxisSize: .min,
-                      mainAxisAlignment: .spaceBetween,
-                      children: [
-                        const _Greeting(style: PTText.panelHeading, align: .centerLeft),
-                        const SizedBox(width: 20),
-                        _actions(level, avatarSize: _glyph(36)),
-                      ],
-                    ),
                 for (final level in levels)
                   Row(
                     mainAxisSize: .min,
@@ -770,8 +767,8 @@ class _LobbyScreenState extends State<LobbyScreen> {
                   guest
                       ? 'Guest'
                       : entitlement.isPremium
-                      ? 'Premium'
-                      : 'Free plan',
+                      ? 'Patron seat'
+                      : 'Free seat',
                   style: PTText.caption.copyWith(
                     color: entitlement.isPremium ? PTColors.premium : PTColors.white(0.5),
                   ),
@@ -805,7 +802,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
         if (_showPremiumChip && level >= 3)
           LobbyMenuItem(
             icon: Symbols.crown_rounded,
-            label: 'Go Premium',
+            label: 'Get a Patron seat',
             color: PTColors.textAccent,
             onTap: () => context.go('/lobby/subscribe?source=lobby_chip'),
           ),
@@ -828,74 +825,79 @@ class _LobbyScreenState extends State<LobbyScreen> {
 
   static void _signOut() => AuthService.instance.signOut();
 
-  /// Desktop, and tablets through the `tablet → desktop` fallback: a tablet in
-  /// portrait (600-840 wide) keeps the two-column cards, so the gutters shrink
-  /// there, and the `SafeArea` covers the iPad status bar and landscape insets.
+  /// Desktop, and tablets through the `tablet → desktop` fallback. The Booth
+  /// Light lobby: the header across the top, then two columns split by a
+  /// hairline - what you can *do* on the left (open a room, take a seat), what
+  /// you already *have* on the right (your tickets). Below [kLobbySplitWidth]
+  /// the columns would starve each other, so it stacks into one column.
   Widget _desktop() {
     final width = MediaQuery.sizeOf(context).width;
-    final gutter = width < 900 ? 24.0 : 48.0;
+    if (width < kLobbySplitWidth) return _stacked();
+    final left = (width * 0.42).clamp(420.0, 560.0);
     return SafeArea(
       child: Column(
         children: [
           Padding(
-            padding: EdgeInsets.symmetric(horizontal: gutter, vertical: 28),
+            padding: const EdgeInsets.fromLTRB(40, 20, 40, 20),
             child: _header(compact: false),
           ),
+          const Divider(height: 1, color: PTColors.aisle),
+          Expanded(
+            child: Row(
+              crossAxisAlignment: .stretch,
+              children: [
+                SizedBox(
+                  width: left,
+                  child: ScrollFadeEdge(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.fromLTRB(56, 56, 44, 48),
+                      child: _doColumn(headlineSize: width > 1280 ? 72 : 60),
+                    ),
+                  ),
+                ),
+                const VerticalDivider(width: 1, color: PTColors.aisle),
+                Expanded(
+                  child: ScrollFadeEdge(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.fromLTRB(44, 48, 56, 48),
+                      child: _haveColumn(),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// One centred column: narrow desktop windows and portrait tablets.
+  Widget _stacked() {
+    return SafeArea(
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(28, 18, 28, 18),
+            child: _header(compact: false),
+          ),
+          const Divider(height: 1, color: PTColors.aisle),
           Expanded(
             child: ScrollFadeEdge(
               child: SingleChildScrollView(
-                padding: EdgeInsets.fromLTRB(gutter, 36, gutter, 48),
-                child: Column(
-                  children: [
-                    if (UpdateService.instance.hasUpdate) ...[
-                      ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 888),
-                        child: _updateBanner(),
-                      ),
-                      const SizedBox(height: 32),
-                    ],
-                    _intro(child: const _Greeting(style: PTText.display)),
-                    const SizedBox(height: 12),
-                    _intro(
-                      delay: const Duration(milliseconds: 60),
-                      child: Text(
-                        'Start a room or hop into one your friends made.',
-                        style: PTText.body.copyWith(fontSize: 16, color: PTColors.white(0.55)),
-                      ),
+                padding: const EdgeInsets.fromLTRB(28, 40, 28, 48),
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 620),
+                    child: Column(
+                      crossAxisAlignment: .stretch,
+                      children: [
+                        _doColumn(headlineSize: 52),
+                        const SizedBox(height: 48),
+                        _haveColumn(),
+                      ],
                     ),
-                    const SizedBox(height: 52),
-                    // IntrinsicHeight: equal-height cards; a bare .stretch Row here
-                    // would receive unbounded height from the scroll view and crash.
-                    // The width cap goes *outside* it: IntrinsicHeight measures at
-                    // the incoming width, so inside it the cards were measured
-                    // wider than the 888 cap they are laid out at, came out a
-                    // line short, and the create card overflowed.
-                    ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 888),
-                      child: IntrinsicHeight(
-                        child: Row(
-                          mainAxisAlignment: .center,
-                          crossAxisAlignment: .stretch,
-                          spacing: 28,
-                          children: [
-                            Expanded(child: _createCard(delay: const Duration(milliseconds: 120))),
-                            Expanded(child: _joinCard(delay: const Duration(milliseconds: 180))),
-                          ],
-                        ),
-                      ),
-                    ),
-                    if (RoomService.instance.myRooms.isNotEmpty) ...[
-                      const SizedBox(height: 28),
-                      ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 888),
-                        child: _intro(
-                          delay: const Duration(milliseconds: 240),
-                          fade: false,
-                          child: _myRoomsSection(),
-                        ),
-                      ),
-                    ],
-                  ],
+                  ),
                 ),
               ),
             ),
@@ -915,29 +917,13 @@ class _LobbyScreenState extends State<LobbyScreen> {
         child: SingleChildScrollView(
           padding: EdgeInsets.fromLTRB(20, 10, 20, 40 + MediaQuery.paddingOf(context).bottom),
           child: Column(
-            crossAxisAlignment: .start,
-            spacing: 18,
+            crossAxisAlignment: .stretch,
+            spacing: 22,
             children: [
               _header(compact: true),
               if (UpdateService.instance.hasUpdate) _updateBanner(),
-              Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: _intro(
-                  child: _Greeting(
-                    style: PTText.display.copyWith(fontSize: 26),
-                    twoLine: true,
-                    align: .centerLeft,
-                  ),
-                ),
-              ),
-              _createCard(compact: true, delay: const Duration(milliseconds: 60)),
-              _joinCard(compact: true, delay: const Duration(milliseconds: 120)),
-              if (RoomService.instance.myRooms.isNotEmpty)
-                _intro(
-                  delay: const Duration(milliseconds: 180),
-                  fade: false,
-                  child: _myRoomsSection(compact: true),
-                ),
+              _doColumn(headlineSize: 40, compact: true),
+              _haveColumn(compact: true),
             ],
           ),
         ),
@@ -949,44 +935,33 @@ class _LobbyScreenState extends State<LobbyScreen> {
     return SafeArea(
       minimum: const EdgeInsets.symmetric(horizontal: 44),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 14, 16, 20),
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          spacing: 14,
+          crossAxisAlignment: .stretch,
+          spacing: 12,
           children: [
-            // The greeting rides in the header only when it fits whole next to
-            // the chips; otherwise it gives way rather than truncating.
-            _header(compact: true, greeting: true),
+            _header(compact: true),
             if (UpdateService.instance.hasUpdate) _updateBanner(),
             Expanded(
               child: Row(
                 crossAxisAlignment: .stretch,
-                spacing: 18,
+                spacing: 24,
                 children: [
                   Expanded(
-                    child: _createCard(
-                      compact: true,
-                      scroll: true,
-                      delay: const Duration(milliseconds: 60),
+                    child: ScrollFadeEdge(
+                      height: 40,
+                      child: SingleChildScrollView(
+                        padding: const EdgeInsets.only(bottom: 20),
+                        child: _doColumn(headlineSize: 30, compact: true),
+                      ),
                     ),
                   ),
                   Expanded(
                     child: ScrollFadeEdge(
-                      height: 48,
+                      height: 40,
                       child: SingleChildScrollView(
-                        child: Column(
-                          mainAxisSize: .min,
-                          spacing: 14,
-                          children: [
-                            _joinCard(compact: true, delay: const Duration(milliseconds: 120)),
-                            if (RoomService.instance.myRooms.isNotEmpty)
-                              _intro(
-                                delay: const Duration(milliseconds: 180),
-                                fade: false,
-                                child: _myRoomsSection(compact: true),
-                              ),
-                          ],
-                        ),
+                        padding: const EdgeInsets.only(bottom: 20),
+                        child: _haveColumn(compact: true),
                       ),
                     ),
                   ),
@@ -996,6 +971,292 @@ class _LobbyScreenState extends State<LobbyScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  // ---------------------------------------------------------------------
+  // The "do" column: eyebrow, headline, open a room, take a seat.
+
+  Widget _doColumn({required double headlineSize, bool compact = false}) {
+    final scaled = MediaQuery.textScalerOf(context).clamp(maxScaleFactor: 1.3);
+    return Column(
+      crossAxisAlignment: .stretch,
+      children: [
+        if (!compact && UpdateService.instance.hasUpdate) ...[
+          _updateBanner(),
+          const SizedBox(height: 28),
+        ],
+        _intro(child: const _Eyebrow()),
+        SizedBox(height: compact ? 10 : 14),
+        _intro(
+          delay: const Duration(milliseconds: 60),
+          child: Text(
+            'What are we watching?',
+            textScaler: scaled,
+            style: PTText.display.copyWith(
+              fontSize: headlineSize,
+              height: 0.95,
+              letterSpacing: -headlineSize * 0.045,
+            ),
+          ),
+        ),
+        SizedBox(height: compact ? 22 : 36),
+        if (compact)
+          _intro(delay: const Duration(milliseconds: 120), child: _compactActions())
+        else ...[
+          _intro(delay: const Duration(milliseconds: 120), child: _openForm(compact: false)),
+          const SizedBox(height: 34),
+          _intro(delay: const Duration(milliseconds: 180), child: _joinForm(compact: false)),
+        ],
+      ],
+    );
+  }
+
+  /// Phones: two buttons, and the chosen one unfolds its form underneath -
+  /// the room name and duration only when you are actually opening a room.
+  Widget _compactActions() {
+    final open = _phonePanel == _PhonePanel.open;
+    final join = _phonePanel == _PhonePanel.join;
+    return Column(
+      crossAxisAlignment: .stretch,
+      children: [
+        Row(
+          spacing: 10,
+          children: [
+            Expanded(
+              child: PTButton(
+                label: 'Open a room',
+                variant: open ? .primary : (join ? .secondary : .primary),
+                onPressed: () => setState(() => _phonePanel = open ? .none : .open),
+              ),
+            ),
+            Expanded(
+              child: PTButton(
+                label: 'Enter a code',
+                variant: join ? .primary : .secondary,
+                onPressed: () => setState(() => _phonePanel = join ? .none : .join),
+              ),
+            ),
+          ],
+        ),
+        // The chosen form unfolds under the buttons: size and cross-fade run
+        // together, so the page grows into the form rather than jumping.
+        AnimatedSize(
+          duration: PTMotion.functional(context, PTMotion.panel),
+          curve: PTMotion.emphasized,
+          alignment: .topCenter,
+          child: AnimatedSwitcher(
+            duration: PTMotion.functional(context, PTMotion.state),
+            switchInCurve: PTMotion.enter,
+            switchOutCurve: PTMotion.exit,
+            transitionBuilder: (child, animation) => FadeTransition(
+              opacity: animation,
+              child: SlideTransition(
+                position: Tween(begin: const Offset(0, -0.04), end: Offset.zero).animate(animation),
+                child: child,
+              ),
+            ),
+            child: switch (_phonePanel) {
+              _PhonePanel.none => const SizedBox(key: ValueKey('none'), width: double.infinity),
+              _PhonePanel.open => Padding(
+                key: const ValueKey('open'),
+                padding: const EdgeInsets.only(top: 18),
+                child: _openForm(compact: true),
+              ),
+              _PhonePanel.join => Padding(
+                key: const ValueKey('join'),
+                padding: const EdgeInsets.only(top: 18),
+                child: _joinForm(compact: true),
+              ),
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _openForm({required bool compact}) {
+    return Column(
+      mainAxisSize: .min,
+      crossAxisAlignment: .stretch,
+      spacing: compact ? 14 : 18,
+      children: [
+        // Deliberately unvalidated: create_room defaults a blank name to "Watch
+        // party". The 60 mirrors the server's cap so the field stops short of
+        // silent truncation.
+        PTTextField(
+          controller: _nameController,
+          label: 'Name your room',
+          hint: 'Friday movie night',
+          maxLength: 60,
+        ),
+        Column(
+          crossAxisAlignment: .stretch,
+          spacing: 10,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text('RUNS FOR', overflow: .ellipsis, style: PTText.label),
+                ),
+                // Ticks over as the slider moves - the label the user is
+                // actually looking at while choosing.
+                AnimatedSwitcher(
+                  duration: PTMotion.functional(context, PTMotion.hover),
+                  switchInCurve: PTMotion.enter,
+                  switchOutCurve: PTMotion.exit,
+                  transitionBuilder: (child, animation) => FadeTransition(
+                    opacity: animation,
+                    child: SlideTransition(
+                      position: Tween(
+                        begin: const Offset(0, 0.35),
+                        end: Offset.zero,
+                      ).animate(animation),
+                      child: child,
+                    ),
+                  ),
+                  child: Text(
+                    _durationLabel,
+                    key: ValueKey(_durationLabel),
+                    style: PTText.mono.copyWith(
+                      fontSize: compact ? 14 : 15,
+                      fontWeight: .w600,
+                      color: PTColors.textAccent,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            PTSlider(
+              value: ((_durationMinutes - 5) / (_durationCap - 5)).clamp(0.0, 1.0),
+              onChanged: (v) =>
+                  setState(() => _durationMinutes = 5 + ((v * (_durationCap - 5)) / 5).round() * 5),
+            ),
+            Row(
+              mainAxisAlignment: .spaceBetween,
+              children: [
+                Flexible(child: Text('5 MIN', style: PTText.label.copyWith(fontSize: 10))),
+                Text(
+                  '${_durationCapLabel.toUpperCase()} MAX',
+                  style: PTText.label.copyWith(fontSize: 10),
+                ),
+              ],
+            ),
+          ],
+        ),
+        _stagedMediaSection(compact),
+        const SizedBox(height: 2),
+        PTButton(
+          label: 'Open a room',
+          height: compact ? 50 : 56,
+          loading: _creating,
+          onPressed: (_creating || _stagingUpload) ? null : _create,
+        ),
+      ],
+    );
+  }
+
+  Widget _joinForm({required bool compact}) {
+    return Column(
+      mainAxisSize: .min,
+      crossAxisAlignment: .stretch,
+      spacing: 12,
+      children: [
+        if (!compact)
+          Row(
+            spacing: 12,
+            children: [
+              Flexible(
+                child: Text(
+                  'OR ENTER A TICKET CODE',
+                  maxLines: 1,
+                  overflow: .ellipsis,
+                  style: PTText.label,
+                ),
+              ),
+              const Expanded(child: Divider(height: 1, color: PTColors.aisle)),
+            ],
+          ),
+        PTShake(
+          trigger: _codeShake,
+          child: PTCodeInput(
+            key: _codeKey,
+            boxHeight: compact ? 52 : 56,
+            onChanged: (v) => _code = v,
+          ),
+        ),
+        PTButton(
+          label: 'Take your seat',
+          trailingIcon: Symbols.arrow_forward_rounded,
+          variant: .secondary,
+          height: compact ? 50 : 52,
+          loading: _joining,
+          onPressed: _joining ? null : () => _join(_code),
+        ),
+        Text(
+          'Got an invite link instead? It opens the room by itself.',
+          style: PTText.caption.copyWith(fontSize: 12, color: PTColors.white(0.45)),
+        ),
+      ],
+    );
+  }
+
+  // ---------------------------------------------------------------------
+  // The "have" column: your tickets.
+
+  Widget _haveColumn({bool compact = false}) {
+    final rooms = RoomService.instance.myRooms;
+    return _intro(
+      delay: const Duration(milliseconds: 200),
+      fade: false,
+      child: rooms.isEmpty ? _noTickets(compact: compact) : _myRoomsSection(compact: compact),
+    );
+  }
+
+  /// The empty state is a ticket too - an unprinted one, so the right column
+  /// reads as "this is where they go" rather than as a blank.
+  Widget _noTickets({required bool compact}) {
+    return Column(
+      crossAxisAlignment: .stretch,
+      spacing: 16,
+      children: [
+        Text('YOUR TICKETS', style: PTText.label),
+        Opacity(
+          opacity: 0.7,
+          child: PTTicket(
+            stubWidth: compact ? 92 : 116,
+            body: Padding(
+              padding: EdgeInsets.fromLTRB(compact ? 16 : 20, 18, 12, 18),
+              child: Column(
+                crossAxisAlignment: .start,
+                mainAxisSize: .min,
+                spacing: 6,
+                children: [
+                  Text('NOTHING PRINTED YET', style: PTText.label.copyWith(fontSize: 10)),
+                  Text(
+                    'Your next room',
+                    style: PTText.cardHeading.copyWith(color: PTColors.white(0.55)),
+                  ),
+                  Text(
+                    'Open one and its ticket prints here.',
+                    style: PTText.caption.copyWith(fontSize: 12),
+                  ),
+                ],
+              ),
+            ),
+            stub: Center(
+              child: Text(
+                '······',
+                style: PTText.mono.copyWith(
+                  fontSize: 16,
+                  letterSpacing: 2,
+                  color: PTColors.white(0.35),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -1015,11 +1276,11 @@ class _LobbyScreenState extends State<LobbyScreen> {
       buttonLabel = percent > 0 ? 'Downloading $percent%' : 'Downloading...';
       isLoading = true;
     } else if (updates.isDownloaded) {
-      subtitle = 'Downloaded and ready - SyncTogether will restart itself.';
+      subtitle = 'Downloaded and ready. SyncTogether will restart itself.';
       buttonLabel = 'Update & restart';
       isLoading = false;
     } else {
-      subtitle = 'Grab it now - SyncTogether will restart itself.';
+      subtitle = 'Grab it now. SyncTogether will restart itself.';
       buttonLabel = 'Update & restart';
       isLoading = false;
     }
@@ -1089,7 +1350,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
     );
     if (iconOnly) {
       return Tooltip(
-        message: 'Go Premium',
+        message: 'Get a Patron seat',
         child: GlassPill(
           onTap: () => context.go('/lobby/subscribe?source=lobby_chip'),
           padding: const EdgeInsets.all(8),
@@ -1106,7 +1367,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
         children: [
           crown,
           Text(
-            'Go Premium',
+            'Patron',
             maxLines: 1,
             style: PTText.body.copyWith(
               fontSize: 13,
@@ -1235,102 +1496,6 @@ class _LobbyScreenState extends State<LobbyScreen> {
     );
   }
 
-  Widget _createCard({bool compact = false, bool scroll = false, Duration delay = Duration.zero}) {
-    final content = Column(
-      mainAxisSize: .min,
-      crossAxisAlignment: .start,
-      spacing: compact ? 14 : 18,
-      children: [
-        _cardHeader(
-          Symbols.add_circle_rounded,
-          'Create a room',
-          "You'll be the host",
-          compact: compact,
-        ),
-        // Deliberately unvalidated: create_room defaults a blank name to "Watch
-        // party". The 60 mirrors the server's cap so the field stops short of
-        // silent truncation.
-        PTTextField(
-          controller: _nameController,
-          label: 'Room name',
-          hint: 'Friday movie night',
-          maxLength: 60,
-        ),
-        Column(
-          crossAxisAlignment: .start,
-          spacing: 10,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    'Duration',
-                    overflow: .ellipsis,
-                    style: PTText.caption.copyWith(fontSize: compact ? 12 : 13),
-                  ),
-                ),
-                // Ticks over as the slider moves - the label the user is
-                // actually looking at while choosing.
-                AnimatedSwitcher(
-                  duration: PTMotion.functional(context, PTMotion.hover),
-                  switchInCurve: PTMotion.enter,
-                  switchOutCurve: PTMotion.exit,
-                  transitionBuilder: (child, animation) => FadeTransition(
-                    opacity: animation,
-                    child: SlideTransition(
-                      position: Tween(
-                        begin: const Offset(0, 0.35),
-                        end: Offset.zero,
-                      ).animate(animation),
-                      child: child,
-                    ),
-                  ),
-                  child: Text(
-                    _durationLabel,
-                    key: ValueKey(_durationLabel),
-                    style: PTText.mono.copyWith(
-                      fontSize: compact ? 13 : 14,
-                      color: PTColors.textAccent,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            PTSlider(
-              value: ((_durationMinutes - 5) / (_durationCap - 5)).clamp(0.0, 1.0),
-              onChanged: (v) =>
-                  setState(() => _durationMinutes = 5 + ((v * (_durationCap - 5)) / 5).round() * 5),
-            ),
-            if (!compact)
-              Row(
-                mainAxisAlignment: .spaceBetween,
-                children: [
-                  Flexible(
-                    child: Text(
-                      '5 min',
-                      style: PTText.mono.copyWith(fontSize: 11, color: PTColors.white(0.35)),
-                    ),
-                  ),
-                  Text(
-                    '$_durationCapLabel max',
-                    style: PTText.mono.copyWith(fontSize: 11, color: PTColors.white(0.35)),
-                  ),
-                ],
-              ),
-          ],
-        ),
-        _stagedMediaSection(compact),
-        PTButton(
-          label: 'Create room',
-          icon: Symbols.rocket_launch_rounded,
-          loading: _creating,
-          onPressed: (_creating || _stagingUpload) ? null : _create,
-        ),
-      ],
-    );
-    return _card(content, compact: compact, scroll: scroll, delay: delay);
-  }
-
   Widget _stagedMediaSection(bool compact) {
     if (_stagedSession != null && _stagedFile != null) {
       final fileName = p.basename(_stagedFile!.path);
@@ -1338,7 +1503,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         decoration: BoxDecoration(
           color: PTColors.glass(0.3),
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(PTRadius.control),
           border: Border.all(color: PTColors.online.withValues(alpha: 0.3)),
         ),
         child: Row(
@@ -1383,7 +1548,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         decoration: BoxDecoration(
           color: PTColors.glass(0.3),
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(PTRadius.control),
           border: Border.all(color: PTColors.white(0.1)),
         ),
         child: Column(
@@ -1392,11 +1557,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
           children: [
             Row(
               children: [
-                const SizedBox(
-                  width: 14,
-                  height: 14,
-                  child: CircularProgressIndicator(strokeWidth: 2, color: PTColors.textAccent),
-                ),
+                const PTLoader(size: 14),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
@@ -1465,12 +1626,12 @@ class _LobbyScreenState extends State<LobbyScreen> {
       color: Colors.transparent,
       child: InkWell(
         onTap: _creating ? null : _pickStagedMedia,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(PTRadius.control),
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           decoration: BoxDecoration(
             color: PTColors.glass(0.2),
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(PTRadius.control),
             border: Border.all(color: PTColors.white(0.08)),
           ),
           child: Row(
@@ -1544,171 +1705,55 @@ class _LobbyScreenState extends State<LobbyScreen> {
     );
   }
 
-  Widget _joinCard({bool compact = false, bool scroll = false, Duration delay = Duration.zero}) {
-    final content = Column(
-      mainAxisSize: .min,
-      crossAxisAlignment: .start,
-      spacing: compact ? 14 : 18,
-      children: [
-        _cardHeader(
-          Symbols.login_rounded,
-          'Join a room',
-          'Got a code from a friend?',
-          compact: compact,
-        ),
-        Column(
-          crossAxisAlignment: .start,
-          spacing: 8,
-          children: [
-            if (!compact) Text('Room code', style: PTText.caption),
-            PTShake(
-              trigger: _codeShake,
-              child: PTCodeInput(
-                key: _codeKey,
-                boxHeight: compact ? 52 : 58,
-                onChanged: (v) => _code = v,
-              ),
-            ),
-          ],
-        ),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          decoration: BoxDecoration(
-            color: PTColors.primary.withValues(alpha: 0.1),
-            border: Border.all(color: PTColors.accentBorder.withValues(alpha: 0.22)),
-            borderRadius: BorderRadius.circular(14),
-          ),
-          child: Row(
-            spacing: 10,
-            children: [
-              const Icon(Symbols.link_rounded, size: 18, color: PTColors.textAccent),
-              Expanded(
-                child: Text(
-                  'Invite links open the room directly - no code needed.',
-                  style: PTText.body.copyWith(fontSize: 13, color: PTColors.white(0.65)),
-                ),
-              ),
-            ],
-          ),
-        ),
-        PTButton(
-          label: 'Join room',
-          trailingIcon: Symbols.arrow_forward_rounded,
-          variant: .secondary,
-          loading: _joining,
-          onPressed: _joining ? null : () => _join(_code),
-        ),
-      ],
-    );
-    return _card(content, compact: compact, scroll: scroll, delay: delay);
-  }
-
-  Widget _card(
-    Widget content, {
-    required bool compact,
-    required bool scroll,
-    Duration delay = Duration.zero,
-  }) {
-    return _intro(
-      delay: delay,
-      // fade: false - this is a GlassPanel. An Opacity layer around a
-      // BackdropFilter leaves it sampling an empty layer, so the card would
-      // render flat for the whole entrance and then snap to blurred.
-      fade: false,
-      child: GlassPanel(
-        radius: compact ? 24 : 26,
-        opacity: compact ? 0.55 : 0.5,
-        blur: compact ? 28 : 32,
-        padding: EdgeInsets.all(compact ? 22 : 28),
-        child: scroll ? SingleChildScrollView(child: content) : content,
-      ),
-    );
-  }
-
   Widget _intro({required Widget child, Duration delay = Duration.zero, bool fade = true}) {
     return PTEntrance(enabled: _playIntro, delay: delay, fade: fade, offset: 14, child: child);
   }
-
-  Widget _cardHeader(IconData icon, String title, String subtitle, {required bool compact}) {
-    final box = _glyph(compact ? 40 : 44);
-    // Top-aligned: at large text the title wraps, and a centred tile then
-    // floats beside the middle of three lines.
-    return Row(
-      crossAxisAlignment: .start,
-      spacing: compact ? 12 : 14,
-      children: [
-        Container(
-          width: box,
-          height: box,
-          decoration: BoxDecoration(
-            color: PTColors.primary.withValues(alpha: 0.25),
-            border: Border.all(color: PTColors.accentBorder.withValues(alpha: 0.4)),
-            borderRadius: BorderRadius.circular(compact ? 13 : 14),
-          ),
-          child: Icon(icon, size: _glyph(compact ? 21 : 23), fill: 1, color: PTColors.textAccent),
-        ),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: .start,
-            children: [
-              Text(
-                title,
-                style: compact ? PTText.cardHeading.copyWith(fontSize: 17) : PTText.cardHeading,
-              ),
-              Text(
-                subtitle,
-                style: PTText.caption.copyWith(fontSize: compact ? 12 : 13, fontWeight: .w400),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
 }
 
-/// Subscribes to [ProfileService] itself so the name can't be captured in a
-/// scope that never rebuilds - the profile lands asynchronously after login.
-class _Greeting extends StatelessWidget {
-  const _Greeting({required this.style, this.twoLine = false, this.align = Alignment.center});
+/// The lobby's kicker: day, time and a greeting in the mono label voice -
+/// "FRI · 21:40 · GOOD EVENING, MAYA". Subscribes to [ProfileService] itself so
+/// the name can't be captured in a scope that never rebuilds.
+class _Eyebrow extends StatelessWidget {
+  const _Eyebrow();
 
-  final TextStyle style;
-  final bool twoLine;
-  final Alignment align;
+  static const _days = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
 
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
       listenable: ProfileService.instance,
       builder: (context, _) {
-        final name = ProfileService.instance.profile?.displayName.split(' ').first ?? 'there';
+        final now = DateTime.now();
+        final name = ProfileService.instance.profile?.displayName.split(' ').first;
+        final part = now.hour < 5
+            ? 'LATE SHOW'
+            : now.hour < 12
+            ? 'GOOD MORNING'
+            : now.hour < 18
+            ? 'GOOD AFTERNOON'
+            : 'GOOD EVENING';
+        final time =
+            '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
         return AnimatedSwitcher(
           duration: PTMotion.functional(context, PTMotion.state),
-          switchInCurve: PTMotion.enter,
-          switchOutCurve: PTMotion.exit,
-          // Same as the default layout builder, but the stack alignment has to
-          // follow the host layout or the outgoing line jumps as it fades.
-          layoutBuilder: (current, previous) =>
-              Stack(alignment: align, children: [...previous, if (current != null) current]),
-          transitionBuilder: (child, animation) => FadeTransition(
-            opacity: animation,
-            child: SlideTransition(
-              position: Tween(begin: const Offset(0, 0.12), end: Offset.zero).animate(animation),
-              child: child,
-            ),
+          layoutBuilder: (current, previous) => Stack(
+            alignment: Alignment.centerLeft,
+            children: [...previous, if (current != null) current],
           ),
           child: Text(
-            twoLine ? 'Hey $name,\nready to watch?' : 'Hey $name, ready to watch?',
+            '${_days[now.weekday - 1]} · $time · $part${name == null ? '' : ', ${name.toUpperCase()}'}',
             key: ValueKey(name),
-            style: style,
-            maxLines: twoLine ? 3 : 1,
-            overflow: TextOverflow.ellipsis,
+            maxLines: 1,
+            overflow: .ellipsis,
+            style: PTText.label,
           ),
         );
       },
     );
   }
 }
+
+enum _PhonePanel { none, open, join }
 
 class _GuestLimitDialogBody extends StatelessWidget {
   const _GuestLimitDialogBody({
@@ -1737,7 +1782,7 @@ class _GuestLimitDialogBody extends StatelessWidget {
               decoration: BoxDecoration(
                 color: PTColors.warningBorder.withValues(alpha: 0.12),
                 border: Border.all(color: PTColors.warningBorder.withValues(alpha: 0.3)),
-                borderRadius: BorderRadius.circular(14),
+                borderRadius: BorderRadius.circular(PTRadius.panel),
               ),
               child: const Icon(
                 Symbols.hourglass_top_rounded,
@@ -1757,7 +1802,7 @@ class _GuestLimitDialogBody extends StatelessWidget {
                 text: roomName,
                 style: TextStyle(color: PTColors.white(0.85)),
               ),
-              const TextSpan(text: ' is still running - end it first, or sign in to host more.'),
+              const TextSpan(text: ' is still running. End it first, or sign in to host more.'),
             ],
           ),
           style: PTText.body.copyWith(fontSize: 14, color: PTColors.white(0.6), height: 1.55),
@@ -1793,70 +1838,22 @@ class _Wordmark extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final logo = compact ? 34.0 : 40.0;
     return Row(
       mainAxisSize: .min,
-      spacing: compact ? 10 : 14,
+      crossAxisAlignment: .center,
+      spacing: 12,
       children: [
-        Container(
-          width: logo,
-          height: logo,
-          decoration: BoxDecoration(
-            gradient: PTColors.brandGradient,
-            borderRadius: BorderRadius.circular(logo * 0.32),
-            boxShadow: [
-              BoxShadow(
-                color: PTColors.primary.withValues(alpha: 0.4),
-                blurRadius: 22,
-                offset: const Offset(0, 8),
-              ),
-            ],
+        PTWordmark(size: compact ? 20 : 22),
+        if (AppVersion.label case final version?)
+          // Demo mode is mocked end to end, so the local stack is not what it
+          // is exercising - and it is what shoots the marketing screenshots.
+          Text(
+            _flagLocal ? '$version · local' : version,
+            style: PTText.mono.copyWith(
+              fontSize: 11,
+              color: _flagLocal ? PTColors.warning : PTColors.white(0.4),
+            ),
           ),
-          child: Icon(Icons.play_arrow_rounded, size: logo * 0.55, color: Colors.white),
-        ),
-        Column(
-          mainAxisSize: .min,
-          crossAxisAlignment: .start,
-          children: [
-            Text(
-              'SyncTogether',
-              style: TextStyle(
-                fontFamily: PTFonts.display,
-                fontSize: compact ? 17 : 19,
-                fontWeight: .w700,
-                letterSpacing: -0.2,
-                color: Colors.white,
-              ),
-            ),
-            // One rich text, not a Row of fragments: a Row's fixed gap next
-            // to a text-embedded separator read as "local ·synctogether.app".
-            Text.rich(
-              TextSpan(
-                style: PTText.caption.copyWith(
-                  fontSize: compact ? 10 : 11,
-                  color: PTColors.white(0.35),
-                ),
-                children: [
-                  if (AppVersion.label case final version?) ...[
-                    TextSpan(
-                      // Demo mode is mocked end to end, so the local stack is
-                      // not what it is exercising - and it is what shoots
-                      // the marketing screenshots.
-                      text: _flagLocal ? '$version · local' : version,
-                      style: PTText.mono.copyWith(
-                        fontSize: compact ? 10 : 11,
-                        color: _flagLocal ? PTColors.warning : PTColors.white(0.4),
-                      ),
-                    ),
-                    const TextSpan(text: '  ·  '),
-                  ],
-                  const TextSpan(text: 'synctogether.app'),
-                ],
-              ),
-              maxLines: 1,
-            ),
-          ],
-        ),
       ],
     );
   }

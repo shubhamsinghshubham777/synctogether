@@ -35,7 +35,7 @@ MyRoom _fakeMyRoom({
 
 void main() {
   group('MyRoomsSection widget tests', () {
-    testWidgets('renders inline count in title e.g. "Your rooms" and "(2)"', (tester) async {
+    testWidgets('renders inline count in title e.g. "Your tickets" and "(2)"', (tester) async {
       final rooms = [
         _fakeMyRoom(id: '1', name: 'Room 1', isLive: true),
         _fakeMyRoom(id: '2', name: 'Room 2', isLive: false),
@@ -56,7 +56,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('Your rooms (2)'), findsOneWidget);
+      expect(find.text('Your tickets (2)'), findsOneWidget);
     });
 
     testWidgets('shows "Clear ended" button when non-persistent ended rooms exist', (tester) async {

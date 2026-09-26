@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:synctogether/auth/auth_service.dart';
@@ -8,10 +10,24 @@ import 'package:synctogether/ui/glass.dart';
 import 'package:synctogether/ui/pt_theme.dart';
 
 class ExtendRoomDialog extends StatefulWidget {
-  const ExtendRoomDialog({super.key, required this.options, required this.headroomMinutes});
+  const ExtendRoomDialog({
+    super.key,
+    required this.options,
+    required this.headroomMinutes,
+    this.endsAt,
+    this.now = DateTime.now,
+  });
 
   final List<int> options;
   final int headroomMinutes;
+
+  /// When the room's lights come up. Drives the "LIGHTS UP IN m:ss" line;
+  /// without it the status row shows only the bank.
+  final DateTime? endsAt;
+
+  /// The clock [endsAt] is compared against - pass `RoomService.serverNow`
+  /// so the countdown agrees with the room's.
+  final DateTime Function() now;
 
   @override
   State<ExtendRoomDialog> createState() => _ExtendRoomDialogState();
@@ -20,54 +36,74 @@ class ExtendRoomDialog extends StatefulWidget {
 class _ExtendRoomDialogState extends State<ExtendRoomDialog> {
   late int _selected = widget.options.first;
 
+  // A once-a-second rebuild of one line while the dialog is open - a timer,
+  // not an animation ticker, and cancelled with the dialog.
+  Timer? _clock;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.endsAt != null) {
+      _clock = Timer.periodic(const Duration(seconds: 1), (_) {
+        if (mounted) setState(() {});
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _clock?.cancel();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
+    final endsAt = widget.endsAt;
+    final left = endsAt?.difference(widget.now());
     return Column(
       mainAxisSize: .min,
       crossAxisAlignment: .start,
       spacing: 14,
       children: [
+        GlassDialogHeader(
+          eyebrow: 'Room time',
+          title: 'Extend room',
+          onClose: () => Navigator.of(context).pop(),
+        ),
+        // The mono status row: how long until the lights come up (Signal -
+        // it is on air), and how much time the room still has to spend.
         Row(
-          spacing: 13,
-          // Top-aligned: a heading that wraps keeps its icon by the first line.
-          crossAxisAlignment: .start,
+          spacing: 12,
           children: [
-            Container(
-              width: 46,
-              height: 46,
-              decoration: BoxDecoration(
-                color: PTColors.primary.withValues(alpha: 0.2),
-                border: Border.all(color: PTColors.accentBorder.withValues(alpha: 0.4)),
-                borderRadius: BorderRadius.circular(14),
+            if (left != null) ...[
+              Container(
+                width: 7,
+                height: 7,
+                decoration: const BoxDecoration(color: PTColors.ember, shape: .circle),
               ),
-              child: const Icon(
-                Symbols.more_time_rounded,
-                size: 24,
-                fill: 1,
-                color: PTColors.textAccent,
+              Flexible(
+                child: Text(
+                  'Lights up in ${countdownLabel(left)}'.toUpperCase(),
+                  maxLines: 1,
+                  overflow: .ellipsis,
+                  style: PTText.label.copyWith(color: PTColors.ember, fontWeight: .w600),
+                ),
               ),
-            ),
+            ],
             Expanded(
-              child: Column(
-                crossAxisAlignment: .start,
-                children: [
-                  Text(
-                    'Keep it going',
-                    textScaler: dialogHeadingScaler(context),
-                    style: PTText.cardHeading,
-                  ),
-                  Text(
-                    '${_label(widget.headroomMinutes)} of room time left to spend',
-                    style: PTText.caption.copyWith(fontSize: 12, fontWeight: .w400),
-                  ),
-                ],
+              child: Text(
+                '${_label(widget.headroomMinutes)} in the bank'.toUpperCase(),
+                textAlign: .end,
+                maxLines: 1,
+                overflow: .ellipsis,
+                style: PTText.label,
               ),
             ),
           ],
         ),
         Wrap(
-          spacing: 10,
-          runSpacing: 10,
+          spacing: 8,
+          runSpacing: 8,
           children: [
             for (final minutes in widget.options)
               _Choice(
@@ -91,7 +127,7 @@ class _ExtendRoomDialogState extends State<ExtendRoomDialog> {
               ),
               PTButton(
                 maxLines: 2,
-                label: 'Add ${_label(_selected)}',
+                label: 'Add ${spelledDuration(_selected)}',
                 height: 48,
                 onPressed: () => Navigator.of(context).pop(_selected),
               ),
@@ -100,6 +136,26 @@ class _ExtendRoomDialogState extends State<ExtendRoomDialog> {
         ),
       ],
     );
+  }
+
+  /// "m:ss" (or "h:mm:ss") to the lights coming up, never negative.
+  @visibleForTesting
+  static String countdownLabel(Duration left) {
+    final s = left.isNegative ? 0 : left.inSeconds;
+    final h = s ~/ 3600;
+    final m = (s % 3600) ~/ 60;
+    final sec = (s % 60).toString().padLeft(2, '0');
+    return h > 0 ? '$h:${m.toString().padLeft(2, '0')}:$sec' : '$m:$sec';
+  }
+
+  /// The primary button spells the choice out: "15 minutes", "1 hour 30 minutes".
+  @visibleForTesting
+  static String spelledDuration(int minutes) {
+    final h = minutes ~/ 60;
+    final m = minutes % 60;
+    final hours = h == 0 ? null : '$h ${h == 1 ? 'hour' : 'hours'}';
+    final mins = m == 0 ? null : '$m ${m == 1 ? 'minute' : 'minutes'}';
+    return [?hours, ?mins].join(' ');
   }
 
   static String _label(int minutes) {
@@ -127,21 +183,23 @@ class _Choice extends StatelessWidget {
         child: AnimatedContainer(
           duration: PTMotion.functional(context, PTMotion.hover),
           curve: PTMotion.enter,
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+          constraints: const BoxConstraints(minWidth: 52, minHeight: 40),
+          // No `alignment`: a Container with one expands to its parent, which
+          // made every chip a full-width row inside the Wrap.
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          // A square segment, not a pill: Beam edge when chosen, Rail otherwise.
           decoration: BoxDecoration(
-            color: selected ? PTColors.primary.withValues(alpha: 0.25) : PTColors.white(0.06),
-            border: Border.all(
-              color: selected
-                  ? PTColors.accentBorder.withValues(alpha: 0.55)
-                  : PTColors.white(0.12),
-            ),
-            borderRadius: BorderRadius.circular(14),
+            color: selected ? PTColors.aisle : Colors.transparent,
+            border: Border.all(color: selected ? PTColors.primary : PTColors.rail),
+            borderRadius: BorderRadius.circular(PTRadius.control),
           ),
           child: Text(
             label,
+            textAlign: .center,
             style: PTText.mono.copyWith(
               fontSize: 14,
-              color: selected ? PTColors.textAccent : PTColors.white(0.75),
+              fontWeight: selected ? .w600 : .w400,
+              color: selected ? PTColors.primary : PTColors.white(0.75),
             ),
           ),
         ),
@@ -181,50 +239,64 @@ class PremiumTeaseDialog extends StatelessWidget {
       crossAxisAlignment: .start,
       spacing: 14,
       children: [
+        // A guest is one sign-in away, so theirs is a plain invitation; a
+        // member is looking at Patron seats, the one place Brass is spent.
+        // "Coming soon" only where the dialog really is the waitlist - when
+        // there is an upgrade to take, it is not coming, it is here.
+        if (onSignIn == null)
+          Row(
+            spacing: 10,
+            children: [
+              const DialogTag('Patron', tone: DialogTagTone.premium),
+              Flexible(
+                child: Text(
+                  (onUpgrade == null ? 'Coming soon' : 'Patron seats').toUpperCase(),
+                  textScaler: dialogHeadingScaler(context),
+                  style: PTText.label,
+                ),
+              ),
+            ],
+          ),
         GlassDialogHeader(
+          eyebrow: onSignIn == null ? null : 'Take your seat',
           title: headline,
-          titleStyle: PTText.cardHeading,
-          spacing: 13,
-          leading: Container(
-            width: 46,
-            height: 46,
-            decoration: BoxDecoration(
-              gradient: PTColors.brandGradient,
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: const Icon(
-              Symbols.workspace_premium_rounded,
-              size: 24,
-              fill: 1,
-              color: Colors.white,
-            ),
+          subtitle: body,
+          titleGap: 6,
+          subtitleStyle: PTText.body.copyWith(
+            fontSize: 14,
+            color: PTColors.white(0.62),
+            height: 1.5,
           ),
         ),
-        Text(
-          body,
-          style: PTText.body.copyWith(fontSize: 14, color: PTColors.white(0.6), height: 1.55),
-        ),
+        // Hairline-ruled perks, a programme rather than a feature grid.
         Column(
-          crossAxisAlignment: .start,
-          spacing: 9,
+          crossAxisAlignment: .stretch,
           children: [
-            for (final perk in perks)
-              Row(
-                spacing: 10,
-                children: [
-                  const Icon(
-                    Symbols.check_circle_rounded,
-                    size: 17,
-                    fill: 1,
-                    color: PTColors.textAccent,
+            for (final (i, perk) in perks.indexed)
+              Container(
+                padding: const EdgeInsets.symmetric(vertical: 9),
+                decoration: BoxDecoration(
+                  border: Border(
+                    top: i == 0 ? const BorderSide(color: PTColors.rail) : BorderSide.none,
+                    bottom: const BorderSide(color: PTColors.rail),
                   ),
-                  Expanded(
-                    child: Text(
-                      perk,
-                      style: PTText.body.copyWith(fontSize: 13, color: PTColors.white(0.72)),
+                ),
+                child: Row(
+                  spacing: 10,
+                  children: [
+                    Icon(
+                      Symbols.check_rounded,
+                      size: 17,
+                      color: onSignIn == null ? PTColors.premium : PTColors.online,
                     ),
-                  ),
-                ],
+                    Expanded(
+                      child: Text(
+                        perk,
+                        style: PTText.body.copyWith(fontSize: 13.5, color: PTColors.white(0.8)),
+                      ),
+                    ),
+                  ],
+                ),
               ),
           ],
         ),
@@ -238,25 +310,22 @@ class PremiumTeaseDialog extends StatelessWidget {
 
   Widget _teaseActions(BuildContext context) {
     if (_isDesktop) {
-      return PTButtonBar(
-        spacing: 11,
-        buttons: [
-          PTButton(
-            maxLines: 2,
-            label: 'Maybe later',
-            variant: .secondary,
-            height: 48,
-            onPressed: () => Navigator.of(context).pop(),
-          ),
-          PTButton(
-            maxLines: 2,
-            label: 'Go Premium',
-            icon: Symbols.crown_rounded,
-            height: 48,
-            onPressed: () {
-              Navigator.of(context).pop();
-              (onUpgrade ?? onNotify)?.call();
-            },
+      // The label says what the button does: a real upgrade where one is
+      // wired, the waitlist only where that is all there is.
+      return Row(
+        spacing: 16,
+        children: [
+          DialogTextButton(label: 'Maybe later', onPressed: () => Navigator.of(context).pop()),
+          Expanded(
+            child: PTButton(
+              maxLines: 2,
+              label: onUpgrade != null ? 'Get a Patron seat' : 'Keep me posted',
+              height: 48,
+              onPressed: () {
+                Navigator.of(context).pop();
+                (onUpgrade ?? onNotify)?.call();
+              },
+            ),
           ),
         ],
       );
@@ -267,18 +336,9 @@ class PremiumTeaseDialog extends StatelessWidget {
       crossAxisAlignment: .stretch,
       spacing: 11,
       children: [
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-          decoration: BoxDecoration(
-            color: PTColors.white(0.04),
-            border: Border.all(color: PTColors.white(0.08)),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Text(
-            'Subscriptions are managed on our website.',
-            textAlign: TextAlign.center,
-            style: PTText.body.copyWith(fontSize: 13, color: PTColors.white(0.7)),
-          ),
+        const DialogNote(
+          icon: Symbols.info_rounded,
+          child: Text('Subscriptions are managed on our website.'),
         ),
         PTButton(
           maxLines: 2,
@@ -314,12 +374,13 @@ class PremiumTeaseDialog extends StatelessWidget {
               onSignIn?.call();
             },
           ),
-        PTButton(
-          maxLines: 2,
-          label: 'Maybe later',
-          variant: .secondary,
-          height: 48,
-          onPressed: () => Navigator.of(context).pop(),
+        // Apple stays beside Google: on Apple platforms Sign in with Apple
+        // must be offered wherever another social sign-in is.
+        Center(
+          child: DialogTextButton(
+            label: 'Maybe later',
+            onPressed: () => Navigator.of(context).pop(),
+          ),
         ),
       ],
     );

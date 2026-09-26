@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../ui/glass.dart';
+import '../../ui/pt_motion.dart';
 import '../../ui/pt_theme.dart';
 import '../rewards_logic.dart';
 import '../rewards_models.dart';
@@ -50,8 +51,17 @@ class BadgeShelf extends StatelessWidget {
         childAspectRatio: 0.84,
       ),
       itemCount: items.length,
-      itemBuilder: (context, i) =>
-          BadgeTile(achievement: items[i], progress: achievementProgress(items[i], state.metrics)),
+      // Tiles deal in with a short stagger, capped so a big shelf still
+      // finishes arriving inside half a second.
+      itemBuilder: (context, i) => PTEntrance(
+        delay: Duration(milliseconds: 25 * (i < 12 ? i : 12)),
+        duration: PTMotion.state,
+        offset: 6,
+        child: BadgeTile(
+          achievement: items[i],
+          progress: achievementProgress(items[i], state.metrics),
+        ),
+      ),
     );
   }
 }
@@ -99,11 +109,16 @@ class BadgeTile extends StatelessWidget {
                 if (!unlocked && progress > 0)
                   SizedBox.square(
                     dimension: 44,
-                    child: CircularProgressIndicator(
-                      value: progress,
-                      strokeWidth: 2,
-                      backgroundColor: PTColors.white(0.08),
-                      valueColor: AlwaysStoppedAnimation(PTColors.primary.withValues(alpha: 0.7)),
+                    child: TweenAnimationBuilder<double>(
+                      tween: Tween(begin: 0, end: progress),
+                      duration: PTMotion.functional(context, PTMotion.entrance),
+                      curve: PTMotion.enter,
+                      builder: (context, value, _) => CircularProgressIndicator(
+                        value: value,
+                        strokeWidth: 2,
+                        backgroundColor: PTColors.white(0.08),
+                        valueColor: AlwaysStoppedAnimation(PTColors.primary.withValues(alpha: 0.7)),
+                      ),
                     ),
                   ),
               ],

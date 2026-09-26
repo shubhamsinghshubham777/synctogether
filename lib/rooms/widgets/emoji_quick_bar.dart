@@ -231,9 +231,8 @@ class _QuickBarEditorState extends State<_QuickBarEditor> {
         );
         final grid = DecoratedBox(
           decoration: BoxDecoration(
-            color: PTColors.white(0.04),
-            border: Border.all(color: PTColors.white(0.08)),
-            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: PTColors.rail),
+            borderRadius: BorderRadius.circular(PTRadius.panel),
           ),
           child: EmojiPicker(
             prefs: widget.prefs,
@@ -247,6 +246,7 @@ class _QuickBarEditorState extends State<_QuickBarEditor> {
             if (!bare)
               GlassDialogHeader(
                 onClose: () => Navigator.of(context).pop(),
+                eyebrow: compact ? null : 'Chat',
                 title: 'Quick emoji',
                 subtitle: compact
                     ? null

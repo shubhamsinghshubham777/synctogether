@@ -236,8 +236,8 @@ class _CameraCaptureDialogState extends State<CameraCaptureDialog> {
       crossAxisAlignment: .stretch,
       children: [
         GlassDialogHeader(
+          eyebrow: 'Headshot',
           title: 'Take Profile Photo',
-          titleStyle: PTText.cardHeading.copyWith(fontSize: 17),
           closeSize: 32,
           onClose: () => Navigator.of(context).pop(),
         ),
@@ -250,18 +250,10 @@ class _CameraCaptureDialogState extends State<CameraCaptureDialog> {
         if (_cameras.isNotEmpty) ...[const SizedBox(height: 16), _buildCameraSelector()],
         if (_error != null) ...[
           const SizedBox(height: 16),
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: PTColors.white(0.04),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: PTColors.dangerBorder.withValues(alpha: 0.3)),
-            ),
-            child: Text(
-              _error!,
-              textAlign: TextAlign.center,
-              style: PTText.finePrint.copyWith(color: PTColors.dangerBorder, height: 1.4),
-            ),
+          DialogNote(
+            tone: DialogNoteTone.danger,
+            icon: Symbols.videocam_off_rounded,
+            child: Text(_error!, style: const TextStyle(color: PTColors.danger)),
           ),
         ],
         const SizedBox(height: 24),
@@ -298,13 +290,12 @@ class _CameraCaptureDialogState extends State<CameraCaptureDialog> {
       height: 44,
       padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
-        color: PTColors.white(0.05),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: PTColors.white(0.1)),
+        borderRadius: BorderRadius.circular(PTRadius.control),
+        border: Border.all(color: PTColors.rail),
       ),
       child: Row(
         children: [
-          const Icon(Symbols.videocam_rounded, size: 18, color: PTColors.textAccent),
+          Icon(Symbols.videocam_rounded, size: 18, color: PTColors.white(0.6)),
           const SizedBox(width: 10),
           Expanded(
             child: DropdownButtonHideUnderline(
@@ -312,12 +303,12 @@ class _CameraCaptureDialogState extends State<CameraCaptureDialog> {
                 isExpanded: true,
                 value: value,
                 dropdownColor: PTColors.menuSurface,
-                icon: const Icon(
+                icon: Icon(
                   Symbols.keyboard_arrow_down_rounded,
                   size: 18,
-                  color: PTColors.textAccent,
+                  color: PTColors.white(0.6),
                 ),
-                style: PTText.body.copyWith(fontSize: 13, color: Colors.white),
+                style: PTText.body.copyWith(fontSize: 13, color: PTColors.fg),
                 items: [
                   for (int i = 0; i < _cameras.length; i++)
                     DropdownMenuItem<String>(

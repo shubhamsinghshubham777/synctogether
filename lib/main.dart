@@ -37,6 +37,7 @@ import 'package:window_manager/window_manager.dart';
 
 const bool kCaptureStore = bool.fromEnvironment('CAPTURE_STORE', defaultValue: false);
 const bool kCaptureWebsite = bool.fromEnvironment('CAPTURE_WEBSITE', defaultValue: false);
+const bool kCaptureReview = bool.fromEnvironment('CAPTURE_REVIEW', defaultValue: false);
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -144,7 +145,9 @@ class _MainAppState extends State<MainApp> with WidgetsBindingObserver {
     _appLinks.getInitialLink().then((uri) {
       if (uri != null) _onDeepLink(uri, source: 'cold_start');
     });
-    if (kCaptureWebsite) {
+    if (kCaptureReview) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => runReviewCaptureFlow(router));
+    } else if (kCaptureWebsite) {
       WidgetsBinding.instance.addPostFrameCallback((_) => runWebsiteCaptureFlow(router));
     } else if (kCaptureStore) {
       WidgetsBinding.instance.addPostFrameCallback((_) {

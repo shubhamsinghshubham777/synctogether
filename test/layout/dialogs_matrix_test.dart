@@ -153,7 +153,7 @@ void main() {
   glass(
     'premium-tease',
     (_) => PremiumTeaseDialog(
-      headline: 'Keep the party going longer',
+      headline: 'Get a Patron seat',
       body: 'Premium rooms run for up to 24 hours and fit sixteen people.',
       perks: const [
         'Rooms that run for 24 hours',
@@ -214,6 +214,7 @@ void main() {
     ),
   );
   opener('turnstile', (ctx) => showTurnstileDialog(ctx));
+  opener('turnstile-loading', (ctx) => showTurnstileDialog(ctx, previewLoading: true));
   opener(
     'av-settings',
     (ctx) => showAvSettingsDialog(

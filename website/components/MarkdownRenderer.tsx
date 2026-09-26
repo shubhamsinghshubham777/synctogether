@@ -36,7 +36,7 @@ function CodeSnippet({ code, language }: CodeSnippetProps) {
     : "SNIPPET";
 
   return (
-    <div className="my-3 rounded-xl border border-purple-500/20 bg-[#0B0914]/90 overflow-hidden shadow-lg shadow-purple-950/20">
+    <div className="my-3 rounded-xl border border-purple-500/20 bg-[#121010]/90 overflow-hidden shadow-lg shadow-purple-950/20">
       <div className="flex items-center justify-between px-3.5 py-2 bg-purple-950/40 border-b border-purple-500/15 text-xs text-gray-400 font-mono">
         <div className="flex items-center gap-2">
           {isShell ? (

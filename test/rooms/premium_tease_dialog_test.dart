@@ -47,7 +47,7 @@ void main() {
       await _open(tester, onSignIn: () {});
 
       expect(find.text('Sign in with Google'), findsOneWidget);
-      expect(find.text('Go Premium'), findsNothing);
+      expect(find.text('Get a Patron seat'), findsNothing);
       expect(find.text('Maybe later'), findsOneWidget);
     });
 
@@ -62,26 +62,37 @@ void main() {
       expect(find.byType(PremiumTeaseDialog), findsNothing);
     });
 
-    testWidgets('offers Go Premium on desktop', (tester) async {
+    testWidgets('offers a Patron seat on desktop', (tester) async {
       var upgraded = 0;
       await _open(tester, desktopOverride: true, onUpgrade: () => upgraded++);
 
       expect(find.text('Sign in with Google'), findsNothing);
-      expect(find.text('Go Premium'), findsOneWidget);
+      expect(find.text('Get a Patron seat'), findsOneWidget);
       expect(find.text('Maybe later'), findsOneWidget);
 
-      await tester.tap(find.text('Go Premium'));
+      await tester.tap(find.text('Get a Patron seat'));
       await tester.pumpAndSettle();
 
       expect(upgraded, 1);
       expect(find.byType(PremiumTeaseDialog), findsNothing);
     });
 
+    testWidgets('says "Keep me posted" only for the waitlist shape', (tester) async {
+      var notified = 0;
+      await _open(tester, desktopOverride: true, onNotify: () => notified++);
+
+      expect(find.text('Keep me posted'), findsOneWidget);
+      expect(find.text('COMING SOON'), findsOneWidget);
+      await tester.tap(find.text('Keep me posted'));
+      await tester.pumpAndSettle();
+      expect(notified, 1);
+    });
+
     testWidgets('renders plain text on mobile', (tester) async {
       await _open(tester, desktopOverride: false);
 
       expect(find.text('Sign in with Google'), findsNothing);
-      expect(find.text('Go Premium'), findsNothing);
+      expect(find.text('Get a Patron seat'), findsNothing);
       expect(find.text('Subscriptions are managed on our website.'), findsOneWidget);
       expect(find.text('Close'), findsOneWidget);
 

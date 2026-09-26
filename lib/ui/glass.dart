@@ -1,5 +1,4 @@
 import 'dart:math' as math;
-import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
@@ -9,30 +8,39 @@ import 'buttons.dart';
 import 'pt_motion.dart';
 import 'pt_theme.dart';
 
-/// Glass recipe: bg rgba(22,18,38,.5–.6) · blur(28–32) saturate(160%) ·
-/// border 1px white @ .13 · radius 20–28 · shadow 0 20 56 @ .5.
-/// Never stack glass on glass more than two deep.
+/// A Booth Light panel: an opaque Seat surface with a hairline Rail border.
+///
+/// The name survives from the glass system so every call site keeps working,
+/// but nothing blurs any more - elevation is lightness (Seat -> Aisle), not a
+/// BackdropFilter. That also retires the old trap where fading a panel made
+/// its blur sample an empty layer, and the per-frame cost of blurring over
+/// playing video.
+///
+/// [opacity] and [blur] are accepted for compatibility and ignored: a
+/// translucent panel with no blur would let the video bleed through the text.
+/// Radii are normalised onto the Booth scale ([PTRadius]): pills stay pills,
+/// anything else becomes a tight panel corner.
 class GlassPanel extends StatelessWidget {
   const GlassPanel({
     super.key,
     required this.child,
-    this.radius = 22,
-    this.opacity = 0.55,
-    this.blur = 28,
+    this.radius = PTRadius.panel,
+    this.opacity = 1,
+    this.blur = 0,
     this.baseColor,
     this.borderColor,
     this.padding,
-    this.shadow = true,
+    this.shadow = false,
     this.clipBehavior = Clip.antiAlias,
   });
 
-  /// Dialog-grade glass (denser, over a scrim).
+  /// Dialog panel: the same surface, lifted off the scrim by a soft shadow.
   const GlassPanel.dialog({
     super.key,
     required this.child,
-    this.radius = 24,
-    this.opacity = 0.78,
-    this.blur = 32,
+    this.radius = PTRadius.panel,
+    this.opacity = 1,
+    this.blur = 0,
     this.baseColor = PTColors.dialogGlassBase,
     this.borderColor,
     this.padding,
@@ -52,44 +60,31 @@ class GlassPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final borderRadius = BorderRadius.circular(radius);
+    final borderRadius = BorderRadius.circular(boothRadius(radius));
     return Container(
+      padding: padding,
+      clipBehavior: clipBehavior,
       decoration: BoxDecoration(
+        color: baseColor ?? PTColors.glassBase,
         borderRadius: borderRadius,
+        border: Border.all(color: borderColor ?? PTColors.rail),
         boxShadow: shadow
-            ? [BoxShadow(color: PTColors.black(0.5), blurRadius: 56, offset: const Offset(0, 20))]
+            ? const [BoxShadow(color: PTColors.shadowSoft, blurRadius: 40, offset: Offset(0, 16))]
             : null,
       ),
-      child: ClipRRect(
-        borderRadius: borderRadius,
-        clipBehavior: clipBehavior,
-        child: BackdropFilter(
-          filter: ImageFilter.compose(
-            outer: ImageFilter.blur(sigmaX: blur / 2, sigmaY: blur / 2),
-            inner: const ColorFilter.matrix(_saturation160),
-          ),
-          child: Container(
-            padding: padding,
-            decoration: BoxDecoration(
-              color: (baseColor ?? PTColors.glassBase).withValues(alpha: opacity),
-              borderRadius: borderRadius,
-              border: Border.all(color: borderColor ?? PTColors.white(0.13)),
-            ),
-            child: child,
-          ),
-        ),
-      ),
+      child: child,
     );
   }
 }
 
-// saturate(160%) as a color matrix (Rec. 709 luma weights).
-const _saturation160 = <double>[
-  0.8726, 0.4290, 0.0983, 0, 0, //
-  0.1274, 1.1741, 0.0983, 0, 0, //
-  0.1274, 0.4290, 1.4434, 0, 0, //
-  0, 0, 0, 1, 0,
-];
+/// Maps a legacy radius onto the Booth scale: pills stay pills, small
+/// corners stay small, everything else becomes [PTRadius.panel].
+@visibleForTesting
+double boothRadius(double radius) {
+  if (radius >= 100) return radius;
+  if (radius <= PTRadius.control) return radius;
+  return PTRadius.panel;
+}
 
 class GlassPill extends StatelessWidget {
   const GlassPill({
@@ -107,16 +102,10 @@ class GlassPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final pill = GlassPanel(
-      radius: 999,
-      opacity: opacity,
-      blur: 24,
-      padding: padding,
-      child: child,
-    );
+    // Named for its old shape. Booth Light keeps full pills for people and
+    // presence only, so chrome chips take the panel corner.
+    final pill = GlassPanel(radius: PTRadius.panel, padding: padding, child: child);
     if (onTap == null) return pill;
-    // Scale, never fade: PTPressable animates a Transform, which leaves the
-    // pill's BackdropFilter sampling a real backdrop.
     return MouseRegion(
       cursor: SystemMouseCursors.click,
       child: PTPressable(onTap: onTap, child: pill),
@@ -124,12 +113,9 @@ class GlassPill extends StatelessWidget {
   }
 }
 
-/// Ambient violet glow blobs behind empty screens (Login, Lobby, Profile).
-/// Never used in the room - nothing ambient may move near playing video.
-///
-/// Static atmospheric rendering allows Flutter to cache the backdrop raster
-/// layer once, dropping idle CPU from ~33% to ~0% and avoiding continuous
-/// multi-pass BackdropFilter re-blurring.
+/// The booth: a flat, warm canvas behind the lobby, login and profile. No
+/// glow or wash - the room is dark, and the only light in it is the one thing
+/// that is live.
 class AmbientBackground extends StatelessWidget {
   const AmbientBackground({super.key, required this.child});
 
@@ -139,48 +125,7 @@ class AmbientBackground extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: const BoxDecoration(color: PTColors.screenBg),
-      child: Stack(
-        fit: .expand,
-        clipBehavior: Clip.hardEdge,
-        children: [
-          const Positioned(
-            top: -180,
-            left: -120,
-            child: _GlowBlob(size: 640, color: PTColors.glowDeep, blur: 110),
-          ),
-          const Positioned(
-            bottom: -220,
-            right: -100,
-            child: _GlowBlob(size: 720, color: PTColors.glowEnd, blur: 120),
-          ),
-          const Positioned(
-            top: 270,
-            right: 300,
-            child: _GlowBlob(size: 280, color: PTColors.glowIndigo, blur: 90),
-          ),
-          child,
-        ],
-      ),
-    );
-  }
-}
-
-class _GlowBlob extends StatelessWidget {
-  const _GlowBlob({required this.size, required this.color, required this.blur});
-
-  final double size;
-  final Color color;
-  final double blur;
-
-  @override
-  Widget build(BuildContext context) {
-    return ImageFiltered(
-      imageFilter: ImageFilter.blur(sigmaX: blur / 2, sigmaY: blur / 2),
-      child: Container(
-        width: size,
-        height: size,
-        decoration: BoxDecoration(shape: .circle, color: color),
-      ),
+      child: child,
     );
   }
 }
@@ -226,8 +171,16 @@ Future<T?> showGlassDialog<T>({
     pageBuilder: (context, _, _) {
       final mq = MediaQuery.of(context);
       final sheet = isSheet(context);
-      final inset = glassDialogInsets(mq);
       final bodyPadding = glassDialogPadding(padding, mq.size.width);
+      Widget body(EdgeInsets extra) {
+        final p = bodyPadding + extra;
+        return scrollable
+            ? SingleChildScrollView(padding: p, child: builder(context))
+            : Padding(padding: p, child: builder(context));
+      }
+
+      if (sheet) return _GlassSheet(mq: mq, body: body);
+      final inset = glassDialogInsets(mq);
       return AnimatedPadding(
         duration: PTMotion.functional(context, PTMotion.state),
         curve: PTMotion.enter,
@@ -242,17 +195,12 @@ Future<T?> showGlassDialog<T>({
             removeLeft: true,
             removeRight: true,
             child: Align(
-              alignment: sheet ? .bottomCenter : alignment,
+              alignment: alignment,
               child: ConstrainedBox(
-                constraints: BoxConstraints(maxWidth: sheet ? double.infinity : width),
+                constraints: BoxConstraints(maxWidth: width),
                 child: Material(
                   type: .transparency,
-                  child: GlassPanel.dialog(
-                    padding: scrollable ? null : bodyPadding,
-                    child: scrollable
-                        ? SingleChildScrollView(padding: bodyPadding, child: builder(context))
-                        : builder(context),
-                  ),
+                  child: GlassPanel.dialog(child: body(EdgeInsets.zero)),
                 ),
               ),
             ),
@@ -266,23 +214,109 @@ Future<T?> showGlassDialog<T>({
         curve: PTMotion.enter,
         reverseCurve: PTMotion.exit,
       );
-      // Scale for a centred dialog, slide for a sheet. The fade is on the
-      // route (scrim + panel together), not on the glass, which keeps the
-      // panel's BackdropFilter sampling a real backdrop once it lands.
+      // Scale for a centred dialog, slide for a sheet - house lights, not a
+      // pop. The scrim darkens the room; nothing blurs behind it.
       final Widget moved = isSheet(context)
           ? SlideTransition(
               position: Tween(begin: const Offset(0, 0.12), end: Offset.zero).animate(curved),
               child: child,
             )
           : ScaleTransition(scale: Tween(begin: 0.96, end: 1.0).animate(curved), child: child);
-      final faded = FadeTransition(opacity: curved, child: moved);
-      if (!dimBackground) return faded;
-      return BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 6 * animation.value, sigmaY: 6 * animation.value),
-        child: faded,
-      );
+      return FadeTransition(opacity: curved, child: moved);
     },
   );
+}
+
+/// The compact form of a `sheetOnCompact` dialog: full width, docked to the
+/// bottom edge (or the keyboard's top), 6px top corners over a Rail top edge,
+/// and a drag handle - a downward fling dismisses it like any sheet. The
+/// bottom safe area pads the content rather than the surface, so the Seat
+/// runs under the home indicator while the actions stay above it.
+/// Finds the compact sheet's surface in tests.
+@visibleForTesting
+const kGlassSheetKey = ValueKey('glass-sheet');
+
+class _GlassSheet extends StatelessWidget {
+  const _GlassSheet({required this.mq, required this.body});
+
+  final MediaQueryData mq;
+  final Widget Function(EdgeInsets extra) body;
+
+  @override
+  Widget build(BuildContext context) {
+    final keyboard = mq.viewInsets.bottom;
+    final keyboardUp = keyboard > mq.viewPadding.bottom;
+    return AnimatedPadding(
+      duration: PTMotion.functional(context, PTMotion.state),
+      curve: PTMotion.enter,
+      padding: EdgeInsets.only(
+        top: mq.viewPadding.top + _gutter,
+        bottom: keyboardUp ? keyboard : 0,
+      ),
+      child: MediaQuery.removeViewInsets(
+        context: context,
+        removeBottom: true,
+        child: MediaQuery.removePadding(
+          context: context,
+          removeTop: true,
+          removeBottom: true,
+          removeLeft: true,
+          removeRight: true,
+          child: Align(
+            alignment: .bottomCenter,
+            child: Material(
+              type: .transparency,
+              child: Container(
+                key: kGlassSheetKey,
+                clipBehavior: Clip.antiAlias,
+                decoration: const BoxDecoration(
+                  color: PTColors.dialogGlassBase,
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(PTRadius.panel)),
+                  border: Border(top: BorderSide(color: PTColors.rail)),
+                  boxShadow: [
+                    BoxShadow(color: PTColors.shadowSoft, blurRadius: 40, offset: Offset(0, -8)),
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: .min,
+                  children: [
+                    GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onVerticalDragEnd: (d) {
+                        if ((d.primaryVelocity ?? 0) > 300) Navigator.of(context).maybePop();
+                      },
+                      child: Padding(
+                        padding: const EdgeInsets.only(top: 8, bottom: 2),
+                        child: Center(
+                          child: Container(
+                            width: 36,
+                            height: 4,
+                            decoration: BoxDecoration(
+                              color: PTColors.rail,
+                              borderRadius: BorderRadius.circular(2),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    Flexible(
+                      child: body(
+                        EdgeInsets.only(
+                          left: mq.viewPadding.left,
+                          right: mq.viewPadding.right,
+                          bottom: keyboardUp ? 0 : mq.viewPadding.bottom,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 /// Below this width a `sheetOnCompact` dialog presents as a bottom sheet.
@@ -343,6 +377,8 @@ class GlassDialogHeader extends StatelessWidget {
   const GlassDialogHeader({
     super.key,
     required this.title,
+    this.eyebrow,
+    this.eyebrowColor,
     this.subtitle,
     this.leading,
     this.onClose,
@@ -355,7 +391,7 @@ class GlassDialogHeader extends StatelessWidget {
     this.closeIconSize = 18,
     this.spacing = 12,
     this.titleGap = 2,
-    this.closeGlass = true,
+    this.closeGlass = false,
   });
 
   /// Whether the close button draws its glass disc.
@@ -365,6 +401,14 @@ class GlassDialogHeader extends StatelessWidget {
   final double titleGap;
 
   final String title;
+
+  /// A mono uppercase kicker above the title (`// EYEBROW`), the Booth Light
+  /// replacement for the old tinted icon tile. Pass it in any case; it is
+  /// uppercased here.
+  final String? eyebrow;
+
+  /// Signal for a refusal, Brass for a Patron prompt; muted by default.
+  final Color? eyebrowColor;
   final String? subtitle;
 
   /// Replaces [subtitle] when the line needs more than plain text.
@@ -383,7 +427,8 @@ class GlassDialogHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final style = titleStyle ?? PTText.screenTitle.copyWith(fontSize: 20);
+    final style =
+        titleStyle ?? PTText.screenTitle.copyWith(fontSize: 22, height: 1.1, letterSpacing: -0.6);
     final scaler = dialogHeadingScaler(context);
     final align = centered ? TextAlign.center : TextAlign.start;
     return LayoutBuilder(
@@ -408,6 +453,16 @@ class GlassDialogHeader extends StatelessWidget {
           mainAxisSize: .min,
           spacing: titleGap,
           children: [
+            if (eyebrow != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: Text(
+                  eyebrow!.toUpperCase(),
+                  textAlign: align,
+                  textScaler: scaler,
+                  style: PTText.label.copyWith(color: eyebrowColor),
+                ),
+              ),
             Text(title, textAlign: align, textScaler: scaler, style: style),
             if (subtitleWidget != null)
               subtitleWidget!
@@ -416,7 +471,9 @@ class GlassDialogHeader extends StatelessWidget {
           ],
         );
         return Row(
-          crossAxisAlignment: wraps ? .start : .center,
+          // An eyebrow makes the block two lines, so the close button pins to
+          // the top corner beside it rather than floating mid-block.
+          crossAxisAlignment: wraps || eyebrow != null ? .start : .center,
           spacing: spacing,
           children: [
             if (leading != null) leading!,
@@ -438,4 +495,352 @@ class GlassDialogHeader extends StatelessWidget {
       },
     );
   }
+}
+
+/// What a [DialogNote] is about, which decides its rule colour.
+enum DialogNoteTone { neutral, premium, danger, live }
+
+/// A note inside a dialog: a Rail-outlined box (Brass for Patron, Signal for
+/// a warning) instead of the old tinted Beam fill. Tinted boxes read as
+/// buttons in Booth Light, where fill is spent on the one lit control.
+class DialogNote extends StatelessWidget {
+  const DialogNote({
+    super.key,
+    required this.child,
+    this.icon,
+    this.tone = DialogNoteTone.neutral,
+    this.padding = const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+  });
+
+  final Widget child;
+  final IconData? icon;
+  final DialogNoteTone tone;
+  final EdgeInsetsGeometry padding;
+
+  @override
+  Widget build(BuildContext context) {
+    final (Color border, Color ink) = switch (tone) {
+      DialogNoteTone.neutral => (PTColors.rail, PTColors.white(0.6)),
+      DialogNoteTone.premium => (PTColors.premiumBorder, PTColors.premium),
+      DialogNoteTone.danger => (PTColors.dangerBorder.withValues(alpha: 0.6), PTColors.danger),
+      DialogNoteTone.live => (PTColors.accentBorderSoft, PTColors.primary),
+    };
+    return Container(
+      width: double.infinity,
+      padding: padding,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(PTRadius.panel),
+        border: Border.all(color: border),
+      ),
+      child: DefaultTextStyle.merge(
+        style: PTText.body.copyWith(fontSize: 13, height: 1.45, color: PTColors.white(0.78)),
+        child: icon == null
+            ? child
+            : Row(
+                crossAxisAlignment: .start,
+                spacing: 10,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.only(top: 1),
+                    child: Icon(icon, size: 18, color: ink),
+                  ),
+                  Expanded(child: child),
+                ],
+              ),
+      ),
+    );
+  }
+}
+
+/// A selectable row in a dialog list: square-cornered ([PTRadius.control]),
+/// hairline-ruled, with a Beam edge and check when selected. Replaces the old
+/// rounded pill chips and tinted cards - pills are for people now.
+class DialogOptionRow extends StatefulWidget {
+  const DialogOptionRow({
+    super.key,
+    required this.label,
+    required this.onTap,
+    this.description,
+    this.icon,
+    this.selected = false,
+    this.trailing,
+    this.chevron = false,
+    this.labelStyle,
+    this.iconTile = false,
+    this.borderless = false,
+  });
+
+  /// Sets [icon] on a 36px Booth tile in Beam, for a row that is one of a
+  /// few big choices (the source picker) rather than an item in a list.
+  final bool iconTile;
+
+  /// Drops the Rail hairline while unselected: the row only earns an edge
+  /// (Beam) when it is the selected one. For long lists of options.
+  final bool borderless;
+
+  final String label;
+  final String? description;
+  final IconData? icon;
+  final bool selected;
+  final VoidCallback? onTap;
+
+  /// Replaces the check mark / chevron on the right.
+  final Widget? trailing;
+
+  /// Shows a chevron (a row that leads somewhere) when not selected.
+  final bool chevron;
+  final TextStyle? labelStyle;
+
+  @override
+  State<DialogOptionRow> createState() => _DialogOptionRowState();
+}
+
+class _DialogOptionRowState extends State<DialogOptionRow> {
+  bool _hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final enabled = widget.onTap != null;
+    final selected = widget.selected;
+    final lit = selected || (_hovered && enabled);
+    final trailing =
+        widget.trailing ??
+        (selected
+            ? const Icon(Symbols.check_rounded, size: 18, color: PTColors.primary)
+            : widget.chevron
+            ? Icon(Symbols.chevron_right_rounded, size: 18, color: PTColors.white(0.4))
+            : null);
+    return Semantics(
+      button: true,
+      selected: selected,
+      enabled: enabled,
+      child: MouseRegion(
+        cursor: enabled ? SystemMouseCursors.click : MouseCursor.defer,
+        onEnter: (_) => setState(() => _hovered = true),
+        onExit: (_) => setState(() => _hovered = false),
+        child: PTPressable(
+          onTap: widget.onTap,
+          pressedScale: 0.99,
+          child: AnimatedContainer(
+            duration: PTMotion.functional(context, PTMotion.hover),
+            curve: PTMotion.enter,
+            width: double.infinity,
+            padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
+            decoration: BoxDecoration(
+              color: lit ? PTColors.aisle : Colors.transparent,
+              borderRadius: BorderRadius.circular(PTRadius.control),
+              border: Border.all(
+                color: selected
+                    ? PTColors.primary
+                    : widget.borderless
+                    ? Colors.transparent
+                    : PTColors.rail,
+              ),
+            ),
+            child: Opacity(
+              opacity: enabled ? 1 : 0.45,
+              child: Row(
+                spacing: 12,
+                children: [
+                  if (widget.icon != null && widget.iconTile)
+                    Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: PTColors.canvas,
+                        borderRadius: BorderRadius.circular(PTRadius.control),
+                      ),
+                      child: Icon(widget.icon, size: 20, color: PTColors.primary),
+                    )
+                  else if (widget.icon != null)
+                    Icon(
+                      widget.icon,
+                      size: 20,
+                      color: selected ? PTColors.primary : PTColors.white(0.7),
+                    ),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: .start,
+                      mainAxisSize: .min,
+                      spacing: 2,
+                      children: [
+                        Text(
+                          widget.label,
+                          style:
+                              widget.labelStyle ??
+                              PTText.body.copyWith(
+                                fontSize: 14.5,
+                                fontWeight: .w600,
+                                color: selected ? PTColors.fg : PTColors.white(0.88),
+                              ),
+                        ),
+                        if (widget.description != null)
+                          Text(widget.description!, style: PTText.caption.copyWith(fontSize: 12.5)),
+                      ],
+                    ),
+                  ),
+                  ?trailing,
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// A quiet dialog action: underlined text, no box. For "Maybe later",
+/// "Reset" and the Brass Patron nudge - the things a dialog offers beside
+/// its one lit button without competing with it.
+class DialogTextButton extends StatefulWidget {
+  const DialogTextButton({
+    super.key,
+    required this.label,
+    required this.onPressed,
+    this.color,
+    this.underline = true,
+    this.fontSize = 14,
+    this.textAlign = TextAlign.center,
+  });
+
+  final String label;
+  final VoidCallback? onPressed;
+
+  /// Defaults to Screen; pass [PTColors.premium] for a Patron nudge.
+  final Color? color;
+  final bool underline;
+  final double fontSize;
+  final TextAlign textAlign;
+
+  @override
+  State<DialogTextButton> createState() => _DialogTextButtonState();
+}
+
+class _DialogTextButtonState extends State<DialogTextButton> {
+  bool _hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final enabled = widget.onPressed != null;
+    final ink = widget.color ?? PTColors.fg;
+    return Semantics(
+      button: true,
+      enabled: enabled,
+      child: MouseRegion(
+        cursor: enabled ? SystemMouseCursors.click : MouseCursor.defer,
+        onEnter: (_) => setState(() => _hovered = true),
+        onExit: (_) => setState(() => _hovered = false),
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: widget.onPressed,
+          child: ConstrainedBox(
+            // A touch-sized hit area around a text-sized label.
+            constraints: const BoxConstraints(minHeight: 36),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+              child: AnimatedOpacity(
+                duration: PTMotion.functional(context, PTMotion.hover),
+                opacity: !enabled ? 0.4 : (_hovered ? 1 : 0.88),
+                child: Text(
+                  widget.label,
+                  textAlign: widget.textAlign,
+                  style: PTText.body.copyWith(
+                    fontSize: widget.fontSize,
+                    fontWeight: .w600,
+                    color: ink,
+                    decoration: widget.underline ? TextDecoration.underline : null,
+                    decorationColor: ink.withValues(alpha: 0.6),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// What a [DialogTag] marks, which decides its ink.
+enum DialogTagTone { neutral, premium, host }
+
+/// A small square mono tag: HOST (inverted paper), PATRON (Brass hairline),
+/// PICTURE (Rail). Uppercased here.
+class DialogTag extends StatelessWidget {
+  const DialogTag(this.label, {super.key, this.tone = DialogTagTone.neutral});
+
+  final String label;
+  final DialogTagTone tone;
+
+  @override
+  Widget build(BuildContext context) {
+    final (Color? fill, Color border, Color ink) = switch (tone) {
+      DialogTagTone.neutral => (null, PTColors.rail, PTColors.white(0.55)),
+      DialogTagTone.premium => (null, PTColors.premiumBorder, PTColors.premium),
+      DialogTagTone.host => (PTColors.fg, PTColors.fg, PTColors.canvas),
+    };
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+      decoration: BoxDecoration(
+        color: fill,
+        border: Border.all(color: border),
+        borderRadius: BorderRadius.circular(2),
+      ),
+      child: Text(
+        label.toUpperCase(),
+        maxLines: 1,
+        style: PTText.label.copyWith(
+          fontSize: 9.5,
+          letterSpacing: 1.1,
+          fontWeight: .w600,
+          color: ink,
+        ),
+      ),
+    );
+  }
+}
+
+/// A dashed hairline outline - a rounded rect, or a circle with [circle] -
+/// for a file stub or a crop guide. Static; it paints once.
+class DashedRectPainter extends CustomPainter {
+  const DashedRectPainter({
+    required this.color,
+    this.radius = 0,
+    this.circle = false,
+    this.dash = 4,
+    this.gap = 3,
+    this.strokeWidth = 1,
+  });
+
+  final Color color;
+  final double radius;
+  final bool circle;
+  final double dash;
+  final double gap;
+  final double strokeWidth;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rect = (Offset.zero & size).deflate(strokeWidth / 2);
+    final path = Path();
+    if (circle) {
+      path.addOval(rect);
+    } else {
+      path.addRRect(RRect.fromRectAndRadius(rect, Radius.circular(radius)));
+    }
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth;
+    for (final metric in path.computeMetrics()) {
+      for (var d = 0.0; d < metric.length; d += dash + gap) {
+        canvas.drawPath(metric.extractPath(d, math.min(d + dash, metric.length)), paint);
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(DashedRectPainter old) =>
+      old.color != color || old.radius != radius || old.circle != circle;
 }

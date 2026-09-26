@@ -11,6 +11,7 @@ import 'package:synctogether/player/youtube/youtube_links.dart';
 import 'package:synctogether/rooms/emoji/emoji_logic.dart';
 import 'package:synctogether/rooms/emoji/emoji_prefs.dart';
 import 'package:synctogether/sync/sync_service.dart';
+import 'package:synctogether/ui/booth.dart';
 import 'package:synctogether/ui/buttons.dart';
 import 'package:synctogether/ui/glass.dart';
 import 'package:synctogether/ui/identity.dart';
@@ -50,6 +51,8 @@ class RoomChatPanel extends StatefulWidget {
     this.onPlaySharedVideo,
     this.onReportMessage,
     this.embedded = false,
+    this.docked = false,
+    this.roster,
     this.premiumMembers = const {},
     this.memberFrames = const {},
   });
@@ -69,8 +72,31 @@ class RoomChatPanel extends StatefulWidget {
   /// Embedded (mobile portrait) skips its own glass shell + close button.
   final bool embedded;
 
+  /// Docked into the theatre layout's right column: a flat Seat column with a
+  /// Rail edge instead of a floating panel. Keeps its close button.
+  final bool docked;
+
+  /// Who is in the room, drawn as the header in place of "Party chat" - each
+  /// seat's ring turns Cue as they clear the gate. Null keeps the plain header.
+  final List<ChatRosterSeat>? roster;
+
   @override
   State<RoomChatPanel> createState() => _RoomChatPanelState();
+}
+
+/// One avatar in the chat panel's "In the room" roster.
+class ChatRosterSeat {
+  const ChatRosterSeat({
+    required this.member,
+    required this.ready,
+    this.premium = false,
+    this.frame,
+  });
+
+  final PresentMember member;
+  final bool ready;
+  final bool premium;
+  final AvatarFrame? frame;
 }
 
 class _RoomChatPanelState extends State<RoomChatPanel> {
@@ -350,6 +376,15 @@ class _RoomChatPanelState extends State<RoomChatPanel> {
     );
 
     if (widget.embedded) return content;
+    if (widget.docked) {
+      return DecoratedBox(
+        decoration: const BoxDecoration(
+          color: PTColors.glassBase,
+          border: Border(left: BorderSide(color: PTColors.aisle)),
+        ),
+        child: content,
+      );
+    }
     return GlassPanel(
       radius: 22,
       opacity: 0.6,
@@ -362,7 +397,9 @@ class _RoomChatPanelState extends State<RoomChatPanel> {
   Widget _content({required bool showHeader, required bool tight, required bool quickBar}) {
     return Column(
       children: [
-        if (showHeader)
+        if (showHeader && widget.roster != null)
+          _rosterHeader(widget.roster!)
+        else if (showHeader)
           Container(
             padding: EdgeInsets.fromLTRB(18, widget.embedded ? 12 : 16, 18, 12),
             decoration: BoxDecoration(
@@ -462,6 +499,81 @@ class _RoomChatPanelState extends State<RoomChatPanel> {
     );
   }
 
+  /// "IN THE ROOM · 4" over a row of seats. One line that scrolls sideways
+  /// rather than wrapping: a sixteen-seat room must not eat the chat's height.
+  Widget _rosterHeader(List<ChatRosterSeat> seats) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(20, 14, 12, 14),
+      decoration: const BoxDecoration(
+        border: Border(bottom: BorderSide(color: PTColors.aisle)),
+      ),
+      child: Column(
+        crossAxisAlignment: .start,
+        spacing: 10,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'IN THE ROOM · ${seats.length}',
+                  maxLines: 1,
+                  overflow: .ellipsis,
+                  style: PTText.label,
+                ),
+              ),
+              if (!widget.embedded)
+                PTIconButton(
+                  icon: Symbols.close_rounded,
+                  glass: false,
+                  size: 30,
+                  iconSize: 18,
+                  color: PTColors.white(0.6),
+                  tooltip: 'Close chat (C)',
+                  onPressed: widget.onClose,
+                ),
+            ],
+          ),
+          SizedBox(
+            height: 42,
+            child: ListView.separated(
+              scrollDirection: .horizontal,
+              padding: EdgeInsets.zero,
+              itemCount: seats.length,
+              separatorBuilder: (_, _) => const SizedBox(width: 10),
+              itemBuilder: (context, i) {
+                final seat = seats[i];
+                final m = seat.member;
+                return Tooltip(
+                  message: [
+                    m.displayName,
+                    if (m.isHost) 'host',
+                    seat.ready ? 'ready' : 'getting ready',
+                  ].join(' · '),
+                  child: Center(
+                    child: ReadyRing(
+                      diameter: 34,
+                      ready: seat.ready,
+                      premium: seat.premium,
+                      clip: false,
+                      child: PTAvatar(
+                        userId: m.userId,
+                        displayName: m.displayName,
+                        avatarUrl: m.avatarUrl,
+                        size: 34,
+                        premium: seat.premium,
+                        frame: seat.frame,
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _composer({required bool tight, required bool quickBar}) {
     final length = _controller.text.runes.length;
     final composer = Container(
@@ -511,11 +623,9 @@ class _RoomChatPanelState extends State<RoomChatPanel> {
                   trigger: _limitShake,
                   child: Container(
                     decoration: BoxDecoration(
-                      color: PTColors.white(0.07),
-                      border: Border.all(color: PTColors.white(0.1)),
-                      // Not a pill: the field grows to four lines, and a 999
-                      // radius on a tall box pinches its corners into points.
-                      borderRadius: BorderRadius.circular(21),
+                      color: PTColors.canvas,
+                      border: Border.all(color: PTColors.rail),
+                      borderRadius: BorderRadius.circular(PTRadius.control),
                     ),
                     child: Row(
                       crossAxisAlignment: .end,
@@ -616,28 +726,39 @@ class _RoomChatPanelState extends State<RoomChatPanel> {
     ),
   );
 
-  Widget _sendButton() => MouseRegion(
-    cursor: SystemMouseCursors.click,
-    child: PTPressable(
-      onTap: _send,
-      pressedScale: 0.92,
-      child: Container(
-        width: _kSendExtent,
-        height: _kSendExtent,
-        decoration: BoxDecoration(
-          gradient: PTColors.buttonGradient,
-          shape: .circle,
-          boxShadow: [
-            BoxShadow(
-              color: PTColors.primary.withValues(alpha: 0.4),
-              blurRadius: 18,
-              offset: const Offset(0, 6),
+  /// Unlit until there is something to send, then Beam - the one lit thing
+  /// in the panel. Listens to the controller itself, so typing rebuilds only
+  /// this button.
+  Widget _sendButton() => ValueListenableBuilder(
+    valueListenable: _controller,
+    builder: (context, value, _) {
+      final lit = value.text.trim().isNotEmpty;
+      return MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: PTPressable(
+          onTap: _send,
+          pressedScale: 0.92,
+          child: AnimatedContainer(
+            duration: PTMotion.functional(context, PTMotion.hover),
+            curve: PTMotion.enter,
+            width: _kSendExtent,
+            height: _kSendExtent,
+            decoration: BoxDecoration(
+              color: lit ? PTColors.primary : Colors.transparent,
+              border: Border.all(color: lit ? PTColors.primary : PTColors.rail),
+              borderRadius: BorderRadius.circular(PTRadius.control),
+              boxShadow: lit ? PTColors.beamSpill : const [],
             ),
-          ],
+            child: Icon(
+              Symbols.send_rounded,
+              size: 19,
+              fill: 1,
+              color: lit ? PTColors.onAccent : PTColors.white(0.5),
+            ),
+          ),
         ),
-        child: const Icon(Symbols.send_rounded, size: 19, fill: 1, color: Colors.white),
-      ),
-    ),
+      );
+    },
   );
 
   /// Pointer: a glass popover above the composer's leading edge, sized to and
@@ -846,9 +967,14 @@ class _MessageRowState extends State<_MessageRow> {
     if (_bigEmoji) {
       return Text(widget.message.content.trim(), style: PTText.emoji.copyWith(fontSize: 34));
     }
-    final base = PTText.body.copyWith(fontSize: 13.5);
+    // Your own lines are printed on paper - Screen with Booth ink.
+    final base = PTText.body.copyWith(
+      fontSize: 14,
+      height: 1.35,
+      color: widget.own ? PTColors.canvas : PTColors.fg,
+    );
     if (_linkTaps.isEmpty) return Text(widget.message.content, style: base);
-    final linkColor = widget.own ? Colors.white : PTColors.textAccent;
+    final linkColor = widget.own ? PTColors.liveInk : PTColors.textAccent;
     final linkStyle = base.copyWith(
       color: linkColor,
       fontWeight: .w500,
@@ -969,26 +1095,25 @@ class _MessageRowState extends State<_MessageRow> {
                   overflow: .ellipsis,
                   style: TextStyle(
                     fontFamily: PTFonts.body,
-                    fontSize: 11,
+                    fontSize: 12,
                     fontWeight: .w600,
-                    color: PTColors.textAccent,
+                    color: PTColors.white(0.62),
                   ),
                 ),
               ),
               Container(
-                constraints: const BoxConstraints(maxWidth: 220),
+                constraints: const BoxConstraints(maxWidth: 240),
                 padding: _bigEmoji
                     ? const EdgeInsets.symmetric(horizontal: 2)
-                    : const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    : const EdgeInsets.symmetric(horizontal: 13, vertical: 9),
                 decoration: _bigEmoji
                     ? null
-                    : BoxDecoration(
-                        color: PTColors.white(0.08),
-                        border: Border.all(color: PTColors.white(0.08)),
-                        borderRadius: const BorderRadius.only(
-                          topLeft: Radius.circular(14),
-                          topRight: Radius.circular(14),
-                          bottomRight: Radius.circular(14),
+                    : const BoxDecoration(
+                        color: PTColors.aisle,
+                        borderRadius: BorderRadius.only(
+                          topLeft: Radius.circular(PTRadius.panel),
+                          topRight: Radius.circular(PTRadius.panel),
+                          bottomRight: Radius.circular(PTRadius.panel),
                           bottomLeft: Radius.circular(4),
                         ),
                       ),
@@ -1013,19 +1138,18 @@ class _MessageRowState extends State<_MessageRow> {
         copyButton,
         Flexible(
           child: Container(
-            constraints: const BoxConstraints(maxWidth: 220),
+            constraints: const BoxConstraints(maxWidth: 240),
             padding: _bigEmoji
                 ? const EdgeInsets.symmetric(horizontal: 2)
-                : const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                : const EdgeInsets.symmetric(horizontal: 13, vertical: 9),
             decoration: _bigEmoji
                 ? null
-                : BoxDecoration(
-                    color: PTColors.primary.withValues(alpha: 0.4),
-                    border: Border.all(color: PTColors.accentBorder.withValues(alpha: 0.35)),
-                    borderRadius: const BorderRadius.only(
-                      topLeft: Radius.circular(14),
-                      topRight: Radius.circular(14),
-                      bottomLeft: Radius.circular(14),
+                : const BoxDecoration(
+                    color: PTColors.fg,
+                    borderRadius: BorderRadius.only(
+                      topLeft: Radius.circular(PTRadius.panel),
+                      topRight: Radius.circular(PTRadius.panel),
+                      bottomLeft: Radius.circular(PTRadius.panel),
                       bottomRight: Radius.circular(4),
                     ),
                   ),
@@ -1052,9 +1176,9 @@ class _PlaySharedVideoButtonState extends State<_PlaySharedVideoButton> {
 
   @override
   Widget build(BuildContext context) {
-    final tint = widget.own ? Colors.white : PTColors.textAccent;
+    final tint = widget.own ? PTColors.canvas : PTColors.textAccent;
     final fill = widget.own
-        ? PTColors.white(_hovered ? 0.22 : 0.14)
+        ? PTColors.canvas.withValues(alpha: _hovered ? 0.16 : 0.08)
         : PTColors.primary.withValues(alpha: _hovered ? 0.38 : 0.24);
     return SelectionContainer.disabled(
       child: MouseRegion(
@@ -1070,7 +1194,7 @@ class _PlaySharedVideoButtonState extends State<_PlaySharedVideoButton> {
             decoration: BoxDecoration(
               color: fill,
               border: Border.all(color: tint.withValues(alpha: 0.34)),
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(PTRadius.control),
             ),
             child: Row(
               mainAxisSize: .min,

@@ -1,0 +1,1 @@
+../skills/nano-banana-imagegen/SKILL.md

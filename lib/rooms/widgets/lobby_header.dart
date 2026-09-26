@@ -267,7 +267,7 @@ class _MenuRowState extends State<_MenuRow> {
                       ? PTColors.dangerBorder.withValues(alpha: 0.1)
                       : PTColors.white(0.06))
                 : Colors.transparent,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(PTRadius.control),
           ),
           child: Row(
             spacing: 12,

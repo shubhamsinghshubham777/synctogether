@@ -77,75 +77,89 @@ class _ReportDialogState extends State<_ReportDialog> {
       mainAxisSize: .min,
       crossAxisAlignment: .stretch,
       children: [
-        Row(
-          spacing: 10,
-          // Top-aligned: a heading that wraps keeps its icon by the first line.
-          crossAxisAlignment: .start,
-          children: [
-            const Icon(Symbols.flag_rounded, size: 22, color: PTColors.warningBorder),
-            Expanded(
-              child: Text(
-                'Report a concern',
-                textScaler: dialogHeadingScaler(context),
-                style: PTText.screenTitle.copyWith(fontSize: 18),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        Text(
-          'SyncTogether does not allow harassment, hate, or abusive behaviour. '
-          'Tell us what happened and our team will review it.',
-          style: PTText.body.copyWith(color: PTColors.white(0.8), height: 1.45),
+        GlassDialogHeader(
+          eyebrow: 'Front of house',
+          title: 'Report a concern',
+          onClose: () => Navigator.of(context).pop(),
         ),
         const SizedBox(height: 14),
+        // What is being reported, on an Aisle well. The house rules live in
+        // the footer's contact line and the published terms (Guideline 1.2).
         Container(
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
           decoration: BoxDecoration(
-            color: PTColors.white(0.05),
-            border: Border.all(color: PTColors.white(0.08)),
-            borderRadius: BorderRadius.circular(12),
+            color: PTColors.aisle,
+            borderRadius: BorderRadius.circular(PTRadius.control),
           ),
           child: Column(
             crossAxisAlignment: .start,
             spacing: 4,
             children: [
-              Text(
-                'Reporting ${widget.targetName}',
-                style: PTText.caption.copyWith(color: PTColors.textAccent),
+              Row(
+                spacing: 10,
+                crossAxisAlignment: .baseline,
+                textBaseline: .alphabetic,
+                children: [
+                  Expanded(
+                    child: Text(
+                      snippet != null
+                          ? "${widget.targetName}'s message"
+                          : 'Reporting ${widget.targetName}',
+                      maxLines: 2,
+                      overflow: .ellipsis,
+                      style: PTText.body.copyWith(
+                        fontSize: 14,
+                        fontWeight: .w600,
+                        color: PTColors.fg,
+                      ),
+                    ),
+                  ),
+                  if (widget.roomCode != null)
+                    Text('Room ${widget.roomCode}'.toUpperCase(), style: PTText.label),
+                ],
               ),
-              if (widget.roomCode != null)
-                Text(
-                  'Room ${widget.roomCode}',
-                  style: PTText.finePrint.copyWith(color: PTColors.white(0.55)),
-                ),
               if (snippet != null)
                 Text(
                   '"${snippet.length > 140 ? '${snippet.substring(0, 140)}…' : snippet}"',
+                  maxLines: 3,
+                  overflow: .ellipsis,
                   style: PTText.caption.copyWith(color: PTColors.white(0.7)),
                 ),
             ],
           ),
         ),
-        const SizedBox(height: 14),
-        Text('What went wrong?', style: PTText.body.copyWith(fontWeight: .w600)),
+        const SizedBox(height: 16),
+        Text('What went wrong?'.toUpperCase(), style: PTText.label),
         const SizedBox(height: 8),
-        Wrap(
+        // Two equal columns. Every category stays, copyright included -
+        // media sharing redistributes a host's file, so owners need a route.
+        Column(
           spacing: 8,
-          runSpacing: 8,
           children: [
-            for (final reason in ReportReason.values)
-              _ReasonChip(
-                label: reason.label,
-                selected: _reason == reason,
-                onTap: () => setState(() => _reason = reason),
+            for (var i = 0; i < ReportReason.values.length; i += 2)
+              IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: .stretch,
+                  spacing: 8,
+                  children: [
+                    for (final reason in ReportReason.values.skip(i).take(2))
+                      Expanded(
+                        child: _ReasonChip(
+                          label: _shortLabel(reason),
+                          selected: _reason == reason,
+                          onTap: () => setState(() => _reason = reason),
+                        ),
+                      ),
+                    if (i + 1 >= ReportReason.values.length) const Expanded(child: SizedBox()),
+                  ],
+                ),
               ),
           ],
         ),
         const SizedBox(height: 14),
         PTTextField(
           controller: _details,
-          label: 'Anything else? (optional)',
+          label: 'What happened? (optional)',
           hint: 'What happened, and when',
           maxLength: 2000,
         ),
@@ -201,6 +215,14 @@ class _ReportDialogState extends State<_ReportDialog> {
   }
 }
 
+/// Grid-sized category names. The wire value and full label are unchanged.
+String _shortLabel(ReportReason reason) => switch (reason) {
+  .harassment => 'Harassment',
+  .sexualContent => 'Sexual content',
+  .copyright => 'Copyright',
+  _ => reason.label,
+};
+
 class _ReasonChip extends StatelessWidget {
   const _ReasonChip({required this.label, required this.selected, required this.onTap});
 
@@ -215,20 +237,20 @@ class _ReasonChip extends StatelessWidget {
       child: AnimatedContainer(
         duration: PTMotion.hover,
         curve: PTMotion.enter,
-        padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 9),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        alignment: AlignmentDirectional.centerStart,
+        // Square segments: pills are for people.
         decoration: BoxDecoration(
-          color: selected ? PTColors.primary.withValues(alpha: 0.22) : PTColors.white(0.05),
-          border: Border.all(
-            color: selected ? PTColors.primary.withValues(alpha: 0.55) : PTColors.white(0.09),
-          ),
-          borderRadius: BorderRadius.circular(11),
+          color: selected ? PTColors.aisle : Colors.transparent,
+          border: Border.all(color: selected ? PTColors.primary : PTColors.rail),
+          borderRadius: BorderRadius.circular(PTRadius.control),
         ),
         child: Text(
           label,
           style: PTText.body.copyWith(
             fontSize: 13,
             fontWeight: selected ? .w600 : .w500,
-            color: selected ? Colors.white : PTColors.white(0.72),
+            color: selected ? PTColors.primary : PTColors.white(0.75),
           ),
         ),
       ),
@@ -257,17 +279,17 @@ class _BlockCheck extends StatelessWidget {
               width: 20,
               height: 20,
               decoration: BoxDecoration(
-                color: value ? PTColors.primary : PTColors.white(0.06),
-                border: Border.all(color: value ? PTColors.primary : PTColors.white(0.18)),
-                borderRadius: BorderRadius.circular(6),
+                color: value ? PTColors.primary : Colors.transparent,
+                border: Border.all(color: value ? PTColors.primary : PTColors.rail),
+                borderRadius: BorderRadius.circular(PTRadius.control),
               ),
               child: value
-                  ? const Icon(Symbols.check_rounded, size: 15, color: Colors.white)
+                  ? const Icon(Symbols.check_rounded, size: 15, color: PTColors.onAccent)
                   : null,
             ),
             Expanded(
               child: Text(
-                'Also block $name - you will stop seeing their messages and camera',
+                'Also block $name: their messages and camera disappear for you',
                 style: PTText.body.copyWith(fontSize: 13, color: PTColors.white(0.8)),
               ),
             ),

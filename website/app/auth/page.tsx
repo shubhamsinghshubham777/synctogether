@@ -2,12 +2,12 @@
 
 import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Logo } from "@/components/Logo";
 import { AppleLogo } from "@/components/Icons";
-import { GlassPanel } from "@/components/GlassPanel";
+import { Ticket } from "@/components/Ticket";
+import { Kicker, Headline, display, mono } from "@/components/booth/Booth";
 import { createClient } from "@/lib/supabase/client";
 import { Turnstile, type TurnstileHandle } from "@/components/Turnstile";
-import { ShieldCheck, Info, Loader2, Mail, ArrowLeft, Check, RefreshCw, AlertCircle } from "lucide-react";
+import { Loader2, Mail, ArrowLeft, Check, RefreshCw, AlertCircle } from "lucide-react";
 
 function AuthCard() {
   const router = useRouter();
@@ -245,20 +245,22 @@ function AuthCard() {
 
   const isAnyLoading = oauthLoading !== null || emailLoading || otpLoading;
 
+  const inputBase =
+    "w-full rounded-[4px] bg-booth border border-rail text-white placeholder:text-gray-600 focus:outline-none focus:border-beam-500 transition-colors disabled:opacity-60";
+  const primaryBtn =
+    "w-full py-3 px-4 rounded-[4px] font-semibold text-[15px] flex items-center justify-center gap-2 transition-colors";
+  const btnState = (enabled: boolean) =>
+    enabled
+      ? "btn-primary-gradient active:translate-y-px cursor-pointer"
+      : "bg-transparent border border-rail text-gray-500 cursor-not-allowed";
+  const emailValid = /\S+@\S+\.\S+/.test(email.trim());
+
   if (checkingAuth) {
     return (
-      <GlassPanel
-        glow="purple"
-        className="p-8 sm:p-10 space-y-4 max-w-md w-full border-purple-500/25 bg-[#141024]/90 text-center"
-      >
-        <div className="flex justify-center mb-2">
-          <Logo size="lg" showText={false} />
-        </div>
-        <div className="flex items-center justify-center gap-2 text-sm text-purple-200 py-4">
-          <Loader2 className="w-4 h-4 animate-spin text-purple-400" />
-          <span>Verifying session...</span>
-        </div>
-      </GlassPanel>
+      <div className="w-full max-w-[460px] bg-seat ring-1 ring-inset ring-rail rounded-md p-8 sm:p-10 flex flex-col items-center gap-5 text-center">
+        <span className="sync-dot" aria-hidden="true" />
+        <p className={`${mono} text-xs tracking-[0.16em] uppercase text-gray-500`}>Checking your ticket…</p>
+      </div>
     );
   }
 
@@ -267,33 +269,23 @@ function AuthCard() {
       {/* Invisible Bot Protection (Triggered on demand upon submitting) */}
       <Turnstile ref={turnstileRef} />
 
-      <GlassPanel
-        glow="purple"
-        className="p-8 sm:p-10 space-y-5 max-w-md w-full border-purple-500/25 bg-[#141024]/90"
-      >
-        <div className="text-center space-y-3">
-          <div className="flex justify-center mb-2">
-            <Logo size="lg" showText={false} />
-          </div>
-          <h1 className="text-2xl font-bold text-white font-[family-name:var(--font-space-grotesk)]">
-            Welcome to SyncTogether
-          </h1>
-          <p className="text-xs text-gray-400 leading-relaxed">
-            Sign in to manage your subscription, host watch parties, and sync across all your devices.
-          </p>
+      <div className="w-full max-w-[460px] bg-seat ring-1 ring-inset ring-rail rounded-md p-6 sm:p-9 space-y-6">
+        <div className="flex items-baseline justify-between gap-4">
+          <Kicker tone="muted">{isOtpSent ? "Box office · step 2 of 2" : "Box office"}</Kicker>
+          <span className={`${mono} text-[11px] text-gray-600`}>{isOtpSent ? "CODE" : "SIGN IN"}</span>
         </div>
 
         {errorMsg && (
-          <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/25 text-rose-300 text-xs flex items-start gap-2.5 leading-relaxed">
-            <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
-            <span className="flex-1">{errorMsg}</span>
+          <div role="alert" className="border-l-2 border-signal pl-4 py-1 text-sm text-gray-200 flex items-start gap-2.5 leading-relaxed">
+            <AlertCircle className="w-4 h-4 text-signal shrink-0 mt-0.5" />
+            <span className="flex-1 min-w-0 break-words">{errorMsg}</span>
           </div>
         )}
 
         {infoMsg && (
-          <div className="p-3 rounded-xl bg-purple-500/10 border border-purple-400/20 text-purple-200 text-xs flex items-center gap-2">
-            <Check className="w-4 h-4 text-emerald-400 shrink-0" />
-            <span>{infoMsg}</span>
+          <div role="status" className="border-l-2 border-cue pl-4 py-1 text-sm text-gray-200 flex items-start gap-2.5">
+            <Check className="w-4 h-4 text-cue shrink-0 mt-0.5" />
+            <span className="min-w-0 break-words">{infoMsg}</span>
           </div>
         )}
 
@@ -304,7 +296,7 @@ function AuthCard() {
             <button
               onClick={handleAppleSignIn}
               disabled={isAnyLoading}
-              className="w-full py-3 px-4 rounded-xl bg-black hover:bg-zinc-900 text-white font-semibold text-sm flex items-center justify-center gap-3 transition-all duration-200 border border-white/15 shadow-lg shadow-black/40 active:scale-[0.98] cursor-pointer disabled:opacity-50"
+              className="w-full py-3 px-4 rounded-[4px] bg-transparent hover:bg-booth text-white font-semibold text-[15px] flex items-center justify-center gap-3 transition-colors border border-rail hover:border-gray-500 active:translate-y-px cursor-pointer disabled:opacity-50"
             >
               <AppleLogo className="w-4 h-4" />
               <span>
@@ -316,9 +308,9 @@ function AuthCard() {
             <button
               onClick={handleGoogleSignIn}
               disabled={isAnyLoading}
-              className="w-full py-3 px-4 rounded-xl bg-white hover:bg-gray-100 text-gray-900 font-semibold text-sm flex items-center justify-center gap-3 transition-all duration-200 shadow-lg shadow-white/5 active:scale-[0.98] cursor-pointer disabled:opacity-50"
+              className="w-full py-3 px-4 rounded-[4px] bg-transparent hover:bg-booth text-white border border-rail hover:border-gray-500 font-semibold text-[15px] flex items-center justify-center gap-3 transition-colors active:translate-y-px cursor-pointer disabled:opacity-50"
             >
-              <svg className="w-5 h-5" viewBox="0 0 24 24">
+              <svg className="w-5 h-5" viewBox="0 0 24 24" aria-hidden="true">
                 <path
                   fill="#4285F4"
                   d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17z"
@@ -343,57 +335,57 @@ function AuthCard() {
           </div>
         )}
 
-        {/* Divider */}
-        <div className="relative flex items-center justify-center pt-1 pb-2">
-          <div className="border-t border-white/10 w-full" />
-          <span className="bg-[#141024] px-3 text-[11px] font-medium text-gray-400 shrink-0 uppercase tracking-wider">
-            {isOtpSent ? "Verification code" : "or continue with email"}
+        {/* Divider: a perforation */}
+        <div className="flex items-center gap-3" aria-hidden={isOtpSent ? undefined : true}>
+          <div className="flex-1 border-t-2 border-dashed border-rail" />
+          <span className={`${mono} text-[10px] tracking-[0.16em] uppercase text-gray-500 shrink-0`}>
+            {isOtpSent ? "Verification code" : "or by email"}
           </span>
-          <div className="border-t border-white/10 w-full" />
+          <div className="flex-1 border-t-2 border-dashed border-rail" />
         </div>
 
         {/* Email Form / OTP Form */}
         {!isOtpSent ? (
           <form onSubmit={handleSendEmailOtp} className="space-y-3">
-            <div className="relative">
-              <Mail className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="name@example.com"
-                disabled={isAnyLoading}
-                required
-                className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-white/[0.04] border border-white/10 text-white text-sm placeholder:text-gray-500 focus:outline-none focus:border-purple-400/80 transition-colors"
-              />
-            </div>
+            <label className="block">
+              <span className={`${mono} block mb-2.5 text-[11px] tracking-[0.16em] uppercase text-gray-500`}>Email</span>
+              <span className="relative block">
+                <Mail className="w-4 h-4 text-gray-500 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="name@example.com"
+                  disabled={isAnyLoading}
+                  required
+                  className={`${inputBase} pl-10 pr-4 py-3 text-[15px]`}
+                />
+              </span>
+            </label>
 
-            <button
-              type="submit"
-              disabled={isAnyLoading || !email}
-              className="w-full py-2.5 px-4 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-semibold text-sm flex items-center justify-center gap-2 transition-all duration-200 active:scale-[0.98] cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100"
-            >
+            <button type="submit" disabled={isAnyLoading || !email} className={`${primaryBtn} ${btnState(emailValid || emailLoading)}`}>
               {emailLoading ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
                   <span>Sending code...</span>
                 </>
               ) : (
-                <span>Send code</span>
+                <span>Send me a code</span>
               )}
             </button>
           </form>
         ) : (
-          <form onSubmit={handleVerifyOtp} className="space-y-3.5">
-            <div className="space-y-1.5">
-              <p className="text-xs text-gray-300">
-                Enter the 6-digit code sent to <strong className="text-white">{email}</strong>
+          <form onSubmit={handleVerifyOtp} className="space-y-4">
+            <div className="space-y-2">
+              <p className="text-sm text-gray-400">
+                Six digits, sent to <strong className="text-white font-semibold break-all">{email}</strong>
               </p>
               <input
                 type="text"
                 inputMode="numeric"
                 pattern="[0-9]*"
                 maxLength={6}
+                aria-label="6-digit code"
                 value={otpToken}
                 onChange={(e) => {
                   const val = e.target.value.replace(/\D/g, "").slice(0, 6);
@@ -417,26 +409,22 @@ function AuthCard() {
                 placeholder="000000"
                 disabled={isAnyLoading}
                 autoFocus
-                className="w-full text-center tracking-[0.5em] font-mono text-xl py-2.5 rounded-xl bg-white/[0.06] border border-purple-400/30 text-white placeholder:text-gray-600 focus:outline-none focus:border-purple-400 transition-colors"
+                className={`${inputBase} ${mono} text-center tracking-[0.5em] text-2xl py-3.5`}
               />
             </div>
 
-            <button
-              type="submit"
-              disabled={isAnyLoading || otpToken.length !== 6}
-              className="w-full py-2.5 px-4 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-semibold text-sm flex items-center justify-center gap-2 transition-all duration-200 active:scale-[0.98] cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100"
-            >
+            <button type="submit" disabled={isAnyLoading || otpToken.length !== 6} className={`${primaryBtn} ${btnState(otpToken.length === 6 || otpLoading)}`}>
               {otpLoading ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
                   <span>Verifying...</span>
                 </>
               ) : (
-                <span>Verify & Sign in</span>
+                <span>Verify &amp; take your seat</span>
               )}
             </button>
 
-            <div className="flex items-center justify-between text-xs text-gray-400 pt-1">
+            <div className="flex items-center justify-between gap-3 text-sm pt-1">
               <button
                 type="button"
                 onClick={() => {
@@ -445,7 +433,7 @@ function AuthCard() {
                   setErrorMsg(null);
                   setInfoMsg(null);
                 }}
-                className="inline-flex items-center gap-1 text-purple-300/80 hover:text-purple-200 cursor-pointer"
+                className="inline-flex items-center gap-1.5 text-gray-400 hover:text-white cursor-pointer transition-colors"
               >
                 <ArrowLeft className="w-3.5 h-3.5" />
                 <span>Change email</span>
@@ -455,7 +443,7 @@ function AuthCard() {
                 type="button"
                 disabled={resendCooldown > 0 || emailLoading}
                 onClick={() => handleSendEmailOtp()}
-                className="inline-flex items-center gap-1 text-purple-300/80 hover:text-purple-200 cursor-pointer disabled:text-gray-600 disabled:cursor-not-allowed"
+                className={`${mono} inline-flex items-center gap-1.5 text-xs text-gray-400 hover:text-white cursor-pointer disabled:text-gray-600 disabled:cursor-not-allowed transition-colors`}
               >
                 <RefreshCw className="w-3 h-3" />
                 <span>
@@ -466,40 +454,61 @@ function AuthCard() {
           </form>
         )}
 
-        {/* Info Notice */}
-        <div className="p-3.5 rounded-xl bg-purple-500/10 border border-purple-400/20 text-[11px] text-purple-200/90 leading-relaxed flex items-start gap-2.5">
-          <Info className="w-4 h-4 text-purple-300 shrink-0 mt-0.5" />
-          <span>
-            Signing in syncs your subscription, watch parties, and account settings seamlessly between the web and desktop app.
-          </span>
-        </div>
-
-        <div className="pt-2 border-t border-white/5 text-center">
-          <p className="text-[11px] text-gray-500 flex items-center justify-center gap-1.5">
-            <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-            <span>Encrypted authentication</span>
+        {!isOtpSent && (
+          <p className="-mt-2 text-[13px] text-gray-500 leading-relaxed">
+            A 6-digit code, every time. Set a password in the app&apos;s profile if you want
+            one. The code still always works.
           </p>
-        </div>
-      </GlassPanel>
+        )}
+      </div>
     </>
   );
 }
 
 export default function AuthPage() {
   return (
-    <div className="min-h-[80vh] flex items-center justify-center px-4 py-12 relative overflow-hidden">
-      {/* Background Ambient Glow */}
-      <div className="glow-blob-purple top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 opacity-30" />
+    <div className="px-4 sm:px-6 lg:px-8 max-w-6xl mx-auto py-10 md:py-12 grid lg:grid-cols-[minmax(0,1fr)_460px] gap-12 lg:gap-24 items-start lg:items-center lg:min-h-[704px] lg:py-10">
+      <div className="space-y-[26px]">
+        <div className="space-y-[26px]">
+          <Kicker>Members&apos; entrance</Kicker>
+          <Headline className="text-[clamp(2.75rem,7vw,6rem)] leading-[0.88] tracking-[-0.045em]">
+            <span className="line-in">Take your</span>
+            <span className="line-in [animation-delay:90ms] text-beam-500">seat.</span>
+          </Headline>
+          <p className="text-lg text-gray-400 leading-[1.55] max-w-[460px]">
+            Sign in to manage your Patron seat and keep your streak. Joining
+            somebody&apos;s room never needs an account.
+          </p>
+        </div>
+        <div className="hidden sm:block max-w-[440px]">
+          <Ticket
+            animate
+            className="min-h-[130px]"
+            stubClassName="w-[120px]"
+            stub={
+              <span className={`${mono} text-sm sm:text-base font-semibold tracking-[0.08em] text-booth`}>ADMIT&nbsp;1</span>
+            }
+          >
+            <p className={`${mono} text-[11px] tracking-[0.14em] text-booth/60`}>SYNCTOGETHER · MEMBERS</p>
+            <p className={`${display} mt-1.5 text-2xl font-extrabold tracking-[-0.035em] leading-[0.98]`}>
+              One account, web and app.
+            </p>
+            <p className="mt-2 text-sm text-booth/70">Mac · Windows · this website</p>
+          </Ticket>
+        </div>
+      </div>
 
-      <Suspense
-        fallback={
-          <GlassPanel className="p-8 max-w-md w-full text-center text-sm text-gray-400">
-            Loading authentication...
-          </GlassPanel>
-        }
-      >
-        <AuthCard />
-      </Suspense>
+      <div className="flex justify-center lg:justify-end">
+        <Suspense
+          fallback={
+            <div className="w-full max-w-[460px] bg-seat ring-1 ring-inset ring-rail rounded-md p-8 text-center">
+              <p className={`${mono} text-xs tracking-[0.16em] uppercase text-gray-500`}>Opening the box office…</p>
+            </div>
+          }
+        >
+          <AuthCard />
+        </Suspense>
+      </div>
     </div>
   );
 }

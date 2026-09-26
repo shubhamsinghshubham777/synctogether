@@ -26,6 +26,10 @@ void main() {
   screenMatrix('leaderboard/circle', (tester, c, s) async {
     RewardsService.instance = FakeRewardsService();
     await pumpAtSize(tester, const LeaderboardScreen(), c, textScale: s);
+    // The board arrives a frame after the first pump and deals its rows in;
+    // capture the settled board, not the first frame of the stagger.
+    await tester.pump(const Duration(milliseconds: 600));
+    await tester.pump(const Duration(milliseconds: 400));
     await finishCase(tester);
   });
 
@@ -35,6 +39,10 @@ void main() {
       rows: const [],
     );
     await pumpAtSize(tester, const LeaderboardScreen(), c, textScale: s);
+    // The board arrives a frame after the first pump and deals its rows in;
+    // capture the settled board, not the first frame of the stagger.
+    await tester.pump(const Duration(milliseconds: 600));
+    await tester.pump(const Duration(milliseconds: 400));
     await finishCase(tester);
   });
 }

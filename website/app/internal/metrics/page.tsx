@@ -99,7 +99,7 @@ function ProductionCredentialsGate({
           <span className="text-xs text-gray-500 font-mono">SyncTogether Telemetry Guard</span>
           <a
             href="/admin"
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-mono text-xs font-semibold transition"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-beam-500 hover:bg-beam-400 text-[#1A1206] font-mono text-xs font-semibold transition"
           >
             <RefreshCw className="w-3.5 h-3.5" />
             Retry Connection
@@ -235,13 +235,13 @@ export default async function InternalMetricsPage() {
           </div>
 
           <div className="flex items-center gap-3 flex-wrap">
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#120E22]/80 border border-emerald-500/30 text-xs font-mono text-emerald-300">
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#1A1716]/80 border border-emerald-500/30 text-xs font-mono text-emerald-300">
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
               <span>Target: Production ({infrastructure.dataSource.targetHost})</span>
               <span className="text-gray-500">•</span>
               <span>{health.responseTimeMs}ms</span>
             </div>
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#120E22]/80 border border-white/10 text-xs font-mono text-gray-300">
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#1A1716]/80 border border-white/10 text-xs font-mono text-gray-300">
               <Compass className="w-3.5 h-3.5 text-purple-400" />
               <span>Release: v{health.latestAppVersion}</span>
             </div>
@@ -473,7 +473,7 @@ export default async function InternalMetricsPage() {
           {business.funnel.map((stage, idx) => (
             <div
               key={stage.name}
-              className="relative p-5 rounded-2xl bg-[#140F24]/80 border border-purple-500/15 flex flex-col justify-between space-y-3"
+              className="relative p-5 rounded-2xl bg-[#1C1917]/80 border border-purple-500/15 flex flex-col justify-between space-y-3"
             >
               <div className="flex items-center justify-between text-xs font-mono text-gray-400">
                 <span>Stage 0{idx + 1}</span>

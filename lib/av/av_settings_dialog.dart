@@ -9,6 +9,7 @@ import 'package:media_kit/media_kit.dart';
 import 'package:synctogether/av/device_preference_service.dart';
 import 'package:synctogether/av/livekit_service.dart';
 import 'package:synctogether/av/macos_audio_devices.dart';
+import 'package:synctogether/diagnostics.dart';
 import 'package:synctogether/ui/buttons.dart';
 import 'package:synctogether/ui/glass.dart';
 import 'package:synctogether/ui/loader.dart';
@@ -21,6 +22,7 @@ Future<void> showAvSettingsDialog(
   Future<List<lk.MediaDevice>> Function()? enumerateAudioOutputs,
   Player? testPlayer,
   Future<void> Function(lk.MediaDevice? selectedOutput)? onTestSound,
+  MicLevels? micLevels,
 }) {
   return showGlassDialog(
     context: context,
@@ -36,8 +38,63 @@ Future<void> showAvSettingsDialog(
       enumerateAudioOutputs: enumerateAudioOutputs,
       testPlayer: testPlayer,
       onTestSound: onTestSound,
+      micLevels: micLevels ?? liveMicLevels,
     ),
   );
+}
+
+/// Bar levels (0..1) for a microphone, for as long as the stream is listened
+/// to. Injectable so tests never open a real device.
+typedef MicLevels = Stream<List<double>> Function(String? deviceId);
+
+const _kMeterBars = 16;
+
+/// Opens the mic as a bare local track - no room, nothing published - and
+/// feeds LiveKit's native visualizer (every desktop and mobile target) into
+/// the stream. Cancelling the subscription releases the device.
+Stream<List<double>> liveMicLevels(String? deviceId) {
+  lk.LocalAudioTrack? track;
+  lk.AudioVisualizer? visualizer;
+  lk.EventsListener<lk.AudioVisualizerEvent>? listener;
+  late final StreamController<List<double>> out;
+  out = StreamController<List<double>>(
+    onListen: () async {
+      try {
+        track = await lk.LocalAudioTrack.create(lk.AudioCaptureOptions(deviceId: deviceId));
+        if (out.isClosed) return;
+        visualizer = lk.createVisualizer(
+          track!,
+          options: const lk.AudioVisualizerOptions(barCount: _kMeterBars, centeredBands: false),
+        );
+        listener = visualizer!.createListener()
+          ..on<lk.AudioVisualizerEvent>((e) {
+            if (out.isClosed) return;
+            out.add([
+              for (final v in e.event) ((v as num?)?.toDouble() ?? 0).clamp(0, 1).toDouble(),
+            ]);
+          });
+        await visualizer!.start();
+        trace('mic level test started', category: 'av');
+      } catch (e, st) {
+        // A refused permission is the user's answer, not a bug.
+        final refused = '$e'.contains('NotAllowed') || '$e'.toLowerCase().contains('permission');
+        if (refused) {
+          trace('mic level test refused', category: 'av', data: {'error': '$e'});
+        } else {
+          reportNonFatal(e, st, during: 'mic level test');
+        }
+        if (!out.isClosed) out.addError(e);
+      }
+    },
+    onCancel: () async {
+      await listener?.dispose();
+      await visualizer?.stop();
+      await visualizer?.dispose();
+      await track?.stop();
+      await track?.dispose();
+    },
+  );
+  return out.stream;
 }
 
 class _AvSettingsDialogContent extends StatefulWidget {
@@ -47,8 +104,10 @@ class _AvSettingsDialogContent extends StatefulWidget {
     this.enumerateAudioOutputs,
     this.testPlayer,
     this.onTestSound,
+    required this.micLevels,
   });
 
+  final MicLevels micLevels;
   final Future<List<lk.MediaDevice>> Function()? enumerateAudioInputs;
   final Future<List<lk.MediaDevice>> Function()? enumerateVideoInputs;
   final Future<List<lk.MediaDevice>> Function()? enumerateAudioOutputs;
@@ -77,6 +136,12 @@ class _AvSettingsDialogContentState extends State<_AvSettingsDialogContent> {
   Player? _testPlayer;
   bool _isPlayingTestSound = false;
 
+  // The mic test: levels land in a notifier that only the meter's painter
+  // listens to, so a 60 Hz stream never rebuilds the dialog.
+  StreamSubscription<List<double>>? _micSub;
+  final _micBars = ValueNotifier<List<double>>(const []);
+  bool _micFailed = false;
+
   @override
   void initState() {
     super.initState();
@@ -90,6 +155,8 @@ class _AvSettingsDialogContentState extends State<_AvSettingsDialogContent> {
   @override
   void dispose() {
     _deviceSub?.cancel();
+    _micSub?.cancel();
+    _micBars.dispose();
     _testPlayer?.dispose();
     super.dispose();
   }
@@ -357,6 +424,60 @@ class _AvSettingsDialogContentState extends State<_AvSettingsDialogContent> {
     }
   }
 
+  bool get _micTesting => _micSub != null;
+
+  void _toggleMicTest() {
+    if (_micTesting) {
+      _stopMicTest();
+      return;
+    }
+    setState(() {
+      _micFailed = false;
+      _micSub = widget
+          .micLevels(_selectedMic?.deviceId)
+          .listen(
+            (bars) => _micBars.value = bars,
+            onError: (Object _) {
+              if (!mounted) return;
+              _stopMicTest();
+              setState(() => _micFailed = true);
+            },
+          );
+    });
+  }
+
+  void _stopMicTest() {
+    _micSub?.cancel();
+    _micBars.value = const [];
+    if (mounted) setState(() => _micSub = null);
+  }
+
+  Widget _micMeter() {
+    return Padding(
+      padding: const EdgeInsets.only(top: 10),
+      child: Row(
+        spacing: 10,
+        children: [
+          Expanded(
+            child: SizedBox(
+              height: 22,
+              child: RepaintBoundary(
+                child: CustomPaint(painter: _MeterPainter(_micBars, active: _micTesting)),
+              ),
+            ),
+          ),
+          if (_micFailed || _micTesting)
+            Text(
+              _micFailed ? "Couldn't open that mic" : 'Say something',
+              style: PTText.finePrint.copyWith(
+                color: _micFailed ? PTColors.danger : PTColors.white(0.5),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_loading) {
@@ -373,17 +494,13 @@ class _AvSettingsDialogContentState extends State<_AvSettingsDialogContent> {
           crossAxisAlignment: .start,
           children: [
             GlassDialogHeader(
-              title: 'Audio & Video Settings',
-              titleStyle: PTText.cardHeading,
-              leading: const Icon(Symbols.tune_rounded, size: 22, color: PTColors.textAccent),
-              spacing: 10,
+              eyebrow: 'Booth check',
+              title: 'Test your mic and camera',
               closeSize: 32,
-              closeGlass: false,
               onClose: () => Navigator.of(context).pop(),
             ),
-            const SizedBox(height: 16),
-            Container(height: 1, color: PTColors.white(0.08)),
-            const SizedBox(height: 16),
+            const SizedBox(height: 14),
+            Container(height: 1, color: PTColors.rail),
             _scrollMiddle(
               compact: compact,
               child: Column(
@@ -395,12 +512,20 @@ class _AvSettingsDialogContentState extends State<_AvSettingsDialogContent> {
                     devices: _audioInputs,
                     selectedDevice: _selectedMic,
                     onSelected: (dev) {
+                      // A running test follows the newly chosen device.
+                      final wasTesting = _micTesting;
+                      if (wasTesting) _stopMicTest();
                       setState(() {
                         _selectedMic = dev;
                       });
+                      if (wasTesting) _toggleMicTest();
                     },
+                    trailingAction: DialogTextButton(
+                      label: _micTesting ? 'Stop' : 'Test mic',
+                      onPressed: _audioInputs.isEmpty ? null : _toggleMicTest,
+                    ),
+                    footer: _micMeter(),
                   ),
-                  const SizedBox(height: 14),
                   _deviceSection(
                     icon: Symbols.volume_up_rounded,
                     title: 'Audio Output',
@@ -417,11 +542,9 @@ class _AvSettingsDialogContentState extends State<_AvSettingsDialogContent> {
                       tooltip: _isPlayingTestSound ? 'Playing test audio...' : 'Test output',
                       size: 32,
                       iconSize: 18,
-                      glass: true,
                       onPressed: _isPlayingTestSound ? null : _playTestSound,
                     ),
                   ),
-                  const SizedBox(height: 14),
                   _deviceSection(
                     icon: Symbols.videocam_rounded,
                     title: 'Camera',
@@ -436,7 +559,8 @@ class _AvSettingsDialogContentState extends State<_AvSettingsDialogContent> {
                 ],
               ),
             ),
-            const SizedBox(height: 20),
+            Container(height: 1, color: PTColors.rail),
+            const SizedBox(height: 16),
             // Hugging the trailing edge while both fit; stacked full-width
             // (Save on top) on a squeezed window, never ellipsized.
             PTButtonBar(
@@ -488,17 +612,17 @@ class _AvSettingsDialogContentState extends State<_AvSettingsDialogContent> {
     required lk.MediaDevice? selectedDevice,
     required ValueChanged<lk.MediaDevice?> onSelected,
     Widget? trailingAction,
+    Widget? footer,
   }) {
     final matchingSelected = devices
         .where((d) => d.deviceId == selectedDevice?.deviceId)
         .firstOrNull;
 
+    // Hairline-ruled sections rather than stacked cards.
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.symmetric(vertical: 14),
       decoration: BoxDecoration(
-        color: PTColors.white(0.04),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: PTColors.white(0.07)),
+        border: title == 'Camera' ? null : const Border(bottom: BorderSide(color: PTColors.rail)),
       ),
       child: Column(
         crossAxisAlignment: .start,
@@ -510,17 +634,14 @@ class _AvSettingsDialogContentState extends State<_AvSettingsDialogContent> {
             children: [
               Padding(
                 padding: EdgeInsets.only(top: subtitle != null ? 2 : 0),
-                child: Icon(icon, size: 18, color: PTColors.textAccent),
+                child: Icon(icon, size: 16, color: PTColors.white(0.6)),
               ),
               const SizedBox(width: 8),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      title,
-                      style: PTText.body.copyWith(fontWeight: .w600, color: Colors.white),
-                    ),
+                    Text(title.toUpperCase(), style: PTText.label.copyWith(color: PTColors.fg)),
                     if (subtitle != null) ...[
                       const SizedBox(height: 2),
                       Text(
@@ -541,18 +662,17 @@ class _AvSettingsDialogContentState extends State<_AvSettingsDialogContent> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12),
               decoration: BoxDecoration(
-                color: PTColors.white(0.05),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: PTColors.white(0.1)),
+                borderRadius: BorderRadius.circular(PTRadius.control),
+                border: Border.all(color: PTColors.rail),
               ),
               child: DropdownButtonHideUnderline(
                 child: DropdownButton<String>(
                   isExpanded: true,
                   dropdownColor: PTColors.menuSurface,
-                  icon: const Icon(
+                  icon: Icon(
                     Symbols.keyboard_arrow_down_rounded,
                     size: 18,
-                    color: PTColors.textAccent,
+                    color: PTColors.white(0.6),
                   ),
                   value: matchingSelected?.deviceId,
                   items: devices.map((d) {
@@ -574,8 +694,39 @@ class _AvSettingsDialogContentState extends State<_AvSettingsDialogContent> {
                 ),
               ),
             ),
+          ?footer,
         ],
       ),
     );
   }
+}
+
+/// Square segments in a row, lit Cue from the left as the level rises -
+/// idle segments stay Rail so the meter reads as an instrument, not a void.
+class _MeterPainter extends CustomPainter {
+  _MeterPainter(this.bars, {required this.active}) : super(repaint: bars);
+
+  final ValueNotifier<List<double>> bars;
+  final bool active;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final values = bars.value;
+    final level = values.isEmpty ? 0.0 : values.reduce((a, b) => a > b ? a : b);
+    const gap = 3.0;
+    final w = (size.width - gap * (_kMeterBars - 1)) / _kMeterBars;
+    final lit = (level * _kMeterBars).round();
+    final on = Paint()..color = PTColors.online;
+    final off = Paint()..color = active ? PTColors.rail : PTColors.white(0.06);
+    for (var i = 0; i < _kMeterBars; i++) {
+      final rect = Rect.fromLTWH(i * (w + gap), 0, w, size.height);
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(rect, const Radius.circular(1.5)),
+        i < lit ? on : off,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(_MeterPainter old) => old.bars != bars || old.active != active;
 }

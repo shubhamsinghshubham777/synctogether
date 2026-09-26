@@ -203,14 +203,16 @@ export const SUPERLATIVE_TITLES: Record<string, string> = {
  * public pages carry no account identifiers.
  */
 const AVATAR_GRADIENTS: [string, string][] = [
-  ["#A78BFA", "#7C3AED"],
-  ["#F472B6", "#C084FC"],
-  ["#60A5FA", "#818CF8"],
-  ["#34D399", "#22D3EE"],
-  ["#FBBF24", "#F97316"],
-  ["#F87171", "#EC4899"],
-  ["#4ADE80", "#16A34A"],
-  ["#38BDF8", "#6366F1"],
+  // Mirrors PTColors.avatarGradients in lib/ui/pt_theme.dart: muted seat
+  // colours in two close shades, so avatars read flat on the booth.
+  ["#8468FF", "#7A5CFF"],
+  ["#379577", "#2E8A6E"],
+  ["#C25038", "#B8462E"],
+  ["#4A79BA", "#3F6FB0"],
+  ["#B0782E", "#A56E26"],
+  ["#A8527A", "#9D4870"],
+  ["#5E8A3E", "#548036"],
+  ["#6F6258", "#65584F"],
 ];
 
 export function gradientForSeed(seed: string): [string, string] {

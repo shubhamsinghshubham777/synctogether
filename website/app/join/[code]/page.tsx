@@ -54,22 +54,29 @@ export default async function JoinPage({
   if (!normalized) notFound();
 
   return (
-    <div className="relative py-16 md:py-24 px-4 sm:px-6 lg:px-8 max-w-xl mx-auto space-y-8">
-      <div className="glow-blob-purple top-10 left-1/2 -translate-x-1/2 opacity-30" />
-      <div className="text-center space-y-3">
-        <h1 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight font-[family-name:var(--font-space-grotesk)]">
-          You&apos;re <span className="text-gradient-brand">invited</span>.
-        </h1>
-        <p className="text-gray-300">
-          Someone wants to watch something with you, in sync.
-        </p>
+    <div className="relative px-4 sm:px-6 lg:px-8 max-w-[1152px] mx-auto min-h-[calc(100svh-76px)] flex flex-col">
+      <div className="flex-1 flex items-center py-10 md:py-16">
+      <JoinLauncher
+        code={normalized}
+        heading={
+          <div className="flex flex-col gap-8">
+            <p className="font-[family-name:var(--font-jetbrains-mono)] text-xs tracking-[0.16em] uppercase text-beam-500">
+              <span className="text-gray-500">Box office · </span>
+              Will call
+            </p>
+            <h1 className="font-[family-name:var(--font-space-grotesk)] font-extrabold text-[clamp(64px,8vw,6rem)] leading-[0.9] tracking-[-0.045em] text-white">
+              You&apos;re
+              <br />
+              invited.
+            </h1>
+          </div>
+        }
+      />
       </div>
 
-      <JoinLauncher code={normalized} />
-
-      <p className="text-center text-xs text-gray-500">
-        New here?{" "}
-        <Link href="/" className="text-[var(--pt-text-accent)] underline underline-offset-4">
+      <p className="h-[72px] shrink-0 flex items-center gap-1.5 border-t border-aisle text-sm text-gray-500">
+        New here?
+        <Link href="/" className="text-white font-semibold underline underline-offset-[6px] decoration-[#5A4F44] hover:decoration-beam-500 transition-colors">
           What is {SITE_CONFIG.name}?
         </Link>
       </p>

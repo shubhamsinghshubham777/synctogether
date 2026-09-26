@@ -12,7 +12,7 @@ void main() {
       EntitlementService.instance.setLimitsForTesting(null);
     });
 
-    testWidgets('renders guest view with sign-in and Go Premium CTAs', (tester) async {
+    testWidgets('renders guest view with sign-in and Get a Patron seat CTAs', (tester) async {
       ProfileService.instance.setProfileForTesting(
         const Profile(id: 'guest-1', displayName: 'Guest-1234', isGuest: true),
       );
@@ -42,12 +42,10 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('Media Sharing Quota'), findsOneWidget);
-      expect(find.text('Sign in to unlock weekly quota'), findsOneWidget);
-      expect(find.text('How Quotas Work'), findsOneWidget);
+      expect(find.text('Sharing needs an account'), findsOneWidget);
       expect(find.text('Sign in with Google (Free 2.5 GB)'), findsOneWidget);
       expect(find.text('Sign in with Email (Free 2.5 GB)'), findsOneWidget);
-      expect(find.text('Go Premium (Unlimited)'), findsOneWidget);
+      expect(find.text('Maybe later'), findsOneWidget);
     });
 
     testWidgets('renders contextual blockage card when single file limit is exceeded', (
@@ -87,13 +85,13 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('SINGLE-FILE LIMIT EXCEEDED'), findsOneWidget);
-      expect(find.text('Video Exceeds Free File Limit'), findsOneWidget);
+      expect(find.text('Too big to share'), findsOneWidget);
       expect(find.text('vacation_4k.mp4'), findsOneWidget);
-      expect(find.text('Upgrade for 10.0 GB Files'), findsOneWidget);
-      expect(find.text('Selected Video'), findsOneWidget);
-      expect(find.text('Free Plan Cap'), findsOneWidget);
-      expect(find.text('Over limit by'), findsOneWidget);
+      expect(find.text('Play it locally'), findsOneWidget);
+      expect(find.text('Patron seats share up to 10 GB'), findsOneWidget);
+      expect(find.text('FILE'), findsOneWidget);
+      expect(find.text('FREE CAP'), findsOneWidget);
+      expect(find.text('OVER BY'), findsOneWidget);
     });
 
     testWidgets('renders contextual blockage card when weekly quota is exceeded', (tester) async {
@@ -132,13 +130,12 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('WEEKLY QUOTA EXCEEDED'), findsOneWidget);
-      expect(find.text('Insufficient Weekly Quota'), findsOneWidget);
+      expect(find.text('Not enough allowance left'), findsOneWidget);
       expect(find.text('episode_01.mp4'), findsOneWidget);
-      expect(find.text('Get Unlimited with Premium'), findsOneWidget);
-      expect(find.text('Selected Video'), findsOneWidget);
-      expect(find.text('Remaining'), findsOneWidget);
-      expect(find.text('Quota shortfall'), findsOneWidget);
+      expect(find.text('Patron seats have no weekly cap'), findsOneWidget);
+      expect(find.text('FILE'), findsOneWidget);
+      expect(find.text('LEFT'), findsOneWidget);
+      expect(find.text('SHORT BY'), findsOneWidget);
     });
 
     testWidgets('renders contextual blockage card for guest user attempting upload', (
@@ -177,8 +174,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('SIGN-IN REQUIRED'), findsOneWidget);
-      expect(find.text('Media Sharing Requires an Account'), findsOneWidget);
+      expect(find.text('Sharing needs an account'), findsOneWidget);
       expect(find.text('Sign in with Google (Free 2.5 GB)'), findsOneWidget);
       expect(find.text('Sign in with Email (Free 2.5 GB)'), findsOneWidget);
     });
@@ -206,9 +202,9 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('Media Sharing Quota'), findsOneWidget);
-      expect(find.text('7-Day Rolling Usage'), findsOneWidget);
-      expect(find.text('Get Unlimited with Premium'), findsOneWidget);
+      expect(find.text('Sharing allowance'), findsOneWidget);
+      expect(find.textContaining('USED THIS WEEK'), findsOneWidget);
+      expect(find.text('Get a Patron seat'), findsOneWidget);
       expect(find.text('Got it'), findsOneWidget);
     });
 
@@ -242,12 +238,8 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('Media Sharing Quota'), findsOneWidget);
-      expect(find.text('Unlimited with Premium'), findsOneWidget);
-      expect(
-        find.text('No upload limits! Share videos up to 10.0 GB each with high-speed priority.'),
-        findsOneWidget,
-      );
+      expect(find.text('Sharing allowance'), findsOneWidget);
+      expect(find.text('No weekly cap. Share videos up to 10 GB each.'), findsOneWidget);
       expect(find.text('Got it'), findsOneWidget);
     });
 
@@ -289,9 +281,8 @@ void main() {
       // Verify no overflow occurred
       expect(tester.takeException(), isNull);
       // Verify pinned header and pinned action buttons remain accessible
-      expect(find.text('Media Sharing Quota'), findsOneWidget);
-      expect(find.text('Upgrade for 10.0 GB Files'), findsOneWidget);
-      expect(find.text('Got it'), findsOneWidget);
+      expect(find.text('Too big to share'), findsOneWidget);
+      expect(find.text('Play it locally'), findsOneWidget);
     });
 
     testWidgets('renders premium single-file limit blockage card correctly', (tester) async {
@@ -338,12 +329,11 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('SINGLE-FILE LIMIT EXCEEDED'), findsOneWidget);
-      expect(find.text('Video Exceeds Premium File Limit'), findsOneWidget);
-      expect(find.text('Premium Cap'), findsOneWidget);
-      expect(find.text('Over limit by'), findsOneWidget);
-      expect(find.text('+2.0 GB'), findsOneWidget);
-      expect(find.text('Got it'), findsOneWidget);
+      expect(find.text('Too big to share'), findsOneWidget);
+      expect(find.text('PATRON CAP'), findsOneWidget);
+      expect(find.text('OVER BY'), findsOneWidget);
+      expect(find.text('2.0 GB'), findsOneWidget);
+      expect(find.text('Play it locally'), findsOneWidget);
     });
 
     testWidgets('renders infinity symbol for unlimited remaining quota', (tester) async {
@@ -387,9 +377,9 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('Remaining'), findsOneWidget);
-      expect(find.text('∞ B'), findsOneWidget);
-      expect(find.text('Quota shortfall'), findsNothing);
+      // Unlimited (-1) has no meaningful "left" or shortfall to show.
+      expect(find.text('LEFT'), findsNothing);
+      expect(find.text('SHORT BY'), findsNothing);
     });
   });
 }

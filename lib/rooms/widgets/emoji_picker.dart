@@ -66,8 +66,15 @@ class _EmojiPickerState extends State<EmojiPicker> {
   final _search = TextEditingController();
   final _searchFocus = FocusNode();
   final _scroll = ScrollController();
+  final _categoryScroll = ScrollController();
   String _query = '';
   int _activeSection = 0;
+
+  /// The hovered emoji's name, shown in the search field's place of a hint.
+  /// One readout instead of a Tooltip per cell: dozens of tooltips (each its
+  /// own overlay portal and hover tracker) were a large part of the cost of
+  /// opening the picker.
+  final _hoverName = ValueNotifier<String?>(null);
 
   /// The toneable emoji whose variants are showing, or null for the global
   /// default-tone chooser; [_toneOpen] says whether either is up at all.
@@ -94,6 +101,8 @@ class _EmojiPickerState extends State<EmojiPicker> {
     _search.dispose();
     _searchFocus.dispose();
     _scroll.dispose();
+    _hoverName.dispose();
+    _categoryScroll.dispose();
     super.dispose();
   }
 
@@ -108,7 +117,31 @@ class _EmojiPickerState extends State<EmojiPicker> {
     for (var i = 0; i < _sectionOffsets.length; i++) {
       if (_sectionOffsets[i] <= at) index = i;
     }
-    if (index != _activeSection) setState(() => _activeSection = index);
+    if (index != _activeSection) {
+      setState(() => _activeSection = index);
+      _revealCategory(index);
+    }
+  }
+
+  static const _categoryExtent = 32.0;
+
+  /// Scrolls the category bar just enough to keep [index]'s icon in view.
+  void _revealCategory(int index) {
+    if (!_categoryScroll.hasClients) return;
+    final position = _categoryScroll.position;
+    final start = index * _categoryExtent;
+    final end = start + _categoryExtent;
+    final double? target = start < position.pixels
+        ? start
+        : end > position.pixels + position.viewportDimension
+        ? end - position.viewportDimension
+        : null;
+    if (target == null) return;
+    _categoryScroll.animateTo(
+      target.clamp(0.0, position.maxScrollExtent),
+      duration: PTMotion.functional(context, PTMotion.state),
+      curve: PTMotion.enter,
+    );
   }
 
   List<EmojiGroup> get _sections => [
@@ -144,6 +177,7 @@ class _EmojiPickerState extends State<EmojiPicker> {
       if (!_scroll.hasClients || index >= _sectionOffsets.length) return;
       _scroll.jumpTo(math.min(_sectionOffsets[index], _scroll.position.maxScrollExtent));
       setState(() => _activeSection = index);
+      _revealCategory(index);
     });
   }
 
@@ -219,18 +253,21 @@ class _EmojiPickerState extends State<EmojiPicker> {
           child: Icon(Symbols.search_rounded, size: 17, color: PTColors.white(0.45)),
         ),
         Expanded(
-          child: TextField(
-            controller: _search,
-            focusNode: _searchFocus,
-            onChanged: (value) => setState(() => _query = value.trim()),
-            style: PTText.body.copyWith(fontSize: 13),
-            cursorColor: PTColors.textAccent,
-            decoration: InputDecoration(
-              hintText: 'Search emoji',
-              hintStyle: PTText.body.copyWith(fontSize: 13, color: PTColors.white(0.4)),
-              border: InputBorder.none,
-              isDense: true,
-              contentPadding: const EdgeInsets.symmetric(vertical: 9),
+          child: ValueListenableBuilder(
+            valueListenable: _hoverName,
+            builder: (context, hoverName, _) => TextField(
+              controller: _search,
+              focusNode: _searchFocus,
+              onChanged: (value) => setState(() => _query = value.trim()),
+              style: PTText.body.copyWith(fontSize: 13),
+              cursorColor: PTColors.textAccent,
+              decoration: InputDecoration(
+                hintText: hoverName ?? 'Search emoji',
+                hintStyle: PTText.body.copyWith(fontSize: 13, color: PTColors.white(0.4)),
+                border: InputBorder.none,
+                isDense: true,
+                contentPadding: const EdgeInsets.symmetric(vertical: 9),
+              ),
             ),
           ),
         ),
@@ -263,13 +300,14 @@ class _EmojiPickerState extends State<EmojiPicker> {
         children: [
           Expanded(
             child: SingleChildScrollView(
+              controller: _categoryScroll,
               scrollDirection: .horizontal,
               child: Row(
                 children: [
                   for (var i = 0; i < sections.length; i++)
                     PTIconButton(
                       icon: _groupIcons[sections[i].id] ?? Symbols.category_rounded,
-                      size: 32,
+                      size: _categoryExtent,
                       iconSize: 17,
                       glass: false,
                       active: i == active,
@@ -392,6 +430,13 @@ class _EmojiPickerState extends State<EmojiPicker> {
       label: entry.name,
       onTap: () => _pick(entry),
       onHold: !recent && entry.toneable ? () => _openTones(entry) : null,
+      onHover: (on) {
+        if (on) {
+          _hoverName.value = entry.name;
+        } else if (_hoverName.value == entry.name) {
+          _hoverName.value = null;
+        }
+      },
     );
   }
 
@@ -425,7 +470,12 @@ class EmojiCell extends StatefulWidget {
     this.onHold,
     this.label,
     this.selected = false,
+    this.onHover,
   });
+
+  /// Hover reports for a caller that shows [label] itself; when set, the
+  /// cell draws no tooltip of its own.
+  final ValueChanged<bool>? onHover;
 
   final String emoji;
   final double extent;
@@ -466,8 +516,14 @@ class _EmojiCellState extends State<EmojiCell> {
     );
     Widget cell = MouseRegion(
       cursor: SystemMouseCursors.click,
-      onEnter: (_) => setState(() => _hovered = true),
-      onExit: (_) => setState(() => _hovered = false),
+      onEnter: (_) {
+        setState(() => _hovered = true);
+        widget.onHover?.call(true);
+      },
+      onExit: (_) {
+        setState(() => _hovered = false);
+        widget.onHover?.call(false);
+      },
       child: GestureDetector(
         behavior: .opaque,
         onTap: widget.onTap,
@@ -478,7 +534,7 @@ class _EmojiCellState extends State<EmojiCell> {
     );
     // Names as tooltips on pointer only: touch has no hover, and a long-press
     // tooltip would fight the long-press tone chooser.
-    if (pointer && widget.label != null) {
+    if (pointer && widget.label != null && widget.onHover == null) {
       cell = Tooltip(
         message: widget.label!,
         waitDuration: const Duration(milliseconds: 600),

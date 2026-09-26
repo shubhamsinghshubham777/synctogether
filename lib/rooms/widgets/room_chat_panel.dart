@@ -296,6 +296,10 @@ class _RoomChatPanelState extends State<RoomChatPanel> {
   void _hoverEnter() {
     _hoverClose?.cancel();
     if (_pickerOpen) return;
+    // Build and lay the picker out offstage now, inside the intent delay, so
+    // the frame that reveals it only has to paint - building ~70 glyph cells
+    // on the same frame as the entrance is what made it stutter.
+    _pickerPortal.show();
     _hoverOpen = Timer(kEmojiHoverOpenDelay, () {
       if (mounted) _openPicker(pinned: false);
     });
@@ -303,7 +307,12 @@ class _RoomChatPanelState extends State<RoomChatPanel> {
 
   void _hoverExit() {
     _hoverOpen?.cancel();
-    if (!_pickerOpen || _pickerPinned) return;
+    // Swept past without opening: drop the warmed, still-offstage picker.
+    if (!_pickerOpen) {
+      _pickerPortal.hide();
+      return;
+    }
+    if (_pickerPinned) return;
     _hoverClose = Timer(kEmojiHoverCloseDelay, () {
       if (mounted && !_pickerPinned) _closePicker();
     });
@@ -623,8 +632,14 @@ class _RoomChatPanelState extends State<RoomChatPanel> {
                       crossAxisAlignment: .end,
                       children: [
                         Padding(
-                          padding: const EdgeInsets.only(left: 4, bottom: 1),
-                          child: _pickerButton(),
+                          padding: const EdgeInsets.only(left: 4),
+                          // Centred on the field's first line, however the
+                          // font and text scale set its height - the field
+                          // grows downward-up, so this stays with that line.
+                          child: ConstrainedBox(
+                            constraints: BoxConstraints(minHeight: _singleLineFieldHeight()),
+                            child: Center(child: _pickerButton()),
+                          ),
                         ),
                         Expanded(child: _field(tight: tight)),
                       ],
@@ -681,6 +696,22 @@ class _RoomChatPanelState extends State<RoomChatPanel> {
     return MouseRegion(onEnter: (_) => _hoverEnter(), onExit: (_) => _hoverExit(), child: button);
   }
 
+  TextStyle get _fieldStyle => PTText.body.copyWith(fontSize: _spare ? 13 : 15);
+  EdgeInsets get _fieldPadding =>
+      _spare ? const EdgeInsets.fromLTRB(4, 9, 12, 9) : const EdgeInsets.fromLTRB(4, 11, 14, 11);
+
+  /// The field's height at one line, measured with the field's own style.
+  double _singleLineFieldHeight() {
+    final painter = TextPainter(
+      text: TextSpan(text: ' ', style: _fieldStyle),
+      textScaler: MediaQuery.textScalerOf(context),
+      textDirection: Directionality.of(context),
+    )..layout();
+    final line = painter.height;
+    painter.dispose();
+    return line + _fieldPadding.vertical;
+  }
+
   Widget _field({required bool tight}) => TextField(
     controller: _controller,
     focusNode: _inputFocus,
@@ -706,16 +737,14 @@ class _RoomChatPanelState extends State<RoomChatPanel> {
     minLines: 1,
     maxLines: tight ? 2 : 4,
     keyboardType: .multiline,
-    style: PTText.body.copyWith(fontSize: _spare ? 13 : 15),
+    style: _fieldStyle,
     cursorColor: PTColors.textAccent,
     decoration: InputDecoration(
       hintText: 'Say something…',
       hintStyle: PTText.body.copyWith(fontSize: _spare ? 13 : 15, color: PTColors.fgMute),
       border: InputBorder.none,
       isDense: true,
-      contentPadding: _spare
-          ? const EdgeInsets.fromLTRB(4, 9, 12, 9)
-          : const EdgeInsets.fromLTRB(4, 11, 14, 11),
+      contentPadding: _fieldPadding,
     ),
   );
 
@@ -776,39 +805,50 @@ class _RoomChatPanelState extends State<RoomChatPanel> {
       bottom: bottom,
       width: width,
       height: height,
-      child: TapRegion(
-        groupId: _tapGroup,
-        onTapOutside: (_) => _closePicker(),
-        child: MouseRegion(
-          onEnter: (_) => _hoverClose?.cancel(),
-          onExit: (_) => _hoverExit(),
-          child: Focus(
-            canRequestFocus: false,
-            skipTraversal: true,
-            onKeyEvent: _onComposerKey,
-            // Glass rule: scale in, never fade - an Opacity over the
-            // BackdropFilter would blur an empty layer.
-            child: TweenAnimationBuilder<double>(
-              tween: Tween(begin: 0, end: 1),
-              duration: PTMotion.functional(context, PTMotion.state),
-              curve: PTMotion.enter,
-              builder: (context, t, child) => Transform.translate(
-                offset: Offset(0, 8 * (1 - t)),
-                child: Transform.scale(
-                  scale: 0.94 + 0.06 * t,
-                  alignment: .bottomLeft,
-                  child: child,
+      // Offstage while warming (see [_hoverEnter]): laid out, never painted
+      // or hit-tested.
+      child: Offstage(
+        offstage: !_pickerOpen,
+        child: TapRegion(
+          groupId: _tapGroup,
+          onTapOutside: (_) => _closePicker(),
+          child: MouseRegion(
+            onEnter: (_) => _hoverClose?.cancel(),
+            onExit: (_) => _hoverExit(),
+            child: Focus(
+              canRequestFocus: false,
+              skipTraversal: true,
+              onKeyEvent: _onComposerKey,
+              // Glass rule: scale in, never fade - an Opacity over the
+              // BackdropFilter would blur an empty layer.
+              // Animates 0 -> 1 when [_pickerOpen] flips, not at mount, since
+              // a warmed picker mounts before it is revealed.
+              child: TweenAnimationBuilder<double>(
+                tween: Tween(begin: 0, end: _pickerOpen ? 1 : 0),
+                duration: PTMotion.functional(context, PTMotion.state),
+                curve: PTMotion.enter,
+                builder: (context, t, child) => Transform.translate(
+                  offset: Offset(0, 8 * (1 - t)),
+                  child: Transform.scale(
+                    scale: 0.94 + 0.06 * t,
+                    alignment: .bottomLeft,
+                    child: child,
+                  ),
                 ),
-              ),
-              child: GlassPanel(
-                radius: 18,
-                opacity: 0.85,
-                blur: 32,
-                baseColor: PTColors.surfaceBase,
-                child: EmojiPicker(
-                  prefs: _emoji,
-                  onPick: _insert,
-                  onCustomize: () => _customize(0),
+                child: GlassPanel(
+                  radius: 18,
+                  opacity: 0.85,
+                  blur: 32,
+                  baseColor: PTColors.surfaceBase,
+                  // Its own layer: the entrance transform then moves a cached
+                  // picture instead of repainting every glyph each frame.
+                  child: RepaintBoundary(
+                    child: EmojiPicker(
+                      prefs: _emoji,
+                      onPick: _insert,
+                      onCustomize: () => _customize(0),
+                    ),
+                  ),
                 ),
               ),
             ),

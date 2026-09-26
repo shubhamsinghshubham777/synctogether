@@ -4296,7 +4296,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     audioOutputDisabledTooltip: isDesktop && _mode == .youtube
         ? 'Audio output selection is unavailable for YouTube'
         : null,
-    onAudioTracks: !secondary || !(compact || docked)
+    onAudioTracks: !secondary || !(compact || docked || _floatingBarIsWide)
         ? null
         : _mode == .local
         ? () => _showTrackChooser(subtitles: false)
@@ -5372,6 +5372,13 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     );
   }
 
+  /// Whether the floating desktop bar is wide enough for the Desktop room
+  /// board's row, which carries the AUDIO key (so the menu drops it). The bar
+  /// sits 16 px in from each window edge with 16 px of panel padding inside,
+  /// and decides on its row width against the same [kFloatingBoardWidth].
+  bool get _floatingBarIsWide =>
+      layoutOf(context) == .desktop && MediaQuery.sizeOf(context).width - 64 >= kFloatingBoardWidth;
+
   Widget _controlBar({bool compact = false, bool docked = false}) {
     return ValueListenableBuilder(
       valueListenable: _positionNotifier,
@@ -5425,7 +5432,8 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     final a = _controlActionsFor(secondary: true, compact: true);
     final narrow = _narrowControlBar(compact);
     final pickersInMenu = !compact || narrow;
-    final audioInMenu = narrow || (!compact && !(layout == .desktop && _theaterFits));
+    final audioInMenu =
+        narrow || (!compact && !(layout == .desktop && (_theaterFits || _floatingBarIsWide)));
     return [
       if (pickersInMenu && a.onSwitchSource != null)
         RoomMenuAction(icon: BoothIcons.youtube, label: 'Switch source', onTap: a.onSwitchSource!),

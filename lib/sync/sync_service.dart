@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:clock/clock.dart';
+import 'package:flutter/foundation.dart';
 import 'package:synctogether/analytics.dart';
 import 'package:synctogether/diagnostics.dart';
 import 'package:synctogether/profile/profile_models.dart';
@@ -1403,6 +1404,12 @@ class SyncService {
 
   static const _driftThreshold = Duration(milliseconds: 1500);
 
+  /// How far our playhead sat from the authority's at the last heartbeat
+  /// that found it within tolerance - what the header's "IN SYNC · ±0.2s"
+  /// reports. Null until one has been measured, whenever either side is not
+  /// playing, and always for the authority, which is the reference itself.
+  final measuredDrift = ValueNotifier<Duration?>(null);
+
   void _broadcastPositionSync() {
     final playing = isPlaying?.call() ?? _player.playing;
     // Before the first presence sync nobody can be elected; the host role is
@@ -1449,7 +1456,10 @@ class SyncService {
     required String reason,
   }) {
     final localPlaying = isPlaying?.call() ?? _player.playing;
-    if (!playing || !localPlaying) return;
+    if (!playing || !localPlaying) {
+      measuredDrift.value = null;
+      return;
+    }
     final local = currentPosition?.call() ?? _player.position;
     final remote = logic.extrapolatePosition(
       reported,
@@ -1457,7 +1467,10 @@ class SyncService {
       sentAtMs: sentAtMs,
       nowMs: serverNow().millisecondsSinceEpoch,
     );
-    if ((local - remote).abs() <= _driftThreshold) return;
+    if ((local - remote).abs() <= _driftThreshold) {
+      measuredDrift.value = (local - remote).abs();
+      return;
+    }
     trace(
       'correcting drift',
       category: 'sync',
@@ -1605,6 +1618,7 @@ class SyncService {
     }
     _reactionThrottle.dispose();
     _presenceThrottle.dispose();
+    measuredDrift.dispose();
     _chatController.close();
     _presenceController.close();
     _typingController.close();

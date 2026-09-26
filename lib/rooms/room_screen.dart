@@ -924,6 +924,10 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
         }
       }),
       _player.stream.volume.listen((volume) => setState(() => _volume = volume / 100)),
+      // The SUBS / AUDIO keys name the selected tracks.
+      _player.stream.track.listen((_) {
+        if (_mode == .local) setState(() {});
+      }),
     ]);
 
     setState(() {
@@ -2020,14 +2024,18 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
   /// The resting media-sharing states as a header icon, for the portrait
   /// header where a pill costs a whole row. Null for the transient states
   /// (uploading, failed), whose label is the point.
-  Widget? _mediaSharingIcon() {
+  Widget? _mediaSharingIcon({double size = 44}) {
+    // The theatre bar's square is a Rail outline (Desktop room board).
+    final outlined = size < 44;
     if (_mode != .local) return null;
     final isHost = _sync?.isHost ?? false;
     if (!isHost) {
       return _isStreamingRemoteSharedMedia
-          ? const PTIconButton(
+          ? PTIconButton(
               icon: Symbols.cloud_done_rounded,
-              iconSize: 20,
+              size: size,
+              outlined: outlined,
+              iconSize: outlined ? 18 : 20,
               tooltip: 'Streaming from host',
             )
           : null;
@@ -2036,14 +2044,18 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     if (!(EntitlementService.instance.limits?.canShareMedia ?? false)) return null;
     if (_uploadState == 'uploading' || _isUploadingSharedMedia) return null;
     return switch (_uploadState) {
-      'ready' => const PTIconButton(
+      'ready' => PTIconButton(
         icon: Symbols.cloud_done_rounded,
-        iconSize: 20,
+        size: size,
+        outlined: outlined,
+        iconSize: outlined ? 18 : 20,
         tooltip: 'Shared with room',
       ),
       'none' => PTIconButton(
         icon: BoothIcons.cloudUpload,
-        iconSize: 20,
+        size: size,
+        outlined: outlined,
+        iconSize: outlined ? 18 : 20,
         tooltip: 'Share with room',
         onPressed: _retryLocalUpload,
       ),
@@ -4260,51 +4272,57 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
 
   /// [secondary] false leaves out the source/file/track controls, which then
   /// live in the overflow menu ([_narrowControlBar]).
-  RoomControlBarActions _controlActionsFor({required bool secondary, bool docked = false}) =>
-      RoomControlBarActions(
-        onPlayPause: _playPause,
-        onSeek: _seek,
-        onSkip: _skip,
-        onMicToggle: (v) => _toggleFacecam('mic', v),
-        onCamToggle: (v) => _toggleFacecam('cam', v),
-        onCamLocked: (_av?.canPublishCamera == false && !EntitlementService.instance.isPremium)
-            ? () => context.push('/lobby/subscribe?source=camera_lock')
-            : null,
-        onMicDeviceSelect: isDesktop && _av != null ? _showMicDeviceSelector : null,
-        onCamDeviceSelect: isDesktop && _av != null ? _showCamDeviceSelector : null,
-        onAudioOutputSelect: isDesktop && _mode == .local && _av != null
-            ? _showAudioOutputDeviceSelector
-            : null,
-        audioOutputDisabledTooltip: isDesktop && _mode == .youtube
-            ? 'Audio output selection is unavailable for YouTube'
-            : null,
-        onAudioTracks: !secondary
-            ? null
-            : _mode == .local
-            ? () => _showTrackChooser(subtitles: false)
-            : null,
-        onSubtitles: !secondary
-            ? null
-            : _mode == .local
-            ? () => _showTrackChooser(subtitles: true)
-            : (_mode == .youtube && _youtubeController != null)
-            ? _showYouTubeCaptionChooser
-            : null,
-        // D1: only the host chooses what the room watches. Members keep a picker
-        // purely to locate their own copy of the canonical file.
-        onSwitchSource: secondary && (_sync?.isHost ?? false) ? _handleSwitchSource : null,
-        onOpenFile: secondary && _mode == .local ? _pickVideo : null,
-        openFileTooltip: (_sync?.isHost ?? false)
-            ? 'Open file'
-            : 'Locate your copy of ${_canonicalMedia.name ?? 'the file'}',
-        onVolume: _setVolume,
-        onToggleMute: _toggleMute,
-        onReact: _sync != null ? _toggleReact : null,
-        // Narrow bars are the in-flow portrait ones, which never hide.
-        // A docked bar never hides, so it offers no hide button.
-        onHideControls: secondary && !docked ? _toggleControlsVisible : null,
-        onFullscreenToggle: isDesktop ? _toggleFullscreen : null,
-      );
+  /// [secondary] offers the chooser actions at all; [compact] is the touch
+  /// bar, the only one that also carries source, file and hide - the desktop
+  /// and tablet bars keep to the boards and leave those to the room menu.
+  RoomControlBarActions _controlActionsFor({
+    required bool secondary,
+    bool docked = false,
+    bool compact = false,
+  }) => RoomControlBarActions(
+    onPlayPause: _playPause,
+    onSeek: _seek,
+    onSkip: _skip,
+    onMicToggle: (v) => _toggleFacecam('mic', v),
+    onCamToggle: (v) => _toggleFacecam('cam', v),
+    onCamLocked: (_av?.canPublishCamera == false && !EntitlementService.instance.isPremium)
+        ? () => context.push('/lobby/subscribe?source=camera_lock')
+        : null,
+    onMicDeviceSelect: isDesktop && _av != null ? _showMicDeviceSelector : null,
+    onCamDeviceSelect: isDesktop && _av != null ? _showCamDeviceSelector : null,
+    onAudioOutputSelect: isDesktop && _mode == .local && _av != null
+        ? _showAudioOutputDeviceSelector
+        : null,
+    audioOutputDisabledTooltip: isDesktop && _mode == .youtube
+        ? 'Audio output selection is unavailable for YouTube'
+        : null,
+    onAudioTracks: !secondary || !(compact || docked)
+        ? null
+        : _mode == .local
+        ? () => _showTrackChooser(subtitles: false)
+        : null,
+    onSubtitles: !secondary
+        ? null
+        : _mode == .local
+        ? () => _showTrackChooser(subtitles: true)
+        : (_mode == .youtube && _youtubeController != null)
+        ? _showYouTubeCaptionChooser
+        : null,
+    // D1: only the host chooses what the room watches. Members keep a picker
+    // purely to locate their own copy of the canonical file.
+    onSwitchSource: secondary && compact && (_sync?.isHost ?? false) ? _handleSwitchSource : null,
+    onOpenFile: secondary && compact && _mode == .local ? _pickVideo : null,
+    openFileTooltip: (_sync?.isHost ?? false)
+        ? 'Open file'
+        : 'Locate your copy of ${_canonicalMedia.name ?? 'the file'}',
+    onVolume: _setVolume,
+    onToggleMute: _toggleMute,
+    onReact: _sync != null ? _toggleReact : null,
+    // Narrow bars are the in-flow portrait ones, which never hide.
+    // A docked bar never hides, so it offers no hide button.
+    onHideControls: secondary && compact && !docked ? _toggleControlsVisible : null,
+    onFullscreenToggle: isDesktop ? _toggleFullscreen : null,
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -4799,113 +4817,112 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
   }
 
   Widget _roomPillBody(Room room, {required bool compact, required bool showCode}) {
-    return GlassPill(
-      padding: EdgeInsets.symmetric(horizontal: compact ? 14 : 18, vertical: compact ? 8 : 10),
-      child: Row(
-        mainAxisSize: .min,
-        spacing: compact ? 12 : 16,
-        children: [
-          Flexible(
+    // The Room at minimum window board: a 40 px Seat strip - name, paper tag,
+    // the sync dot and a bare countdown.
+    final row = Row(
+      mainAxisSize: .min,
+      spacing: compact ? 12 : 10,
+      children: [
+        Flexible(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxWidth: compact ? double.infinity : 200),
             child: Text(
               room.name,
+              maxLines: 1,
               overflow: .ellipsis,
-              style: PTText.panelHeading.copyWith(fontSize: compact ? 13 : 15),
+              style: compact
+                  ? PTText.panelHeading.copyWith(fontSize: 13)
+                  : PTText.panelHeading.copyWith(fontSize: 14, fontWeight: .w700),
             ),
           ),
-          if (showCode)
-            RoomCodeChip(code: room.code, onCopy: _copyCode, fontSize: compact ? 11 : 13),
-          Tooltip(
-            message: switch (_syncDotState) {
-              .locked => 'In sync with the room',
-              .catchingUp => 'Catching up',
-              .reconnecting => 'Reconnecting…',
-              .idle => 'Nothing playing together yet',
+        ),
+        if (showCode)
+          RoomCodeChip(code: room.code, onCopy: _copyCode, fontSize: 11, plain: !compact),
+        Tooltip(
+          message: switch (_syncDotState) {
+            .locked => 'In sync with the room',
+            .catchingUp => 'Catching up',
+            .reconnecting => 'Reconnecting…',
+            .idle => 'Nothing playing together yet',
+          },
+          child: SyncDot(state: _syncDotState, size: 7),
+        ),
+        if (kDebugMode && _mode == .youtube && _youtubeController != null)
+          PTIconButton(
+            icon: Symbols.campaign_rounded,
+            size: compact ? 26 : 30,
+            iconSize: compact ? 15 : 17,
+            glass: false,
+            tooltip: (_youtubeController!.isAdPlaying)
+                ? 'Debug: End simulated ad (F2)'
+                : 'Debug: Simulate YouTube ad (F2)',
+            color: (_youtubeController!.isAdPlaying) ? PTColors.notice : null,
+            onPressed: () {
+              _youtubeController!.debugToggleAdState();
+              final isAd = _youtubeController!.isAdPlaying;
+              if (isAd) {
+                _snack('Ad simulated: playback & sync paused', kind: .info);
+              }
             },
-            child: SyncDot(state: _syncDotState, size: compact ? 7 : 8),
           ),
-          // Shortcuts mean nothing to a finger - and on a phone in landscape
-          // the slot is better spent on the room name.
-          if (inputOf(context) != .touch)
-            PTIconButton(
-              icon: Symbols.keyboard_rounded,
-              size: compact ? 26 : 30,
-              iconSize: compact ? 15 : 17,
-              glass: false,
-              tooltip: 'Keyboard shortcuts (?)',
-              onPressed: _showShortcuts,
-            ),
-          if (kDebugMode && _mode == .youtube && _youtubeController != null)
-            PTIconButton(
-              icon: Symbols.campaign_rounded,
-              size: compact ? 26 : 30,
-              iconSize: compact ? 15 : 17,
-              glass: false,
-              tooltip: (_youtubeController!.isAdPlaying)
-                  ? 'Debug: End simulated ad (F2)'
-                  : 'Debug: Simulate YouTube ad (F2)',
-              color: (_youtubeController!.isAdPlaying) ? PTColors.notice : null,
-              onPressed: () {
-                _youtubeController!.debugToggleAdState();
-                final isAd = _youtubeController!.isAdPlaying;
-                if (isAd) {
-                  _snack('Ad simulated: playback & sync paused', kind: .info);
-                }
-              },
-            ),
-          // Urgency without layout movement - this sits right next to the
-          // video, so nothing here may reflow or jitter. Laid out at its
-          // natural width (only the title gives way); compact drops the
-          // " left", which the clock glyph already says.
-          _countdownSlot(
-            compact: compact,
-            child: Tooltip(
-              message: (_sync?.isHost ?? false) ? 'Extend room duration' : 'Time remaining',
-              child: MouseRegion(
-                cursor: (_sync?.isHost ?? false)
-                    ? SystemMouseCursors.click
-                    : SystemMouseCursors.basic,
-                child: GestureDetector(
-                  onTap: (_sync?.isHost ?? false) && !_extending ? _extendRoom : null,
-                  child: Row(
-                    mainAxisSize: .min,
-                    spacing: 6,
-                    children: [
+        // Urgency without layout movement - this sits right next to the
+        // video, so nothing here may reflow or jitter. Laid out at its
+        // natural width (only the title gives way); compact drops the
+        // " left", which the clock glyph already says.
+        _countdownSlot(
+          compact: compact,
+          child: Tooltip(
+            message: (_sync?.isHost ?? false) ? 'Extend room duration' : 'Time remaining',
+            child: MouseRegion(
+              cursor: (_sync?.isHost ?? false)
+                  ? SystemMouseCursors.click
+                  : SystemMouseCursors.basic,
+              child: GestureDetector(
+                onTap: (_sync?.isHost ?? false) && !_extending ? _extendRoom : null,
+                child: Row(
+                  mainAxisSize: .min,
+                  spacing: 6,
+                  children: [
+                    if (compact)
                       PTPulse(
                         enabled:
                             _timeLeft > Duration.zero && _timeLeft <= const Duration(minutes: 1),
                         low: 0.35,
-                        child: Icon(
-                          BoothIcons.schedule,
-                          size: compact ? 13 : 16,
-                          color: PTColors.white(0.7),
+                        child: Icon(BoothIcons.schedule, size: 13, color: PTColors.white(0.7)),
+                      ),
+                    Flexible(
+                      child: AnimatedDefaultTextStyle(
+                        duration: PTMotion.functional(context, PTMotion.state),
+                        curve: PTMotion.enter,
+                        style: PTText.mono.copyWith(
+                          fontSize: 11,
+                          color:
+                              _timeLeft > Duration.zero && _timeLeft <= const Duration(minutes: 5)
+                              ? PTColors.warning
+                              : compact
+                              ? PTColors.white(0.7)
+                              : PTColors.fgDim,
+                        ),
+                        child: Text(
+                          compact ? _countdownLabel.replaceAll(' left', '') : _countdownLabel,
+                          maxLines: 1,
+                          overflow: .ellipsis,
                         ),
                       ),
-                      Flexible(
-                        child: AnimatedDefaultTextStyle(
-                          duration: PTMotion.functional(context, PTMotion.state),
-                          curve: PTMotion.enter,
-                          style: PTText.mono.copyWith(
-                            fontSize: compact ? 11 : 13,
-                            color:
-                                _timeLeft > Duration.zero && _timeLeft <= const Duration(minutes: 5)
-                                ? PTColors.warning
-                                : PTColors.white(0.7),
-                          ),
-                          child: Text(
-                            compact ? _countdownLabel.replaceAll(' left', '') : _countdownLabel,
-                            maxLines: 1,
-                            overflow: .ellipsis,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
             ),
           ),
-        ],
-      ),
+        ),
+      ],
+    );
+    return GlassPill(
+      padding: compact
+          ? const EdgeInsets.symmetric(horizontal: 14, vertical: 8)
+          : const EdgeInsets.symmetric(horizontal: 12),
+      child: compact ? row : SizedBox(height: 38, child: row),
     );
   }
 
@@ -5249,11 +5266,14 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     );
   }
 
-  Widget _chatToggleButton() {
+  Widget _chatToggleButton({double size = 44, bool glass = true}) {
     return UnreadBadge(
       count: _unread,
       child: PTIconButton(
         icon: BoothIcons.chat,
+        size: size,
+        iconSize: size < 44 ? 18 : 21,
+        glass: glass,
         active: _chatOpen,
         tooltip: _chatOpen ? 'Close chat (C)' : 'Party chat (C)',
         onPressed: _toggleChat,
@@ -5320,6 +5340,8 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
       ),
       embedded: embedded,
       docked: docked,
+      // The desktop compositions close it from their own chat key.
+      closable: !docked && layoutOf(context) != .desktop,
       // Everyone present, blocked or not: the gate waits on all of them, so
       // the roster mirrors the readiness overlay rather than the chat feed.
       roster: docked || embedded
@@ -5368,7 +5390,13 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
       camOn: _av?.camEnabled ?? false,
       avAvailable: _av != null,
       camAvailable: _av?.canPublishCamera ?? false,
-      actions: _controlActionsFor(secondary: !_narrowControlBar(compact), docked: docked),
+      actions: _controlActionsFor(
+        secondary: !_narrowControlBar(compact),
+        docked: docked,
+        compact: compact,
+      ),
+      subtitleTag: _mode == .local ? shortTrackTag(_player.state.track.subtitle) : null,
+      audioTag: _mode == .local ? shortTrackTag(_player.state.track.audio) : null,
       fullscreen: _fullscreen,
       docked: docked,
       reactOpen: _reactOpen,
@@ -5385,39 +5413,61 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
   /// scale the whole row down to fit, shrinking its 44pt touch targets. There
   /// the secondary controls move to the overflow menu instead, so the bar
   /// renders 1:1 ([_menuPlaybackActions]).
-  ///
-  /// The floating desktop bar at the minimum window does the same (the Room
-  /// at 900x600 board): the picture is small enough already, and a bar
-  /// carrying every source control would cover more of it.
-  bool _narrowControlBar(bool compact) {
-    final width = MediaQuery.sizeOf(context).width;
-    if (compact) return width < 400;
-    return layoutOf(context) == .desktop && !_theaterFits && !_fullscreen;
-  }
+  bool _narrowControlBar(bool compact) => compact && MediaQuery.sizeOf(context).width < 400;
 
+  /// What the room menu carries beyond the board's own items: whatever the
+  /// current bar leaves out. The desktop and tablet bars never carry the
+  /// source and file pickers (the boards give them no key), the floating bar
+  /// has no audio key, and a narrow phone bar has none of them.
   List<RoomMenuAction> _menuPlaybackActions() {
-    final compact = layoutOf(context) != .desktop && layoutOf(context) != .tablet;
-    if (!_narrowControlBar(compact)) return const [];
-    final a = _controlActionsFor(secondary: true);
+    final layout = layoutOf(context);
+    final compact = layout != .desktop && layout != .tablet;
+    final a = _controlActionsFor(secondary: true, compact: true);
+    final narrow = _narrowControlBar(compact);
+    final pickersInMenu = !compact || narrow;
+    final audioInMenu = narrow || (!compact && !(layout == .desktop && _theaterFits));
     return [
-      if (a.onSwitchSource != null)
+      if (pickersInMenu && a.onSwitchSource != null)
         RoomMenuAction(icon: BoothIcons.youtube, label: 'Switch source', onTap: a.onSwitchSource!),
-      if (a.onOpenFile != null)
+      if (pickersInMenu && a.onOpenFile != null)
         RoomMenuAction(
           icon: BoothIcons.file,
           label: a.openFileTooltip ?? 'Open file',
           onTap: a.onOpenFile!,
         ),
-      if (a.onAudioTracks != null)
+      if (audioInMenu && a.onAudioTracks != null)
         RoomMenuAction(
           icon: Symbols.audiotrack_rounded,
           label: 'Audio track',
           onTap: a.onAudioTracks!,
         ),
-      if (a.onSubtitles != null)
+      if (narrow && a.onSubtitles != null)
         RoomMenuAction(icon: BoothIcons.subtitles, label: 'Subtitles', onTap: a.onSubtitles!),
+      // The phone header keeps to the board (no sharing square), so the
+      // resting "share" action moves here.
+      if (compact && _canOfferShareWithRoom)
+        RoomMenuAction(
+          icon: BoothIcons.cloudUpload,
+          label: 'Share with room',
+          onTap: _retryLocalUpload,
+        ),
+      if (inputOf(context) != .touch)
+        RoomMenuAction(
+          icon: Symbols.keyboard_rounded,
+          label: 'Keyboard shortcuts',
+          onTap: _showShortcuts,
+        ),
     ];
   }
+
+  /// The host has a local file the tier may share and nothing is uploading.
+  bool get _canOfferShareWithRoom =>
+      _mode == .local &&
+      (_sync?.isHost ?? false) &&
+      _localFileName != null &&
+      (EntitlementService.instance.limits?.canShareMedia ?? false) &&
+      _uploadState == 'none' &&
+      !_isUploadingSharedMedia;
 
   /// Room pill (+ sharing pill) on the left, chat toggle and overflow on the right.
   /// Expanded (not Flexible+Spacer: they'd split the free space 50/50,
@@ -5431,7 +5481,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
         // already ellipsizes) gives up width instead.
         Expanded(
           child: Row(
-            spacing: compact ? 8 : 10,
+            spacing: 10,
             children: [
               Flexible(child: _roomPill(compact: compact)),
               // Compact rows (phone landscape, fold panes) take the resting
@@ -5443,11 +5493,16 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
             ],
           ),
         ),
-        if (chatToggle) ...[SizedBox(width: compact ? 12 : 16), _chatToggleButton()],
-        SizedBox(width: compact ? 10 : 12),
+        if (chatToggle) ...[
+          SizedBox(width: compact ? 12 : 10),
+          _chatToggleButton(size: compact ? 44 : 40),
+        ],
+        SizedBox(width: compact ? 10 : 10),
         PTIconButton(
           icon: BoothIcons.moreVert,
-          iconSize: compact ? 21 : 22,
+          size: compact ? 44 : 40,
+          iconSize: compact ? 21 : 18,
+          tooltip: 'Room menu',
           onPressed: _openOverflowMenu,
         ),
       ],
@@ -5607,7 +5662,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     final urgent = _timeLeft > Duration.zero && _timeLeft <= const Duration(minutes: 5);
     return Container(
       height: 56,
-      padding: const EdgeInsets.symmetric(horizontal: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 20),
       decoration: const BoxDecoration(
         color: PTColors.canvas,
         border: Border(bottom: BorderSide(color: PTColors.aisle)),
@@ -5619,15 +5674,15 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
           final invite = box.maxWidth >= 700 * scale;
           // The countdown's "HOUSE LIGHTS IN" prefix goes before the sync
           // label does - the dot's words are the product's promise.
-          final spelled = box.maxWidth >= 1360 * scale;
+          final spelled = box.maxWidth >= 1000 * scale;
           return Row(
-            spacing: 14,
+            spacing: 16,
             children: [
               PTIconButton(
                 icon: BoothIcons.chevronLeft,
                 glass: false,
                 size: 36,
-                iconSize: 22,
+                iconSize: 20,
                 tooltip: 'Back to the lobby',
                 onPressed: _leaveRoom,
               ),
@@ -5635,17 +5690,17 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
               // else sits at its natural width.
               Expanded(
                 child: Row(
-                  spacing: 14,
+                  spacing: 16,
                   children: [
                     Flexible(
                       child: Text(
                         room.name,
                         maxLines: 1,
                         overflow: .ellipsis,
-                        style: PTText.panelHeading.copyWith(fontSize: 17),
+                        style: PTText.panelHeading.copyWith(fontSize: 18),
                       ),
                     ),
-                    RoomCodeChip(code: room.code, onCopy: _copyCode, fontSize: 12),
+                    RoomCodeChip(code: room.code, onCopy: _copyCode, fontSize: 12, plain: true),
                     Tooltip(
                       message: _syncDotTooltip,
                       child: Row(
@@ -5660,16 +5715,17 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
                                 _syncDotLabel,
                                 key: ValueKey(_syncDotState),
                                 style: PTText.label.copyWith(
+                                  letterSpacing: 11 * 0.12,
                                   color: _syncDotState == .reconnecting
                                       ? PTColors.danger
-                                      : PTColors.white(0.72),
+                                      : PTColors.fgDim,
                                 ),
                               ),
                             ),
                         ],
                       ),
                     ),
-                    ?_mediaSharingIcon(),
+                    ?_mediaSharingIcon(size: 36),
                   ],
                 ),
               ),
@@ -5686,7 +5742,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
                         duration: PTMotion.functional(context, PTMotion.state),
                         style: PTText.label.copyWith(
                           fontSize: 12,
-                          color: urgent ? PTColors.warning : PTColors.white(0.64),
+                          color: urgent ? PTColors.warning : PTColors.fgMute,
                         ),
                         child: Text(
                           spelled ? 'HOUSE LIGHTS IN $_houseLightsLabel' : _houseLightsLabel,
@@ -5696,14 +5752,6 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
                     ),
                   ),
                 ),
-              ),
-              PTIconButton(
-                icon: Symbols.keyboard_rounded,
-                glass: false,
-                size: 36,
-                iconSize: 18,
-                tooltip: 'Keyboard shortcuts (?)',
-                onPressed: _showShortcuts,
               ),
               if (invite)
                 PTButton(
@@ -5715,14 +5763,14 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
                 ),
               Row(
                 mainAxisSize: .min,
-                spacing: 6,
+                spacing: 16,
                 children: [
-                  _chatToggleButton(),
+                  _chatToggleButton(size: 36, glass: false),
                   PTIconButton(
                     icon: BoothIcons.moreHoriz,
                     glass: false,
                     size: 36,
-                    iconSize: 22,
+                    iconSize: 20,
                     tooltip: 'Room menu',
                     onPressed: _openOverflowMenu,
                   ),
@@ -5744,11 +5792,21 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
 
   String get _syncDotLabel => switch (_syncDotState) {
     _ when _gateState == GateState.closed && _canonicalMedia.isSet => 'HOLDING THE CURTAIN',
+    .locked when _driftLabel != null => 'IN SYNC · $_driftLabel',
     .locked => 'IN SYNC · ${_present.length} SEATS',
     .catchingUp => 'CATCHING UP',
     .reconnecting => 'RECONNECTING…',
     .idle => _present.length < 2 ? 'SAVING SEATS' : 'HOUSE OPEN',
   };
+
+  /// "±0.2s" - our distance from the authority at its last heartbeat. Null
+  /// when unmeasured, and always for the authority (it is the reference), so
+  /// the label falls back to the seat count.
+  String? get _driftLabel {
+    final drift = _sync?.measuredDrift.value;
+    if (drift == null) return null;
+    return '±${(drift.inMilliseconds / 1000).toStringAsFixed(1)}s';
+  }
 
   /// "2H 55M", or "4:59" inside the last hour's final minutes.
   String get _houseLightsLabel {
@@ -5790,9 +5848,9 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
             child: Stack(
               children: [
                 Positioned(
-                  top: 24,
-                  left: 24,
-                  right: 24,
+                  top: 14,
+                  left: 16,
+                  right: 16,
                   child: _overlayControls(fromTop: true, _topActions()),
                 ),
                 AnimatedPositioned(
@@ -5803,7 +5861,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
                   // the full width, centred and capped, so a 900 px window
                   // does not squeeze a banner with an action into 420 px.
                   left: _av != null && !_privacyHidden ? 240 : 24,
-                  right: _chatOpen ? 378 : (_av != null && !_privacyHidden ? 240 : 24),
+                  right: _chatOpen ? 332 : (_av != null && !_privacyHidden ? 240 : 24),
                   child: Align(
                     alignment: .topCenter,
                     child: ConstrainedBox(
@@ -5841,11 +5899,11 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
                   AnimatedPositioned(
                     duration: PTMotion.functional(context, PTMotion.state),
                     curve: _controlsVisible ? PTMotion.enter : PTMotion.exit,
-                    top: 84,
-                    right: 24,
-                    bottom: _controlsVisible ? (_reactOpen ? 224.0 : 160.0) : 76.0,
-                    width: 320,
-                    child: _chatRevealed(offscreen: 320, panel: _chatPanel()),
+                    top: 70,
+                    right: 16,
+                    bottom: _controlsVisible ? (_reactOpen ? 196.0 : 132.0) : 70.0,
+                    width: 300,
+                    child: _chatRevealed(offscreen: 300, panel: _chatPanel()),
                   ),
                 if (_overlayChat.isNotEmpty)
                   AnimatedPositioned(
@@ -5857,9 +5915,9 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
                     child: _chatDisplaced(_chatOverlay()),
                   ),
                 Positioned(
-                  bottom: 24,
-                  left: 24,
-                  right: 24,
+                  bottom: 14,
+                  left: 16,
+                  right: 16,
                   child: _overlayControls(
                     fromTop: false,
                     Column(
@@ -5868,7 +5926,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
                     ),
                   ),
                 ),
-                Positioned(bottom: 24, right: 24, child: _showControlsButton()),
+                Positioned(bottom: 14, right: 16, child: _showControlsButton()),
               ],
             ),
           ),
@@ -5898,7 +5956,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
           PTIconButton(
             icon: BoothIcons.chevronLeft,
             glass: false,
-            iconSize: 24,
+            iconSize: 22,
             tooltip: 'Leave room',
             onPressed: _leaveRoom,
           ),
@@ -5911,7 +5969,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
                   maxLines: 1,
                   overflow: .ellipsis,
                   textAlign: .center,
-                  style: PTText.panelHeading.copyWith(fontSize: 16),
+                  style: PTText.panelHeading.copyWith(fontSize: 17),
                 ),
                 GestureDetector(
                   onTap: isHost && !_extending ? _extendRoom : null,
@@ -5925,7 +5983,8 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
                           duration: PTMotion.functional(context, PTMotion.state),
                           style: PTText.label.copyWith(
                             fontSize: 10,
-                            color: urgent ? PTColors.warning : PTColors.white(0.66),
+                            letterSpacing: 10 * 0.12,
+                            color: urgent ? PTColors.warning : PTColors.fgDim,
                           ),
                           child: Text(
                             '$_syncDotLabel · $_houseLightsLabel',
@@ -5942,11 +6001,10 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
               ],
             ),
           ),
-          ?_mediaSharingIcon(),
           PTIconButton(
             icon: BoothIcons.moreHoriz,
             glass: false,
-            iconSize: 24,
+            iconSize: 22,
             tooltip: 'Room menu',
             onPressed: _openOverflowMenu,
           ),

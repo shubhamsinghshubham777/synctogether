@@ -22,6 +22,12 @@ abstract final class PTColors {
   static const aisle = Color(0xFF27221F); // raised
   static const rail = Color(0xFF3A332E); // lines
   static const fg = Color(0xFFF4ECDF); // Screen - text, tickets
+  static const railStrong = Color(0xFF5A4F44); // secondary button outline
+
+  // The Screen text ramp, opaque so it reads identically on Booth and Seat.
+  static const fgDim = Color(0xFFC9BDAC); // idle control glyphs, meta labels
+  static const fgSoft = Color(0xFFB5A999); // sender names
+  static const fgMute = Color(0xFF8F8476); // kickers, timecode totals
   static const dialogGlassBase = Color(0xFF1C1917);
   static const avatarRing = Color(0xFF121010);
   static const presenceRing = Color(0xFF1C1917);

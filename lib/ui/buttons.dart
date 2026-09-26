@@ -202,7 +202,9 @@ class PTIconButton extends StatefulWidget {
     this.iconSize = 21,
     this.tooltip,
     this.active = false,
+    this.activeColor,
     this.glass = true,
+    this.outlined = false,
     this.color,
     this.borderRadius,
     this.spinOnPress = 0,
@@ -214,11 +216,20 @@ class PTIconButton extends StatefulWidget {
   final double iconSize;
   final String? tooltip;
 
-  /// Active = Beam tint with a Beam hairline (e.g. chat open, mic on).
+  /// Active = the Beam wash with a Beam hairline and a Beam glyph (chat open,
+  /// reactions open).
   final bool active;
+
+  /// Replaces Beam in the active state with an outline-only tone - Signal for
+  /// a hot mic or camera, which is on-air rather than the lit control.
+  final Color? activeColor;
 
   /// When false, renders borderless (bare icon on a hover circle).
   final bool glass;
+
+  /// A transparent square with a Rail hairline and a dimmed glyph - the
+  /// board's idle toggle on a Booth surface. Wins over [glass].
+  final bool outlined;
   final Color? color;
   final BorderRadius? borderRadius;
 
@@ -253,10 +264,19 @@ class _PTIconButtonState extends State<PTIconButton> with SingleTickerProviderSt
   Widget build(BuildContext context) {
     final radius = widget.borderRadius ?? BorderRadius.circular(PTRadius.control);
 
+    final activeColor = widget.activeColor;
     final decoration = widget.active
         ? BoxDecoration(
-            color: PTColors.primary.withValues(alpha: 0.16),
-            border: Border.all(color: PTColors.primary.withValues(alpha: 0.6)),
+            // Beam toggles sit on the warm Beam wash; an [activeColor] toggle
+            // (Signal for a hot mic) is only its outline - on-air, not lit.
+            color: activeColor == null ? PTColors.pillWarning : Colors.transparent,
+            border: Border.all(color: activeColor ?? PTColors.primary),
+            borderRadius: radius,
+          )
+        : widget.outlined
+        ? BoxDecoration(
+            color: _hovered ? PTColors.aisle : Colors.transparent,
+            border: Border.all(color: PTColors.rail),
             borderRadius: radius,
           )
         : widget.glass
@@ -271,7 +291,12 @@ class _PTIconButtonState extends State<PTIconButton> with SingleTickerProviderSt
           );
 
     final iconColor =
-        widget.color ?? (widget.active ? PTColors.accentBright : PTColors.white(0.85));
+        widget.color ??
+        (widget.active
+            ? (activeColor ?? PTColors.primary)
+            : widget.outlined
+            ? PTColors.fgDim
+            : PTColors.white(0.85));
     // Keyed by glyph so every icon swap in the kit - volume_up ⇄ volume_off,
     // mic on/off, chat open/closed - cross-fades instead of snapping.
     Widget glyph = AnimatedSwitcher(
@@ -326,13 +351,29 @@ class _PTIconButtonState extends State<PTIconButton> with SingleTickerProviderSt
 
 /// The 58px gradient play/pause button.
 class PTPlayButton extends StatelessWidget {
-  const PTPlayButton({super.key, required this.playing, required this.onPressed, this.size = 58});
+  const PTPlayButton({
+    super.key,
+    required this.playing,
+    required this.onPressed,
+    this.size = 58,
+    this.height,
+    this.iconSize,
+    this.glow = true,
+  });
 
   final bool playing;
 
   /// Null disables the button (dimmed, no cursor), matching [PTButton].
   final VoidCallback? onPressed;
+
+  /// Width, and height too unless [height] is given - the docked bars draw a
+  /// slightly landscape key (44x40), the phone a square one.
   final double size;
+  final double? height;
+  final double? iconSize;
+
+  /// The Beam spill. Off where the key sits in a dense row of controls.
+  final bool glow;
 
   @override
   Widget build(BuildContext context) {
@@ -348,11 +389,11 @@ class PTPlayButton extends StatelessWidget {
           opacity: enabled ? 1 : 0.45,
           child: Container(
             width: size,
-            height: size,
+            height: height ?? size,
             decoration: BoxDecoration(
               color: enabled ? PTColors.primary : PTColors.aisle,
               borderRadius: BorderRadius.circular(PTRadius.control),
-              boxShadow: enabled ? PTColors.beamSpill : null,
+              boxShadow: enabled && glow ? PTColors.beamSpill : null,
             ),
             // Cross-faded rather than an AnimatedIcon: AnimatedIcons.play_pause
             // draws Material's *sharp* glyphs, which read as a foreign icon set
@@ -371,7 +412,7 @@ class PTPlayButton extends StatelessWidget {
               child: Icon(
                 playing ? BoothIcons.pause : BoothIcons.playFilled,
                 key: ValueKey(playing),
-                size: size * 0.55,
+                size: iconSize ?? size * 0.55,
                 color: PTColors.onAccent,
               ),
             ),
@@ -676,24 +717,36 @@ class PTActionPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GlassPill(
-      onTap: onTap,
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-      child: Row(
-        mainAxisSize: .min,
-        spacing: 6,
-        children: [
-          if (icon != null) Icon(icon, size: 15, color: PTColors.white(0.65)),
-          Flexible(
-            child: Text(
-              label,
-              maxLines: 1,
-              overflow: .ellipsis,
-              style: PTText.finePrint.copyWith(fontSize: 12, color: PTColors.white(0.65)),
+    final chip = GlassPanel(
+      radius: PTRadius.control,
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      child: SizedBox(
+        height: 30,
+        child: Row(
+          mainAxisSize: .min,
+          spacing: 6,
+          children: [
+            if (icon != null) Icon(icon, size: 15, color: PTColors.fgDim),
+            Flexible(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: .ellipsis,
+                style: PTText.finePrint.copyWith(
+                  fontSize: 12,
+                  fontWeight: .w600,
+                  color: PTColors.fgDim,
+                ),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
+    );
+    if (onTap == null) return chip;
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: PTPressable(onTap: onTap, child: chip),
     );
   }
 }

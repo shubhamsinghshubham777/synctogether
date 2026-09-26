@@ -99,7 +99,7 @@ export function PricingTable() {
             >
               <span>Annual</span>
               {savingsPct && !isPriceLoading && (
-                <span className={billingCycle === "annual" ? "text-[#A33A22]" : "text-signal"}>−{savingsPct}</span>
+                <span className={billingCycle === "annual" ? "text-[#1F6F62]" : "text-cue"}>−{savingsPct}</span>
               )}
             </button>
           </div>

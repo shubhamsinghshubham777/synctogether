@@ -309,11 +309,21 @@ class PTAvatarStack extends StatelessWidget {
 /// The glyph flips to a tick for a beat after a copy - feedback lands where the
 /// eye already is, which a snackbar at the other end of the screen never does.
 class RoomCodeChip extends StatefulWidget {
-  const RoomCodeChip({super.key, required this.code, this.onCopy, this.fontSize = 13});
+  const RoomCodeChip({
+    super.key,
+    required this.code,
+    this.onCopy,
+    this.fontSize = 13,
+    this.plain = false,
+  });
 
   final String code;
   final VoidCallback? onCopy;
   final double fontSize;
+
+  /// The room chrome's tag: regular weight, tight tracking and no copy glyph.
+  /// Still copies on tap, with the tooltip saying so.
+  final bool plain;
 
   @override
   State<RoomCodeChip> createState() => _RoomCodeChipState();
@@ -341,12 +351,15 @@ class _RoomCodeChipState extends State<RoomCodeChip> {
   @override
   Widget build(BuildContext context) {
     final fontSize = widget.fontSize;
-    return MouseRegion(
+    final plain = widget.plain;
+    final chip = MouseRegion(
       cursor: widget.onCopy != null ? SystemMouseCursors.click : MouseCursor.defer,
       child: PTPressable(
         onTap: widget.onCopy == null ? null : _copy,
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          padding: plain
+              ? EdgeInsets.symmetric(horizontal: fontSize * 2 / 3, vertical: fontSize / 4)
+              : const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
           // The ticket's stub in miniature: an inverted paper tag, so the
           // code reads as the same object on every surface it appears on.
           decoration: BoxDecoration(color: PTColors.fg, borderRadius: BorderRadius.circular(2)),
@@ -359,12 +372,12 @@ class _RoomCodeChipState extends State<RoomCodeChip> {
                 style: TextStyle(
                   fontFamily: PTFonts.mono,
                   fontSize: fontSize,
-                  fontWeight: .w600,
-                  letterSpacing: fontSize * 0.18,
+                  fontWeight: plain ? .w400 : .w600,
+                  letterSpacing: fontSize * (plain ? 0.08 : 0.18),
                   color: PTColors.canvas,
                 ),
               ),
-              if (widget.onCopy != null)
+              if (widget.onCopy != null && !plain)
                 AnimatedSwitcher(
                   duration: PTMotion.functional(context, PTMotion.state),
                   switchInCurve: PTMotion.enter,
@@ -386,6 +399,8 @@ class _RoomCodeChipState extends State<RoomCodeChip> {
         ),
       ),
     );
+    if (!plain || widget.onCopy == null) return chip;
+    return Tooltip(message: _copied ? 'Copied' : 'Copy room code', child: chip);
   }
 }
 

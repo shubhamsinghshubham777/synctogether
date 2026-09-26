@@ -53,6 +53,7 @@ class RoomChatPanel extends StatefulWidget {
     this.onReportMessage,
     this.embedded = false,
     this.docked = false,
+    this.closable = true,
     this.roster,
     this.premiumMembers = const {},
     this.memberFrames = const {},
@@ -76,6 +77,10 @@ class RoomChatPanel extends StatefulWidget {
   /// Docked into the theatre layout's right column: a flat Seat column with a
   /// Rail edge instead of a floating panel. Keeps its close button.
   final bool docked;
+
+  /// False where the room's own chat key already closes the panel (the
+  /// desktop compositions), so the boards' panels carry no second close.
+  final bool closable;
 
   /// Who is in the room, drawn as the header in place of "Party chat" - each
   /// seat's ring turns Cue as they clear the gate. Null keeps the plain header.
@@ -386,13 +391,7 @@ class _RoomChatPanelState extends State<RoomChatPanel> {
         child: content,
       );
     }
-    return GlassPanel(
-      radius: 22,
-      opacity: 0.6,
-      blur: 32,
-      baseColor: PTColors.surfaceBase,
-      child: content,
-    );
+    return GlassPanel(radius: PTRadius.panel, baseColor: PTColors.surfaceBase, child: content);
   }
 
   Widget _content({required bool showHeader, required bool tight, required bool quickBar}) {
@@ -401,42 +400,38 @@ class _RoomChatPanelState extends State<RoomChatPanel> {
         if (showHeader && widget.roster != null)
           _rosterHeader(widget.roster!)
         else if (showHeader)
+          // The Room at minimum window board: "Chat" and a mono head count on
+          // one Aisle-ruled line.
           Container(
-            padding: EdgeInsets.fromLTRB(18, widget.embedded ? 12 : 16, 18, 12),
-            decoration: BoxDecoration(
-              border: Border(bottom: BorderSide(color: PTColors.white(0.08))),
+            padding: EdgeInsets.fromLTRB(14, 12, widget.closable && !widget.embedded ? 8 : 14, 12),
+            decoration: const BoxDecoration(
+              border: Border(bottom: BorderSide(color: PTColors.aisle)),
             ),
             child: Row(
+              spacing: 10,
               children: [
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: .start,
-                    children: [
-                      Text(
-                        'Party chat',
-                        maxLines: 1,
-                        overflow: .ellipsis,
-                        style: PTText.panelHeading,
-                      ),
-                      Text(
-                        '${widget.watchingCount} watching',
-                        maxLines: 1,
-                        overflow: .ellipsis,
-                        style: PTText.finePrint.copyWith(color: PTColors.white(0.5)),
-                      ),
-                    ],
+                  child: Text(
+                    'Chat',
+                    maxLines: 1,
+                    overflow: .ellipsis,
+                    style: PTText.buttonLabel.copyWith(fontSize: 14),
                   ),
                 ),
-                if (!widget.embedded)
-                  MouseRegion(
-                    cursor: SystemMouseCursors.click,
-                    child: PTPressable(
-                      onTap: widget.onClose,
-                      child: SizedBox.square(
-                        dimension: 34,
-                        child: Icon(BoothIcons.close, size: 19, color: PTColors.white(0.6)),
-                      ),
-                    ),
+                Text(
+                  '${widget.watchingCount} IN',
+                  maxLines: 1,
+                  style: PTText.label.copyWith(fontSize: 10, color: PTColors.fgMute),
+                ),
+                if (widget.closable && !widget.embedded)
+                  PTIconButton(
+                    icon: BoothIcons.close,
+                    glass: false,
+                    size: 30,
+                    iconSize: 18,
+                    color: PTColors.fgDim,
+                    tooltip: 'Close chat (C)',
+                    onPressed: widget.onClose,
                   ),
               ],
             ),
@@ -454,14 +449,16 @@ class _RoomChatPanelState extends State<RoomChatPanel> {
                   child: ListView.separated(
                     controller: _scrollController,
                     physics: const ChatScrollPhysics(),
-                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+                    padding: _spare
+                        ? const EdgeInsets.symmetric(horizontal: 14, vertical: 12)
+                        : const EdgeInsets.all(20),
                     // The typing slot is always present so it can collapse rather than
                     // pop; its own gap lives inside it, which is why the separator
                     // before it is suppressed.
                     itemCount: widget.messages.length + 1,
                     separatorBuilder: (_, index) => index == widget.messages.length - 1
                         ? const SizedBox.shrink()
-                        : const SizedBox(height: 14),
+                        : SizedBox(height: _spare ? 10 : 14),
                     itemBuilder: (context, index) {
                       if (index == widget.messages.length) {
                         return _typingRow();
@@ -475,6 +472,7 @@ class _RoomChatPanelState extends State<RoomChatPanel> {
                         onCopied: widget.onCopied,
                         onPlaySharedVideo: widget.onPlaySharedVideo,
                         onReport: widget.onReportMessage,
+                        spare: _spare,
                       );
                       final key = _keyOf(message);
                       if (!_animated.add(key)) return bubble;
@@ -504,13 +502,13 @@ class _RoomChatPanelState extends State<RoomChatPanel> {
   /// rather than wrapping: a sixteen-seat room must not eat the chat's height.
   Widget _rosterHeader(List<ChatRosterSeat> seats) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(20, 14, 12, 14),
+      padding: EdgeInsets.fromLTRB(20, 18, widget.closable && !widget.embedded ? 12 : 20, 18),
       decoration: const BoxDecoration(
         border: Border(bottom: BorderSide(color: PTColors.aisle)),
       ),
       child: Column(
         crossAxisAlignment: .start,
-        spacing: 10,
+        spacing: 12,
         children: [
           Row(
             children: [
@@ -519,10 +517,10 @@ class _RoomChatPanelState extends State<RoomChatPanel> {
                   'IN THE ROOM · ${seats.length}',
                   maxLines: 1,
                   overflow: .ellipsis,
-                  style: PTText.label,
+                  style: PTText.label.copyWith(letterSpacing: 11 * 0.14, color: PTColors.fgMute),
                 ),
               ),
-              if (!widget.embedded)
+              if (widget.closable && !widget.embedded)
                 PTIconButton(
                   icon: BoothIcons.close,
                   glass: false,
@@ -535,7 +533,7 @@ class _RoomChatPanelState extends State<RoomChatPanel> {
             ],
           ),
           SizedBox(
-            height: 42,
+            height: 44,
             child: ListView.separated(
               scrollDirection: .horizontal,
               padding: EdgeInsets.zero,
@@ -552,7 +550,7 @@ class _RoomChatPanelState extends State<RoomChatPanel> {
                   ].join(' · '),
                   child: Center(
                     child: ReadyRing(
-                      diameter: 34,
+                      diameter: 36,
                       ready: seat.ready,
                       premium: seat.premium,
                       clip: false,
@@ -560,7 +558,7 @@ class _RoomChatPanelState extends State<RoomChatPanel> {
                         userId: m.userId,
                         displayName: m.displayName,
                         avatarUrl: m.avatarUrl,
-                        size: 34,
+                        size: 36,
                         premium: seat.premium,
                         frame: seat.frame,
                       ),
@@ -575,14 +573,24 @@ class _RoomChatPanelState extends State<RoomChatPanel> {
     );
   }
 
+  /// The floating desktop panel (Room at minimum window board) is the
+  /// sparest: no quick bar and no send key - Enter sends - and a 38 px field.
+  bool get _spare => !widget.docked && !widget.embedded && !_touch;
+
   Widget _composer({required bool tight, required bool quickBar}) {
     final length = _controller.text.runes.length;
+    final spare = _spare;
+    quickBar = quickBar && !spare;
     final composer = Container(
       padding: tight
           ? const EdgeInsets.fromLTRB(14, 8, 14, 8)
-          : const EdgeInsets.fromLTRB(14, 8, 14, 14),
-      decoration: BoxDecoration(
-        border: Border(top: BorderSide(color: PTColors.white(0.08))),
+          : spare
+          ? const EdgeInsets.fromLTRB(12, 10, 12, 10)
+          : widget.docked
+          ? const EdgeInsets.fromLTRB(20, 10, 20, 16)
+          : const EdgeInsets.fromLTRB(16, 8, 16, 14),
+      decoration: const BoxDecoration(
+        border: Border(top: BorderSide(color: PTColors.aisle)),
       ),
       child: Column(
         mainAxisSize: .min,
@@ -590,29 +598,12 @@ class _RoomChatPanelState extends State<RoomChatPanel> {
         children: [
           // The composer is what a short panel is there for, so the bar gives
           // way first; the picker button still reaches everything.
+          // The full composer width, send column included, as every board
+          // draws it.
           if (quickBar)
             Padding(
-              padding: const EdgeInsets.only(bottom: 6),
-              // Spans the text field only: the send button's column stays
-              // clear (and carries the counter when there is one).
-              child: Row(
-                spacing: _kComposerGap,
-                children: [
-                  Expanded(
-                    child: EmojiQuickBar(
-                      slots: _quickSlots,
-                      onPick: _insert,
-                      onCustomize: _customize,
-                    ),
-                  ),
-                  SizedBox(
-                    width: _kSendExtent,
-                    child: length >= _kCounterFrom
-                        ? FittedBox(fit: BoxFit.scaleDown, child: _counter(length))
-                        : null,
-                  ),
-                ],
-              ),
+              padding: const EdgeInsets.only(bottom: 10),
+              child: EmojiQuickBar(slots: _quickSlots, onPick: _insert, onCustomize: _customize),
             ),
           Row(
             // The send button stays on the last line as the composer grows.
@@ -641,11 +632,10 @@ class _RoomChatPanelState extends State<RoomChatPanel> {
                   ),
                 ),
               ),
-              _sendButton(),
+              if (!spare) _sendButton(),
             ],
           ),
-          if (!quickBar && length >= _kCounterFrom)
-            Align(alignment: .centerRight, child: _counter(length)),
+          if (length >= _kCounterFrom) Align(alignment: .centerRight, child: _counter(length)),
         ],
       ),
     );
@@ -716,14 +706,16 @@ class _RoomChatPanelState extends State<RoomChatPanel> {
     minLines: 1,
     maxLines: tight ? 2 : 4,
     keyboardType: .multiline,
-    style: PTText.body.copyWith(fontSize: 13.5),
+    style: PTText.body.copyWith(fontSize: _spare ? 13 : 15),
     cursorColor: PTColors.textAccent,
     decoration: InputDecoration(
       hintText: 'Say something…',
-      hintStyle: PTText.body.copyWith(fontSize: 13.5, color: PTColors.white(0.45)),
+      hintStyle: PTText.body.copyWith(fontSize: _spare ? 13 : 15, color: PTColors.fgMute),
       border: InputBorder.none,
       isDense: true,
-      contentPadding: const EdgeInsets.fromLTRB(4, 12, 16, 12),
+      contentPadding: _spare
+          ? const EdgeInsets.fromLTRB(4, 9, 12, 9)
+          : const EdgeInsets.fromLTRB(4, 11, 14, 11),
     ),
   );
 
@@ -890,10 +882,14 @@ class _MessageRow extends StatefulWidget {
     required this.onCopied,
     required this.onPlaySharedVideo,
     this.onReport,
+    this.spare = false,
   });
 
   final ChatMessage message;
   final bool own;
+
+  /// The floating desktop panel's smaller type and padding.
+  final bool spare;
   final bool premium;
   final AvatarFrame? frame;
   final VoidCallback onCopied;
@@ -952,6 +948,10 @@ class _MessageRowState extends State<_MessageRow> {
     widget.onPlaySharedVideo?.call(videoId, widget.message.displayName);
   }
 
+  EdgeInsets get _bubblePadding => widget.spare
+      ? const EdgeInsets.symmetric(horizontal: 12, vertical: 8)
+      : const EdgeInsets.symmetric(horizontal: 14, vertical: 10);
+
   bool get _actionable => widget.onPlaySharedVideo != null && _linkTaps.isNotEmpty;
 
   String? get _soleVideoId {
@@ -970,7 +970,7 @@ class _MessageRowState extends State<_MessageRow> {
     }
     // Your own lines are printed on paper - Screen with Booth ink.
     final base = PTText.body.copyWith(
-      fontSize: 14,
+      fontSize: widget.spare ? 13 : 15,
       height: 1.35,
       color: widget.own ? PTColors.canvas : PTColors.fg,
     );
@@ -1079,7 +1079,7 @@ class _MessageRowState extends State<_MessageRow> {
         PTAvatar(
           userId: message.senderId,
           displayName: message.displayName,
-          size: 28,
+          size: 26,
           premium: widget.premium,
           frame: widget.frame,
         ),
@@ -1098,15 +1098,13 @@ class _MessageRowState extends State<_MessageRow> {
                     fontFamily: PTFonts.body,
                     fontSize: 12,
                     fontWeight: .w600,
-                    color: PTColors.white(0.62),
+                    color: PTColors.fgSoft,
                   ),
                 ),
               ),
               Container(
                 constraints: const BoxConstraints(maxWidth: 240),
-                padding: _bigEmoji
-                    ? const EdgeInsets.symmetric(horizontal: 2)
-                    : const EdgeInsets.symmetric(horizontal: 13, vertical: 9),
+                padding: _bigEmoji ? const EdgeInsets.symmetric(horizontal: 2) : _bubblePadding,
                 decoration: _bigEmoji
                     ? null
                     : const BoxDecoration(
@@ -1115,7 +1113,7 @@ class _MessageRowState extends State<_MessageRow> {
                           topLeft: Radius.circular(PTRadius.panel),
                           topRight: Radius.circular(PTRadius.panel),
                           bottomRight: Radius.circular(PTRadius.panel),
-                          bottomLeft: Radius.circular(4),
+                          bottomLeft: Radius.circular(2),
                         ),
                       ),
                 child: _bubbleBody(),
@@ -1139,10 +1137,8 @@ class _MessageRowState extends State<_MessageRow> {
         copyButton,
         Flexible(
           child: Container(
-            constraints: const BoxConstraints(maxWidth: 240),
-            padding: _bigEmoji
-                ? const EdgeInsets.symmetric(horizontal: 2)
-                : const EdgeInsets.symmetric(horizontal: 13, vertical: 9),
+            constraints: const BoxConstraints(maxWidth: 260),
+            padding: _bigEmoji ? const EdgeInsets.symmetric(horizontal: 2) : _bubblePadding,
             decoration: _bigEmoji
                 ? null
                 : const BoxDecoration(
@@ -1151,7 +1147,7 @@ class _MessageRowState extends State<_MessageRow> {
                       topLeft: Radius.circular(PTRadius.panel),
                       topRight: Radius.circular(PTRadius.panel),
                       bottomLeft: Radius.circular(PTRadius.panel),
-                      bottomRight: Radius.circular(4),
+                      bottomRight: Radius.circular(2),
                     ),
                   ),
             child: _bubbleBody(),

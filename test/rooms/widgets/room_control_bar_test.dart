@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:synctogether/ui/booth_icons.g.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -153,69 +154,75 @@ void main() {
       expect(find.widgetWithIcon(PTIconButton, BoothIcons.videocam), findsNothing);
     });
 
-    testWidgets(
-      'shows dropdown carets when device select callbacks are provided and triggers on tap',
-      (tester) async {
-        BuildContext? micContext;
-        BuildContext? camContext;
-        BuildContext? audioOutputContext;
-
-        final actions = RoomControlBarActions(
-          onPlayPause: () {},
-          onSeek: (_) {},
-          onSkip: (_) {},
-          onMicToggle: (_) {},
-          onCamToggle: (_) {},
-          onMicDeviceSelect: (ctx) => micContext = ctx,
-          onCamDeviceSelect: (ctx) => camContext = ctx,
-          onAudioOutputSelect: (ctx) => audioOutputContext = ctx,
-          onAudioTracks: () {},
-          onSubtitles: () {},
-          onSwitchSource: () {},
-          onOpenFile: () {},
-          onVolume: (_) {},
-          onToggleMute: () {},
-        );
-
-        await tester.pumpWidget(
-          MaterialApp(
-            home: Scaffold(
-              body: RoomControlBar(
-                playing: false,
-                position: Duration.zero,
-                duration: const Duration(minutes: 10),
-                volume: 1.0,
-                micOn: false,
-                camOn: false,
-                avAvailable: true,
-                camAvailable: true,
-                actions: actions,
-              ),
-            ),
-          ),
-        );
-
-        expect(find.byTooltip('Select microphone'), findsOneWidget);
-        expect(find.byTooltip('Select camera'), findsOneWidget);
-        expect(find.byTooltip('Select audio output'), findsOneWidget);
-
-        await tester.tap(find.byTooltip('Select microphone'));
-        await tester.pump();
-        expect(micContext, isNotNull);
-
-        await tester.tap(find.byTooltip('Select camera'));
-        await tester.pump();
-        expect(camContext, isNotNull);
-
-        await tester.tap(find.byTooltip('Select audio output'));
-        await tester.pump();
-        expect(audioOutputContext, isNotNull);
-      },
-    );
-
-    testWidgets('does not show dropdown carets when device select callbacks are null', (
+    testWidgets('opens device menus on right-click when device select callbacks are provided', (
       tester,
     ) async {
+      BuildContext? micContext;
+      BuildContext? camContext;
+      BuildContext? audioOutputContext;
+
+      final actions = RoomControlBarActions(
+        onPlayPause: () {},
+        onSeek: (_) {},
+        onSkip: (_) {},
+        onMicToggle: (_) {},
+        onCamToggle: (_) {},
+        onMicDeviceSelect: (ctx) => micContext = ctx,
+        onCamDeviceSelect: (ctx) => camContext = ctx,
+        onAudioOutputSelect: (ctx) => audioOutputContext = ctx,
+        onAudioTracks: () {},
+        onSubtitles: () {},
+        onSwitchSource: () {},
+        onOpenFile: () {},
+        onVolume: (_) {},
+        onToggleMute: () {},
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: RoomControlBar(
+              playing: false,
+              position: Duration.zero,
+              duration: const Duration(minutes: 10),
+              volume: 1.0,
+              micOn: false,
+              camOn: false,
+              avAvailable: true,
+              camAvailable: true,
+              actions: actions,
+            ),
+          ),
+        ),
+      );
+
+      // The boards draw single squares, so the device menus ride a
+      // secondary click (long-press on touch) and the tooltip says so.
+      await tester.tap(
+        find.widgetWithIcon(PTIconButton, BoothIcons.mic),
+        buttons: kSecondaryButton,
+      );
+      await tester.pump();
+      expect(micContext, isNotNull);
+
+      await tester.tap(
+        find.widgetWithIcon(PTIconButton, BoothIcons.videocam),
+        buttons: kSecondaryButton,
+      );
+      await tester.pump();
+      expect(camContext, isNotNull);
+
+      await tester.tap(
+        find.widgetWithIcon(PTIconButton, BoothIcons.volume),
+        buttons: kSecondaryButton,
+      );
+      await tester.pump();
+      expect(audioOutputContext, isNotNull);
+
+      expect(find.byTooltip('Mic on (D) · right-click to pick a device'), findsOneWidget);
+    });
+
+    testWidgets('offers no device hint when device select callbacks are null', (tester) async {
       final actions = RoomControlBarActions(
         onPlayPause: () {},
         onSeek: (_) {},
@@ -251,57 +258,55 @@ void main() {
         ),
       );
 
-      expect(find.byTooltip('Select microphone'), findsNothing);
-      expect(find.byTooltip('Select camera'), findsNothing);
-      expect(find.byTooltip('Select audio output'), findsNothing);
+      expect(find.byTooltip('Mic on (D)'), findsOneWidget);
+      expect(find.byTooltip('Camera on (E)'), findsOneWidget);
+      expect(find.byTooltip('Mute (M)'), findsOneWidget);
     });
 
-    testWidgets(
-      'shows disabled audio output caret with disabled tooltip when audioOutputDisabledTooltip is provided',
-      (tester) async {
-        final actions = RoomControlBarActions(
-          onPlayPause: () {},
-          onSeek: (_) {},
-          onSkip: (_) {},
-          onMicToggle: (_) {},
-          onCamToggle: (_) {},
-          onAudioOutputSelect: null,
-          audioOutputDisabledTooltip: 'Audio output selection is unavailable for YouTube',
-          onAudioTracks: () {},
-          onSubtitles: () {},
-          onSwitchSource: () {},
-          onOpenFile: () {},
-          onVolume: (_) {},
-          onToggleMute: () {},
-        );
+    testWidgets('names why output selection is unavailable in the volume tooltip', (tester) async {
+      final actions = RoomControlBarActions(
+        onPlayPause: () {},
+        onSeek: (_) {},
+        onSkip: (_) {},
+        onMicToggle: (_) {},
+        onCamToggle: (_) {},
+        onAudioOutputSelect: null,
+        audioOutputDisabledTooltip: 'Audio output selection is unavailable for YouTube',
+        onAudioTracks: () {},
+        onSubtitles: () {},
+        onSwitchSource: () {},
+        onOpenFile: () {},
+        onVolume: (_) {},
+        onToggleMute: () {},
+      );
 
-        await tester.pumpWidget(
-          MaterialApp(
-            home: Scaffold(
-              body: RoomControlBar(
-                playing: false,
-                position: Duration.zero,
-                duration: const Duration(minutes: 10),
-                volume: 1.0,
-                micOn: false,
-                camOn: false,
-                avAvailable: true,
-                camAvailable: true,
-                actions: actions,
-              ),
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: RoomControlBar(
+              playing: false,
+              position: Duration.zero,
+              duration: const Duration(minutes: 10),
+              volume: 1.0,
+              micOn: false,
+              camOn: false,
+              avAvailable: true,
+              camAvailable: true,
+              actions: actions,
             ),
           ),
-        );
+        ),
+      );
 
-        expect(find.byTooltip('Audio output selection is unavailable for YouTube'), findsOneWidget);
+      const tip = 'Mute (M) · Audio output selection is unavailable for YouTube';
+      expect(find.byTooltip(tip), findsOneWidget);
 
-        // Tapping disabled caret should not crash
-        await tester.tap(find.byTooltip('Audio output selection is unavailable for YouTube'));
-        await tester.pump();
-      },
-    );
+      // A secondary click with no menu must not crash.
+      await tester.tap(find.byTooltip(tip), buttons: kSecondaryButton);
+      await tester.pump();
+    });
 
-    testWidgets('shows hide controls button and triggers onHideControls on tap', (tester) async {
+    testWidgets('the floating bar keeps to the board: no hide key', (tester) async {
       bool hideTriggered = false;
       final actions = RoomControlBarActions(
         onPlayPause: () {},
@@ -335,13 +340,10 @@ void main() {
         ),
       );
 
-      final hideFinder = find.byTooltip('Hide controls (H)');
-      expect(hideFinder, findsOneWidget);
-
-      await tester.tap(hideFinder);
-      await tester.pump();
-
-      expect(hideTriggered, isTrue);
+      // H and a tap on the video hide the floating bar; the board gives it
+      // no key of its own.
+      expect(find.byTooltip('Hide controls (H)'), findsNothing);
+      expect(hideTriggered, isFalse);
     });
 
     testWidgets('shows hide controls button in compact mode and triggers on tap', (tester) async {

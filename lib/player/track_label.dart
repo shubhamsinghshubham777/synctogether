@@ -298,3 +298,30 @@ String? _formatAudioChannels(AudioTrack track) {
   }
   return null;
 }
+
+/// The control bar's terse tag for a selected track: `EN`, `JA 5.1`, `OFF`.
+/// ISO-639-2 codes fold to their two-letter form where one is known; an
+/// untagged track falls back to its channel layout, or null when there is
+/// nothing short worth saying.
+String? shortTrackTag(dynamic track) {
+  final String id = track.id;
+  if (id == 'no') return 'OFF';
+  if (id == 'auto') return 'AUTO';
+  final lang = _shortLanguage(track.language as String?);
+  final channels = track is AudioTrack ? _formatAudioChannels(track) : null;
+  final parts = [?lang, ?channels];
+  return parts.isEmpty ? null : parts.join(' ').toUpperCase();
+}
+
+String? _shortLanguage(String? raw) {
+  final code = raw?.trim().toLowerCase();
+  if (code == null || code.isEmpty || code == 'und') return null;
+  if (code.length == 2) return code;
+  final name = _kIsoLanguageNames[code];
+  if (name != null) {
+    for (final e in _kIsoLanguageNames.entries) {
+      if (e.key.length == 2 && e.value == name) return e.key;
+    }
+  }
+  return code.length <= 3 ? code : null;
+}

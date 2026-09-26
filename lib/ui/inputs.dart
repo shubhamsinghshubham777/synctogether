@@ -308,6 +308,19 @@ class _BlinkingCaretState extends State<_BlinkingCaret> with SingleTickerProvide
 }
 
 /// Progress/duration slider with a flat Beam fill.
+/// How a [PTSlider] marks its value.
+enum PTSliderThumb {
+  /// A Screen disc.
+  round,
+
+  /// A 2px Screen playhead standing proud of the track - the docked scrubber.
+  bar,
+
+  /// Nothing at rest; the disc appears while hovered or dragged, so the
+  /// control still shows it can be grabbed.
+  none,
+}
+
 class PTSlider extends StatefulWidget {
   const PTSlider({
     super.key,
@@ -318,8 +331,15 @@ class PTSlider extends StatefulWidget {
     this.onHover,
     this.trackHeight = 5,
     this.thumbRadius = 8,
+    this.thumb = PTSliderThumb.round,
+    this.glowFill = false,
     this.enabled = true,
   });
+
+  final PTSliderThumb thumb;
+
+  /// Beam light spilling off the filled track (the live scrubber).
+  final bool glowFill;
 
   /// Normalized 0–1.
   final double value;
@@ -414,6 +434,9 @@ class _PTSliderState extends State<PTSlider> {
                   bufferedValue: clampedBuffered,
                   trackHeight: widget.trackHeight,
                   thumbRadius: widget.thumbRadius + 2 * grow,
+                  thumb: widget.thumb,
+                  grow: grow,
+                  glowFill: widget.glowFill,
                 ),
               ),
             ),
@@ -430,12 +453,18 @@ class _PTSliderPainter extends CustomPainter {
     this.bufferedValue,
     required this.trackHeight,
     required this.thumbRadius,
+    this.thumb = PTSliderThumb.round,
+    this.grow = 0,
+    this.glowFill = false,
   });
 
   final double value;
   final double? bufferedValue;
   final double trackHeight;
   final double thumbRadius;
+  final PTSliderThumb thumb;
+  final double grow;
+  final bool glowFill;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -443,10 +472,7 @@ class _PTSliderPainter extends CustomPainter {
     final trackTop = (size.height - trackHeight) / 2;
 
     final trackRect = Rect.fromLTWH(0, trackTop, size.width, trackHeight);
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(trackRect, radius),
-      Paint()..color = PTColors.white(0.13),
-    );
+    canvas.drawRRect(RRect.fromRectAndRadius(trackRect, radius), Paint()..color = PTColors.aisle);
 
     if (bufferedValue != null && bufferedValue! > 0) {
       final bufferedWidth = size.width * bufferedValue!.clamp(0.0, 1.0);
@@ -454,31 +480,44 @@ class _PTSliderPainter extends CustomPainter {
         final bufferedRect = Rect.fromLTWH(0, trackTop, bufferedWidth, trackHeight);
         canvas.drawRRect(
           RRect.fromRectAndRadius(bufferedRect, radius),
-          Paint()..color = PTColors.white(0.26),
+          Paint()..color = PTColors.rail,
         );
       }
     }
 
     if (value > 0) {
       final fillRect = Rect.fromLTWH(0, trackTop, size.width * value, trackHeight);
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(fillRect, radius),
-        Paint()..color = PTColors.primary,
-      );
+      final fill = RRect.fromRectAndRadius(fillRect, radius);
+      if (glowFill) {
+        canvas.drawRRect(
+          fill,
+          Paint()
+            ..color = PTColors.primary
+            ..maskFilter = MaskFilter.blur(.normal, Shadow.convertRadiusToSigma(10)),
+        );
+      }
+      canvas.drawRRect(fill, Paint()..color = PTColors.primary);
     }
 
-    final center = Offset(
-      (value * size.width).clamp(thumbRadius, size.width - thumbRadius),
-      size.height / 2,
-    );
-    canvas.drawCircle(
-      center.translate(0, 2),
-      thumbRadius,
-      Paint()
-        ..color = PTColors.primary.withValues(alpha: 0.7)
-        ..maskFilter = MaskFilter.blur(.normal, Shadow.convertRadiusToSigma(8)),
-    );
-    canvas.drawCircle(center, thumbRadius, Paint()..color = PTColors.accentBright);
+    final x = value * size.width;
+    final screen = Paint()..color = PTColors.fg;
+    switch (thumb) {
+      case PTSliderThumb.bar:
+        final h = trackHeight + 10 + 4 * grow;
+        canvas.drawRect(
+          Rect.fromCenter(
+            center: Offset(x.clamp(1.0, size.width - 1), size.height / 2),
+            width: 2,
+            height: h,
+          ),
+          screen,
+        );
+      case PTSliderThumb.round || PTSliderThumb.none:
+        final r = thumb == PTSliderThumb.none ? thumbRadius * grow : thumbRadius;
+        if (r <= 0) return;
+        final center = Offset(x.clamp(r, size.width - r), size.height / 2);
+        canvas.drawCircle(center, r, screen);
+    }
   }
 
   @override
@@ -486,7 +525,10 @@ class _PTSliderPainter extends CustomPainter {
       oldDelegate.value != value ||
       oldDelegate.bufferedValue != bufferedValue ||
       oldDelegate.trackHeight != trackHeight ||
-      oldDelegate.thumbRadius != thumbRadius;
+      oldDelegate.thumbRadius != thumbRadius ||
+      oldDelegate.thumb != thumb ||
+      oldDelegate.grow != grow ||
+      oldDelegate.glowFill != glowFill;
 }
 
 class PTToggleRow extends StatelessWidget {

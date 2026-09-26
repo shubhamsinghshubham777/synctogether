@@ -81,6 +81,12 @@
   margin-top: 1rem;
 }
 
+/* Rows lay out side by side, so the stacking rhythm above must not push
+   every item after the first down a line. */
+.legal-prose section .flex > * + * {
+  margin-top: 0;
+}
+
 .legal-prose h2 {
   display: block;
   font-family: var(--font-display), system-ui, sans-serif;
@@ -221,7 +227,8 @@
   font-weight: 500;
   color: #8F8476;
   text-align: left;
-  padding: 0 1rem 0.75rem 0;
+  vertical-align: middle;
+  padding: 0.75rem 1rem 0.75rem 0;
   border-bottom: 1px solid #3A332E;
 }
 
@@ -230,6 +237,11 @@
   border-bottom: 1px solid #27221F;
   vertical-align: top;
   color: #C9BDAC;
+}
+
+.legal-prose thead th:first-child,
+.legal-prose tbody td:first-child {
+  padding-left: 1rem;
 }
 
 .legal-prose tbody td:first-child {

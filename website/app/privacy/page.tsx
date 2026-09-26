@@ -433,7 +433,7 @@ export default function PrivacyPage() {
                   <th className="p-3.5">Subprocessor</th>
                   <th className="p-3.5">Purpose &amp; Service</th>
                   <th className="p-3.5">Location</th>
-                  <th className="p-3.5">Privacy Link</th>
+                  <th className="p-3.5 [overflow-wrap:normal]">Privacy Link</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/5 text-gray-400">

@@ -7,6 +7,7 @@
 // and the chat panel both as a docked side panel and as the phone's embedded
 // full-screen chat (the keyboard cases are the "chat keyboard mode").
 import 'package:flutter/material.dart';
+import 'package:synctogether/ui/booth_icons.g.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -244,7 +245,7 @@ void main() {
                 ),
                 PTBanner(
                   kind: .error,
-                  icon: Symbols.movie_rounded,
+                  icon: BoothIcons.film,
                   title: 'That is not the same file as the host',
                   subtitle: 'The room is watching ${_media.name}; you opened Some_Other_File.mp4.',
                   trailing: TextButton(onPressed: () {}, child: const Text('Locate')),
@@ -252,7 +253,7 @@ void main() {
                 ),
                 PTBanner(
                   kind: .info,
-                  icon: Symbols.timer_rounded,
+                  icon: BoothIcons.schedule,
                   title: 'Five minutes left in this room',
                   subtitle: 'Extend it to keep watching together.',
                   trailing: TextButton(onPressed: () {}, child: const Text('Extend')),

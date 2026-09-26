@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:material_symbols_icons/symbols.dart';
+import '../ui/booth_icons.g.dart';
 import 'package:synctogether/ui/pt_motion.dart';
 import 'package:synctogether/ui/pt_theme.dart';
 
@@ -40,7 +40,7 @@ class ModeSelectionDialog extends StatelessWidget {
                 maxLines: 2,
                 label: 'Leave room',
                 variant: .destructive,
-                icon: Symbols.logout_rounded,
+                icon: BoothIcons.logout,
                 height: 42,
                 onPressed: () => Navigator.of(dialogContext).pop(true),
               ),
@@ -90,14 +90,9 @@ class ModeSelectionDialog extends StatelessWidget {
             ),
             const SizedBox(height: 18),
             for (final (i, option) in [
+              (BoothIcons.file, 'Local file', 'Everyone opens their own copy', InitialMode.local),
               (
-                Symbols.video_file_rounded,
-                'Local file',
-                'Everyone opens their own copy',
-                InitialMode.local,
-              ),
-              (
-                Symbols.smart_display_rounded,
+                BoothIcons.youtube,
                 'YouTube',
                 'Paste a link, it plays for the room',
                 InitialMode.youtube,

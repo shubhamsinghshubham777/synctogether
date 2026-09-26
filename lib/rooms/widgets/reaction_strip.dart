@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
+import '../../ui/booth_icons.g.dart';
 import 'package:lottie/lottie.dart';
 import 'package:synctogether/rooms/reactions.dart';
 import 'package:synctogether/rooms/widgets/reaction_overlay.dart';
-import 'package:material_symbols_icons/symbols.dart';
 import 'package:synctogether/ui/glass.dart';
 import 'package:synctogether/ui/pt_motion.dart';
 import 'package:synctogether/ui/pt_theme.dart';
@@ -268,7 +268,7 @@ class _MoreCellState extends State<_MoreCell> {
               borderRadius: BorderRadius.circular(padded / 2),
             ),
             child: Icon(
-              Symbols.add_rounded,
+              BoothIcons.add,
               size: widget.size * 0.62,
               color: PTColors.white(_hovered ? 0.9 : 0.65),
             ),
@@ -317,7 +317,7 @@ class _LockedMoreCellState extends State<_LockedMoreCell> {
               alignment: Alignment.center,
               children: [
                 Icon(
-                  Symbols.add_rounded,
+                  BoothIcons.add,
                   size: widget.size * 0.55,
                   color: PTColors.white(_hovered ? 0.6 : 0.4),
                 ),
@@ -335,7 +335,7 @@ class _LockedMoreCellState extends State<_LockedMoreCell> {
                       ),
                     ),
                     child: const Icon(
-                      Symbols.lock_rounded,
+                      BoothIcons.lock,
                       size: 9,
                       fill: 1,
                       color: PTColors.textAccent,
@@ -382,7 +382,7 @@ class _ReactionPickerDialogState extends State<ReactionPickerDialog> {
         Row(
           spacing: 12,
           children: [
-            const Icon(Symbols.add_reaction_rounded, size: 22, fill: 1, color: PTColors.textAccent),
+            const Icon(BoothIcons.react, size: 22, fill: 1, color: PTColors.textAccent),
             Expanded(
               child: Text('Pick a reaction', style: PTText.cardHeading.copyWith(fontSize: 17)),
             ),

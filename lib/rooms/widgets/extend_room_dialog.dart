@@ -1,7 +1,7 @@
 import 'dart:async';
+import '../../ui/booth_icons.g.dart';
 
 import 'package:flutter/material.dart';
-import 'package:material_symbols_icons/symbols.dart';
 import 'package:synctogether/auth/auth_service.dart';
 import 'package:synctogether/platform.dart';
 import 'package:synctogether/ui/buttons.dart';
@@ -285,7 +285,7 @@ class PremiumTeaseDialog extends StatelessWidget {
                   spacing: 10,
                   children: [
                     Icon(
-                      Symbols.check_rounded,
+                      BoothIcons.check,
                       size: 17,
                       color: onSignIn == null ? PTColors.premium : PTColors.online,
                     ),
@@ -337,7 +337,7 @@ class PremiumTeaseDialog extends StatelessWidget {
       spacing: 11,
       children: [
         const DialogNote(
-          icon: Symbols.info_rounded,
+          icon: BoothIcons.info,
           child: Text('Subscriptions are managed on our website.'),
         ),
         PTButton(

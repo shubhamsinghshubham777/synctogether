@@ -1,11 +1,11 @@
 import 'dart:async';
+import '../ui/booth_icons.g.dart';
 import 'dart:io';
 
 import 'package:fast_file_picker/fast_file_picker.dart';
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:material_symbols_icons/symbols.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:synctogether/app_version.dart';
 import 'package:synctogether/analytics.dart';
@@ -87,18 +87,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
     });
   }
 
-  Future<void> _setMediaSharingPreference(bool value) async {
+  /// null = ask every time, true = always share, false = keep it local.
+  Future<void> _setMediaSharingPreference(bool? value) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('pt.media_sharing.remember_choice', value);
+    if (value == null) {
+      await prefs.remove('pt.media_sharing.remember_choice');
+    } else {
+      await prefs.setBool('pt.media_sharing.remember_choice', value);
+    }
     if (!mounted) return;
     setState(() => _mediaSharingRememberedChoice = value);
-  }
-
-  Future<void> _resetMediaSharingPreference() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('pt.media_sharing.remember_choice');
-    if (!mounted) return;
-    setState(() => _mediaSharingRememberedChoice = null);
   }
 
   Future<void> _showAvatarOptions() async {
@@ -115,7 +113,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             children: [
               Text('Profile Photo', style: PTText.cardHeading.copyWith(fontSize: 16)),
               PTIconButton(
-                icon: Symbols.close_rounded,
+                icon: BoothIcons.close,
                 size: 28,
                 iconSize: 16,
                 onPressed: () => Navigator.of(dialogContext).pop(),
@@ -125,7 +123,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           const SizedBox(height: 16),
           PTButton(
             label: 'Take photo with camera',
-            icon: Symbols.photo_camera_rounded,
+            icon: BoothIcons.camera,
             variant: .primary,
             height: 42,
             onPressed: () => Navigator.of(dialogContext).pop('camera'),
@@ -133,7 +131,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           const SizedBox(height: 10),
           PTButton(
             label: 'Choose image file',
-            icon: Symbols.folder_open_rounded,
+            icon: BoothIcons.file,
             variant: .secondary,
             height: 42,
             onPressed: () => Navigator.of(dialogContext).pop('file'),
@@ -270,7 +268,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               PTButton(
                 label: 'Delete forever',
                 variant: .destructive,
-                icon: Symbols.delete_rounded,
+                icon: BoothIcons.delete,
                 height: 46,
                 expand: false,
                 onPressed: () => Navigator.of(dialogContext).pop(true),
@@ -596,7 +594,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 style: PTText.display.copyWith(fontSize: 28, height: 1.02),
                               ),
                             ),
-                            Icon(Symbols.edit_rounded, size: 17, color: PTColors.white(0.55)),
+                            Icon(BoothIcons.edit, size: 17, color: PTColors.white(0.55)),
                           ],
                         ),
                       ),
@@ -658,9 +656,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     mainAxisSize: .min,
                     spacing: 6,
                     children: [
-                      const Icon(Symbols.trophy_rounded, size: 16, color: PTColors.fg),
+                      const Icon(BoothIcons.trophy, size: 16, color: PTColors.fg),
                       Text('Leaderboard', style: PTText.body.copyWith(fontWeight: .w600)),
-                      Icon(Symbols.chevron_right_rounded, size: 18, color: PTColors.white(0.6)),
+                      Icon(BoothIcons.chevronRight, size: 18, color: PTColors.white(0.6)),
                     ],
                   ),
                 ),
@@ -730,7 +728,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           PTButton(
             label: isPrem ? 'Manage' : 'Get a Patron seat',
             variant: isPrem ? .secondary : .primary,
-            icon: isPrem ? Symbols.arrow_forward_rounded : Symbols.crown_rounded,
+            icon: isPrem ? BoothIcons.arrowForward : BoothIcons.crown,
             height: 48,
             onPressed: () => context.go('/lobby/subscribe?source=profile'),
           ),
@@ -784,7 +782,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         shape: .circle,
         border: Border.all(color: PTColors.rail, width: 2),
       ),
-      child: Icon(Symbols.person_rounded, size: 48, fill: 1, color: PTColors.white(0.4)),
+      child: Icon(BoothIcons.person, size: 48, fill: 1, color: PTColors.white(0.4)),
     );
   }
 
@@ -848,7 +846,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     child: _uploadingAvatar
                         ? PTLoader(key: const ValueKey('uploading'), size: button / 2)
                         : Icon(
-                            Symbols.photo_camera_rounded,
+                            BoothIcons.camera,
                             key: const ValueKey('idle'),
                             size: button / 2,
                             fill: 1,
@@ -897,8 +895,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           Row(
             spacing: 8,
             children: [
-              if (isPrem)
-                const Icon(Symbols.crown_rounded, size: 15, fill: 1, color: PTColors.premium),
+              if (isPrem) const Icon(BoothIcons.crown, size: 15, fill: 1, color: PTColors.premium),
               Flexible(
                 child: Text(
                   isPrem ? 'PATRON SEAT' : 'FREE SEAT',
@@ -976,7 +973,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             PTButton(
               label: 'Leaderboard',
               variant: .secondary,
-              icon: Symbols.trophy_rounded,
+              icon: BoothIcons.trophy,
               height: 34,
               expand: false,
               onPressed: () => context.go('/lobby/leaderboard'),
@@ -1005,7 +1002,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
             style: PTText.finePrint.copyWith(fontSize: 12, color: PTColors.textAccent),
           ),
         if (state.seasons.isNotEmpty) SeasonTrophies(seasons: state.seasons),
-        BadgeShelf(state: state, crossAxisCount: 4),
+        Column(
+          crossAxisAlignment: .stretch,
+          spacing: 12,
+          children: [
+            Row(
+              children: [
+                Expanded(child: Text('BADGES', style: PTText.label)),
+                Text(
+                  '${state.unlocked.length} OF '
+                  '${state.achievements.where((a) => a.unlocked || !a.isSecret).length}',
+                  style: PTText.mono.copyWith(fontSize: 11, color: PTColors.white(0.55)),
+                ),
+              ],
+            ),
+            BadgeShelf(state: state),
+          ],
+        ),
       ],
     );
   }
@@ -1083,7 +1096,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           trailing: PTButton(
             label: isPrem ? 'Manage' : 'Get a Patron seat',
             variant: isPrem ? .secondary : .primary,
-            icon: isPrem ? Symbols.arrow_forward_rounded : Symbols.crown_rounded,
+            icon: isPrem ? BoothIcons.arrowForward : BoothIcons.crown,
             height: 38,
             expand: false,
             onPressed: () => context.go('/lobby/subscribe?source=profile'),
@@ -1104,7 +1117,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             child: _settingRow(
               title: 'Display name',
               subtitle: profile.displayName,
-              trailing: Icon(Symbols.lock_rounded, size: 17, fill: 1, color: PTColors.white(0.6)),
+              trailing: Icon(BoothIcons.lock, size: 17, fill: 1, color: PTColors.white(0.6)),
             ),
           ),
         ],
@@ -1124,7 +1137,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               title: 'Display name',
               subtitle: profile.displayName,
               subtitleStrong: true,
-              trailing: Icon(Symbols.edit_rounded, size: 18, color: PTColors.white(0.45)),
+              trailing: Icon(BoothIcons.edit, size: 18, color: PTColors.white(0.45)),
             ),
           ),
         ),
@@ -1133,7 +1146,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           title: 'Email',
           subtitle: profile.email ?? '-',
           subtitleStrong: true,
-          trailing: Icon(Symbols.lock_rounded, size: 17, fill: 1, color: PTColors.white(0.35)),
+          trailing: Icon(BoothIcons.lock, size: 17, fill: 1, color: PTColors.white(0.35)),
         ),
         Text(
           "Linked to your Google account, so it can't be changed.",
@@ -1225,7 +1238,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               child: PTButton(
                 label: 'Get a handle',
                 variant: .secondary,
-                icon: Symbols.crown_rounded,
+                icon: BoothIcons.crown,
                 height: 36,
                 expand: false,
                 onPressed: () {},
@@ -1244,7 +1257,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           title: 'Public handle',
           subtitle: handle == null ? 'Pick one to get a shareable page' : '@$handle',
           subtitleStrong: handle != null,
-          trailing: Icon(Symbols.edit_rounded, size: 18, color: PTColors.white(0.45)),
+          trailing: Icon(BoothIcons.edit, size: 18, color: PTColors.white(0.45)),
         ),
       ),
     );
@@ -1343,18 +1356,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
         if (limits.canShareMedia) ...[
           const _Rule(faint: true),
-          PTToggleRow(
-            title: 'Auto-share local videos with room',
-            subtitle: _mediaSharingRememberedChoice == null
-                ? 'Currently asks every time you pick a local video. Toggle on to always upload and share, or off to always play locally.'
-                : (_mediaSharingRememberedChoice!
-                      ? 'Always uploads and shares local videos with room members.'
-                      : 'Always plays local videos locally without uploading.'),
-            value: _mediaSharingRememberedChoice ?? false,
-            onChanged: (enabled) => _setMediaSharingPreference(enabled),
+          Text('When you open a local video', style: PTText.body.copyWith(fontWeight: .w600)),
+          _ShareChoice(value: _mediaSharingRememberedChoice, onChanged: _setMediaSharingPreference),
+          Text(
+            'Sharing uploads the file so members without a copy can stream it.',
+            style: PTText.finePrint.copyWith(fontSize: 12),
           ),
-          if (_mediaSharingRememberedChoice != null)
-            _link('Reset to ask every time', _resetMediaSharingPreference),
         ],
       ],
     );
@@ -1372,7 +1379,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           trailing: PTButton(
             label: 'Configure',
             variant: .secondary,
-            icon: Symbols.arrow_forward_rounded,
+            icon: BoothIcons.arrowForward,
             height: 38,
             expand: false,
             onPressed: () => showAvSettingsDialog(context),
@@ -1507,7 +1514,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             PTButton(
               label: 'Privacy policy',
               variant: .secondary,
-              icon: Symbols.open_in_new_rounded,
+              icon: BoothIcons.openInNew,
               height: 36,
               onPressed: () => launchUrl(
                 Uri.parse('https://synctogether.app/privacy'),
@@ -1517,7 +1524,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             PTButton(
               label: 'Terms of service',
               variant: .secondary,
-              icon: Symbols.open_in_new_rounded,
+              icon: BoothIcons.openInNew,
               height: 36,
               onPressed: () => launchUrl(
                 Uri.parse('https://synctogether.app/terms'),
@@ -1538,7 +1545,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         children: [
           PTButton(
             label: 'End guest session',
-            icon: Symbols.logout_rounded,
+            icon: BoothIcons.logout,
             variant: .secondary,
             onPressed: AuthService.instance.signOut,
           ),
@@ -1553,7 +1560,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           buttons: [
             PTButton(
               label: 'Log out',
-              icon: Symbols.logout_rounded,
+              icon: BoothIcons.logout,
               variant: .secondary,
               onPressed: () {
                 unawaited(UnlockLog.instance.clear());
@@ -1562,7 +1569,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
             PTButton(
               label: 'Delete account',
-              icon: Symbols.delete_rounded,
+              icon: BoothIcons.delete,
               variant: .destructive,
               onPressed: _confirmDeleteAccount,
             ),
@@ -1661,7 +1668,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       spacing: 14,
       children: [
         PTIconButton(
-          icon: Symbols.arrow_back_rounded,
+          icon: BoothIcons.arrowBack,
           iconSize: iconSize,
           size: size,
           onPressed: () => context.go('/lobby'),
@@ -1909,7 +1916,7 @@ class _SetPasswordDialogState extends State<_SetPasswordDialog> {
         Row(
           spacing: 10,
           children: [
-            const Icon(Symbols.lock_rounded, size: 22, color: PTColors.textAccent),
+            const Icon(BoothIcons.lock, size: 22, color: PTColors.textAccent),
             Expanded(
               child: Text('Set a password', style: PTText.screenTitle.copyWith(fontSize: 18)),
             ),
@@ -1931,7 +1938,7 @@ class _SetPasswordDialogState extends State<_SetPasswordDialog> {
           onChanged: (_) => setState(() => _error = null),
           suffixIcon: IconButton(
             icon: Icon(
-              _obscure ? Symbols.visibility_rounded : Symbols.visibility_off_rounded,
+              _obscure ? BoothIcons.visibility : BoothIcons.visibilityOff,
               size: 18,
               color: PTColors.white(0.5),
             ),
@@ -2000,6 +2007,77 @@ class _ActionRow extends StatelessWidget {
           ],
         );
       },
+    );
+  }
+}
+
+/// Ask me / Always share / Keep it local - one bordered strip of three equal
+/// segments, as on the "12 · Profile" board.
+class _ShareChoice extends StatelessWidget {
+  const _ShareChoice({required this.value, required this.onChanged});
+
+  final bool? value;
+  final ValueChanged<bool?> onChanged;
+
+  static const _options = <(bool?, String)>[
+    (null, 'Ask me'),
+    (true, 'Always share'),
+    (false, 'Keep it local'),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      label: 'Auto-share local videos',
+      container: true,
+      child: Container(
+        decoration: BoxDecoration(
+          border: Border.all(color: PTColors.rail),
+          borderRadius: BorderRadius.circular(PTRadius.control),
+        ),
+        clipBehavior: .antiAlias,
+        child: IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: .stretch,
+            children: [
+              for (final (i, (option, label)) in _options.indexed) ...[
+                if (i > 0) const VerticalDivider(width: 1, thickness: 1, color: PTColors.rail),
+                Expanded(child: _segment(option, label)),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _segment(bool? option, String label) {
+    final selected = value == option;
+    return Semantics(
+      inMutuallyExclusiveGroup: true,
+      checked: selected,
+      button: true,
+      child: PTPressable(
+        onTap: selected ? null : () => onChanged(option),
+        child: AnimatedContainer(
+          duration: PTMotion.state,
+          constraints: const BoxConstraints(minHeight: 36),
+          alignment: .center,
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+          color: selected ? PTColors.aisle : PTColors.aisle.withValues(alpha: 0),
+          child: Text(
+            label,
+            textAlign: .center,
+            maxLines: 2,
+            overflow: .ellipsis,
+            style: PTText.body.copyWith(
+              fontSize: 13,
+              fontWeight: selected ? .w600 : .w400,
+              color: selected ? PTColors.fg : PTColors.white(0.65),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

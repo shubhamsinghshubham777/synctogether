@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../ui/booth_icons.g.dart';
 import 'dart:io';
 import 'dart:math' as math;
 
@@ -1988,7 +1989,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
       final pct = (_uploadFraction * 100).toInt();
       return PTActionPill(
         label: 'Uploading $pct%',
-        icon: Symbols.cloud_upload_rounded,
+        icon: BoothIcons.cloudUpload,
         onTap: _cancelMediaSharingUpload,
       );
     }
@@ -1996,7 +1997,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     if (_uploadState == 'failed') {
       return PTActionPill(
         label: 'Upload failed • Retry',
-        icon: Symbols.refresh_rounded,
+        icon: BoothIcons.restore,
         onTap: _retryLocalUpload,
       );
     }
@@ -2008,7 +2009,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     if (_uploadState == 'none') {
       return PTActionPill(
         label: 'Share with room',
-        icon: Symbols.cloud_upload_rounded,
+        icon: BoothIcons.cloudUpload,
         onTap: _retryLocalUpload,
       );
     }
@@ -2041,7 +2042,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
         tooltip: 'Shared with room',
       ),
       'none' => PTIconButton(
-        icon: Symbols.cloud_upload_rounded,
+        icon: BoothIcons.cloudUpload,
         iconSize: 20,
         tooltip: 'Share with room',
         onPressed: _retryLocalUpload,
@@ -2600,7 +2601,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
           Row(
             spacing: 10,
             children: [
-              const Icon(Symbols.star_rounded, size: 22, color: PTColors.warning),
+              const Icon(BoothIcons.star, size: 22, color: PTColors.warning),
               Text('Assign host', style: PTText.screenTitle.copyWith(fontSize: 18)),
             ],
           ),
@@ -2763,7 +2764,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
           Row(
             spacing: 10,
             children: [
-              const Icon(Symbols.flag_rounded, size: 22, color: PTColors.warningBorder),
+              const Icon(BoothIcons.flag, size: 22, color: PTColors.warningBorder),
               Expanded(
                 child: Text('Who is this about?', style: PTText.screenTitle.copyWith(fontSize: 18)),
               ),
@@ -3363,7 +3364,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     body:
         'Whoever made this room deleted it, so there is nothing left to come back to. '
         'Head to the lobby and start a fresh one.',
-    icon: Symbols.delete_forever_rounded,
+    icon: BoothIcons.delete,
   );
 
   /// The host removed us. Same teardown as a room ending - only the copy
@@ -3372,7 +3373,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     reason: 'kicked',
     title: 'Removed from the room',
     body: 'The host removed you from this room. No hard feelings!',
-    icon: Symbols.person_remove_rounded,
+    icon: BoothIcons.personRemove,
   );
 
   Future<void> _evictSelf({
@@ -3431,7 +3432,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     return (
       title: 'House lights up.',
       body: "That show's over. Your lobby is right there whenever you want to open another room.",
-      icon: Symbols.movie_rounded,
+      icon: BoothIcons.film,
     );
   }
 
@@ -3471,7 +3472,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
                 child: Column(
                   mainAxisSize: .min,
                   children: [
-                    Icon(icon ?? Symbols.movie_rounded, size: 26, fill: 1),
+                    Icon(icon ?? BoothIcons.film, size: 26, fill: 1),
                     const SizedBox(height: 4),
                     Text(
                       _room?.persistent ?? false ? 'SAVED' : 'FIN',
@@ -3538,7 +3539,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
                     if (_canShowPremiumUpsell)
                       PTButton(
                         label: 'Unlock 24h rooms with Premium',
-                        icon: Symbols.crown_rounded,
+                        icon: BoothIcons.crown,
                         variant: .secondary,
                         onPressed: () {
                           Navigator.of(dialogContext).pop();
@@ -3961,7 +3962,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
 
   String get _extendLabel => _limits.picksExtensionLength ? 'Add time' : 'Get a Patron seat';
 
-  IconData? get _extendIcon => _limits.picksExtensionLength ? null : Symbols.crown_rounded;
+  IconData? get _extendIcon => _limits.picksExtensionLength ? null : BoothIcons.crown;
 
   String get _expirySubtitle {
     final room = _room;
@@ -4171,7 +4172,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
       context: context,
       anchor: anchor,
       title: 'Select Microphone',
-      icon: Symbols.mic_rounded,
+      icon: BoothIcons.mic,
       enumerateDevices: av.audioInputDevices,
       selectedDeviceId: av.selectedAudioInputId ?? prefMic?.id,
       selectedDeviceLabel: av.selectedAudioInputLabel ?? prefMic?.label,
@@ -4195,7 +4196,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
       context: context,
       anchor: anchor,
       title: 'Select Camera',
-      icon: Symbols.videocam_rounded,
+      icon: BoothIcons.videocam,
       enumerateDevices: av.videoInputDevices,
       selectedDeviceId: av.selectedVideoInputId ?? prefCam?.id,
       selectedDeviceLabel: av.selectedVideoInputLabel ?? prefCam?.label,
@@ -4219,7 +4220,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
       context: context,
       anchor: anchor,
       title: 'Select Audio Output',
-      icon: Symbols.volume_up_rounded,
+      icon: BoothIcons.volume,
       enumerateDevices: av.audioOutputDevices,
       selectedDeviceId: av.selectedAudioOutputId ?? prefOutput?.id,
       selectedDeviceLabel: av.selectedAudioOutputLabel ?? prefOutput?.label,
@@ -4774,11 +4775,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
           mainAxisAlignment: .center,
           spacing: 2,
           children: [
-            Icon(
-              backward ? Symbols.replay_10_rounded : Symbols.forward_10_rounded,
-              size: 32,
-              color: Colors.white,
-            ),
+            Icon(backward ? BoothIcons.replay : BoothIcons.forward, size: 32, color: Colors.white),
             Text('10s', style: PTText.mono.copyWith(fontSize: 12, color: Colors.white)),
           ],
         ),
@@ -4878,7 +4875,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
                             _timeLeft > Duration.zero && _timeLeft <= const Duration(minutes: 1),
                         low: 0.35,
                         child: Icon(
-                          Symbols.schedule_rounded,
+                          BoothIcons.schedule,
                           size: compact ? 13 : 16,
                           color: PTColors.white(0.7),
                         ),
@@ -4934,7 +4931,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
             autoDismissAfter: (_sync?.isHost ?? false) ? null : const Duration(seconds: 10),
             pulseOnArrival: true,
             kind: .warning,
-            icon: Symbols.timer_rounded,
+            icon: BoothIcons.schedule,
             title: () {
               final mins = (_timeLeft.inSeconds / 60).ceil();
               return '$mins minute${mins == 1 ? '' : 's'} left';
@@ -5001,7 +4998,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
             subtitle: 'Participants without a local copy cannot watch until uploaded.',
             trailing: PTButton(
               label: 'Retry upload',
-              icon: Symbols.refresh_rounded,
+              icon: BoothIcons.restore,
               variant: .primary,
               height: 38,
               expand: false,
@@ -5032,7 +5029,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
               children: [
                 PTButton(
                   label: 'Cancel upload',
-                  icon: Symbols.close_rounded,
+                  icon: BoothIcons.close,
                   variant: .primary,
                   height: 36,
                   expand: false,
@@ -5256,7 +5253,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     return UnreadBadge(
       count: _unread,
       child: PTIconButton(
-        icon: Symbols.chat_bubble_rounded,
+        icon: BoothIcons.chat,
         active: _chatOpen,
         tooltip: _chatOpen ? 'Close chat (C)' : 'Party chat (C)',
         onPressed: _toggleChat,
@@ -5404,14 +5401,10 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     final a = _controlActionsFor(secondary: true);
     return [
       if (a.onSwitchSource != null)
-        RoomMenuAction(
-          icon: Symbols.smart_display_rounded,
-          label: 'Switch source',
-          onTap: a.onSwitchSource!,
-        ),
+        RoomMenuAction(icon: BoothIcons.youtube, label: 'Switch source', onTap: a.onSwitchSource!),
       if (a.onOpenFile != null)
         RoomMenuAction(
-          icon: Symbols.folder_open_rounded,
+          icon: BoothIcons.file,
           label: a.openFileTooltip ?? 'Open file',
           onTap: a.onOpenFile!,
         ),
@@ -5422,7 +5415,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
           onTap: a.onAudioTracks!,
         ),
       if (a.onSubtitles != null)
-        RoomMenuAction(icon: Symbols.subtitles_rounded, label: 'Subtitles', onTap: a.onSubtitles!),
+        RoomMenuAction(icon: BoothIcons.subtitles, label: 'Subtitles', onTap: a.onSubtitles!),
     ];
   }
 
@@ -5453,7 +5446,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
         if (chatToggle) ...[SizedBox(width: compact ? 12 : 16), _chatToggleButton()],
         SizedBox(width: compact ? 10 : 12),
         PTIconButton(
-          icon: Symbols.more_vert_rounded,
+          icon: BoothIcons.moreVert,
           iconSize: compact ? 21 : 22,
           onPressed: _openOverflowMenu,
         ),
@@ -5541,7 +5534,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
             left: 20,
             child: PTActionPill(
               label: 'Show cams',
-              icon: Symbols.keyboard_arrow_right_rounded,
+              icon: BoothIcons.chevronRight,
               onTap: () => setState(() => _camsVisible = true),
             ),
           ),
@@ -5631,7 +5624,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
             spacing: 14,
             children: [
               PTIconButton(
-                icon: Symbols.chevron_left_rounded,
+                icon: BoothIcons.chevronLeft,
                 glass: false,
                 size: 36,
                 iconSize: 22,
@@ -5726,7 +5719,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
                 children: [
                   _chatToggleButton(),
                   PTIconButton(
-                    icon: Symbols.more_horiz_rounded,
+                    icon: BoothIcons.moreHoriz,
                     glass: false,
                     size: 36,
                     iconSize: 22,
@@ -5840,7 +5833,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
                     left: 24,
                     child: PTActionPill(
                       label: 'Show cams',
-                      icon: Symbols.keyboard_arrow_right_rounded,
+                      icon: BoothIcons.chevronRight,
                       onTap: () => setState(() => _camsVisible = true),
                     ),
                   ),
@@ -5903,7 +5896,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
         spacing: 4,
         children: [
           PTIconButton(
-            icon: Symbols.chevron_left_rounded,
+            icon: BoothIcons.chevronLeft,
             glass: false,
             iconSize: 24,
             tooltip: 'Leave room',
@@ -5951,7 +5944,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
           ),
           ?_mediaSharingIcon(),
           PTIconButton(
-            icon: Symbols.more_horiz_rounded,
+            icon: BoothIcons.moreHoriz,
             glass: false,
             iconSize: 24,
             tooltip: 'Room menu',

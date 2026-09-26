@@ -1,4 +1,5 @@
 import 'package:flutter/widgets.dart';
+import '../ui/booth_icons.g.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import 'rewards_logic.dart';
@@ -13,34 +14,34 @@ import 'rewards_logic.dart';
 /// which would pull the entire Material Symbols font into every installer.
 const _kRewardIcons = <String, IconData>{
   'handshake': Symbols.handshake_rounded,
-  'local_fire_department': Symbols.local_fire_department_rounded,
-  'whatshot': Symbols.whatshot_rounded,
+  'local_fire_department': BoothIcons.fire,
+  'whatshot': BoothIcons.fire,
   'bolt': Symbols.bolt_rounded,
-  'theaters': Symbols.theaters_rounded,
-  'groups': Symbols.groups_rounded,
-  'timer': Symbols.timer_rounded,
-  'bedtime': Symbols.bedtime_rounded,
-  'diversity_3': Symbols.diversity_3_rounded,
+  'theaters': BoothIcons.film,
+  'groups': BoothIcons.group,
+  'timer': BoothIcons.schedule,
+  'bedtime': BoothIcons.moon,
+  'diversity_3': BoothIcons.group,
   'military_tech': Symbols.military_tech_rounded,
   'celebration': Symbols.celebration_rounded,
   'stadia_controller': Symbols.stadia_controller_rounded,
   'target': Symbols.target_rounded,
-  'forum': Symbols.forum_rounded,
+  'forum': BoothIcons.chat,
   'event_available': Symbols.event_available_rounded,
   'pause_circle': Symbols.pause_circle_rounded,
-  'videocam': Symbols.videocam_rounded,
-  'favorite': Symbols.favorite_rounded,
+  'videocam': BoothIcons.videocam,
+  'favorite': BoothIcons.react,
   'verified': Symbols.verified_rounded,
-  'flag': Symbols.flag_rounded,
-  'workspace_premium': Symbols.workspace_premium_rounded,
-  'emoji_events': Symbols.emoji_events_rounded,
-  'leaderboard': Symbols.leaderboard_rounded,
+  'flag': BoothIcons.flag,
+  'workspace_premium': BoothIcons.crown,
+  'emoji_events': BoothIcons.trophy,
+  'leaderboard': BoothIcons.trophy,
 };
 
 /// A name the catalogue knows, or the generic trophy. A badge added to the table
 /// before its glyph is added here renders as a trophy rather than a crash - the
 /// catalogue is allowed to run ahead of the client, and older clients will keep
 /// running against a newer table.
-IconData rewardIcon(String name) => _kRewardIcons[name] ?? Symbols.emoji_events_rounded;
+IconData rewardIcon(String name) => _kRewardIcons[name] ?? BoothIcons.trophy;
 
 IconData superlativeIcon(SuperlativeKey key) => rewardIcon(key.icon);

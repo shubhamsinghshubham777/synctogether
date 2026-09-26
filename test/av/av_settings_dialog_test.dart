@@ -1,9 +1,9 @@
 import 'dart:async';
+import 'package:synctogether/ui/booth_icons.g.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:livekit_client/livekit_client.dart' as lk;
-import 'package:material_symbols_icons/symbols.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:synctogether/av/av_settings_dialog.dart';
 import 'package:synctogether/av/device_preference_service.dart';
@@ -79,7 +79,7 @@ void main() {
       expect(find.text('Yeti Nano'), findsOneWidget);
       expect(find.text('Internal Speakers'), findsOneWidget);
       expect(find.text('FaceTime HD'), findsOneWidget);
-      expect(find.byIcon(Symbols.volume_up_rounded), findsWidgets);
+      expect(find.byIcon(BoothIcons.volume), findsWidgets);
       expect(find.text('Cancel'), findsOneWidget);
       expect(find.text('Save'), findsOneWidget);
     });

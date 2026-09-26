@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../../ui/booth_icons.g.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -175,7 +176,7 @@ class _RecapRow extends StatelessWidget {
             ),
           ),
           PTIconButton(
-            icon: Symbols.link_rounded,
+            icon: BoothIcons.link,
             iconSize: 17,
             size: 34,
             tooltip: 'Copy link',
@@ -193,7 +194,7 @@ class _RecapRow extends StatelessWidget {
             },
           ),
           PTIconButton(
-            icon: busy ? Symbols.hourglass_empty_rounded : Symbols.delete_rounded,
+            icon: busy ? Symbols.hourglass_empty_rounded : BoothIcons.delete,
             iconSize: 17,
             size: 34,
             tooltip: 'Delete this recap',

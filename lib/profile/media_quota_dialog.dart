@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../ui/booth_icons.g.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:synctogether/auth/auth_service.dart';
@@ -167,17 +168,17 @@ class MediaQuotaDialogBody extends StatelessWidget {
                       spacing: 10,
                       children: [
                         _FeatureRow(
-                          icon: Symbols.schedule_rounded,
+                          icon: BoothIcons.schedule,
                           title: 'Rolling 7 days',
                           description: 'Uploads free up a week after they finish.',
                         ),
                         _FeatureRow(
-                          icon: Symbols.person_rounded,
+                          icon: BoothIcons.person,
                           title: 'Free',
                           description: '2.5 GB a week, 2 GB per file.',
                         ),
                         _FeatureRow(
-                          icon: Symbols.star_rounded,
+                          icon: BoothIcons.star,
                           title: 'Patron',
                           description: 'No weekly cap, 10 GB per file.',
                           highlight: true,
@@ -230,7 +231,7 @@ class MediaQuotaDialogBody extends StatelessWidget {
                         PTButton(
                           maxLines: 2,
                           label: 'Sign in with Email (Free 2.5 GB)',
-                          icon: Symbols.mail_rounded,
+                          icon: BoothIcons.mail,
                           variant: .secondary,
                           onPressed: () async {
                             Navigator.of(context).pop();
@@ -444,7 +445,7 @@ class _BlockedFile extends StatelessWidget {
             Row(
               spacing: 8,
               children: [
-                Icon(Symbols.draft_rounded, size: 16, color: PTColors.white(0.6)),
+                Icon(BoothIcons.file, size: 16, color: PTColors.white(0.6)),
                 Expanded(
                   child: Text(
                     c.fileName!,

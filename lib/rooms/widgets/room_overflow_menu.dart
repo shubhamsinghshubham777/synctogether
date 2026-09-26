@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import '../../ui/booth_icons.g.dart';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -319,21 +320,21 @@ class _OverflowMenuPanelState extends State<_OverflowMenuPanel> {
                       onTap: () => _dismiss(action.onTap),
                     ),
                   _ActionRow(
-                    icon: Symbols.link_rounded,
+                    icon: BoothIcons.link,
                     iconColor: PTColors.white(0.7),
                     label: 'Copy invite link',
                     onTap: () => _dismiss(widget.onCopyInvite),
                   ),
                   if (data.selfIsHost && widget.onExtendRoom != null)
                     _ActionRow(
-                      icon: Symbols.more_time_rounded,
+                      icon: BoothIcons.schedule,
                       iconColor: PTColors.white(0.7),
                       label: 'Extend room',
                       onTap: () => _dismiss(widget.onExtendRoom!),
                     ),
                   if (data.selfIsHost)
                     _ActionRow(
-                      icon: data.transportLock ? Symbols.lock_rounded : Symbols.lock_open_rounded,
+                      icon: data.transportLock ? BoothIcons.lock : Symbols.lock_open_rounded,
                       iconColor: data.transportLock ? PTColors.warningBorder : PTColors.white(0.7),
                       label: data.transportLock ? 'You have the remote' : 'Take the remote',
                       onTap: () =>
@@ -341,13 +342,13 @@ class _OverflowMenuPanelState extends State<_OverflowMenuPanel> {
                     ),
                   if (widget.onReportConcern != null)
                     _ActionRow(
-                      icon: Symbols.flag_rounded,
+                      icon: BoothIcons.flag,
                       iconColor: PTColors.white(0.7),
                       label: 'Report a concern',
                       onTap: () => _dismiss(widget.onReportConcern!),
                     ),
                   _ActionRow(
-                    icon: Symbols.logout_rounded,
+                    icon: BoothIcons.logout,
                     iconColor: PTColors.white(0.7),
                     label: 'Leave room',
                     onTap: () => _dismiss(widget.onLeave),
@@ -359,7 +360,7 @@ class _OverflowMenuPanelState extends State<_OverflowMenuPanel> {
                       child: Container(height: 1, color: PTColors.rail),
                     ),
                     _ActionRow(
-                      icon: Symbols.power_settings_new_rounded,
+                      icon: BoothIcons.power,
                       iconColor: PTColors.ember,
                       label: 'End for everyone',
                       labelColor: PTColors.ember,
@@ -480,7 +481,7 @@ class _MemberRow extends StatelessWidget {
             if (premium && !blocked) const DialogTag('Patron', tone: DialogTagTone.premium),
             if (onAssignHost != null)
               PTIconButton(
-                icon: Symbols.star_rounded,
+                icon: BoothIcons.star,
                 glass: false,
                 size: 30,
                 iconSize: 16,
@@ -498,7 +499,7 @@ class _MemberRow extends StatelessWidget {
               )
             else if (onReport != null)
               PTIconButton(
-                icon: Symbols.flag_rounded,
+                icon: BoothIcons.flag,
                 glass: false,
                 size: 30,
                 iconSize: 16,
@@ -507,7 +508,7 @@ class _MemberRow extends StatelessWidget {
               ),
             if (onKick != null)
               PTIconButton(
-                icon: Symbols.person_remove_rounded,
+                icon: BoothIcons.personRemove,
                 glass: false,
                 size: 30,
                 iconSize: 16,

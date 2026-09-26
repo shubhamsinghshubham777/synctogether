@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'booth_icons.g.dart';
 
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
@@ -84,7 +85,7 @@ void showPTSnackVia(
       PTColors.bannerInfo,
       PTColors.white(0.16),
       PTColors.textAccent,
-      Symbols.info_rounded,
+      BoothIcons.info,
     ),
   };
 
@@ -324,7 +325,7 @@ class _PTBannerState extends State<PTBanner> with TickerProviderStateMixin {
 
   Widget _dismissButton(VoidCallback onDismiss, Color accent) {
     final countdown = _countdown;
-    final close = Icon(Icons.close_rounded, size: 18, color: PTColors.white(0.45));
+    final close = Icon(BoothIcons.close, size: 18, color: PTColors.white(0.45));
     return MouseRegion(
       cursor: SystemMouseCursors.click,
       child: GestureDetector(

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:synctogether/ui/booth_icons.g.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -22,7 +23,7 @@ void main() {
                     context: context,
                     anchor: const Rect.fromLTWH(100, 500, 42, 42),
                     title: 'Select Microphone',
-                    icon: Symbols.mic_rounded,
+                    icon: BoothIcons.mic,
                     enumerateDevices: () => completer.future,
                     selectedDeviceId: 'mic-2',
                     onDeviceSelected: (_) {},
@@ -69,7 +70,7 @@ void main() {
                     context: context,
                     anchor: const Rect.fromLTWH(100, 500, 42, 42),
                     title: 'Select Camera',
-                    icon: Symbols.videocam_rounded,
+                    icon: BoothIcons.videocam,
                     enumerateDevices: () async => [
                       const lk.MediaDevice('cam-1', 'FaceTime HD Camera', 'videoinput', null),
                       const lk.MediaDevice('cam-2', 'External Webcam', 'videoinput', null),
@@ -112,7 +113,7 @@ void main() {
                     context: context,
                     anchor: const Rect.fromLTWH(100, 500, 42, 42),
                     title: 'Select Camera',
-                    icon: Symbols.videocam_rounded,
+                    icon: BoothIcons.videocam,
                     enumerateDevices: () async => [],
                     selectedDeviceId: null,
                     onDeviceSelected: (_) {},
@@ -147,7 +148,7 @@ void main() {
                     context: context,
                     anchor: const Rect.fromLTWH(100, 500, 42, 42),
                     title: 'Select Microphone',
-                    icon: Symbols.mic_rounded,
+                    icon: BoothIcons.mic,
                     enumerateDevices: () async => devices,
                     selectedDeviceId: 'mic-1',
                     onDeviceSelected: (_) {},
@@ -203,7 +204,7 @@ void main() {
                       context: context,
                       anchor: const Rect.fromLTWH(100, 500, 42, 42),
                       title: 'Select Microphone',
-                      icon: Symbols.mic_rounded,
+                      icon: BoothIcons.mic,
                       enumerateDevices: () async => devices,
                       // WebRTC device ID differs from CoreAudio UID
                       selectedDeviceId: '0',

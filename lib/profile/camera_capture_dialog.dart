@@ -1,8 +1,8 @@
 import 'dart:async';
+import '../ui/booth_icons.g.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart' as rtc;
-import 'package:material_symbols_icons/symbols.dart';
 import 'package:synctogether/diagnostics.dart';
 import 'package:synctogether/ui/buttons.dart';
 import 'package:synctogether/ui/glass.dart';
@@ -252,7 +252,7 @@ class _CameraCaptureDialogState extends State<CameraCaptureDialog> {
           const SizedBox(height: 16),
           DialogNote(
             tone: DialogNoteTone.danger,
-            icon: Symbols.videocam_off_rounded,
+            icon: BoothIcons.videocamOff,
             child: Text(_error!, style: const TextStyle(color: PTColors.danger)),
           ),
         ],
@@ -269,7 +269,7 @@ class _CameraCaptureDialogState extends State<CameraCaptureDialog> {
             PTButton(
               maxLines: 2,
               label: 'Capture',
-              icon: Symbols.photo_camera_rounded,
+              icon: BoothIcons.camera,
               variant: .primary,
               height: 44,
               loading: _capturing,
@@ -295,7 +295,7 @@ class _CameraCaptureDialogState extends State<CameraCaptureDialog> {
       ),
       child: Row(
         children: [
-          Icon(Symbols.videocam_rounded, size: 18, color: PTColors.white(0.6)),
+          Icon(BoothIcons.videocam, size: 18, color: PTColors.white(0.6)),
           const SizedBox(width: 10),
           Expanded(
             child: DropdownButtonHideUnderline(
@@ -303,11 +303,7 @@ class _CameraCaptureDialogState extends State<CameraCaptureDialog> {
                 isExpanded: true,
                 value: value,
                 dropdownColor: PTColors.menuSurface,
-                icon: Icon(
-                  Symbols.keyboard_arrow_down_rounded,
-                  size: 18,
-                  color: PTColors.white(0.6),
-                ),
+                icon: Icon(BoothIcons.chevronDown, size: 18, color: PTColors.white(0.6)),
                 style: PTText.body.copyWith(fontSize: 13, color: PTColors.fg),
                 items: [
                   for (int i = 0; i < _cameras.length; i++)
@@ -335,9 +331,7 @@ class _CameraCaptureDialogState extends State<CameraCaptureDialog> {
       return const Center(child: PTLoader(size: 28));
     }
     if (_error != null) {
-      return Center(
-        child: Icon(Symbols.videocam_off_rounded, size: 48, color: PTColors.white(0.4)),
-      );
+      return Center(child: Icon(BoothIcons.videocamOff, size: 48, color: PTColors.white(0.4)));
     }
     return rtc.RTCVideoView(
       _renderer,

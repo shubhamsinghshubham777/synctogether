@@ -65,6 +65,9 @@ flutter:
     - assets/badges/
     - assets/store/
   fonts:
+    - family: BoothIcons
+      fonts:
+        - asset: assets/fonts/BoothIcons.otf
     - family: Bricolage Grotesque
       fonts:
         - asset: assets/fonts/BricolageGrotesque-500.ttf

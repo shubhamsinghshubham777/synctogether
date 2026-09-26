@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../ui/booth_icons.g.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:synctogether/rooms/room_models.dart';
 import 'package:synctogether/ui/booth.dart';
@@ -276,7 +277,7 @@ class _RoomRowState extends State<_RoomRow> {
                   ? const SizedBox(key: ValueKey('busy'), height: 30, child: PTLoader(size: 16))
                   : PTIconButton(
                       key: const ValueKey('delete'),
-                      icon: Symbols.delete_rounded,
+                      icon: BoothIcons.ticketDelete,
                       size: 30,
                       iconSize: 16,
                       glass: false,
@@ -356,12 +357,7 @@ class DeleteRoomDialog extends StatelessWidget {
                 border: Border.all(color: PTColors.dangerBorder.withValues(alpha: 0.3)),
                 borderRadius: BorderRadius.circular(PTRadius.panel),
               ),
-              child: const Icon(
-                Symbols.delete_forever_rounded,
-                size: 24,
-                fill: 1,
-                color: PTColors.danger,
-              ),
+              child: const Icon(BoothIcons.delete, size: 24, fill: 1, color: PTColors.danger),
             ),
             Expanded(child: Text('Delete this room?', style: PTText.cardHeading)),
           ],
@@ -442,7 +438,7 @@ class _ClearEndedButtonState extends State<_ClearEndedButton> {
 
     if (widget.compact) {
       return PTIconButton(
-        icon: Symbols.delete_sweep_rounded,
+        icon: BoothIcons.delete,
         size: 32,
         iconSize: 18,
         glass: false,
@@ -474,11 +470,7 @@ class _ClearEndedButtonState extends State<_ClearEndedButton> {
               mainAxisSize: .min,
               spacing: 6,
               children: [
-                Icon(
-                  Symbols.delete_sweep_rounded,
-                  size: 16,
-                  color: PTColors.white(_hovered ? 0.9 : 0.65),
-                ),
+                Icon(BoothIcons.delete, size: 16, color: PTColors.white(_hovered ? 0.9 : 0.65)),
                 Text(
                   'Clear ended',
                   style: PTText.mono.copyWith(
@@ -521,12 +513,7 @@ class ClearEndedRoomsDialog extends StatelessWidget {
                 border: Border.all(color: PTColors.dangerBorder.withValues(alpha: 0.3)),
                 borderRadius: BorderRadius.circular(PTRadius.panel),
               ),
-              child: const Icon(
-                Symbols.delete_sweep_rounded,
-                size: 24,
-                fill: 1,
-                color: PTColors.danger,
-              ),
+              child: const Icon(BoothIcons.delete, size: 24, fill: 1, color: PTColors.danger),
             ),
             Expanded(child: Text('Clear $count ended $roomLabel?', style: PTText.cardHeading)),
           ],

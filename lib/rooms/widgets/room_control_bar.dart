@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../ui/booth_icons.g.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:synctogether/ui/buttons.dart';
@@ -396,7 +397,7 @@ class _RoomControlBarState extends State<RoomControlBar> with SingleTickerProvid
           onDropdown: actions.onMicDeviceSelect,
           dropdownTooltip: 'Select microphone',
           mainButton: PTIconButton(
-            icon: Symbols.mic_rounded,
+            icon: BoothIcons.mic,
             active: widget.micOn,
             glass: false,
             borderRadius: BorderRadius.circular(PTRadius.control),
@@ -411,7 +412,7 @@ class _RoomControlBarState extends State<RoomControlBar> with SingleTickerProvid
             onDropdown: actions.onCamDeviceSelect,
             dropdownTooltip: 'Select camera',
             mainButton: PTIconButton(
-              icon: Symbols.videocam_rounded,
+              icon: BoothIcons.videocam,
               active: widget.camOn,
               glass: false,
               borderRadius: BorderRadius.circular(PTRadius.control),
@@ -427,7 +428,7 @@ class _RoomControlBarState extends State<RoomControlBar> with SingleTickerProvid
               alignment: Alignment.center,
               children: [
                 PTIconButton(
-                  icon: Symbols.videocam_off_rounded,
+                  icon: BoothIcons.videocamOff,
                   active: false,
                   glass: false,
                   borderRadius: BorderRadius.circular(PTRadius.control),
@@ -449,7 +450,7 @@ class _RoomControlBarState extends State<RoomControlBar> with SingleTickerProvid
                       ),
                     ),
                     child: const Icon(
-                      Symbols.lock_rounded,
+                      BoothIcons.lock,
                       size: 9,
                       fill: 1,
                       color: PTColors.textAccent,
@@ -462,7 +463,7 @@ class _RoomControlBarState extends State<RoomControlBar> with SingleTickerProvid
       ],
       if (actions.onReact != null)
         PTIconButton(
-          icon: Symbols.add_reaction_rounded,
+          icon: BoothIcons.react,
           active: widget.reactOpen,
           glass: false,
           borderRadius: BorderRadius.circular(PTRadius.control),
@@ -490,7 +491,7 @@ class _RoomControlBarState extends State<RoomControlBar> with SingleTickerProvid
         ),
       if (actions.onSubtitles != null)
         PTIconButton(
-          icon: Symbols.subtitles_rounded,
+          icon: BoothIcons.subtitles,
           glass: false,
           borderRadius: BorderRadius.circular(PTRadius.control),
           size: 42,
@@ -506,7 +507,7 @@ class _RoomControlBarState extends State<RoomControlBar> with SingleTickerProvid
     final actions = widget.actions;
     return [
       PTIconButton(
-        icon: Symbols.replay_10_rounded,
+        icon: BoothIcons.replay,
         glass: false,
         iconSize: 26,
         spinOnPress: -40,
@@ -519,7 +520,7 @@ class _RoomControlBarState extends State<RoomControlBar> with SingleTickerProvid
         onPressed: widget.transportEnabled ? actions.onPlayPause : null,
       ),
       PTIconButton(
-        icon: Symbols.forward_10_rounded,
+        icon: BoothIcons.forward,
         glass: false,
         iconSize: 26,
         spinOnPress: 40,
@@ -536,7 +537,7 @@ class _RoomControlBarState extends State<RoomControlBar> with SingleTickerProvid
     return [
       if (actions.onSwitchSource != null)
         PTIconButton(
-          icon: Symbols.smart_display_rounded,
+          icon: BoothIcons.youtube,
           glass: false,
           borderRadius: BorderRadius.circular(PTRadius.control),
           size: 42,
@@ -546,7 +547,7 @@ class _RoomControlBarState extends State<RoomControlBar> with SingleTickerProvid
         ),
       if (actions.onOpenFile != null)
         PTIconButton(
-          icon: Symbols.folder_open_rounded,
+          icon: BoothIcons.file,
           glass: false,
           borderRadius: BorderRadius.circular(PTRadius.control),
           size: 42,
@@ -567,7 +568,7 @@ class _RoomControlBarState extends State<RoomControlBar> with SingleTickerProvid
               dropdownTooltip: 'Select audio output',
               disabledDropdownTooltip: actions.audioOutputDisabledTooltip,
               mainButton: PTIconButton(
-                icon: widget.volume == 0 ? Symbols.volume_off_rounded : Symbols.volume_up_rounded,
+                icon: widget.volume == 0 ? BoothIcons.volumeOff : BoothIcons.volume,
                 glass: false,
                 size: 36,
                 iconSize: 20,
@@ -592,7 +593,7 @@ class _RoomControlBarState extends State<RoomControlBar> with SingleTickerProvid
         Padding(
           padding: const EdgeInsets.only(left: 4),
           child: PTIconButton(
-            icon: Symbols.keyboard_arrow_down_rounded,
+            icon: BoothIcons.chevronDown,
             glass: false,
             borderRadius: BorderRadius.circular(PTRadius.control),
             size: 36,
@@ -605,7 +606,7 @@ class _RoomControlBarState extends State<RoomControlBar> with SingleTickerProvid
         Padding(
           padding: const EdgeInsets.only(left: 4),
           child: PTIconButton(
-            icon: widget.fullscreen ? Symbols.fullscreen_exit_rounded : Symbols.fullscreen_rounded,
+            icon: widget.fullscreen ? BoothIcons.fullscreenExit : BoothIcons.fullscreen,
             glass: false,
             borderRadius: BorderRadius.circular(PTRadius.control),
             size: 36,
@@ -738,7 +739,7 @@ class _RoomControlBarState extends State<RoomControlBar> with SingleTickerProvid
           spacing: 4,
           children: [
             PTIconButton(
-              icon: Symbols.mic_rounded,
+              icon: BoothIcons.mic,
               active: widget.micOn,
               glass: false,
               borderRadius: BorderRadius.circular(PTRadius.control),
@@ -748,7 +749,7 @@ class _RoomControlBarState extends State<RoomControlBar> with SingleTickerProvid
             ),
             if (widget.camAvailable)
               PTIconButton(
-                icon: Symbols.videocam_rounded,
+                icon: BoothIcons.videocam,
                 active: widget.camOn,
                 glass: false,
                 borderRadius: BorderRadius.circular(PTRadius.control),
@@ -763,7 +764,7 @@ class _RoomControlBarState extends State<RoomControlBar> with SingleTickerProvid
                   alignment: Alignment.center,
                   children: [
                     PTIconButton(
-                      icon: Symbols.videocam_off_rounded,
+                      icon: BoothIcons.videocamOff,
                       active: false,
                       glass: false,
                       borderRadius: BorderRadius.circular(PTRadius.control),
@@ -784,7 +785,7 @@ class _RoomControlBarState extends State<RoomControlBar> with SingleTickerProvid
                           ),
                         ),
                         child: const Icon(
-                          Symbols.lock_rounded,
+                          BoothIcons.lock,
                           size: 8,
                           fill: 1,
                           color: PTColors.textAccent,
@@ -798,7 +799,7 @@ class _RoomControlBarState extends State<RoomControlBar> with SingleTickerProvid
         ),
       if (actions.onReact != null)
         PTIconButton(
-          icon: Symbols.add_reaction_rounded,
+          icon: BoothIcons.react,
           active: widget.reactOpen,
           glass: false,
           borderRadius: BorderRadius.circular(PTRadius.control),
@@ -817,7 +818,7 @@ class _RoomControlBarState extends State<RoomControlBar> with SingleTickerProvid
       // them out of it left those layouts with no way to pick anything.
       if (actions.onSwitchSource != null)
         PTIconButton(
-          icon: Symbols.smart_display_rounded,
+          icon: BoothIcons.youtube,
           glass: false,
           borderRadius: BorderRadius.circular(PTRadius.control),
           iconSize: 21,
@@ -826,7 +827,7 @@ class _RoomControlBarState extends State<RoomControlBar> with SingleTickerProvid
         ),
       if (actions.onOpenFile != null)
         PTIconButton(
-          icon: Symbols.folder_open_rounded,
+          icon: BoothIcons.file,
           glass: false,
           borderRadius: BorderRadius.circular(PTRadius.control),
           iconSize: 21,
@@ -844,7 +845,7 @@ class _RoomControlBarState extends State<RoomControlBar> with SingleTickerProvid
         ),
       if (actions.onSubtitles != null)
         PTIconButton(
-          icon: Symbols.subtitles_rounded,
+          icon: BoothIcons.subtitles,
           glass: false,
           borderRadius: BorderRadius.circular(PTRadius.control),
           iconSize: 21,
@@ -853,7 +854,7 @@ class _RoomControlBarState extends State<RoomControlBar> with SingleTickerProvid
         ),
       if (actions.onHideControls != null)
         PTIconButton(
-          icon: Symbols.keyboard_arrow_down_rounded,
+          icon: BoothIcons.chevronDown,
           glass: false,
           borderRadius: BorderRadius.circular(PTRadius.control),
           iconSize: 21,
@@ -862,7 +863,7 @@ class _RoomControlBarState extends State<RoomControlBar> with SingleTickerProvid
         ),
       if (actions.onFullscreenToggle != null)
         PTIconButton(
-          icon: widget.fullscreen ? Symbols.fullscreen_exit_rounded : Symbols.fullscreen_rounded,
+          icon: widget.fullscreen ? BoothIcons.fullscreenExit : BoothIcons.fullscreen,
           glass: false,
           borderRadius: BorderRadius.circular(PTRadius.control),
           iconSize: 21,
@@ -887,7 +888,7 @@ class _RoomControlBarState extends State<RoomControlBar> with SingleTickerProvid
               spacing: 14,
               children: [
                 PTIconButton(
-                  icon: Symbols.replay_10_rounded,
+                  icon: BoothIcons.replay,
                   glass: false,
                   iconSize: 24,
                   spinOnPress: -40,
@@ -901,7 +902,7 @@ class _RoomControlBarState extends State<RoomControlBar> with SingleTickerProvid
                   onPressed: widget.transportEnabled ? actions.onPlayPause : null,
                 ),
                 PTIconButton(
-                  icon: Symbols.forward_10_rounded,
+                  icon: BoothIcons.forward,
                   glass: false,
                   iconSize: 24,
                   spinOnPress: 40,
@@ -1038,7 +1039,7 @@ class _CaretButtonState extends State<_CaretButton> {
             ),
             child: Center(
               child: Icon(
-                Symbols.keyboard_arrow_down_rounded,
+                BoothIcons.chevronDown,
                 size: 16,
                 color: PTColors.white(_hovered && enabled ? 0.95 : 0.6),
               ),

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:synctogether/ui/booth_icons.g.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:material_symbols_icons/symbols.dart';
 import 'package:synctogether/profile/subscription_screen.dart';
 import 'package:synctogether/ui/responsive.dart';
 
@@ -24,7 +24,7 @@ void main() {
       expect(find.text('Patron seats'), findsOneWidget);
       expect(find.text('Take a Patron seat'), findsOneWidget);
       expect(find.text('Checkout opens on synctogether.app in your browser.'), findsOneWidget);
-      expect(find.byIcon(Symbols.workspace_premium_rounded), findsWidgets);
+      expect(find.byIcon(BoothIcons.crown), findsWidgets);
     });
 
     testWidgets('desktop store build hides the checkout button and shows compliant info banner', (

@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:synctogether/ui/booth_icons.g.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:synctogether/rewards/rewards_models.dart';
@@ -256,7 +257,7 @@ void main() {
 
   group('touch targets', () {
     Widget small() => Center(
-      child: PTIconButton(icon: Icons.close, size: 32, onPressed: () {}),
+      child: PTIconButton(icon: BoothIcons.close, size: 32, onPressed: () {}),
     );
 
     _touch('a 32px icon button hit-tests at 44 on touch', (tester) async {
@@ -264,7 +265,7 @@ void main() {
       await pumpAtSize(
         tester,
         Center(
-          child: PTIconButton(icon: Icons.close, size: 32, onPressed: () => taps++),
+          child: PTIconButton(icon: BoothIcons.close, size: 32, onPressed: () => taps++),
         ),
         _cases.first,
       );

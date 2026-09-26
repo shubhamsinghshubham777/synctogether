@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../../ui/booth_icons.g.dart';
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
@@ -433,7 +434,7 @@ class _RoomChatPanelState extends State<RoomChatPanel> {
                       onTap: widget.onClose,
                       child: SizedBox.square(
                         dimension: 34,
-                        child: Icon(Icons.close_rounded, size: 19, color: PTColors.white(0.6)),
+                        child: Icon(BoothIcons.close, size: 19, color: PTColors.white(0.6)),
                       ),
                     ),
                   ),
@@ -523,7 +524,7 @@ class _RoomChatPanelState extends State<RoomChatPanel> {
               ),
               if (!widget.embedded)
                 PTIconButton(
-                  icon: Symbols.close_rounded,
+                  icon: BoothIcons.close,
                   glass: false,
                   size: 30,
                   iconSize: 18,
@@ -677,7 +678,7 @@ class _RoomChatPanelState extends State<RoomChatPanel> {
   Widget _pickerButton() {
     final chord = defaultTargetPlatform == TargetPlatform.macOS ? '⌘E' : 'Ctrl+E';
     final button = PTIconButton(
-      icon: Symbols.mood_rounded,
+      icon: BoothIcons.mood,
       size: 36,
       iconSize: 20,
       glass: false,
@@ -750,7 +751,7 @@ class _RoomChatPanelState extends State<RoomChatPanel> {
               boxShadow: lit ? PTColors.beamSpill : const [],
             ),
             child: Icon(
-              Symbols.send_rounded,
+              BoothIcons.send,
               size: 19,
               fill: 1,
               color: lit ? PTColors.onAccent : PTColors.white(0.5),
@@ -1034,7 +1035,7 @@ class _MessageRowState extends State<_MessageRow> {
     final reportButton = widget.onReport != null
         ? _action(
             PTIconButton(
-              icon: Symbols.flag_rounded,
+              icon: BoothIcons.flag,
               onPressed: () => widget.onReport!(widget.message),
               size: 26,
               iconSize: 15,

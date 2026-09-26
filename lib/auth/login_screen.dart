@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../ui/booth_icons.g.dart';
 import 'dart:math' as math;
 
 import 'package:flutter/gestures.dart';
@@ -497,7 +498,7 @@ class _LoginScreenState extends State<LoginScreen> {
         ),
         PTButton(
           label: 'Continue with email',
-          icon: Symbols.mail_rounded,
+          icon: BoothIcons.mail,
           variant: .secondary,
           height: buttonHeight,
           onPressed: _anyLoading ? null : () => setState(() => _mode = .enterEmail),
@@ -567,7 +568,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     child: _guestLoading
                         ? const PTLoader(key: ValueKey('loading'), size: 18)
                         : Icon(
-                            Symbols.person_rounded,
+                            BoothIcons.person,
                             key: const ValueKey('idle'),
                             size: 20,
                             color: PTColors.white(0.7),
@@ -614,7 +615,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     dimension: 20,
                     child: _guestLoading
                         ? const PTLoader(size: 16)
-                        : Icon(Symbols.person_rounded, size: 20, color: PTColors.white(0.75)),
+                        : Icon(BoothIcons.person, size: 20, color: PTColors.white(0.75)),
                   ),
                   Flexible(child: Text('Continue as guest', style: _guestLabel)),
                 ],
@@ -639,7 +640,7 @@ class _LoginScreenState extends State<LoginScreen> {
         Row(
           children: [
             IconButton(
-              icon: Icon(Symbols.arrow_back_rounded, color: PTColors.white(0.7)),
+              icon: Icon(BoothIcons.arrowBack, color: PTColors.white(0.7)),
               onPressed: _anyLoading ? null : () => setState(() => _mode = .providers),
               tooltip: 'Back',
             ),
@@ -660,7 +661,7 @@ class _LoginScreenState extends State<LoginScreen> {
             keyboardType: TextInputType.emailAddress,
             textInputAction: TextInputAction.next,
             style: PTText.body.copyWith(color: PTColors.fg),
-            decoration: _fieldDecoration(hint: 'name@example.com', icon: Symbols.mail_rounded),
+            decoration: _fieldDecoration(hint: 'name@example.com', icon: BoothIcons.mail),
           ),
         ),
         TextField(
@@ -671,10 +672,10 @@ class _LoginScreenState extends State<LoginScreen> {
           style: PTText.body.copyWith(color: PTColors.fg),
           decoration: _fieldDecoration(
             hint: 'Password',
-            icon: Symbols.lock_rounded,
+            icon: BoothIcons.lock,
             suffix: IconButton(
               icon: Icon(
-                _obscurePassword ? Symbols.visibility_rounded : Symbols.visibility_off_rounded,
+                _obscurePassword ? BoothIcons.visibility : BoothIcons.visibilityOff,
                 size: 20,
                 color: PTColors.white(0.5),
               ),
@@ -696,7 +697,7 @@ class _LoginScreenState extends State<LoginScreen> {
         // works for everybody.
         PTButton(
           label: 'Email me a 6-digit code',
-          icon: Symbols.send_rounded,
+          icon: BoothIcons.send,
           variant: .secondary,
           height: buttonHeight,
           loading: _emailLoading,
@@ -738,7 +739,7 @@ class _LoginScreenState extends State<LoginScreen> {
         Row(
           children: [
             IconButton(
-              icon: Icon(Symbols.arrow_back_rounded, color: PTColors.white(0.7)),
+              icon: Icon(BoothIcons.arrowBack, color: PTColors.white(0.7)),
               onPressed: _anyLoading ? null : () => setState(() => _mode = .enterEmail),
               tooltip: 'Change email',
             ),
@@ -806,7 +807,7 @@ class _LoginScreenState extends State<LoginScreen> {
         ),
         PTButton(
           label: 'Verify code',
-          icon: Symbols.check_rounded,
+          icon: BoothIcons.check,
           variant: .primary,
           height: buttonHeight,
           loading: _otpLoading,
@@ -1018,7 +1019,7 @@ class _FirstNightChecks extends StatelessWidget {
                 children: [
                   const Padding(
                     padding: EdgeInsets.only(top: 2),
-                    child: Icon(Symbols.check_rounded, size: 16, color: PTColors.online),
+                    child: Icon(BoothIcons.check, size: 16, color: PTColors.online),
                   ),
                   Expanded(
                     child: Text(

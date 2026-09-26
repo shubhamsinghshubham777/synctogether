@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:synctogether/ui/booth_icons.g.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:material_symbols_icons/symbols.dart';
 import 'package:synctogether/rooms/widgets/room_control_bar.dart';
 import 'package:synctogether/ui/buttons.dart';
 import 'package:synctogether/ui/inputs.dart';
@@ -43,8 +43,8 @@ void main() {
         ),
       );
 
-      final micFinder = find.widgetWithIcon(PTIconButton, Symbols.mic_rounded);
-      final camFinder = find.widgetWithIcon(PTIconButton, Symbols.videocam_rounded);
+      final micFinder = find.widgetWithIcon(PTIconButton, BoothIcons.mic);
+      final camFinder = find.widgetWithIcon(PTIconButton, BoothIcons.videocam);
 
       expect(micFinder, findsOneWidget);
       expect(camFinder, findsOneWidget);
@@ -149,8 +149,8 @@ void main() {
         ),
       );
 
-      expect(find.widgetWithIcon(PTIconButton, Symbols.mic_rounded), findsNothing);
-      expect(find.widgetWithIcon(PTIconButton, Symbols.videocam_rounded), findsNothing);
+      expect(find.widgetWithIcon(PTIconButton, BoothIcons.mic), findsNothing);
+      expect(find.widgetWithIcon(PTIconButton, BoothIcons.videocam), findsNothing);
     });
 
     testWidgets(
@@ -425,7 +425,7 @@ void main() {
 
       final fsFinder = find.byTooltip('Fullscreen (F)');
       expect(fsFinder, findsOneWidget);
-      expect(find.widgetWithIcon(PTIconButton, Symbols.fullscreen_rounded), findsOneWidget);
+      expect(find.widgetWithIcon(PTIconButton, BoothIcons.fullscreen), findsOneWidget);
 
       await tester.tap(fsFinder);
       await tester.pump();
@@ -473,7 +473,7 @@ void main() {
 
       final exitFsFinder = find.byTooltip('Exit fullscreen (F)');
       expect(exitFsFinder, findsOneWidget);
-      expect(find.widgetWithIcon(PTIconButton, Symbols.fullscreen_exit_rounded), findsOneWidget);
+      expect(find.widgetWithIcon(PTIconButton, BoothIcons.fullscreenExit), findsOneWidget);
 
       await tester.tap(exitFsFinder);
       await tester.pump();

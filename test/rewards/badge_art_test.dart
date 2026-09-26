@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:synctogether/ui/booth_icons.g.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -128,7 +129,7 @@ void main() {
           ),
         ),
       );
-      expect(find.byIcon(Symbols.lock_rounded), findsOneWidget);
+      expect(find.byIcon(BoothIcons.lock), findsOneWidget);
     });
 
     testWidgets('a season placing draws its cup', (tester) async {
@@ -140,7 +141,7 @@ void main() {
   });
 
   group('BadgeShelf with art', () {
-    testWidgets('earned badges draw art, locked ones draw it dimmed', (tester) async {
+    testWidgets('earned badges draw art, locked ones are counted', (tester) async {
       await tester.pumpWidget(
         wrap(
           SizedBox(
@@ -154,10 +155,10 @@ void main() {
           ),
         ),
       );
-      expect(find.byType(Image), findsNWidgets(2));
-      expect(find.byType(ColorFiltered), findsOneWidget);
-      // The progress ring says "not yet"; a padlock on top would say it twice.
-      expect(find.byIcon(Symbols.lock_rounded), findsNothing);
+      // Only the earned badge draws art; the locked one is counted, not drawn.
+      expect(find.byType(Image), findsOneWidget);
+      expect(find.byType(ColorFiltered), findsNothing);
+      expect(find.text('+1'), findsOneWidget);
     });
   });
 }

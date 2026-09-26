@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:synctogether/ui/booth_icons.g.dart';
 import 'package:synctogether/ui/inputs.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:synctogether/rooms/widgets/media_sharing_prompt_dialog.dart';
@@ -29,7 +30,7 @@ void main() {
       expect(find.textContaining('2.5 MB/s'), findsOneWidget);
       expect(find.textContaining('1m 25s'), findsOneWidget);
 
-      await tester.tap(find.byIcon(Icons.close));
+      await tester.tap(find.byIcon(BoothIcons.close));
       expect(cancelTapped, isTrue);
     });
 

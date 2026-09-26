@@ -1,10 +1,10 @@
 import 'dart:async';
+import '../ui/booth_icons.g.dart';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
-import 'package:material_symbols_icons/symbols.dart';
 import 'package:synctogether/analytics.dart';
 import 'package:synctogether/diagnostics.dart';
 import 'package:synctogether/platform.dart';
@@ -308,7 +308,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> with WidgetsBin
       spacing: 14,
       children: [
         PTIconButton(
-          icon: Symbols.arrow_back_rounded,
+          icon: BoothIcons.arrowBack,
           iconSize: compact ? 18 : 20,
           size: compact ? 38 : 42,
           onPressed: () => context.canPop() ? context.pop() : context.go('/lobby'),
@@ -382,24 +382,18 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> with WidgetsBin
   /// CLAUDE.md for every place these are copied); the room carries the host's
   /// tier, so each one reaches the whole room.
   static const _perks = [
-    (Symbols.group_rounded, '16-seat rooms', 'Free rooms hold 8.', '8', '16'),
-    (Symbols.videocam_rounded, 'Video facecams', 'Free rooms get voice only.', 'Voice', 'Video'),
-    (Symbols.bedtime_rounded, '24-hour rooms', 'Pick your own session length.', '4 h', '24 h'),
-    (Symbols.movie_rounded, 'Rooms that stay saved', 'Up to 20, waiting in your lobby.', '-', '20'),
+    (BoothIcons.group, '16-seat rooms', 'Free rooms hold 8.', '8', '16'),
+    (BoothIcons.videocam, 'Video facecams', 'Free rooms get voice only.', 'Voice', 'Video'),
+    (BoothIcons.moon, '24-hour rooms', 'Pick your own session length.', '4 h', '24 h'),
+    (BoothIcons.film, 'Rooms that stay saved', 'Up to 20, waiting in your lobby.', '-', '20'),
     (
-      Symbols.star_rounded,
+      BoothIcons.star,
       'Every reaction',
       'The full animated set, not just the first eight.',
       '8',
       'All',
     ),
-    (
-      Symbols.upload_rounded,
-      '10 GB shared uploads',
-      'Per file, with no weekly limit.',
-      '2 GB',
-      '10 GB',
-    ),
+    (BoothIcons.upload, '10 GB shared uploads', 'Per file, with no weekly limit.', '2 GB', '10 GB'),
   ];
 
   Widget _comparison({required bool compact}) {
@@ -518,7 +512,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> with WidgetsBin
           Row(
             spacing: 12,
             children: [
-              const Icon(Symbols.check_rounded, size: 18, color: PTColors.premium),
+              const Icon(BoothIcons.check, size: 18, color: PTColors.premium),
               Flexible(child: Text(line, style: PTText.body.copyWith(fontSize: 15))),
             ],
           ),
@@ -545,7 +539,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> with WidgetsBin
               children: [
                 const Padding(
                   padding: EdgeInsets.only(top: 2),
-                  child: Icon(Symbols.check_rounded, size: 16, color: PTColors.online),
+                  child: Icon(BoothIcons.check, size: 16, color: PTColors.online),
                 ),
                 Expanded(
                   child: Text(
@@ -819,7 +813,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> with WidgetsBin
         children: [
           PTButton(
             label: 'Take a Patron seat',
-            icon: Symbols.workspace_premium_rounded,
+            icon: BoothIcons.crown,
             height: 50,
             onPressed: _openCheckout,
           ),
@@ -827,7 +821,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> with WidgetsBin
             mainAxisAlignment: .center,
             spacing: 6,
             children: [
-              Icon(Symbols.open_in_new_rounded, size: 14, color: PTColors.white(0.45)),
+              Icon(BoothIcons.openInNew, size: 14, color: PTColors.white(0.45)),
               Flexible(child: _finePrint('Checkout opens on synctogether.app in your browser.')),
             ],
           ),
@@ -852,7 +846,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> with WidgetsBin
           ),
           PTButton(
             label: 'Refresh status',
-            icon: Symbols.refresh_rounded,
+            icon: BoothIcons.restore,
             variant: .secondary,
             height: 40,
             onPressed: _pollForSubscription,
@@ -877,7 +871,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> with WidgetsBin
         children: [
           PTButton(
             label: 'Manage subscription',
-            icon: Symbols.open_in_new_rounded,
+            icon: BoothIcons.openInNew,
             variant: .secondary,
             height: 48,
             onPressed: _openAccount,
@@ -898,7 +892,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> with WidgetsBin
           ),
           PTButton(
             label: 'Refresh status',
-            icon: Symbols.refresh_rounded,
+            icon: BoothIcons.restore,
             variant: .secondary,
             height: 40,
             onPressed: _pollForSubscription,
@@ -927,7 +921,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> with WidgetsBin
           _infoCard("Couldn't reach the App Store right now."),
           PTButton(
             label: 'Try again',
-            icon: Symbols.refresh_rounded,
+            icon: BoothIcons.restore,
             variant: .secondary,
             height: 40,
             onPressed: iap.loadProducts,
@@ -943,7 +937,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> with WidgetsBin
         Center(
           child: TextButton.icon(
             onPressed: iap.busy ? null : iap.restore,
-            icon: const Icon(Symbols.restore_rounded, size: 16),
+            icon: const Icon(BoothIcons.restore, size: 16),
             label: const Text('Restore purchases'),
             style: TextButton.styleFrom(
               foregroundColor: PTColors.fg,
@@ -1027,7 +1021,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> with WidgetsBin
         if (sources.contains('apple'))
           PTButton(
             label: 'Manage in App Store',
-            icon: Symbols.open_in_new_rounded,
+            icon: BoothIcons.openInNew,
             variant: .secondary,
             height: 48,
             onPressed: () => _openUrl(kAppleManageSubscriptionsUrl),
@@ -1036,7 +1030,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> with WidgetsBin
           _infoCard('Premium is active on your account across all your devices.'),
         PTButton(
           label: 'Refresh status',
-          icon: Symbols.refresh_rounded,
+          icon: BoothIcons.restore,
           variant: .secondary,
           height: 40,
           onPressed: _pollForSubscription,

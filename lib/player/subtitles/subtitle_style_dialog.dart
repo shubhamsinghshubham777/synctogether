@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../../ui/booth_icons.g.dart';
 
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
@@ -588,7 +589,7 @@ class _FontRow extends StatelessWidget {
                   style: PTText.body.copyWith(fontSize: 14.5, fontFamily: family),
                 ),
               ),
-              Icon(Symbols.chevron_right_rounded, size: 18, color: PTColors.white(0.5)),
+              Icon(BoothIcons.chevronRight, size: 18, color: PTColors.white(0.5)),
             ],
           ),
         ),

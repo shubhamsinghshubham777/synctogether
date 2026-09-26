@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:synctogether/ui/booth_icons.g.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:material_symbols_icons/symbols.dart';
 import 'package:synctogether/rooms/room_models.dart';
 import 'package:synctogether/rooms/widgets/my_rooms_section.dart';
 import 'package:synctogether/ui/buttons.dart';
@@ -116,7 +116,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Clear ended'), findsNothing);
-      expect(find.byIcon(Symbols.delete_sweep_rounded), findsNothing);
+      expect(find.byIcon(BoothIcons.delete), findsNothing);
     });
 
     testWidgets('strictly excludes persistent rooms from "Clear ended" target', (tester) async {
@@ -198,7 +198,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(PTIconButton), findsWidgets);
-      expect(find.byIcon(Symbols.delete_sweep_rounded), findsOneWidget);
+      expect(find.byIcon(BoothIcons.delete), findsOneWidget);
     });
   });
 

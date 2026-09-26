@@ -1,4 +1,5 @@
 import 'dart:io' show Platform;
+import '../../ui/booth_icons.g.dart';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -20,7 +21,7 @@ const _kRecentId = 'recent';
 
 const _groupIcons = <String, IconData>{
   _kRecentId: Symbols.history_rounded,
-  'smileys': Symbols.mood_rounded,
+  'smileys': BoothIcons.mood,
   'people': Symbols.waving_hand_rounded,
   'nature': Symbols.pets_rounded,
   'food': Symbols.restaurant_rounded,
@@ -28,7 +29,7 @@ const _groupIcons = <String, IconData>{
   'activities': Symbols.sports_soccer_rounded,
   'objects': Symbols.lightbulb_rounded,
   'symbols': Symbols.emoji_symbols_rounded,
-  'flags': Symbols.flag_rounded,
+  'flags': BoothIcons.flag,
 };
 
 const _toneSwatches = ['✋', '✋🏻', '✋🏼', '✋🏽', '✋🏾', '✋🏿'];
@@ -235,7 +236,7 @@ class _EmojiPickerState extends State<EmojiPicker> {
         ),
         if (_query.isNotEmpty)
           PTIconButton(
-            icon: Symbols.close_rounded,
+            icon: BoothIcons.close,
             size: 30,
             iconSize: 15,
             glass: false,
@@ -345,7 +346,7 @@ class _EmojiPickerState extends State<EmojiPicker> {
             ),
           ),
           PTIconButton(
-            icon: Symbols.close_rounded,
+            icon: BoothIcons.close,
             size: 30,
             iconSize: 15,
             glass: false,

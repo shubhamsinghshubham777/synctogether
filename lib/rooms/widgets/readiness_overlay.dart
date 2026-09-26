@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../ui/booth_icons.g.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:synctogether/rooms/room_models.dart';
 import 'package:synctogether/sync/sync_service.dart';
@@ -127,7 +128,7 @@ class ReadinessOverlay extends StatelessWidget {
           // Just the action - the headline directly above already names the
           // file, and release names are long enough to swamp the panel.
           label: dense ? 'Locate copy' : 'Locate your copy',
-          icon: Symbols.folder_open_rounded,
+          icon: BoothIcons.file,
           expand: true,
           onPressed: onLocateFile,
         ),
@@ -322,7 +323,7 @@ class _MemberStatusRow extends StatelessWidget {
           ),
           if (onKick != null)
             PTIconButton(
-              icon: Symbols.person_remove_rounded,
+              icon: BoothIcons.personRemove,
               glass: false,
               size: _kickSlot,
               iconSize: 17,

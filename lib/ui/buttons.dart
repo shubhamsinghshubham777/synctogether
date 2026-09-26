@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'booth_icons.g.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -368,7 +369,7 @@ class PTPlayButton extends StatelessWidget {
                 ),
               ),
               child: Icon(
-                playing ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                playing ? BoothIcons.pause : BoothIcons.playFilled,
                 key: ValueKey(playing),
                 size: size * 0.55,
                 color: PTColors.onAccent,

@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'booth_icons.g.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -631,7 +632,7 @@ class PTCheckTile extends StatelessWidget {
                   borderRadius: BorderRadius.circular(PTRadius.control),
                 ),
                 child: value
-                    ? const Icon(Symbols.check_rounded, size: 15, color: PTColors.onAccent)
+                    ? const Icon(BoothIcons.check, size: 15, color: PTColors.onAccent)
                     : null,
               ),
               Expanded(child: Text(label, style: PTText.body.copyWith(fontSize: 13.5))),

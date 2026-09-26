@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:material_symbols_icons/symbols.dart';
+import 'ui/booth_icons.g.dart';
 
 import 'analytics_catalog.dart';
 import 'ui/buttons.dart';
@@ -119,7 +119,7 @@ class _NeverPanel extends StatelessWidget {
           Row(
             spacing: 8,
             children: [
-              const Icon(Symbols.shield_rounded, size: 17, fill: 1, color: PTColors.online),
+              const Icon(BoothIcons.shield, size: 17, fill: 1, color: PTColors.online),
               Expanded(
                 child: Text(
                   'Never collected, on any plan',

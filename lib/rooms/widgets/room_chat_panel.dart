@@ -26,6 +26,11 @@ import 'emoji_quick_bar.dart';
 
 /// Pointer hover-intent before the picker opens: long enough that sweeping the
 /// mouse across the button on the way to the field does not pop it.
+/// The composer's line height, in font sizes. Hanken Grotesk's own metrics
+/// (ascent 1.0, descent 0.303) already sum to ~1.3, so with even leading the
+/// cap-height midline lands on the line's centre.
+const _kFieldLineHeight = 1.3;
+
 const kEmojiHoverOpenDelay = Duration(milliseconds: 250);
 
 /// Grace after the pointer leaves both the button and the picker, so a
@@ -121,6 +126,7 @@ class _RoomChatPanelState extends State<RoomChatPanel> {
   final _tapGroup = Object();
   bool _pickerOpen = false;
   bool _pickerPinned = false;
+  bool _pickerIconHovered = false;
   Timer? _hoverOpen;
   Timer? _hoverClose;
   double _keyboardHeight = 0;
@@ -628,20 +634,21 @@ class _RoomChatPanelState extends State<RoomChatPanel> {
                       border: Border.all(color: PTColors.rail),
                       borderRadius: BorderRadius.circular(PTRadius.control),
                     ),
+                    // One row, centred: the icon and the field share a centre
+                    // line by construction, with no padding matched between
+                    // them. At one line the box is the send button's height
+                    // (inside its border); as the field grows, the icon stays
+                    // mid-height.
+                    constraints: BoxConstraints(minHeight: spare ? 38 : _kSendExtent),
                     child: Row(
-                      crossAxisAlignment: .end,
                       children: [
-                        Padding(
-                          padding: const EdgeInsets.only(left: 4),
-                          // Centred on the field's first line, however the
-                          // font and text scale set its height - the field
-                          // grows downward-up, so this stays with that line.
-                          child: ConstrainedBox(
-                            constraints: BoxConstraints(minHeight: _singleLineFieldHeight()),
-                            child: Center(child: _pickerButton()),
+                        _pickerIcon(),
+                        Expanded(
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 6),
+                            child: _field(tight: tight),
                           ),
                         ),
-                        Expanded(child: _field(tight: tight)),
                       ],
                     ),
                   ),
@@ -680,37 +687,58 @@ class _RoomChatPanelState extends State<RoomChatPanel> {
     ),
   );
 
-  Widget _pickerButton() {
+  /// A bare glyph, not a button: dim at rest, full on hover or while the
+  /// picker is pinned open. Hover intent still opens the popover on pointer.
+  Widget _pickerIcon() {
     final chord = defaultTargetPlatform == TargetPlatform.macOS ? '⌘E' : 'Ctrl+E';
-    final button = PTIconButton(
-      icon: BoothIcons.mood,
-      size: 36,
-      iconSize: 20,
-      glass: false,
-      active: _pickerOpen && (_pickerPinned || _touch),
-      color: _pickerOpen ? Colors.white : PTColors.white(0.55),
-      tooltip: _pickerOpen ? 'Close emoji ($chord)' : 'Emoji ($chord)',
-      onPressed: _togglePicker,
+    final lit = _pickerIconHovered || (_pickerOpen && (_pickerPinned || _touch));
+    return Tooltip(
+      message: _pickerOpen ? 'Close emoji ($chord)' : 'Emoji ($chord)',
+      waitDuration: const Duration(milliseconds: 600),
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        onEnter: (_) {
+          setState(() => _pickerIconHovered = true);
+          if (!_touch) _hoverEnter();
+        },
+        onExit: (_) {
+          setState(() => _pickerIconHovered = false);
+          if (!_touch) _hoverExit();
+        },
+        child: Semantics(
+          button: true,
+          label: 'Emoji',
+          child: GestureDetector(
+            behavior: .opaque,
+            onTap: _togglePicker,
+            child: Padding(
+              // Touch keeps a finger-sized target; the glyph is still 20.
+              padding: EdgeInsets.symmetric(horizontal: 10, vertical: _touch ? 12 : 4),
+              child: AnimatedOpacity(
+                opacity: lit ? 1 : 0.55,
+                duration: PTMotion.functional(context, PTMotion.hover),
+                curve: PTMotion.enter,
+                child: const Icon(BoothIcons.mood, size: 20, color: PTColors.fg),
+              ),
+            ),
+          ),
+        ),
+      ),
     );
-    if (_touch) return button;
-    return MouseRegion(onEnter: (_) => _hoverEnter(), onExit: (_) => _hoverExit(), child: button);
   }
 
-  TextStyle get _fieldStyle => PTText.body.copyWith(fontSize: _spare ? 13 : 15);
-  EdgeInsets get _fieldPadding =>
-      _spare ? const EdgeInsets.fromLTRB(4, 9, 12, 9) : const EdgeInsets.fromLTRB(4, 11, 14, 11);
+  double get _fieldFontSize => _spare ? 13 : 15;
+  TextStyle get _fieldStyle => PTText.body.copyWith(fontSize: _fieldFontSize);
 
-  /// The field's height at one line, measured with the field's own style.
-  double _singleLineFieldHeight() {
-    final painter = TextPainter(
-      text: TextSpan(text: ' ', style: _fieldStyle),
-      textScaler: MediaQuery.textScalerOf(context),
-      textDirection: Directionality.of(context),
-    )..layout();
-    final line = painter.height;
-    painter.dispose();
-    return line + _fieldPadding.vertical;
-  }
+  /// Every line of the field is exactly this box, whatever the font's own
+  /// metrics would make it.
+  StrutStyle get _fieldStrut => StrutStyle(
+    fontFamily: PTFonts.body,
+    fontSize: _fieldFontSize,
+    height: _kFieldLineHeight,
+    leadingDistribution: .even,
+    forceStrutHeight: true,
+  );
 
   Widget _field({required bool tight}) => TextField(
     controller: _controller,
@@ -738,13 +766,14 @@ class _RoomChatPanelState extends State<RoomChatPanel> {
     maxLines: tight ? 2 : 4,
     keyboardType: .multiline,
     style: _fieldStyle,
+    strutStyle: _fieldStrut,
     cursorColor: PTColors.textAccent,
     decoration: InputDecoration(
       hintText: 'Say something…',
       hintStyle: PTText.body.copyWith(fontSize: _spare ? 13 : 15, color: PTColors.fgMute),
       border: InputBorder.none,
       isDense: true,
-      contentPadding: _fieldPadding,
+      contentPadding: EdgeInsets.fromLTRB(4, 0, _spare ? 12 : 14, 0),
     ),
   );
 

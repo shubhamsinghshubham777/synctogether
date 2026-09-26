@@ -8,6 +8,7 @@ import {
   shouldApplyEvent,
   resolvePeriodEnd,
   isRedundantGrant,
+  resolveBilling,
   MAX_WEBHOOK_AGE_SECONDS,
 } from "../lib/paddle_webhook.ts";
 
@@ -228,4 +229,91 @@ test("a grant that changes nothing is suppressed, but a renewal is not", () => {
     "re-granting after a revocation is not redundant"
   );
   assert.equal(isRedundantGrant(null, "2026-09-15T00:00:00.000Z"), false);
+});
+
+// --- Billing details (revenue on the internal dashboard) ---------------------
+
+const INR_ANNUAL = {
+  status: "active",
+  currency_code: "INR",
+  items: [
+    {
+      quantity: 1,
+      price: {
+        id: "pri_annual",
+        billing_cycle: { interval: "year", frequency: 1 },
+        unit_price: { amount: "2999", currency_code: "USD" },
+        unit_price_overrides: [
+          { unit_price: { amount: "99900", currency_code: "INR" } },
+        ],
+      },
+    },
+  ],
+};
+
+test("resolveBilling records the localised override, not the base USD price", () => {
+  const b = resolveBilling(INR_ANNUAL);
+  assert.equal(b.unit_amount, 99900);
+  assert.equal(b.currency, "INR");
+  assert.equal(b.billing_interval, "year");
+  assert.equal(b.billing_frequency, 1);
+  assert.equal(b.price_id, "pri_annual");
+  assert.equal(b.paddle_status, "active");
+  assert.equal(b.scheduled_cancel_at, null);
+});
+
+test("resolveBilling leaves the amount null when no unit price is in the subscription currency", () => {
+  const b = resolveBilling({ ...INR_ANNUAL, currency_code: "EUR" });
+  assert.equal(b.unit_amount, null, "an unmatched currency must not fall back to USD");
+  assert.equal(b.currency, "EUR");
+});
+
+test("resolveBilling multiplies by quantity and reads a scheduled cancellation", () => {
+  const b = resolveBilling({
+    status: "active",
+    currency_code: "USD",
+    scheduled_change: { action: "cancel", effective_at: "2026-10-27T00:00:00Z" },
+    items: [
+      {
+        quantity: 2,
+        price: { id: "pri_m", billing_cycle: { interval: "month", frequency: 1 }, unit_price: { amount: "399", currency_code: "USD" } },
+      },
+    ],
+  });
+  assert.equal(b.unit_amount, 798);
+  assert.equal(b.scheduled_cancel_at, "2026-10-27T00:00:00Z");
+});
+
+test("resolveBilling survives a payload with no items", () => {
+  const b = resolveBilling({ status: "active" });
+  assert.deepEqual(
+    [b.price_id, b.unit_amount, b.currency, b.billing_interval],
+    [null, null, null, null]
+  );
+});
+
+test("a grant whose price or cancellation changed is not redundant", () => {
+  const periodEnd = "2026-10-27T00:00:00Z";
+  const billing = resolveBilling(INR_ANNUAL);
+  const existing = { tier: "premium", current_period_end: periodEnd, ...billing };
+  assert.equal(isRedundantGrant(existing, periodEnd, billing), true);
+  assert.equal(
+    isRedundantGrant({ ...existing, unit_amount: null }, periodEnd, billing),
+    false,
+    "a row predating the billing columns must be backfilled"
+  );
+  assert.equal(
+    isRedundantGrant(existing, periodEnd, { ...billing, scheduled_cancel_at: periodEnd }),
+    false,
+    "scheduling a cancellation must be recorded"
+  );
+  assert.equal(
+    isRedundantGrant(
+      { ...existing, scheduled_cancel_at: "2026-10-27T00:00:00+00:00" },
+      periodEnd,
+      { ...billing, scheduled_cancel_at: "2026-10-27T00:00:00Z" }
+    ),
+    true,
+    "the same instant in Postgres and Paddle spelling is not a change"
+  );
 });

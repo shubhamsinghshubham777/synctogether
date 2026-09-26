@@ -1,245 +1,126 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { validateProductionCredentials, isLoopbackHost } from "../lib/supabase/admin.ts";
+import { isAuthorizedLocalAccess } from "../lib/admin-guard.ts";
 import {
-  validateProductionCredentials,
-  isLoopbackHost,
-} from "../lib/supabase/admin.ts";
+  computeMrr,
+  formatBytes,
+  monthsPerCycle,
+  percent,
+  summariseReleaseFetches,
+} from "../lib/metrics_logic.ts";
 
-function checkLocalAccess(
-  headers: Headers,
-  customEnv = "development",
-  url?: string,
-  customToken?: string
-): boolean {
-  const host = headers.get("host")?.toLowerCase() || "";
-  const hostname = host.split(":")[0];
+const req = (h: Record<string, string>) => ({ headers: new Headers(h) });
 
-  const expectedToken = customToken;
-  if (expectedToken && expectedToken.trim().length > 0) {
-    const headerToken = headers.get("x-admin-token");
-    if (headerToken && headerToken === expectedToken) {
-      return true;
+test("the guard admits loopback hosts in development and test", () => {
+  for (const host of ["localhost:3000", "127.0.0.1:3000", "0.0.0.0", "app.local", "test.localhost"]) {
+    assert.equal(isAuthorizedLocalAccess(req({ host }), "development"), true, host);
+    assert.equal(isAuthorizedLocalAccess(req({ host }), "test"), true, host);
+  }
+});
+
+test("the guard refuses non-loopback hosts in development", () => {
+  assert.equal(isAuthorizedLocalAccess(req({ host: "synctogether.app" }), "development"), false);
+  assert.equal(isAuthorizedLocalAccess(req({}), "development"), false);
+});
+
+test("the guard refuses every production request, token or spoofed host alike", () => {
+  const secret = "super-secret-admin-token-123";
+  process.env.INTERNAL_ADMIN_TOKEN = secret;
+  try {
+    const cases: Record<string, string>[] = [
+      { host: "localhost" },
+      { host: "127.0.0.1", "x-forwarded-for": "127.0.0.1" },
+      { host: "synctogether.app", "x-admin-token": secret },
+    ];
+    for (const h of cases) {
+      assert.equal(isAuthorizedLocalAccess(req(h), "production"), false, JSON.stringify(h));
     }
-
-    if (url) {
-      try {
-        const urlObj = new URL(url);
-        const queryToken = urlObj.searchParams.get("token");
-        if (queryToken && queryToken === expectedToken) {
-          return true;
-        }
-      } catch {
-        // Ignore URL parsing errors
-      }
-    }
-  }
-
-  const isDevOrTest = customEnv === "development" || customEnv === "test";
-
-  // In production, unauthenticated requests are strictly rejected
-  if (!isDevOrTest) {
-    return false;
-  }
-
-  const isLoopbackHost =
-    hostname === "localhost" ||
-    hostname === "127.0.0.1" ||
-    hostname === "0.0.0.0" ||
-    hostname.endsWith(".localhost") ||
-    hostname.endsWith(".local");
-
-  return isLoopbackHost;
-}
-
-test("checkLocalAccess approves local loopback development hosts", () => {
-  const localHosts = [
-    "localhost:3000",
-    "127.0.0.1:3000",
-    "0.0.0.0:3000",
-    "localhost",
-    "127.0.0.1",
-    "app.local",
-    "test.localhost",
-  ];
-
-  for (const host of localHosts) {
-    const headers = new Headers({ host });
-    assert.equal(
-      checkLocalAccess(headers, "development"),
-      true,
-      `Expected ${host} to be recognized as authorized local access in development`
-    );
-    assert.equal(
-      checkLocalAccess(headers, "test"),
-      true,
-      `Expected ${host} to be recognized as authorized local access in test`
-    );
+  } finally {
+    delete process.env.INTERNAL_ADMIN_TOKEN;
   }
 });
 
-test("checkLocalAccess strictly blocks production access without token (immune to spoofed Host/IP)", () => {
-  const hosts = [
-    "synctogether.com",
-    "www.synctogether.com",
-    "synctogether.vercel.app",
-    "localhost",
-    "127.0.0.1",
-  ];
-
-  for (const host of hosts) {
-    const headers = new Headers({
-      host,
-      "x-forwarded-for": "127.0.0.1",
-    });
-    assert.equal(
-      checkLocalAccess(headers, "production"),
-      false,
-      `Expected host ${host} to be blocked in production without token`
-    );
-  }
+test("percent is null rather than 0 when the denominator is missing", () => {
+  assert.equal(percent(3, 0), null);
+  assert.equal(percent(null, 10), null);
+  assert.equal(percent(1, 3), 33.3);
 });
 
-test("checkLocalAccess approves requests carrying valid admin token in production", () => {
-  const token = "super-secret-admin-token-123";
-
-  // 1. Authorized via x-admin-token header
-  const headerReq = new Headers({
-    host: "synctogether.com",
-    "x-admin-token": token,
-  });
-  assert.equal(checkLocalAccess(headerReq, "production", undefined, token), true);
-
-  // 2. Authorized via query param
-  const queryReq = new Headers({
-    host: "synctogether.com",
-  });
-  const url = "https://synctogether.com/internal/metrics?token=super-secret-admin-token-123";
-  assert.equal(checkLocalAccess(queryReq, "production", url, token), true);
-
-  // 3. Rejected with invalid token
-  const invalidReq = new Headers({
-    host: "synctogether.com",
-    "x-admin-token": "wrong-token",
-  });
-  assert.equal(checkLocalAccess(invalidReq, "production", undefined, token), false);
+test("monthsPerCycle normalises annual to twelve months", () => {
+  assert.equal(monthsPerCycle("month", 1), 1);
+  assert.equal(monthsPerCycle("year", 1), 12);
+  assert.equal(monthsPerCycle("month", 3), 3);
+  assert.equal(monthsPerCycle("fortnight", 1), null);
 });
 
-test("Business calculations: MRR, ARR, and conversion rates behave predictably", () => {
-  const activePremium = 12;
-  const totalRegistered = 150;
-  const uniqueVisitors = 1200;
-  const downloads = 300;
-
-  const mrr = activePremium * 5.0;
-  const arr = mrr * 12;
-  const payingRate = Math.round((activePremium / totalRegistered) * 1000) / 10;
-  const downloadRate = Math.round((downloads / uniqueVisitors) * 1000) / 10;
-
-  assert.equal(mrr, 60.0);
-  assert.equal(arr, 720.0);
-  assert.equal(payingRate, 8.0); // 8%
-  assert.equal(downloadRate, 25.0); // 25%
-});
-
-test("isLoopbackHost identifies all localhost and loopback domains", () => {
-  const loopbacks = [
-    "localhost",
-    "127.0.0.1",
-    "0.0.0.0",
-    "::1",
-    "app.localhost",
-    "service.local",
-  ];
-  for (const host of loopbacks) {
-    assert.equal(isLoopbackHost(host), true, `Expected ${host} to be recognized as loopback`);
-  }
-
-  const productionHosts = [
-    "abcdefghij.supabase.co",
-    "synctogether.com",
-    "api.synctogether.com",
-  ];
-  for (const host of productionHosts) {
-    assert.equal(isLoopbackHost(host), false, `Expected ${host} to NOT be recognized as loopback`);
-  }
-});
-
-test("validateProductionCredentials strictly denies loopback and local seed databases", () => {
-  // 1. Loopback rejected
-  const loopbackRes = validateProductionCredentials(
-    "http://127.0.0.1:54321",
-    "valid_secret_key_12345"
+test("MRR sums real prices, annual / 12, INR at the fixed rate", () => {
+  const mrr = computeMrr(
+    [
+      { currency: "USD", interval: "month", frequency: 1, subscribers: 2, unit_amount_sum: 798 },
+      { currency: "USD", interval: "year", frequency: 1, subscribers: 1, unit_amount_sum: 2999 },
+      { currency: "INR", interval: "month", frequency: 1, subscribers: 1, unit_amount_sum: 19900 },
+    ],
+    100
   );
-  assert.equal(loopbackRes.valid, false);
-  if (!loopbackRes.valid) {
-    assert.equal(loopbackRes.code, "LOOPBACK_DETECTED");
-  }
-
-  // 2. Demo service key rejected
-  const demoKeyRes = validateProductionCredentials(
-    "https://projectref.supabase.co",
-    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU"
-  );
-  assert.equal(demoKeyRes.valid, false);
-  if (!demoKeyRes.valid) {
-    assert.equal(demoKeyRes.code, "DEMO_KEY_DETECTED");
-  }
-
-  // 3. Missing keys rejected
-  const missingRes = validateProductionCredentials("", "");
-  assert.equal(missingRes.valid, false);
-  if (!missingRes.valid) {
-    assert.equal(missingRes.code, "MISSING_CREDENTIALS");
-  }
-
-  // 4. Invalid URL rejected
-  const invalidUrlRes = validateProductionCredentials("not-a-valid-url", "some_key");
-  assert.equal(invalidUrlRes.valid, false);
-  if (!invalidUrlRes.valid) {
-    assert.equal(invalidUrlRes.code, "INVALID_URL");
-  }
-
-  // 5. Genuine production credentials accepted
-  const validRes = validateProductionCredentials(
-    "https://myprodproject.supabase.co",
-    "sb_secret_genuine_production_key_12345"
-  );
-  assert.equal(validRes.valid, true);
-  if (validRes.valid) {
-    assert.equal(validRes.host, "myprodproject.supabase.co");
-  }
+  // 7.98 + 29.99/12 (2.4991...) + 199/100
+  assert.equal(mrr.usdEquivalent, 12.47);
+  assert.equal(mrr.unconvertedSubscribers, 0);
+  assert.deepEqual(mrr.byCurrency.find((c) => c.currency === "INR"), { currency: "INR", monthly: 199, subscribers: 1 });
 });
 
-test("Quota status calculations accurately reflect healthy, warning, and critical bands", () => {
-  function calculateQuotaStatus(used: number, limit: number): "healthy" | "warning" | "critical" {
-    if (limit <= 0) return "healthy";
-    const ratio = used / limit;
-    if (ratio >= 0.9) return "critical";
-    if (ratio >= 0.75) return "warning";
-    return "healthy";
-  }
+test("MRR never converts a currency it has no rate for, and is null with no rows", () => {
+  const mrr = computeMrr([{ currency: "EUR", interval: "month", frequency: 1, subscribers: 4, unit_amount_sum: 1596 }]);
+  assert.equal(mrr.usdEquivalent, null);
+  assert.equal(mrr.unconvertedSubscribers, 4);
+  assert.equal(computeMrr([]).usdEquivalent, null);
+});
 
-  function formatBytes(bytes: number, decimals = 2): string {
-    if (!bytes || bytes <= 0) return "0 B";
-    const k = 1024;
-    const dm = decimals < 0 ? 0 : decimals;
-    const sizes = ["B", "KB", "MB", "GB", "TB"];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    const val = parseFloat((bytes / Math.pow(k, i)).toFixed(dm));
-    return `${val} ${sizes[i]}`;
-  }
+test("GitHub fetches are summed per OS from asset names", () => {
+  const s = summariseReleaseFetches([
+    {
+      tag_name: "v1.0.0",
+      published_at: "2026-09-01T00:00:00Z",
+      assets: [
+        { name: "SyncTogether-1.0.0-macOS.dmg", download_count: 10 },
+        { name: "SyncTogether-1.0.0-Windows.exe", download_count: 7 },
+        { name: "appcast.xml", download_count: 100 },
+      ],
+    },
+  ]);
+  assert.deepEqual([s.mac, s.win, s.total], [10, 7, 117]);
+});
 
-  // Quota Status
-  assert.equal(calculateQuotaStatus(10, 50), "healthy"); // 20%
-  assert.equal(calculateQuotaStatus(37, 50), "healthy"); // 74%
-  assert.equal(calculateQuotaStatus(38, 50), "warning"); // 76%
-  assert.equal(calculateQuotaStatus(44, 50), "warning"); // 88%
-  assert.equal(calculateQuotaStatus(45, 50), "critical"); // 90%
-  assert.equal(calculateQuotaStatus(50, 50), "critical"); // 100%
-
-  // Byte Formatter
+test("formatBytes", () => {
   assert.equal(formatBytes(0), "0 B");
   assert.equal(formatBytes(1024), "1 KB");
-  assert.equal(formatBytes(1048576), "1 MB");
   assert.equal(formatBytes(10737418240), "10 GB");
+});
+
+test("isLoopbackHost identifies loopback and not production hosts", () => {
+  for (const h of ["localhost", "127.0.0.1", "0.0.0.0", "::1", "app.localhost", "service.local"]) {
+    assert.equal(isLoopbackHost(h), true, h);
+  }
+  for (const h of ["abcdefghij.supabase.co", "synctogether.app"]) assert.equal(isLoopbackHost(h), false, h);
+});
+
+test("validateProductionCredentials denies loopback, demo keys, missing and invalid input", () => {
+  const cases: [string, string, string][] = [
+    ["http://127.0.0.1:54321", "valid_secret_key_12345", "LOOPBACK_DETECTED"],
+    [
+      "https://projectref.supabase.co",
+      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU",
+      "DEMO_KEY_DETECTED",
+    ],
+    ["", "", "MISSING_CREDENTIALS"],
+    ["not-a-valid-url", "some_key", "INVALID_URL"],
+  ];
+  for (const [url, key, code] of cases) {
+    const r = validateProductionCredentials(url, key);
+    assert.equal(r.valid, false);
+    if (!r.valid) assert.equal(r.code, code);
+  }
+  const ok = validateProductionCredentials("https://myprodproject.supabase.co", "sb_secret_genuine_production_key_12345");
+  assert.equal(ok.valid, true);
+  if (ok.valid) assert.equal(ok.host, "myprodproject.supabase.co");
 });

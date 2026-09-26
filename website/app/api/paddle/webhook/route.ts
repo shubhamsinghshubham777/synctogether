@@ -6,6 +6,7 @@ import {
   shouldApplyEvent,
   resolvePeriodEnd,
   isRedundantGrant,
+  resolveBilling,
 } from "@/lib/paddle_webhook";
 import { callerAddress, classifyCaller, paddleWebhookIps } from "@/lib/paddle_ips";
 
@@ -82,7 +83,9 @@ export async function POST(request: Request) {
 
     const { data: existing } = await supabase
       .from("subscriptions")
-      .select("tier, current_period_end, last_event_id, last_event_at")
+      .select(
+        "tier, current_period_end, last_event_id, last_event_at, price_id, unit_amount, currency, billing_interval, billing_frequency, paddle_status, scheduled_cancel_at"
+      )
       .eq("user_id", userId)
       .maybeSingle();
 
@@ -107,9 +110,13 @@ export async function POST(request: Request) {
 
     if (action === "ignore" || action === "grace") {
       if (!existing) return NextResponse.json({ success: true, action });
+      // past_due is recorded so revenue figures can leave it out; entitlement
+      // is untouched, per the grace rule.
+      const update =
+        action === "grace" ? { ...cursor, paddle_status: data?.status ?? "past_due" } : cursor;
       const { error } = await supabase
         .from("subscriptions")
-        .update(cursor)
+        .update(update)
         .eq("user_id", userId);
       if (error) {
         console.error("Failed to advance Paddle event cursor:", error);
@@ -125,6 +132,8 @@ export async function POST(request: Request) {
           ...cursor,
           tier: "free",
           current_period_end: new Date().toISOString(),
+          paddle_status: data?.status ?? null,
+          scheduled_cancel_at: null,
         })
         .eq("user_id", userId);
       if (error) {
@@ -144,7 +153,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "No billing period on event" }, { status: 422 });
     }
 
-    if (isRedundantGrant(existing, periodEnd)) {
+    const billing = resolveBilling(data);
+
+    if (isRedundantGrant(existing, periodEnd, billing)) {
       // Nothing about entitlement changed; still move the cursor so the event
       // is not reconsidered on redelivery.
       await supabase.from("subscriptions").update(cursor).eq("user_id", userId);
@@ -158,6 +169,7 @@ export async function POST(request: Request) {
         tier: "premium",
         source: "paddle",
         current_period_end: periodEnd,
+        ...billing,
         paddle_subscription_id: data?.id ?? null,
         paddle_customer_id: data?.customer_id ?? null,
       },

@@ -6,7 +6,7 @@ import { ProductionCredentialsError } from "@/lib/supabase/admin";
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
-  // Enforce local-only access or valid secret token (returns 404 otherwise)
+  // Local dev on a loopback host only; always 404 in a production build.
   if (!isAuthorizedLocalAccess(request)) {
     return new Response("Not Found", { status: 404 });
   }

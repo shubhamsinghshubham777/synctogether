@@ -23,6 +23,14 @@ const _guestLimits = TierLimits(
   mediaSharingWeeklyBytes: 0,
 );
 
+/// The sections arrive on a one-shot stagger (delay timers, then a tween), so
+/// let it land before the overflow/inset checks and the screenshot - otherwise
+/// they only ever see the first frame of an empty page.
+Future<void> _settleStagger(WidgetTester tester) async {
+  await tester.pump(const Duration(milliseconds: 400));
+  await tester.pump(const Duration(milliseconds: 600));
+}
+
 void main() {
   setUp(() {
     SharedPreferences.setMockInitialValues({});
@@ -44,6 +52,7 @@ void main() {
     );
     EntitlementService.instance.setLimitsForTesting(TierLimits.fallback);
     await pumpAtSize(tester, const ProfileScreen(), c, textScale: s);
+    await _settleStagger(tester);
     await finishCase(tester);
   });
 
@@ -53,6 +62,7 @@ void main() {
     );
     EntitlementService.instance.setLimitsForTesting(_guestLimits);
     await pumpAtSize(tester, const ProfileScreen(), c, textScale: s);
+    await _settleStagger(tester);
     await finishCase(tester);
   });
 }

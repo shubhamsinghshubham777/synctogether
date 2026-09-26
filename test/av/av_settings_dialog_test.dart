@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:livekit_client/livekit_client.dart' as lk;
@@ -36,7 +38,10 @@ void main() {
       await DevicePreferenceService.instance.init(prefs);
     });
 
-    Widget buildTestApp({Future<void> Function(lk.MediaDevice? selectedOutput)? onTestSound}) {
+    Widget buildTestApp({
+      Future<void> Function(lk.MediaDevice? selectedOutput)? onTestSound,
+      MicLevels? micLevels,
+    }) {
       return MaterialApp(
         home: Scaffold(
           body: Builder(
@@ -47,6 +52,7 @@ void main() {
                 enumerateVideoInputs: () async => mockCams,
                 enumerateAudioOutputs: () async => mockOutputs,
                 onTestSound: onTestSound,
+                micLevels: micLevels,
               ),
               child: const Text('Open Settings'),
             ),
@@ -65,11 +71,11 @@ void main() {
       await tester.pump(const Duration(milliseconds: 350));
       await tester.pump(const Duration(milliseconds: 100));
 
-      expect(find.text('Audio & Video Settings'), findsOneWidget);
-      expect(find.text('Microphone'), findsOneWidget);
-      expect(find.text('Audio Output'), findsOneWidget);
+      expect(find.text('Test your mic and camera'), findsOneWidget);
+      expect(find.text('MICROPHONE'), findsOneWidget);
+      expect(find.text('AUDIO OUTPUT'), findsOneWidget);
       expect(find.text('Does not apply to YouTube mode'), findsOneWidget);
-      expect(find.text('Camera'), findsOneWidget);
+      expect(find.text('CAMERA'), findsOneWidget);
       expect(find.text('Yeti Nano'), findsOneWidget);
       expect(find.text('Internal Speakers'), findsOneWidget);
       expect(find.text('FaceTime HD'), findsOneWidget);
@@ -86,13 +92,13 @@ void main() {
       await tester.pump(const Duration(milliseconds: 350));
       await tester.pump(const Duration(milliseconds: 100));
 
-      expect(find.text('Audio & Video Settings'), findsOneWidget);
+      expect(find.text('Test your mic and camera'), findsOneWidget);
 
       await tester.tap(find.text('Cancel'));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 350));
 
-      expect(find.text('Audio & Video Settings'), findsNothing);
+      expect(find.text('Test your mic and camera'), findsNothing);
       expect(DevicePreferenceService.instance.preferredMic?.id, 'mic-2');
     });
 
@@ -178,7 +184,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // Dialog is closed
-      expect(find.text('Audio & Video Settings'), findsNothing);
+      expect(find.text('Test your mic and camera'), findsNothing);
 
       // Preferences are now committed
       expect(DevicePreferenceService.instance.preferredMic?.id, 'mic-1');
@@ -227,6 +233,54 @@ void main() {
 
       expect(testedDevice?.deviceId, 'out-2');
       expect(testedDevice?.label, 'External Headphones');
+    });
+
+    testWidgets('Test mic opens the selected device only when asked and releases it on Stop', (
+      tester,
+    ) async {
+      final opened = <String?>[];
+      final controllers = <StreamController<List<double>>>[];
+      Stream<List<double>> fakeLevels(String? deviceId) {
+        opened.add(deviceId);
+        final c = StreamController<List<double>>();
+        controllers.add(c);
+        return c.stream;
+      }
+
+      await tester.pumpWidget(buildTestApp(micLevels: fakeLevels));
+      await tester.tap(find.text('Open Settings'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 450));
+
+      // Nothing touches the mic until asked.
+      expect(opened, isEmpty);
+      await tester.tap(find.text('Test mic'));
+      await tester.pump();
+      expect(opened, ['mic-2']);
+      expect(find.text('Say something'), findsOneWidget);
+
+      controllers.last.add(List.filled(16, 0.6));
+      await tester.pump();
+
+      await tester.tap(find.text('Stop'));
+      await tester.pump();
+      expect(controllers.last.hasListener, isFalse);
+      expect(find.text('Test mic'), findsOneWidget);
+    });
+
+    testWidgets('a mic that fails to open says so and stops testing', (tester) async {
+      await tester.pumpWidget(
+        buildTestApp(micLevels: (_) => Stream<List<double>>.error(StateError('no device'))),
+      );
+      await tester.tap(find.text('Open Settings'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 450));
+
+      await tester.tap(find.text('Test mic'));
+      await tester.pump();
+      await tester.pump();
+      expect(find.text("Couldn't open that mic"), findsOneWidget);
+      expect(find.text('Test mic'), findsOneWidget);
     });
   });
 }

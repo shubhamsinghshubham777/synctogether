@@ -4,7 +4,6 @@ import 'package:synctogether/player/youtube/youtube_links.dart';
 import 'package:synctogether/ui/buttons.dart';
 import 'package:synctogether/ui/inputs.dart';
 import 'package:synctogether/ui/glass.dart';
-import 'package:synctogether/ui/pt_theme.dart';
 
 /// Body for [showGlassDialog]; pops the validated URL string.
 class YouTubeUrlDialog extends StatefulWidget {
@@ -45,27 +44,11 @@ class _YouTubeUrlDialogState extends State<YouTubeUrlDialog> {
       crossAxisAlignment: .start,
       spacing: 16,
       children: [
-        Row(
-          crossAxisAlignment: .start,
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: .start,
-                spacing: 5,
-                children: [
-                  Text(
-                    'Paste a YouTube link',
-                    textScaler: dialogHeadingScaler(context),
-                    style: PTText.screenTitle.copyWith(fontSize: 20),
-                  ),
-                  Text(
-                    'It switches for everyone in the room.',
-                    style: PTText.body.copyWith(fontSize: 13.5, color: PTColors.white(0.55)),
-                  ),
-                ],
-              ),
-            ),
-          ],
+        const GlassDialogHeader(
+          eyebrow: 'Now showing · YouTube',
+          title: 'Paste a YouTube link',
+          subtitle: 'It switches for everyone in the room.',
+          titleGap: 5,
         ),
         PTTextField(
           controller: _controller,
@@ -78,40 +61,30 @@ class _YouTubeUrlDialogState extends State<YouTubeUrlDialog> {
           },
           onSubmitted: (_) => _submitUrl(),
         ),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          spacing: 10,
-          children: [
-            PTButton(
-              maxLines: 2,
-              label: 'Load video',
-              trailingIcon: Symbols.arrow_forward_rounded,
-              height: 46,
-              onPressed: _submitUrl,
-            ),
-            // Playback here is always signed-out, so a Premium account's
-            // ad-free benefit does not carry over. Saying so is the honest
-            // answer: the only way to sign in would be a Google login inside
-            // an embedded webview, which Google forbids and which asks people
-            // to type their password into a container we control.
-            Row(
-              spacing: 8,
-              children: [
-                Icon(Symbols.info_rounded, size: 16, color: PTColors.white(0.45)),
-                Expanded(
-                  child: Text(
-                    'Videos play signed out, so YouTube may show ads even if you have Premium.',
-                    style: PTText.finePrint.copyWith(color: PTColors.white(0.5)),
-                  ),
-                ),
-              ],
-            ),
+        // Playback here is always signed-out, so a Premium account's
+        // ad-free benefit does not carry over. Saying so is the honest
+        // answer: the only way to sign in would be a Google login inside
+        // an embedded webview, which Google forbids and which asks people
+        // to type their password into a container we control.
+        const DialogNote(
+          icon: Symbols.info_rounded,
+          child: Text('Plays signed out, so YouTube may show ads even if you pay for Premium.'),
+        ),
+        PTButtonBar(
+          buttons: [
             PTButton(
               maxLines: 2,
               label: 'Cancel',
               variant: .secondary,
               height: 46,
               onPressed: () => Navigator.of(context).pop(),
+            ),
+            PTButton(
+              maxLines: 2,
+              label: 'Load video',
+              trailingIcon: Symbols.arrow_forward_rounded,
+              height: 46,
+              onPressed: _submitUrl,
             ),
           ],
         ),

@@ -1,95 +1,114 @@
 import 'package:flutter/material.dart';
 
-/// Design tokens from the "SyncTogether" design system.
-/// Dark mode only - glass panels rely on dark video/ambient backdrops.
+/// Design tokens for "Booth Light" - the projection booth.
+///
+/// Dark mode only, and deliberately so: the room is dark and the video is the
+/// brightest thing on screen. ~90% of any surface is warm booth neutral; the
+/// accents are spent with intent:
+/// - **Beam** (amber, [primary]) means *live* - play, in sync, the one lit
+///   button per screen. Text on it is [onAccent], never white.
+/// - **Signal** (coral, [ember]) is on-air: mic hot, reactions, streaks.
+/// - **Cue** (teal, [online]) is ready / loaded in the readiness gate.
+/// - **Brass** ([premium]) is Patron only - engraved, never a gold gradient.
+///
+/// The token *names* predate this palette (the violet glass system); they are
+/// kept so screens follow the new look without edits. New code should prefer
+/// the Booth names ([canvas], [glassBase] = Seat, [aisle], [rail], [fg]).
 abstract final class PTColors {
-  // Accent - violet.
-  static const textAccent = Color(0xFFC9B8FF);
-  static const gradientEnd = Color(0xFFC084FC);
-  static const gradientMid = Color(0xFFA855F7);
-  static const primary = Color(0xFF8B5CF6);
-  static const deep = Color(0xFF7C3AED);
+  // Booth neutrals. Warm, never pure black or white.
+  static const canvas = Color(0xFF121010); // Booth
+  static const screenBg = Color(0xFF121010);
+  static const glassBase = Color(0xFF1C1917); // Seat - panels
+  static const aisle = Color(0xFF27221F); // raised
+  static const rail = Color(0xFF3A332E); // lines
+  static const fg = Color(0xFFF4ECDF); // Screen - text, tickets
+  static const dialogGlassBase = Color(0xFF1C1917);
+  static const avatarRing = Color(0xFF121010);
+  static const presenceRing = Color(0xFF1C1917);
 
-  // Surfaces.
-  static const canvas = Color(0xFF08070C);
-  static const screenBg = Color(0xFF0B0A14);
-  static const glassBase = Color(0xFF161226); // rgba(22,18,38,·)
-  static const dialogGlassBase = Color(0xFF18132A); // rgba(24,19,42,·)
-  static const avatarRing = Color(0xFF14101F);
-  static const presenceRing = Color(0xFF171329);
+  // Beam - the accent. Legacy names all resolve to it.
+  static const primary = Color(0xFFFFB23F);
+  static const textAccent = Color(0xFFFFB23F);
+  static const gradientMid = Color(0xFFFFB23F);
+  static const gradientEnd = Color(0xFFFFC266);
+  static const deep = Color(0xFFD98E1F);
+  static const accentBorder = Color(0xFFFFB23F);
+  static const accentBorderSoft = Color(0x4DFFB23F);
+  static const accentSoft = Color(0xFFFFC266); // hovered Beam
+  static const accentBright = Color(0xFFFFE2B0);
+  static const link = Color(0xFFFFC266);
+  static const onAccent = Color(0xFF1A1206); // text/spinner on Beam
+
+  /// Signal as printed ink on a paper ticket - darker than [ember] so it
+  /// holds 4.5:1 on [fg].
+  static const liveInk = Color(0xFFA33A22);
 
   // Semantic.
-  static const online = Color(0xFF4ADE80);
-  static const away = Color(0xFF6B7280);
-  static const warning = Color(0xFFFDE68A);
-  static const warningBorder = Color(0xFFFACC15);
-  static const danger = Color(0xFFFCA5A5);
-  static const dangerBorder = Color(0xFFF87171);
-  static const premium = Color(0xFFFBBF24);
-  static const premiumBorder = Color(0xFFD97706);
+  static const online = Color(0xFF6FD6C4); // Cue - ready
+  static const away = Color(0xFF8F8476);
+  static const warning = Color(0xFFFFD27A);
+  static const warningBorder = Color(0xFFFFB23F);
+  static const danger = Color(0xFFFF8A70);
+  static const dangerBorder = Color(0xFFFF6A4D);
+  static const premium = Color(0xFFE8C877); // Brass
+  static const premiumBorder = Color(0xFFA8893E);
 
-  static const selectionHandle = Color(0xFF22D3EE);
-  static const selectionHighlight = Color(0x7322D3EE);
+  static const selectionHandle = Color(0xFFFFB23F);
+  static const selectionHighlight = Color(0x59FFB23F);
 
-  // Accent variants.
-  static const accentBorder = Color(0xFFA78BFA); // violet outline, used at low alpha
-  static const accentBorderSoft = Color(0x4DA78BFA);
-  static const accentSoft = Color(0xFFC4A8FF);
-  static const accentBright = Color(0xFFE9DCFF);
-  static const link = Color(0xFFB79CFF);
-  static const onAccent = Color(0xFF1A1625); // text/spinner on the light accent button
-
-  // Raised surfaces (menus, popovers, toasts, tiles).
-  static const surfaceBase = Color(0xFF141022);
-  static const menuSurface = Color(0xFF1B172C);
-  static const raised = Color(0xE61E1834);
-  static const raisedStrong = Color(0xF21E1834);
-  static const noticeSurface = Color(0xCC1A162B);
-  static const toastSurface = Color(0xEE161324);
-  static const tileTop = Color(0xFF1F1A33);
-  static const tileBottom = Color(0xFF151021);
-  static const splashGlow = Color(0xFF1A1130);
+  // Raised surfaces (menus, popovers, toasts, tiles). Elevation is lightness,
+  // not blur: Seat -> Aisle.
+  static const surfaceBase = Color(0xFF1C1917);
+  static const menuSurface = Color(0xFF27221F);
+  static const raised = Color(0xFF27221F);
+  static const raisedStrong = Color(0xFF27221F);
+  static const noticeSurface = Color(0xFF27221F);
+  static const toastSurface = Color(0xFF27221F);
+  static const tileTop = Color(0xFF27221F);
+  static const tileBottom = Color(0xFF1C1917);
+  static const splashGlow = Color(0xFF1C1917);
 
   // Scrims and shadows.
-  static const ink = Color(0xFF000000); // video letterbox, text on amber
-  static const scrimBase = Color(0xFF0A0812);
-  static const scrimTop = Color(0x8C0A0812);
-  static const scrimClear = Color(0x000A0812);
-  static const canvasScrim = Color(0x9908070C);
-  static const barrier = Color(0x8C06050A);
+  static const ink = Color(0xFF000000); // video letterbox
+  static const scrimBase = Color(0xFF0A0808);
+  static const scrimTop = Color(0x8C0A0808);
+  static const scrimClear = Color(0x000A0808);
+  static const canvasScrim = Color(0x99121010);
+  static const barrier = Color(0xB30A0808);
   static const shadowSoft = Color(0x59000000);
   static const shadow = Color(0x66000000);
   static const shadowStrong = Color(0xCC000000);
-  static const veilTop = Color(0x990B0A14);
-  static const veilMid = Color(0x5E0B0A14);
-  static const veilLow = Color(0x260B0A14);
-  static const veilClear = Color(0x000B0A14);
+  static const veilTop = Color(0x99121010);
+  static const veilMid = Color(0x5E121010);
+  static const veilLow = Color(0x26121010);
+  static const veilClear = Color(0x00121010);
 
-  // Ambient glows.
-  static const glowDeep = Color(0x387C3AED);
-  static const glowEnd = Color(0x24C084FC);
-  static const glowIndigo = Color(0x296366F1);
+  // Ambient glows - retired with the glass look. Transparent rather than
+  // removed so nothing still referencing them paints a violet haze.
+  static const glowDeep = Color(0x00000000);
+  static const glowEnd = Color(0x00000000);
+  static const glowIndigo = Color(0x00000000);
 
-  // Banner / pill fills per kind.
-  static const bannerSuccess = Color(0xF20F1B14);
-  static const bannerDanger = Color(0xF2241315);
-  static const bannerInfo = Color(0xF216112B);
-  static const pillWarning = Color(0xBF2A200E);
-  static const pillInfo = Color(0xBF141022);
-  static const pillDanger = Color(0xB82A1414);
-  static const dangerSurface = Color(0xD92A1414);
+  // Banner / pill fills per kind. Opaque: nothing blurs behind them now.
+  static const bannerSuccess = Color(0xFF15221F);
+  static const bannerDanger = Color(0xFF2A1714);
+  static const bannerInfo = Color(0xFF27221F);
+  static const pillWarning = Color(0xFF2A2012);
+  static const pillInfo = Color(0xFF1C1917);
+  static const pillDanger = Color(0xFF2A1714);
+  static const dangerSurface = Color(0xFF2A1714);
 
-  // Notice amber (announcements, ad state).
-  static const notice = Color(0xFFFFB74D);
+  // Notice (announcements, ad state).
+  static const notice = Color(0xFFFFB23F);
 
-  // Rewards: streak flame, podium metals, avatar frames.
-  static const streak = Color(0xFFFB923C);
+  // Rewards: streak, podium metals, avatar frames. Signal carries streaks.
+  static const streak = Color(0xFFFF6A4D);
   static const silver = Color(0xFFCBD5E1);
   static const bronze = Color(0xFFD08C60);
-  static const ember = Color(0xFFF97316);
-  static const halo = Color(0xFF38BDF8);
-  static const indigo = Color(0xFF818CF8);
-  static const cyan = Color(0xFF22D3EE);
+  static const ember = Color(0xFFFF6A4D); // Signal
+  static const halo = Color(0xFF6FD6C4);
+  static const indigo = Color(0xFF9B8CFF);
+  static const cyan = Color(0xFF6FD6C4);
   static const laurelLight = Color(0xFFE9D5A1);
   static const laurel = Color(0xFFB08D57);
 
@@ -109,33 +128,32 @@ abstract final class PTColors {
     Color(0xFF000000),
   ];
 
-  static const buttonGradient = LinearGradient(
-    begin: .topLeft,
-    end: .bottomRight,
-    colors: [primary, gradientMid],
-  );
-  static const barGradient = LinearGradient(colors: [primary, gradientEnd]);
-  static const brandGradient = LinearGradient(
-    begin: .topLeft,
-    end: .bottomRight,
-    colors: [primary, gradientEnd],
-  );
+  /// The glow on the single lit control: straight out, like light leaving a
+  /// projector lens - never a drop shadow.
+  static const beamSpill = <BoxShadow>[
+    BoxShadow(color: Color(0x59FFB23F), blurRadius: 28, spreadRadius: -8),
+  ];
 
   static Color black(double opacity) => Colors.black.withValues(alpha: opacity);
-  static Color white(double opacity) => Colors.white.withValues(alpha: opacity);
+
+  /// Screen-tinted, not pure white - the warm cast is what keeps the booth
+  /// from reading as a default dark theme.
+  static Color white(double opacity) => fg.withValues(alpha: opacity);
   static Color glass(double opacity) => glassBase.withValues(alpha: opacity);
   static Color dialogGlass(double opacity) => dialogGlassBase.withValues(alpha: opacity);
 
-  /// Per-user avatar gradients - fixed per user (hash of the user id).
+  /// Per-user avatar colours - fixed per user (hash of the user id). Muted
+  /// seat colours in two close shades, so they read as flat against the booth
+  /// and never compete with Beam.
   static const avatarGradients = <List<Color>>[
-    [Color(0xFFA78BFA), Color(0xFF7C3AED)],
-    [Color(0xFFF472B6), Color(0xFFC084FC)],
-    [Color(0xFF60A5FA), Color(0xFF818CF8)],
-    [Color(0xFF34D399), Color(0xFF22D3EE)],
-    [Color(0xFFFBBF24), Color(0xFFF97316)],
-    [Color(0xFFF87171), Color(0xFFEC4899)],
-    [Color(0xFF4ADE80), Color(0xFF16A34A)],
-    [Color(0xFF38BDF8), Color(0xFF6366F1)],
+    [Color(0xFF8468FF), Color(0xFF7A5CFF)],
+    [Color(0xFF379577), Color(0xFF2E8A6E)],
+    [Color(0xFFC25038), Color(0xFFB8462E)],
+    [Color(0xFF4A79BA), Color(0xFF3F6FB0)],
+    [Color(0xFFB0782E), Color(0xFFA56E26)],
+    [Color(0xFFA8527A), Color(0xFF9D4870)],
+    [Color(0xFF5E8A3E), Color(0xFF548036)],
+    [Color(0xFF6F6258), Color(0xFF65584F)],
   ];
 
   static LinearGradient avatarGradientFor(String userId) {
@@ -145,37 +163,47 @@ abstract final class PTColors {
 }
 
 abstract final class PTFonts {
-  static const display = 'Space Grotesk'; // display & headings
-  static const body = 'Outfit'; // body & UI
-  static const mono = 'JetBrains Mono'; // codes, time, meta
+  static const display = 'Bricolage Grotesque'; // display & headings
+  static const body = 'Hanken Grotesk'; // body & UI
+  static const mono = 'JetBrains Mono'; // timecode, room codes, labels
+}
+
+/// Corner radii. Tight corners read as a film card or a light box; pills are
+/// only for people and presence.
+abstract final class PTRadius {
+  static const double control = 4;
+  static const double panel = 6;
+  static const double pill = 999;
 }
 
 abstract final class PTText {
   static const display = TextStyle(
     fontFamily: PTFonts.display,
     fontSize: 40,
-    fontWeight: .w700,
-    letterSpacing: -0.8,
-    color: Colors.white,
+    fontWeight: .w800,
+    letterSpacing: -1.0,
+    height: 1.0,
+    color: PTColors.fg,
   );
   static const screenTitle = TextStyle(
     fontFamily: PTFonts.display,
-    fontSize: 24,
-    fontWeight: .w700,
-    letterSpacing: -0.48,
-    color: Colors.white,
+    fontSize: 26,
+    fontWeight: .w800,
+    letterSpacing: -0.5,
+    color: PTColors.fg,
   );
   static const cardHeading = TextStyle(
     fontFamily: PTFonts.display,
     fontSize: 19,
-    fontWeight: .w600,
-    color: Colors.white,
+    fontWeight: .w700,
+    letterSpacing: -0.3,
+    color: PTColors.fg,
   );
   static const panelHeading = TextStyle(
     fontFamily: PTFonts.display,
     fontSize: 15,
     fontWeight: .w600,
-    color: Colors.white,
+    color: PTColors.fg,
   );
   static TextStyle body = TextStyle(
     fontFamily: PTFonts.body,
@@ -187,7 +215,7 @@ abstract final class PTText {
     fontFamily: PTFonts.body,
     fontSize: 15,
     fontWeight: .w600,
-    color: Colors.white,
+    color: PTColors.fg,
   );
   static TextStyle caption = TextStyle(
     fontFamily: PTFonts.body,
@@ -204,7 +232,7 @@ abstract final class PTText {
   static const code = TextStyle(
     fontFamily: PTFonts.mono,
     fontSize: 22,
-    fontWeight: .w500,
+    fontWeight: .w600,
     letterSpacing: 3.96,
     color: PTColors.textAccent,
   );
@@ -226,16 +254,26 @@ abstract final class PTText {
     fontWeight: .w400,
     color: PTColors.white(0.75),
   );
+
+  /// The `// LABEL` motif: uppercase mono at wide tracking, for eyebrows,
+  /// section kickers and timecode metadata. Uppercase the string yourself.
+  static TextStyle label = TextStyle(
+    fontFamily: PTFonts.mono,
+    fontSize: 11,
+    fontWeight: .w400,
+    letterSpacing: 1.5,
+    color: PTColors.white(0.55),
+  );
 }
 
 ThemeData buildPTTheme() {
   const scheme = ColorScheme.dark(
     primary: PTColors.primary,
-    secondary: PTColors.gradientMid,
+    secondary: PTColors.ember,
     surface: PTColors.screenBg,
     error: PTColors.danger,
-    onPrimary: Colors.white,
-    onSurface: Colors.white,
+    onPrimary: PTColors.onAccent,
+    onSurface: PTColors.fg,
   );
 
   final base = ThemeData(
@@ -248,12 +286,12 @@ ThemeData buildPTTheme() {
   );
 
   return base.copyWith(
-    textTheme: base.textTheme.apply(bodyColor: PTColors.white(0.92), displayColor: Colors.white),
+    textTheme: base.textTheme.apply(bodyColor: PTColors.white(0.92), displayColor: PTColors.fg),
     sliderTheme: SliderThemeData(
-      trackHeight: 5,
+      trackHeight: 4,
       activeTrackColor: PTColors.primary,
-      inactiveTrackColor: PTColors.white(0.12),
-      thumbColor: const Color(0xFFE9DCFF),
+      inactiveTrackColor: PTColors.aisle,
+      thumbColor: PTColors.fg,
       overlayColor: PTColors.primary.withValues(alpha: 0.15),
       thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8),
       overlayShape: const RoundSliderOverlayShape(overlayRadius: 14),
@@ -266,13 +304,13 @@ ThemeData buildPTTheme() {
       backgroundColor: PTColors.dialogGlass(0.95),
       contentTextStyle: PTText.body,
       behavior: .floating,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(PTRadius.panel)),
     ),
     tooltipTheme: TooltipThemeData(
       decoration: BoxDecoration(
         color: PTColors.dialogGlass(0.95),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: PTColors.white(0.14)),
+        borderRadius: BorderRadius.circular(PTRadius.control),
+        border: Border.all(color: PTColors.rail),
       ),
       textStyle: PTText.caption.copyWith(color: PTColors.white(0.85)),
     ),

@@ -58,39 +58,48 @@ Future<void> _sizeContentTo(Size logical) async {
   } catch (_) {}
 }
 
+/// `STORE_TARGET=mac` shoots the Mac App Store set instead: 1440x900 at 2x
+/// (2880x1800, a size App Store Connect accepts - 1920x1080 is not one) into
+/// `assets/store/mac/`. The default is the Microsoft Store / README set.
+const _kStoreTarget = String.fromEnvironment('STORE_TARGET', defaultValue: 'windows');
+const _kMacStore = _kStoreTarget == 'mac';
+const _kStoreDir = _kMacStore ? 'assets/store/mac' : 'assets/store';
+const _kStoreLogical = _kMacStore ? Size(1440, 900) : _kCaptureLogical;
+const _kStoreRatio = _kMacStore ? 2.0 : _kCaptureRatio;
+
 Future<void> runStoreCaptureFlow(BuildContext context, GoRouter router) async {
   // ignore: avoid_print
   print('[STORE CAPTURE] Starting automated store capture flow...');
 
-  await _sizeContentTo(_kCaptureLogical);
+  await _sizeContentTo(_kStoreLogical);
 
   // 1. Capture Lobby Screen
   // ignore: avoid_print
   print('[STORE CAPTURE] Step 1: Capturing Lobby Screen...');
   router.go('/lobby');
   await Future.delayed(const Duration(milliseconds: 2500));
-  await captureBoundaryToFile('assets/store/1_violet_glass_lobby.png', pixelRatio: _kCaptureRatio);
+  await captureBoundaryToFile('$_kStoreDir/1_lobby.png', pixelRatio: _kStoreRatio);
 
   // 2. Capture Room Theater View
   // ignore: avoid_print
   print('[STORE CAPTURE] Step 2: Capturing Room Theater View...');
   router.go('/lobby/room/demo-room-1');
   await Future.delayed(const Duration(milliseconds: 3000));
-  await captureBoundaryToFile('assets/store/2_theater_room.png', pixelRatio: _kCaptureRatio);
+  await captureBoundaryToFile('$_kStoreDir/2_theater_room.png', pixelRatio: _kStoreRatio);
 
   // 3. Capture Room with Live Chat Panel
   // ignore: avoid_print
   print('[STORE CAPTURE] Step 3: Capturing Room with Live Chat...');
   router.go('/lobby/room/demo-room-1?chat=true');
   await Future.delayed(const Duration(milliseconds: 2500));
-  await captureBoundaryToFile('assets/store/3_room_chat.png', pixelRatio: _kCaptureRatio);
+  await captureBoundaryToFile('$_kStoreDir/3_room_chat.png', pixelRatio: _kStoreRatio);
 
   // 4. Capture Media Source Chooser Dialog
   // ignore: avoid_print
   print('[STORE CAPTURE] Step 4: Capturing Media Chooser Dialog...');
   router.go('/lobby/room/demo-room-1?dialog=media');
   await Future.delayed(const Duration(milliseconds: 2500));
-  await captureBoundaryToFile('assets/store/4_media_chooser.png', pixelRatio: _kCaptureRatio);
+  await captureBoundaryToFile('$_kStoreDir/4_media_chooser.png', pixelRatio: _kStoreRatio);
 
   // 5. Subscription purchase screen - the App Review screenshot each App
   // Store subscription needs. Only meaningful with STORE_BUILD=true, which is
@@ -116,28 +125,63 @@ Future<void> runStoreCaptureFlow(BuildContext context, GoRouter router) async {
         currencyCode: 'USD',
       ),
     ]);
-    if (isDesktop) {
-      try {
-        await windowManager.setSize(const Size(1440, 900));
-      } catch (_) {}
-    }
+    // The content, not the window frame, must be 1440x900: a frame-sized
+    // window loses the title bar and yields 2880x1736, which App Store
+    // Connect rejects.
+    await _sizeContentTo(const Size(1440, 900));
     router.go('/lobby/subscribe');
     await Future.delayed(const Duration(milliseconds: 2500));
-    await captureBoundaryToFile('assets/store/5_subscription_purchase.png', pixelRatio: 2.0);
+    await captureBoundaryToFile('$_kStoreDir/5_subscription_purchase.png', pixelRatio: 2.0);
   }
 
   // ignore: avoid_print
-  print('[STORE CAPTURE] Complete! All store screenshots generated in assets/store/');
+  print('[STORE CAPTURE] Complete! All store screenshots generated in $_kStoreDir/');
   exit(0);
 }
 
 /// The homepage product shot, at the same 1280x720 @ 1.5x as the store shots.
+/// The site serves a JPEG: `magick build/review/website/room-theater.png
+/// -quality 86 -strip website/public/shots/room-theater.jpg`.
 Future<void> runWebsiteCaptureFlow(GoRouter router) async {
   await _sizeContentTo(_kCaptureLogical);
   router.go('/lobby/room/demo-room-1?chat=true');
   await Future.delayed(const Duration(milliseconds: 4000));
   // ignore: avoid_print
   print('[WEBSITE CAPTURE] boundary ${storeCaptureBoundaryKey.currentContext?.size}');
-  await captureBoundaryToFile('website/public/shots/room-theater.png', pixelRatio: _kCaptureRatio);
+  await captureBoundaryToFile('build/review/website/room-theater.png', pixelRatio: _kCaptureRatio);
+  exit(0);
+}
+
+/// Every screen and state the design canvas has a board for, rendered by the
+/// real app at the store/website size - for comparing the build against the
+/// boards. `--dart-define=CAPTURE_REVIEW=true` (with DEMO_MODE, and
+/// DEMO_TIER=premium for the Patron-side states). Writes `build/review/<tier>/`.
+///
+/// `REVIEW_WIDTH`/`REVIEW_HEIGHT` override the 1280x720 default so a capture
+/// can match a board's own size (the desktop boards are 1440x900).
+Future<void> runReviewCaptureFlow(GoRouter router) async {
+  const w = int.fromEnvironment('REVIEW_WIDTH', defaultValue: 1280);
+  const h = int.fromEnvironment('REVIEW_HEIGHT', defaultValue: 720);
+  await _sizeContentTo(Size(w.toDouble(), h.toDouble()));
+  const tier = String.fromEnvironment('DEMO_TIER', defaultValue: 'free');
+  const shots = <(String, String)>[
+    ('lobby', '/lobby'),
+    ('room', '/lobby/room/demo-room-1'),
+    ('room-chat', '/lobby/room/demo-room-1?chat=true'),
+    ('room-source-dialog', '/lobby/room/demo-room-1?dialog=media'),
+    ('profile', '/lobby/profile'),
+    ('leaderboard', '/lobby/leaderboard'),
+    ('patron', '/lobby/subscribe'),
+    ('patron-verifying', '/lobby/subscribe?state=verifying'),
+    ('patron-activated', '/lobby/subscribe?state=activated'),
+  ];
+  for (final (name, path) in shots) {
+    router.go(path);
+    // Long enough for entrance staggers and the room's mock media to settle.
+    await Future.delayed(const Duration(milliseconds: 3500));
+    await captureBoundaryToFile('build/review/$tier/$name.png', pixelRatio: _kCaptureRatio);
+  }
+  // ignore: avoid_print
+  print('[REVIEW CAPTURE] Complete - build/review/$tier/');
   exit(0);
 }

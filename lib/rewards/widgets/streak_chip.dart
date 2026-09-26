@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
+import '../../ui/booth.dart';
 import '../../ui/glass.dart';
+import '../../ui/pt_motion.dart';
 import '../../ui/pt_theme.dart';
 import '../rewards_logic.dart';
 import '../rewards_models.dart';
@@ -63,22 +65,33 @@ class StreakChip extends StatelessWidget {
               alignment: .center,
               children: [
                 if (streak.qualifiedToday)
-                  Icon(
-                    Symbols.local_fire_department_rounded,
-                    size: _glyph(context, 17),
-                    fill: 1,
-                    color: colour,
+                  // Stamped in on the day's qualifying edge, then still.
+                  StampIn(
+                    angle: -0.08,
+                    child: Icon(
+                      Symbols.local_fire_department_rounded,
+                      size: _glyph(context, 17),
+                      fill: 1,
+                      color: colour,
+                    ),
                   )
                 else ...[
                   // Determinate, so this is the documented exception to the
                   // PTLoader rule rather than a stray spinner - it reports how
                   // much of today's qualifying time is done, not that something
                   // is pending. Same reasoning as PTBanner's dismiss ring.
-                  CircularProgressIndicator(
-                    value: progress,
-                    strokeWidth: 2,
-                    backgroundColor: PTColors.white(0.12),
-                    valueColor: AlwaysStoppedAnimation(colour),
+                  // Tweened toward the new value rather than jumping, so a
+                  // minute's credit visibly fills the ring.
+                  TweenAnimationBuilder<double>(
+                    tween: Tween(end: progress),
+                    duration: PTMotion.functional(context, PTMotion.entrance),
+                    curve: PTMotion.enter,
+                    builder: (context, value, _) => CircularProgressIndicator(
+                      value: value,
+                      strokeWidth: 2,
+                      backgroundColor: PTColors.white(0.12),
+                      valueColor: AlwaysStoppedAnimation(colour),
+                    ),
                   ),
                   Icon(
                     Symbols.local_fire_department_rounded,
@@ -90,14 +103,31 @@ class StreakChip extends StatelessWidget {
               ],
             ),
           ),
-          Text(
-            lit
-                ? (compact ? '${streak.current}' : '${streak.current} day streak')
-                : (compact ? 'Start' : 'Start a streak'),
-            style: PTText.body.copyWith(
-              fontSize: 13,
-              fontWeight: .w600,
-              color: lit ? PTColors.white(0.9) : PTColors.white(0.6),
+          // The count rolls up when it changes: the new number rises in from
+          // below as the old one leaves upward, like a flip counter.
+          AnimatedSwitcher(
+            duration: PTMotion.functional(context, PTMotion.state),
+            switchInCurve: PTMotion.enter,
+            switchOutCurve: PTMotion.exit,
+            transitionBuilder: (child, animation) => ClipRect(
+              child: SlideTransition(
+                position: Tween(
+                  begin: Offset(0, child.key == ValueKey(streak.current) ? 0.8 : -0.8),
+                  end: Offset.zero,
+                ).animate(animation),
+                child: FadeTransition(opacity: animation, child: child),
+              ),
+            ),
+            child: Text(
+              lit
+                  ? (compact ? '${streak.current}' : '${streak.current} day streak')
+                  : (compact ? 'Start' : 'Start a streak'),
+              key: ValueKey(streak.current),
+              style: PTText.body.copyWith(
+                fontSize: 13,
+                fontWeight: .w600,
+                color: lit ? PTColors.white(0.9) : PTColors.white(0.6),
+              ),
             ),
           ),
         ],
@@ -105,8 +135,8 @@ class StreakChip extends StatelessWidget {
     );
   }
 
-  // Dimmed through its colours, not an `Opacity`: fading a glass pill makes
-  // its BackdropFilter blur an empty layer (the glass rendering trap).
+  // Dimmed through its colours rather than an `Opacity`, which would cost a
+  // compositing layer for no visual difference.
   Widget _locked(BuildContext context) {
     return GlassPill(
       onTap: onTap,

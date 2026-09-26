@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Space_Grotesk, Outfit, JetBrains_Mono } from "next/font/google";
+import { Bricolage_Grotesque, Hanken_Grotesk, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { Analytics } from "@vercel/analytics/next";
 import { Header } from "@/components/Header";
@@ -7,14 +7,19 @@ import { Footer } from "@/components/Footer";
 import { AnalyticsBeacon } from "@/components/AnalyticsBeacon";
 import { SITE_CONFIG } from "@/lib/constants";
 
-const spaceGrotesk = Space_Grotesk({
-  variable: "--font-space-grotesk",
+// Booth Light faces. globals.css maps the older --font-space-grotesk /
+// --font-outfit slots onto these, so existing classes pick them up.
+// The opsz axis is what the boards render with: at display sizes Bricolage
+// narrows, and without it every headline sets wider and wraps early.
+const display = Bricolage_Grotesque({
+  variable: "--font-display",
   subsets: ["latin"],
+  axes: ["opsz"],
   display: "swap",
 });
 
-const outfit = Outfit({
-  variable: "--font-outfit",
+const body = Hanken_Grotesk({
+  variable: "--font-body",
   subsets: ["latin"],
   display: "swap",
 });
@@ -28,7 +33,7 @@ const jetbrainsMono = JetBrains_Mono({
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_CONFIG.url),
   title: {
-    default: "SyncTogether - Watch Movies Together, Even When You're Apart",
+    default: "SyncTogether: Watch Movies Together, Even When You're Apart",
     template: "%s | SyncTogether",
   },
   description: SITE_CONFIG.description,
@@ -52,7 +57,7 @@ export const metadata: Metadata = {
     type: "website",
     locale: "en_US",
     url: SITE_CONFIG.url,
-    title: "SyncTogether - Watch Movies Together, Even When You're Apart",
+    title: "SyncTogether: Watch Movies Together, Even When You're Apart",
     description: SITE_CONFIG.description,
     siteName: SITE_CONFIG.name,
     images: [
@@ -60,13 +65,13 @@ export const metadata: Metadata = {
         url: "/og-image.png",
         width: 1200,
         height: 630,
-        alt: "SyncTogether - Synchronized Media Playback",
+        alt: "SyncTogether: Synchronized Media Playback",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "SyncTogether - Watch Movies Together, Even When You're Apart",
+    title: "SyncTogether: Watch Movies Together, Even When You're Apart",
     description: SITE_CONFIG.description,
     images: ["/og-image.png"],
     creator: "@shubhamsingh",
@@ -89,7 +94,7 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   colorScheme: "dark",
-  themeColor: "#08070C",
+  themeColor: "#121010",
 };
 
 export default function RootLayout({
@@ -123,17 +128,14 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${spaceGrotesk.variable} ${outfit.variable} ${jetbrainsMono.variable} dark`}
+      className={`${display.variable} ${body.variable} ${jetbrainsMono.variable} dark`}
       style={{ colorScheme: "dark" }}
       suppressHydrationWarning
     >
       <head>
         <meta name="color-scheme" content="dark" />
-        <meta name="theme-color" content="#08070C" />
+        <meta name="theme-color" content="#121010" />
         <meta name="awin-verification" content="Awin" />
-        {/* Marks JS as live before first paint, so scroll reveals can hide content
-            without a no-JS visitor ever seeing an empty page. */}
-        <script dangerouslySetInnerHTML={{ __html: "document.documentElement.classList.add('js')" }} />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLdOrg) }}
@@ -143,9 +145,9 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLdApp) }}
         />
       </head>
-      <body className="min-h-screen flex flex-col bg-[#08070C] text-gray-100 antialiased selection:bg-purple-500/30 selection:text-white">
+      <body className="min-h-screen flex flex-col bg-[#121010] text-gray-100 selection:bg-purple-500/30 selection:text-white">
         <Header />
-        <main className="flex-1 pt-20">{children}</main>
+        <main className="flex-1 pt-[60px] md:pt-[76px]">{children}</main>
         <Footer />
         <Analytics />
         <AnalyticsBeacon />

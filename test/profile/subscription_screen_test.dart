@@ -13,7 +13,7 @@ Widget _wrap(Widget child) {
 
 void main() {
   group('SubscriptionScreen', () {
-    testWidgets('desktop renders Go Premium button for free users on non-store build', (
+    testWidgets('desktop renders the Patron checkout button for free users on non-store build', (
       tester,
     ) async {
       await tester.pumpWidget(
@@ -21,16 +21,13 @@ void main() {
       );
       await tester.pump(const Duration(milliseconds: 100));
 
-      expect(find.text('SyncTogether Premium'), findsOneWidget);
-      expect(find.text('Go Premium'), findsOneWidget);
-      expect(
-        find.text("You'll be taken to our website to complete your purchase."),
-        findsOneWidget,
-      );
+      expect(find.text('Patron seats'), findsOneWidget);
+      expect(find.text('Take a Patron seat'), findsOneWidget);
+      expect(find.text('Checkout opens on synctogether.app in your browser.'), findsOneWidget);
       expect(find.byIcon(Symbols.workspace_premium_rounded), findsWidgets);
     });
 
-    testWidgets('desktop store build hides Go Premium button and shows compliant info banner', (
+    testWidgets('desktop store build hides the checkout button and shows compliant info banner', (
       tester,
     ) async {
       await tester.pumpWidget(
@@ -38,8 +35,8 @@ void main() {
       );
       await tester.pump(const Duration(milliseconds: 100));
 
-      expect(find.text('SyncTogether Premium'), findsOneWidget);
-      expect(find.text('Go Premium'), findsNothing);
+      expect(find.text('Patron seats'), findsOneWidget);
+      expect(find.text('Take a Patron seat'), findsNothing);
       expect(find.text('Subscriptions are managed on our website.'), findsOneWidget);
       expect(find.text('Refresh status'), findsOneWidget);
     });
@@ -48,8 +45,8 @@ void main() {
       await tester.pumpWidget(_wrap(const SubscriptionScreen(desktopOverride: false)));
       await tester.pump(const Duration(milliseconds: 100));
 
-      expect(find.text('SyncTogether Premium'), findsOneWidget);
-      expect(find.text('Go Premium'), findsNothing);
+      expect(find.text('Patron seats'), findsOneWidget);
+      expect(find.text('Take a Patron seat'), findsNothing);
       expect(find.text('Subscriptions are managed on our website.'), findsOneWidget);
       expect(find.text('Refresh status'), findsOneWidget);
     });
@@ -68,8 +65,8 @@ void main() {
       );
       await tester.pump(const Duration(milliseconds: 100));
 
-      expect(find.text('SyncTogether Premium'), findsOneWidget);
-      expect(find.text('Go Premium'), findsNothing);
+      expect(find.text('Patron seats'), findsOneWidget);
+      expect(find.text('Take a Patron seat'), findsNothing);
       expect(find.text('Subscriptions are managed on our website.'), findsNothing);
       expect(find.textContaining('website'), findsNothing);
       expect(find.text("Couldn't reach the App Store right now."), findsOneWidget);

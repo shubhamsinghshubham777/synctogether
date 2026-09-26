@@ -1,0 +1,274 @@
+/*
+ * Booth Light pieces shared by the account, auth, rewards, comparison and
+ * legal pages (components/booth). Kept out of app/globals.css so those pages
+ * can evolve without touching the site-wide sheet. Unlayered on purpose: the
+ * `.legal-prose` rules must win over the utility classes the long-form legal
+ * markup still carries.
+ */
+
+/* An ink stamp pressed onto paper, once. Mirrors the app's StampIn. */
+.booth-stamp {
+  --tilt: -8deg;
+  transform: rotate(var(--tilt));
+  animation: booth-stamp-in 0.42s cubic-bezier(0.34, 1.56, 0.64, 1) 0.35s both;
+}
+
+@keyframes booth-stamp-in {
+  from {
+    opacity: 0;
+    transform: scale(1.6) rotate(0deg);
+  }
+  45% {
+    opacity: 1;
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) rotate(var(--tilt));
+  }
+}
+
+/* Rows that arrive one after another, once. */
+.booth-rise {
+  animation: booth-rise 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+@keyframes booth-rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* A dotted leader between a label and its value, like a programme. */
+.booth-leader {
+  flex: 1;
+  min-width: 1rem;
+  border-bottom: 1px dotted #4A4037;
+  transform: translateY(-0.3em);
+}
+
+/* ---------- Long-form legal typography ---------- */
+
+.legal-prose {
+  font-size: 1.0625rem;
+  line-height: 1.75;
+  color: #C9BDAC;
+  overflow-wrap: anywhere;
+}
+
+.legal-prose > * + * {
+  margin-top: 0;
+}
+
+.legal-prose section {
+  padding-top: 2.5rem;
+  margin-top: 2.5rem;
+  border-top: 1px solid #3A332E;
+}
+
+.legal-prose section:first-child {
+  padding-top: 0;
+  margin-top: 0;
+  border-top: 0;
+}
+
+.legal-prose section > * + *,
+.legal-prose section div > * + * {
+  margin-top: 1rem;
+}
+
+.legal-prose h2 {
+  display: block;
+  font-family: var(--font-display), system-ui, sans-serif;
+  font-weight: 800;
+  font-size: clamp(1.5rem, 2.6vw, 2rem);
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+  color: #F4ECDF;
+  margin-bottom: 1.25rem;
+}
+
+.legal-prose h2 svg,
+.legal-prose section > div svg {
+  display: none;
+}
+
+.legal-prose h3,
+.legal-prose h4 {
+  font-family: var(--font-display), system-ui, sans-serif;
+  font-weight: 700;
+  font-size: 1.2rem;
+  letter-spacing: -0.015em;
+  color: #F4ECDF;
+}
+
+.legal-prose strong {
+  color: #F4ECDF;
+  font-weight: 600;
+}
+
+.legal-prose p,
+.legal-prose li {
+  color: #C9BDAC;
+  font-size: inherit;
+}
+
+.legal-prose a {
+  color: #F4ECDF;
+  text-decoration: underline;
+  text-decoration-color: #FFB23F;
+  text-underline-offset: 4px;
+  text-decoration-thickness: 1px;
+  transition: color 0.15s;
+}
+
+.legal-prose a:hover {
+  color: #FFB23F;
+}
+
+.legal-prose ul,
+.legal-prose ol {
+  list-style: none;
+  padding: 0;
+}
+
+.legal-prose ul > li,
+.legal-prose ol > li {
+  position: relative;
+  padding-left: 1.5rem;
+}
+
+.legal-prose ul > li + li,
+.legal-prose ol > li + li {
+  margin-top: 0.6rem;
+}
+
+.legal-prose ul > li::before {
+  content: "·";
+  position: absolute;
+  left: 0;
+  color: #6B5F52;
+}
+
+/* Every boxed aside becomes a margin note: a hairline rule, no fill. */
+.legal-prose [class*="rounded-"] {
+  background: transparent;
+  border: 0;
+  border-left: 2px solid #3A332E;
+  border-radius: 0;
+  padding: 0.25rem 0 0.25rem 1.25rem;
+  box-shadow: none;
+}
+
+.legal-prose [class*="rounded-"] * {
+  color: inherit;
+}
+
+.legal-prose [class*="rounded-"] strong {
+  color: #F4ECDF;
+}
+
+/* Asides that were accented read as Beam notes, warnings as Signal. */
+.legal-prose [class*="bg-purple-"],
+.legal-prose [class*="bg-amber-"],
+.legal-prose [class*="bg-emerald-"] {
+  border-left-color: #FFB23F;
+}
+
+.legal-prose [class*="bg-red-"],
+.legal-prose [class*="bg-rose-"] {
+  border-left-color: #FF6A4D;
+}
+
+/* The one headline note on a page (a pledge, a guarantee) is paper. */
+.legal-prose .legal-paper,
+.legal-prose [class*="bg-gradient"] {
+  background: #F4ECDF;
+  color: #3A2E24;
+  border-left: 0;
+  border-radius: 6px;
+  padding: 1.5rem 1.75rem;
+}
+
+.legal-prose .legal-paper strong,
+.legal-prose .legal-paper div,
+.legal-prose [class*="bg-gradient"] strong,
+.legal-prose [class*="bg-gradient"] div {
+  color: #121010;
+}
+
+.legal-prose .legal-paper a,
+.legal-prose [class*="bg-gradient"] a {
+  color: #121010;
+  text-decoration-color: #A33A22;
+}
+
+.legal-prose table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.legal-prose thead th {
+  font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
+  font-size: 0.7rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-weight: 500;
+  color: #8F8476;
+  text-align: left;
+  padding: 0 1rem 0.75rem 0;
+  border-bottom: 1px solid #3A332E;
+}
+
+.legal-prose tbody td {
+  padding: 0.9rem 1rem 0.9rem 0;
+  border-bottom: 1px solid #27221F;
+  vertical-align: top;
+  color: #C9BDAC;
+}
+
+.legal-prose tbody td:first-child {
+  color: #F4ECDF;
+  font-weight: 600;
+}
+
+.legal-prose .overflow-x-auto {
+  overflow-x: auto;
+  border: 0;
+  border-left: 0;
+  padding: 0;
+}
+
+.legal-prose .grid {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.legal-prose .legal-paper p,
+.legal-prose .legal-paper span {
+  color: #3A2E24;
+}
+
+.legal-prose .legal-paper > div:first-child,
+.legal-prose [class*="bg-gradient"] > div:first-child {
+  font-family: var(--font-display), system-ui, sans-serif;
+  font-weight: 800;
+  font-size: 1.5rem;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+}
+
+.legal-prose .legal-paper > div:first-child span,
+.legal-prose [class*="bg-gradient"] > div:first-child span {
+  color: #121010;
+}
+
+/* Legacy accent spans inside a Booth headline light up in Beam. */
+.booth-accent .text-gradient-brand {
+  color: #FFB23F;
+}

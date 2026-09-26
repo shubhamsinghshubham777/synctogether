@@ -31,19 +31,20 @@ export function PTButton({
   };
 
   const variantStyles = {
-    primary:
-      "btn-primary-gradient text-white shadow-lg shadow-purple-950/40 hover:shadow-purple-700/40 border border-purple-400/30",
+    // One lit button per view: flat Beam with ink text (btn-primary-gradient
+    // carries the colour and the glow). Everything else is an outline.
+    primary: "btn-primary-gradient border border-transparent",
     secondary:
-      "bg-[#161226]/90 hover:bg-[#201A38] text-[#C9B8FF] border border-purple-400/20 hover:border-purple-400/40 shadow-sm",
-    gold: "btn-gold-gradient shadow-lg shadow-amber-950/40 hover:shadow-amber-500/40 border border-amber-300/40",
+      "bg-transparent hover:bg-white/5 text-white border border-rail hover:border-gray-600",
+    gold: "btn-gold-gradient border",
     ghost:
       "bg-transparent hover:bg-white/5 text-gray-300 hover:text-white border border-transparent",
     outline:
-      "bg-transparent hover:bg-purple-500/10 text-purple-300 hover:text-white border border-purple-500/30 hover:border-purple-400/60",
+      "bg-transparent hover:bg-beam-500/10 text-beam-400 hover:text-beam-300 border border-beam-500/40 hover:border-beam-500/70",
   };
 
   const baseStyles =
-    "inline-flex items-center justify-center font-[family-name:var(--font-outfit)] transition-all duration-200 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none cursor-pointer select-none text-center";
+    "inline-flex items-center justify-center font-[family-name:var(--font-outfit)] transition-[background-color,border-color,color,box-shadow,transform] duration-150 active:translate-y-px disabled:opacity-50 disabled:pointer-events-none cursor-pointer select-none text-center";
 
   const content = (
     <>

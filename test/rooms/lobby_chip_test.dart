@@ -10,7 +10,7 @@ bool shouldShowQuotaChip({required Profile? profile}) {
 }
 
 void main() {
-  group('Lobby Go Premium chip visibility', () {
+  group('Lobby Get a Patron seat chip visibility', () {
     test('visible for signed-in free user', () {
       expect(shouldShowPremiumChip(isPremium: false), isTrue);
     });

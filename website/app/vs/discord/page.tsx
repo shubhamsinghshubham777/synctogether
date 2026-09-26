@@ -16,10 +16,10 @@ export default function VsDiscordPage() {
       headline={
         <>
           Watching a film over Discord{" "}
-          <span className="text-gradient-brand">looks like a potato</span>
+          <span className="text-beam-500">looks like a potato.</span>
         </>
       }
-      intro="Discord screen share is where almost everyone starts, because the call is already running. It is also the wrong tool for a two-hour film, and everybody who has tried it knows exactly why: the picture is soft, the motion stutters, the audio slides out of sync, and one of you is burning a CPU core to make that happen. The problem is not your internet. It is what screen sharing fundamentally is."
+      intro="Discord screen share is where almost everyone starts, because the call is already running. It is also the wrong tool for a two-hour film. The problem is not your internet. It is what screen sharing is."
       lastChecked="2026-09-24"
       rows={[
         { feature: "Full source quality (1080p, 4K, HDR)", ours: "yes", theirs: "no" },
@@ -33,14 +33,14 @@ export default function VsDiscordPage() {
         { feature: "Works if the host's connection dips", ours: "yes", theirs: "no" },
         { feature: "Host can share the file with the room", ours: "yes", theirs: "no" },
         { feature: "YouTube together", ours: "yes", theirs: "yes" },
-        { feature: "Price", ours: "Free, Premium $3.99/mo", theirs: "Free, Nitro $9.99/mo" },
+        { feature: "Price", ours: "Free, Patron $3.99/mo", theirs: "Free, Nitro $9.99/mo" },
       ]}
       sections={[
         {
           heading: "Screen sharing re-encodes your film in real time",
           body: [
             "When you share your screen, Discord captures the pixels your player is drawing, compresses them live at a low bitrate, and sends that stream to everyone. Your carefully encoded 15 Mbps file becomes a few megabits of real-time video conferencing codec. Dark scenes band, fast motion smears, and film grain is destroyed because compression treats it as noise to discard.",
-            "SyncTogether never streams the picture. Each machine opens the video file itself and plays it natively with hardware acceleration, and only tiny control messages - play, pause, seek - travel over the network. What you see is the file, at full quality, on both ends.",
+            "SyncTogether never streams the picture. Each machine opens the video file itself and plays it natively with hardware acceleration, and only tiny control messages (play, pause, seek) travel over the network. What you see is the file, at full quality, on both ends.",
           ],
         },
         {

@@ -16,7 +16,7 @@ export default function VsTelepartyPage() {
       headline={
         <>
           Teleparty alternative for{" "}
-          <span className="text-gradient-brand">your own video files</span>
+          <span className="text-beam-500">your own video files.</span>
         </>
       }
       intro="Teleparty (formerly Netflix Party) is a Chrome extension that keeps a streaming service in sync across browsers. It is free, it is good at that, and if everything you watch together lives on Netflix you probably do not need anything else. The gap opens the moment the thing you want to watch is a file on your computer."
@@ -32,7 +32,7 @@ export default function VsTelepartyPage() {
         { feature: "Text chat", ours: "yes", theirs: "yes" },
         { feature: "Host can share the file with the room", ours: "yes", theirs: "no" },
         { feature: "Platforms", ours: "Mac, Windows", theirs: "Chrome, Edge, Opera, Mac, Android" },
-        { feature: "Price", ours: "Free, Premium $3.99/mo", theirs: "Free, Premium $3.99/mo" },
+        { feature: "Price", ours: "Free, Patron $3.99/mo", theirs: "Free, Premium $3.99/mo" },
       ]}
       sections={[
         {
@@ -59,7 +59,7 @@ export default function VsTelepartyPage() {
         {
           heading: "Talking during the film",
           body: [
-            "Teleparty's free tier gives you a text sidebar. Voice and video chat exist, but only Premium members can turn on a camera or microphone, so most groups on the free tier end up running a Discord call alongside the extension - two apps, two sets of settings.",
+            "Teleparty's free tier gives you a text sidebar. Voice and video chat exist, but only Premium members can turn on a camera or microphone, so most groups on the free tier end up running a Discord call alongside the extension: two apps, two sets of settings.",
             "SyncTogether puts low-latency voice and optional video facecams in the same window as the film, so reacting to a scene does not cost you the scene.",
           ],
         },

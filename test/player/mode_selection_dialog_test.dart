@@ -16,7 +16,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('What are we watching?'), findsOneWidget);
-      expect(find.text('Pick a source - everyone stays in sync either way.'), findsOneWidget);
+      expect(find.text('Pick a source. Everyone stays in sync either way.'), findsOneWidget);
       expect(find.text('Local file'), findsOneWidget);
       expect(find.text('YouTube'), findsOneWidget);
       expect(find.byIcon(Symbols.close_rounded), findsOneWidget);
@@ -110,7 +110,7 @@ void main() {
       await tester.tap(find.byIcon(Symbols.close_rounded));
       await tester.pumpAndSettle();
 
-      expect(find.text('Leave room?'), findsOneWidget);
+      expect(find.text('Leave the room?'), findsOneWidget);
       expect(
         find.text('Are you sure you want to leave this room? You will return to the lobby.'),
         findsOneWidget,
@@ -190,7 +190,7 @@ void main() {
       await tester.sendKeyEvent(LogicalKeyboardKey.escape);
       await tester.pumpAndSettle();
 
-      expect(find.text('Leave room?'), findsOneWidget);
+      expect(find.text('Leave the room?'), findsOneWidget);
 
       // Tap Leave room
       await tester.tap(find.text('Leave room'));

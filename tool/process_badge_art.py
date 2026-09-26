@@ -113,6 +113,10 @@ for p in sorted(glob.glob(os.path.join(SRC, '*.png'))):
     # Premultiplied-looking fringes come from resampling colour where alpha is
     # zero; black there is harmless because the art is already dark-cored.
     dest = os.path.join(DST, name)
+    # Palette PNG: every badge is one flat ink colour plus its alpha edge, so
+    # 256 colours (alpha included) is visually lossless and less than half
+    # the size of RGBA. FASTOCTREE is the Pillow quantizer that keeps alpha.
+    out = out.quantize(colors=256, method=Image.Quantize.FASTOCTREE)
     out.save(dest, optimize=True)
     print(f'{name:<20} {f"{x1-x0}x{y1-y0} -> {side}":<22} '
           f'{os.path.getsize(dest)//1024:>8}KB')

@@ -116,8 +116,8 @@ class AuthService {
   /// Never the raw exception - this lands in a snack bar. The detail that
   /// actually identifies the cause has already gone to Sentry.
   static String _friendly(Object error) => error is AuthRetryableFetchException
-      ? "Couldn't reach the sign-in service - check your connection and try again."
-      : "Couldn't finish signing you in - give it another try.";
+      ? "Couldn't reach the sign-in service. Check your connection and try again."
+      : "Couldn't finish signing you in. Give it another try.";
 
   /// Marks the gap between handing off to the browser and the deep link coming
   /// back, which is the only way to tell a failed callback apart from a routine

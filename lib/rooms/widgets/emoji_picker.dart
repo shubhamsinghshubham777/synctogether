@@ -209,7 +209,7 @@ class _EmojiPickerState extends State<EmojiPicker> {
     decoration: BoxDecoration(
       color: PTColors.white(0.07),
       border: Border.all(color: PTColors.white(0.1)),
-      borderRadius: BorderRadius.circular(18),
+      borderRadius: BorderRadius.circular(PTRadius.panel),
     ),
     child: Row(
       children: [
@@ -452,7 +452,7 @@ class _EmojiCellState extends State<EmojiCell> {
               : _hovered
               ? PTColors.white(0.08)
               : null,
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(PTRadius.control),
         ),
         // Icon-like: the glyph does not grow with the text scale, or a 2x user
         // gets a grid of clipped halves.

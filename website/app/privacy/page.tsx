@@ -1,29 +1,36 @@
 import type { Metadata } from "next";
-import { GlassPanel } from "@/components/GlassPanel";
+import { LegalShell, LegalNum, LegalPledge } from "@/components/LegalShell";
 import { SITE_CONFIG } from "@/lib/constants";
 import {
-  ShieldCheck,
-  Lock,
   EyeOff,
   Trash2,
   Download,
-  Server,
   Video,
   Mic,
-  FileVideo,
   Play,
-  Globe,
-  Database,
   ExternalLink,
-  Cpu,
-  RefreshCw,
-  Scale,
-  UserCheck,
-  Trophy,
 } from "lucide-react";
 
+const TOC = [
+  { id: "s-1", n: "01", label: "Scope & Services Covered" },
+  { id: "s-2", n: "02", label: "Information We Collect & How We Process It" },
+  { id: "s-3", n: "03", label: "What We Explicitly DO NOT Collect or Do" },
+  { id: "s-4", n: "04", label: "Media Playback Architecture & YouTube Disclosures" },
+  { id: "s-5", n: "05", label: "Hardware Permissions & System Access" },
+  { id: "s-5b", n: "5b", label: "Streaks, Badges, Leaderboards & Shared Recaps" },
+  { id: "s-6", n: "06", label: "Legal Bases for Processing (GDPR / UK GDPR)" },
+  { id: "s-7", n: "07", label: "Authorized Third-Party Subprocessors" },
+  { id: "s-8", n: "08", label: "Data Retention & Automatic Purge Schedules" },
+  { id: "s-9", n: "09", label: "Cookies & Local Client Storage" },
+  { id: "s-10", n: "10", label: "Your Privacy Rights (GDPR, CCPA/CPRA, DPDP)" },
+  { id: "s-11", n: "11", label: "Children’s Privacy (COPPA & Global Protections)" },
+  { id: "s-12", n: "12", label: "Data Security & Encryption" },
+  { id: "s-13", n: "13", label: "Changes to This Privacy Policy" },
+  { id: "s-14", n: "14", label: "Contact Us & Grievance Redressal" },
+];
+
 export const metadata: Metadata = {
-  title: "Privacy Policy - Complete Data Protection & Security",
+  title: "Privacy Policy: Complete Data Protection & Security",
   description:
     "Learn how SyncTogether protects your personal data, media privacy, real-time voice and video streams, and payment information.",
 };
@@ -90,42 +97,28 @@ export default function PrivacyPage() {
   ];
 
   return (
-    <div className="relative py-12 md:py-20 px-4 sm:px-6 lg:px-8 max-w-4xl mx-auto space-y-12">
-      {/* Header */}
-      <div className="space-y-3 text-center sm:text-left">
-        <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-purple-500/10 border border-purple-500/20 text-xs sm:text-sm font-mono text-purple-400 font-bold uppercase tracking-wider">
-          <ShieldCheck className="w-4 h-4" />
-          <span>Privacy &amp; Data Protection</span>
-        </div>
-        <h1 className="text-4xl sm:text-5xl font-extrabold text-white tracking-tight font-[family-name:var(--font-space-grotesk)]">
-          Privacy Policy
-        </h1>
-        <div className="flex flex-wrap items-center gap-4 text-xs sm:text-sm text-gray-400 font-mono">
-          <span>Effective: {effectiveDate}</span>
-          <span>&bull;</span>
-          <span>Last Updated: {lastUpdated}</span>
-        </div>
-      </div>
-
-      <GlassPanel className="p-8 sm:p-12 space-y-12 text-sm sm:text-base text-gray-300 leading-relaxed border-purple-500/20">
+    <LegalShell
+      current="/privacy"
+      kicker="Data protection"
+      title="Privacy Policy"
+      dek="What the booth sees, what it keeps, and for how long. Your film never leaves your machine; most of the rest is gone when the house lights come up."
+      toc={TOC}
+      dates={[{ label: "Effective", value: effectiveDate }, { label: "Updated", value: lastUpdated }]}
+    >
         {/* Core Privacy Pledge */}
         <section className="space-y-3">
-          <div className="p-6 rounded-2xl bg-gradient-to-br from-purple-950/40 via-purple-900/20 to-transparent border border-purple-500/30 space-y-3 text-purple-200 text-sm sm:text-base leading-relaxed">
-            <div className="flex items-center gap-2.5 font-bold text-white text-lg">
-              <ShieldCheck className="w-5 h-5 text-emerald-400 shrink-0" />
-              <span>Our Privacy Pledge</span>
-            </div>
+          <LegalPledge title="Our Privacy Pledge">
             <p>
               SyncTogether is designed around privacy by architecture. When synchronizing local files, your video bytes and absolute disk paths never leave your device. When using real-time facecams and voice chat, streams are end-to-end encrypted in transit and <strong>never recorded or stored</strong> on any server. We do not sell your personal data, and we do not track you across the web.
             </p>
-          </div>
+          </LegalPledge>
         </section>
 
         {/* 1. Scope & Applicability */}
-        <section className="space-y-4">
-          <h2 className="text-xl sm:text-2xl font-bold text-white font-[family-name:var(--font-space-grotesk)] flex items-center gap-2.5">
-            <Globe className="w-5 h-5 text-purple-400 shrink-0" />
-            <span>1. Scope &amp; Services Covered</span>
+        <section id="s-1" className="space-y-4">
+          <h2>
+            <LegalNum n="1" />
+            Scope &amp; Services Covered
           </h2>
           <p className="text-gray-300">
             This Privacy Policy governs your use of the <strong>SyncTogether</strong> platform, including:
@@ -147,10 +140,10 @@ export default function PrivacyPage() {
         </section>
 
         {/* 2. Information We Collect */}
-        <section className="space-y-4">
-          <h2 className="text-xl sm:text-2xl font-bold text-white font-[family-name:var(--font-space-grotesk)] flex items-center gap-2.5">
-            <Database className="w-5 h-5 text-purple-400 shrink-0" />
-            <span>2. Information We Collect &amp; How We Process It</span>
+        <section id="s-2" className="space-y-4">
+          <h2>
+            <LegalNum n="2" />
+            Information We Collect &amp; How We Process It
           </h2>
           <div className="space-y-4 text-gray-300">
             <div className="p-5 rounded-xl bg-white/[0.02] border border-white/5 space-y-2.5">
@@ -223,10 +216,10 @@ export default function PrivacyPage() {
         </section>
 
         {/* 3. What We DO NOT Collect */}
-        <section className="space-y-4">
-          <h2 className="text-xl sm:text-2xl font-bold text-white font-[family-name:var(--font-space-grotesk)] flex items-center gap-2.5">
-            <EyeOff className="w-5 h-5 text-red-400 shrink-0" />
-            <span>3. What We Explicitly DO NOT Collect or Do</span>
+        <section id="s-3" className="space-y-4">
+          <h2>
+            <LegalNum n="3" />
+            What We Explicitly DO NOT Collect or Do
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm sm:text-base">
             <div className="p-4 sm:p-5 rounded-xl bg-red-500/5 border border-red-500/10 text-gray-300 space-y-1">
@@ -249,10 +242,10 @@ export default function PrivacyPage() {
         </section>
 
         {/* 4. Media Architecture: Local vs Cloud vs YouTube */}
-        <section className="space-y-4">
-          <h2 className="text-xl sm:text-2xl font-bold text-white font-[family-name:var(--font-space-grotesk)] flex items-center gap-2.5">
-            <FileVideo className="w-5 h-5 text-purple-400 shrink-0" />
-            <span>4. Media Playback Architecture &amp; YouTube Disclosures</span>
+        <section id="s-4" className="space-y-4">
+          <h2>
+            <LegalNum n="4" />
+            Media Playback Architecture &amp; YouTube Disclosures
           </h2>
           <div className="space-y-3.5 text-gray-300">
             <p>
@@ -306,10 +299,10 @@ export default function PrivacyPage() {
         </section>
 
         {/* 5. Device Permissions */}
-        <section className="space-y-4">
-          <h2 className="text-xl sm:text-2xl font-bold text-white font-[family-name:var(--font-space-grotesk)] flex items-center gap-2.5">
-            <Cpu className="w-5 h-5 text-purple-400 shrink-0" />
-            <span>5. Hardware Permissions &amp; System Access</span>
+        <section id="s-5" className="space-y-4">
+          <h2>
+            <LegalNum n="5" />
+            Hardware Permissions &amp; System Access
           </h2>
           <p className="text-gray-300">
             The SyncTogether desktop app requests the following operating system permissions strictly on an as-needed basis:
@@ -337,10 +330,10 @@ export default function PrivacyPage() {
         </section>
 
         {/* 5b. Streaks, badges and leaderboards */}
-        <section className="space-y-4">
-          <h2 className="text-xl sm:text-2xl font-bold text-white font-[family-name:var(--font-space-grotesk)] flex items-center gap-2.5">
-            <Trophy className="w-5 h-5 text-purple-400 shrink-0" />
-            <span>5b. Streaks, Badges, Leaderboards &amp; Shared Recaps</span>
+        <section id="s-5b" className="space-y-4">
+          <h2>
+            <LegalNum n="5b" />
+            Streaks, Badges, Leaderboards &amp; Shared Recaps
           </h2>
           <p className="text-gray-300">
             SyncTogether records how much time you spend watching <em>with other people</em>,
@@ -368,7 +361,7 @@ export default function PrivacyPage() {
             <p>
               <span className="text-white font-semibold">Shared recaps.</span> When a
               session ends you may share a recap page. It carries session counts (minutes,
-              reactions, messages) and the people who were there - but anyone in that room
+              reactions, messages) and the people who were there, but anyone in that room
               who has not opted into a public profile appears as an anonymous avatar with
               no name. Recap URLs are unguessable, excluded from search engines, and
               deleted automatically after 90 days.
@@ -383,7 +376,7 @@ export default function PrivacyPage() {
               Turning off &ldquo;Share usage data&rdquo; in the desktop app stops product
               analytics <em>and</em> the watch records that streaks, badges and
               leaderboards are built from. They are the same records, so one switch
-              governs both - a control that quietly left half of it running would not be
+              governs both. A control that quietly left half of it running would not be
               much of a control. The app says so on the switch itself, and lists every
               single event it would otherwise send.
             </p>
@@ -392,16 +385,16 @@ export default function PrivacyPage() {
               account removes your ledger, streak, badges, co-watch history and every
               recap you created, along with everything else described in this policy. You
               can also delete any individual shared recap at any time, from Profile in the
-              app - the link stops working for everyone immediately.
+              app, and the link stops working for everyone immediately.
             </p>
           </div>
         </section>
 
         {/* 6. Legal Bases for Processing (GDPR) */}
-        <section className="space-y-4">
-          <h2 className="text-xl sm:text-2xl font-bold text-white font-[family-name:var(--font-space-grotesk)] flex items-center gap-2.5">
-            <Scale className="w-5 h-5 text-purple-400 shrink-0" />
-            <span>6. Legal Bases for Processing (GDPR / UK GDPR)</span>
+        <section id="s-6" className="space-y-4">
+          <h2>
+            <LegalNum n="6" />
+            Legal Bases for Processing (GDPR / UK GDPR)
           </h2>
           <div className="space-y-2 text-gray-400">
             <p className="text-gray-300">
@@ -425,10 +418,10 @@ export default function PrivacyPage() {
         </section>
 
         {/* 7. Subprocessors Table */}
-        <section className="space-y-4">
-          <h2 className="text-xl sm:text-2xl font-bold text-white font-[family-name:var(--font-space-grotesk)] flex items-center gap-2.5">
-            <Server className="w-5 h-5 text-purple-400 shrink-0" />
-            <span>7. Authorized Third-Party Subprocessors</span>
+        <section id="s-7" className="space-y-4">
+          <h2>
+            <LegalNum n="7" />
+            Authorized Third-Party Subprocessors
           </h2>
           <p className="text-gray-300">
             We partner with industry-standard, privacy-compliant infrastructure providers to securely operate SyncTogether. All subprocessors are bound by data protection agreements:
@@ -468,10 +461,10 @@ export default function PrivacyPage() {
         </section>
 
         {/* 8. Data Retention & Automatic Purge */}
-        <section className="space-y-4">
-          <h2 className="text-xl sm:text-2xl font-bold text-white font-[family-name:var(--font-space-grotesk)] flex items-center gap-2.5">
-            <RefreshCw className="w-5 h-5 text-purple-400 shrink-0" />
-            <span>8. Data Retention &amp; Automatic Purge Schedules</span>
+        <section id="s-8" className="space-y-4">
+          <h2>
+            <LegalNum n="8" />
+            Data Retention &amp; Automatic Purge Schedules
           </h2>
           <div className="space-y-3 text-gray-300">
             <p>
@@ -499,7 +492,7 @@ export default function PrivacyPage() {
               <div className="p-4 sm:p-5 rounded-xl bg-white/[0.02] border border-white/5 space-y-1.5">
                 <strong className="text-white block font-semibold text-base">Billing &amp; Tax Records</strong>
                 <p className="text-gray-400">
-                  Retained by Paddle Payments Ltd in accordance with statutory financial, tax, and accounting compliance requirements (typically 5–7 years).
+                  Retained by Paddle Payments Ltd in accordance with statutory financial, tax, and accounting compliance requirements (typically 5 to 7 years).
                 </p>
               </div>
             </div>
@@ -507,10 +500,10 @@ export default function PrivacyPage() {
         </section>
 
         {/* 9. Cookies & Local Storage */}
-        <section className="space-y-4">
-          <h2 className="text-xl sm:text-2xl font-bold text-white font-[family-name:var(--font-space-grotesk)] flex items-center gap-2.5">
-            <Lock className="w-5 h-5 text-purple-400 shrink-0" />
-            <span>9. Cookies &amp; Local Client Storage</span>
+        <section id="s-9" className="space-y-4">
+          <h2>
+            <LegalNum n="9" />
+            Cookies &amp; Local Client Storage
           </h2>
           <div className="space-y-2 text-gray-300">
             <p>
@@ -531,10 +524,10 @@ export default function PrivacyPage() {
         </section>
 
         {/* 10. Your Privacy Rights */}
-        <section className="space-y-4">
-          <h2 className="text-xl sm:text-2xl font-bold text-white font-[family-name:var(--font-space-grotesk)] flex items-center gap-2.5">
-            <UserCheck className="w-5 h-5 text-purple-400 shrink-0" />
-            <span>10. Your Privacy Rights (GDPR, CCPA/CPRA, DPDP)</span>
+        <section id="s-10" className="space-y-4">
+          <h2>
+            <LegalNum n="10" />
+            Your Privacy Rights (GDPR, CCPA/CPRA, DPDP)
           </h2>
           <div className="space-y-4 text-gray-300">
             <p>
@@ -586,10 +579,10 @@ export default function PrivacyPage() {
         </section>
 
         {/* 11. Children's Privacy */}
-        <section className="space-y-4">
-          <h2 className="text-xl sm:text-2xl font-bold text-white font-[family-name:var(--font-space-grotesk)] flex items-center gap-2.5">
-            <ShieldCheck className="w-5 h-5 text-purple-400 shrink-0" />
-            <span>11. Children&apos;s Privacy (COPPA &amp; Global Protections)</span>
+        <section id="s-11" className="space-y-4">
+          <h2>
+            <LegalNum n="11" />
+            Children&apos;s Privacy (COPPA &amp; Global Protections)
           </h2>
           <p className="text-gray-300">
             SyncTogether is not directed to children under the age of 13 (or under 16 in the European Union / UK). We do not knowingly collect personal information from children. If you believe a child has provided us with personal data without parental consent, please contact us immediately at{" "}
@@ -601,10 +594,10 @@ export default function PrivacyPage() {
         </section>
 
         {/* 12. Security Measures */}
-        <section className="space-y-4">
-          <h2 className="text-xl sm:text-2xl font-bold text-white font-[family-name:var(--font-space-grotesk)] flex items-center gap-2.5">
-            <Lock className="w-5 h-5 text-purple-400 shrink-0" />
-            <span>12. Data Security &amp; Encryption</span>
+        <section id="s-12" className="space-y-4">
+          <h2>
+            <LegalNum n="12" />
+            Data Security &amp; Encryption
           </h2>
           <div className="space-y-2 text-gray-400">
             <p className="text-gray-300">
@@ -620,10 +613,10 @@ export default function PrivacyPage() {
         </section>
 
         {/* 13. Policy Updates */}
-        <section className="space-y-4">
-          <h2 className="text-xl sm:text-2xl font-bold text-white font-[family-name:var(--font-space-grotesk)] flex items-center gap-2.5">
-            <RefreshCw className="w-5 h-5 text-purple-400 shrink-0" />
-            <span>13. Changes to This Privacy Policy</span>
+        <section id="s-13" className="space-y-4">
+          <h2>
+            <LegalNum n="13" />
+            Changes to This Privacy Policy
           </h2>
           <p className="text-gray-300">
             We may update this Privacy Policy from time to time to reflect improvements to our app, changes in technology, or legal requirements. When updates occur, we will revise the &ldquo;Last Updated&rdquo; date at the top of this page. For significant material changes, we will provide additional notice through the application or website.
@@ -631,10 +624,10 @@ export default function PrivacyPage() {
         </section>
 
         {/* 14. Contact Us */}
-        <section className="space-y-4">
-          <h2 className="text-xl sm:text-2xl font-bold text-white font-[family-name:var(--font-space-grotesk)] flex items-center gap-2.5">
-            <Globe className="w-5 h-5 text-purple-400 shrink-0" />
-            <span>14. Contact Us &amp; Grievance Redressal</span>
+        <section id="s-14" className="space-y-4">
+          <h2>
+            <LegalNum n="14" />
+            Contact Us &amp; Grievance Redressal
           </h2>
           <div className="p-5 sm:p-6 rounded-xl bg-purple-500/10 border border-purple-400/20 text-gray-300 space-y-3">
             <p>
@@ -667,7 +660,6 @@ export default function PrivacyPage() {
             </div>
           </div>
         </section>
-      </GlassPanel>
-    </div>
+    </LegalShell>
   );
 }

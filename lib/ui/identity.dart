@@ -102,13 +102,7 @@ class PTAvatar extends StatelessWidget {
         width: size,
         height: size,
         padding: EdgeInsets.all(size * 0.05),
-        decoration: BoxDecoration(
-          shape: .circle,
-          gradient: frameGradient(frame),
-          boxShadow: [
-            BoxShadow(color: frameGlow(frame).withValues(alpha: 0.35), blurRadius: size * 0.22),
-          ],
-        ),
+        decoration: BoxDecoration(shape: .circle, color: frameColor(frame)),
         child: Container(
           padding: EdgeInsets.all(size * 0.03),
           decoration: const BoxDecoration(shape: .circle, color: PTColors.avatarRing),
@@ -141,48 +135,14 @@ class PTAvatar extends StatelessWidget {
   }
 }
 
-/// Frame palettes. Colours come from [PTColors] wherever one already carries the
-/// meaning - gold is the premium gold, not a second gold.
-LinearGradient frameGradient(AvatarFrame frame) => switch (frame) {
-  AvatarFrame.ember => const LinearGradient(
-    begin: .topLeft,
-    end: .bottomRight,
-    colors: [PTColors.premium, PTColors.ember],
-  ),
-  AvatarFrame.halo => const LinearGradient(
-    begin: .topLeft,
-    end: .bottomRight,
-    colors: [PTColors.halo, PTColors.indigo],
-  ),
-  AvatarFrame.pulse => const LinearGradient(
-    begin: .topLeft,
-    end: .bottomRight,
-    colors: [PTColors.gradientEnd, PTColors.primary],
-  ),
-  AvatarFrame.aurora => const LinearGradient(
-    begin: .topLeft,
-    end: .bottomRight,
-    colors: [PTColors.online, PTColors.cyan, PTColors.gradientMid],
-  ),
-  AvatarFrame.laurel => const LinearGradient(
-    begin: .topLeft,
-    end: .bottomRight,
-    colors: [PTColors.laurelLight, PTColors.laurel],
-  ),
-  AvatarFrame.aurum => const LinearGradient(
-    begin: .topLeft,
-    end: .bottomRight,
-    colors: [PTColors.premium, PTColors.premiumBorder],
-  ),
-};
-
-Color frameGlow(AvatarFrame frame) => switch (frame) {
+/// Frame colours: a solid ring in one Booth colour, no gradient and no glow,
+/// matching the website's `PublicAvatar`. Colours come from [PTColors] so gold
+/// is the premium gold, not a second gold.
+Color frameColor(AvatarFrame frame) => switch (frame) {
   AvatarFrame.ember => PTColors.ember,
-  AvatarFrame.halo => PTColors.halo,
+  AvatarFrame.halo || AvatarFrame.aurora => PTColors.halo,
   AvatarFrame.pulse => PTColors.primary,
-  AvatarFrame.aurora => PTColors.cyan,
-  AvatarFrame.laurel => PTColors.laurel,
-  AvatarFrame.aurum => PTColors.premium,
+  AvatarFrame.laurel || AvatarFrame.aurum => PTColors.premium,
 };
 
 class PremiumCrown extends StatelessWidget {
@@ -198,7 +158,7 @@ class PremiumCrown extends StatelessWidget {
       fill: 1,
       weight: 600,
       color: PTColors.premium,
-      semanticLabel: 'Premium',
+      semanticLabel: 'Patron',
       shadows: const [Shadow(color: PTColors.canvas, blurRadius: 4)],
     );
   }
@@ -343,7 +303,7 @@ class PTAvatarStack extends StatelessWidget {
   }
 }
 
-/// Copyable room-code chip: violet tint, JetBrains Mono, copy glyph.
+/// Copyable room-code chip: paper ticket tint, JetBrains Mono, copy glyph.
 ///
 /// The glyph flips to a tick for a beat after a copy - feedback lands where the
 /// eye already is, which a snackbar at the other end of the screen never does.
@@ -385,12 +345,10 @@ class _RoomCodeChipState extends State<RoomCodeChip> {
       child: PTPressable(
         onTap: widget.onCopy == null ? null : _copy,
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-          decoration: BoxDecoration(
-            color: PTColors.accentBorder.withValues(alpha: 0.14),
-            border: Border.all(color: PTColors.accentBorder.withValues(alpha: 0.35)),
-            borderRadius: BorderRadius.circular(999),
-          ),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          // The ticket's stub in miniature: an inverted paper tag, so the
+          // code reads as the same object on every surface it appears on.
+          decoration: BoxDecoration(color: PTColors.fg, borderRadius: BorderRadius.circular(2)),
           child: Row(
             mainAxisSize: .min,
             spacing: 8,
@@ -400,9 +358,9 @@ class _RoomCodeChipState extends State<RoomCodeChip> {
                 style: TextStyle(
                   fontFamily: PTFonts.mono,
                   fontSize: fontSize,
-                  fontWeight: .w500,
+                  fontWeight: .w600,
                   letterSpacing: fontSize * 0.18,
-                  color: PTColors.textAccent,
+                  color: PTColors.canvas,
                 ),
               ),
               if (widget.onCopy != null)
@@ -419,7 +377,7 @@ class _RoomCodeChipState extends State<RoomCodeChip> {
                     key: ValueKey(_copied),
                     size: fontSize + 2,
                     fill: 1,
-                    color: _copied ? PTColors.online : PTColors.textAccent,
+                    color: PTColors.canvas.withValues(alpha: _copied ? 1 : 0.55),
                   ),
                 ),
             ],
@@ -489,7 +447,7 @@ class GuestBadge extends StatelessWidget {
 }
 
 class PremiumBadge extends StatelessWidget {
-  const PremiumBadge({super.key, this.label = 'Premium'});
+  const PremiumBadge({super.key, this.label = 'Patron'});
 
   final String label;
 

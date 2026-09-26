@@ -1,6 +1,17 @@
 import type { Metadata } from "next";
-import { GlassPanel } from "@/components/GlassPanel";
+import { LegalShell, LegalNum } from "@/components/LegalShell";
 import { DMCA_AGENT, SITE_CONFIG } from "@/lib/constants";
+
+const TOC = [
+  { id: "s-1", n: "01", label: "Our Position" },
+  { id: "s-2", n: "02", label: "Designated Agent for Copyright Notices" },
+  { id: "s-3", n: "03", label: "Sending a Takedown Notice" },
+  { id: "s-4", n: "04", label: "What We Do" },
+  { id: "s-5", n: "05", label: "Counter-Notification" },
+  { id: "s-6", n: "06", label: "Repeat Infringers" },
+  { id: "s-7", n: "07", label: "Misrepresentations" },
+  { id: "s-8", n: "08", label: "Reporting From Inside the App" },
+];
 
 export const metadata: Metadata = {
   title: "Copyright & DMCA Policy",
@@ -12,23 +23,18 @@ export default function DmcaPage() {
   const lastUpdated = "September 20, 2026";
 
   return (
-    <div className="relative py-12 md:py-20 px-4 sm:px-6 lg:px-8 max-w-4xl mx-auto space-y-12">
-      <div className="space-y-3 text-center sm:text-left">
-        <span className="text-xs font-mono text-purple-400 font-bold uppercase tracking-wider">
-          Legal
-        </span>
-        <h1 className="text-4xl sm:text-5xl font-extrabold text-white tracking-tight font-[family-name:var(--font-space-grotesk)]">
-          Copyright &amp; DMCA Policy
-        </h1>
-        <p className="text-xs text-gray-400 font-mono">
-          Last Updated: {lastUpdated}
-        </p>
-      </div>
-
-      <GlassPanel className="p-8 sm:p-10 space-y-8 text-sm sm:text-base text-gray-300 leading-relaxed border-purple-500/20">
-        <section className="space-y-3">
-          <h2 className="text-xl sm:text-2xl font-bold text-white font-[family-name:var(--font-space-grotesk)]">
-            1. Our Position
+    <LegalShell
+      current="/dmca"
+      kicker="Copyright"
+      title="Copyright & DMCA"
+      dek="How to tell us something in a room is yours, who receives the notice, and how the person who shared it can answer."
+      toc={TOC}
+      dates={[{ label: "Updated", value: lastUpdated }]}
+    >
+        <section id="s-1" className="space-y-3">
+          <h2>
+            <LegalNum n="1" />
+            Our Position
           </h2>
           <p>
             SyncTogether respects the intellectual property rights of others and expects the
@@ -37,7 +43,7 @@ export default function DmcaPage() {
           </p>
           <div className="p-4 rounded-xl bg-purple-500/10 border border-purple-400/20 text-purple-200 text-sm">
             <strong>Where content actually lives:</strong> in Local Sync mode SyncTogether hosts
-            nothing at all &ndash; each participant plays their own copy of a file from their own
+            nothing at all: each participant plays their own copy of a file from their own
             device, and only playback position is exchanged. In Cloud Media Sharing mode a room
             host may upload a video so that guests without a copy can stream it; those files are
             stored temporarily and deleted when the room closes or expires. Notices under this
@@ -45,9 +51,10 @@ export default function DmcaPage() {
           </div>
         </section>
 
-        <section className="space-y-3">
-          <h2 className="text-xl sm:text-2xl font-bold text-white font-[family-name:var(--font-space-grotesk)]">
-            2. Designated Agent for Copyright Notices
+        <section id="s-2" className="space-y-3">
+          <h2>
+            <LegalNum n="2" />
+            Designated Agent for Copyright Notices
           </h2>
           <p>
             We have registered a designated agent with the United States Copyright Office
@@ -71,8 +78,8 @@ export default function DmcaPage() {
             </div>
           </div>
           <p className="text-sm text-gray-400">
-            Email reaches us fastest. Please use this address only for copyright matters &ndash;
-            for anything else, write to{" "}
+            Email reaches us fastest. Please use this address only for copyright matters.
+            For anything else, write to{" "}
             <a
               href={`mailto:${SITE_CONFIG.supportEmail}`}
               className="text-purple-300 hover:text-white underline"
@@ -83,9 +90,10 @@ export default function DmcaPage() {
           </p>
         </section>
 
-        <section className="space-y-3">
-          <h2 className="text-xl sm:text-2xl font-bold text-white font-[family-name:var(--font-space-grotesk)]">
-            3. Sending a Takedown Notice
+        <section id="s-3" className="space-y-3">
+          <h2>
+            <LegalNum n="3" />
+            Sending a Takedown Notice
           </h2>
           <p>
             To be effective under 17 U.S.C. &sect; 512(c)(3), your notice must be a written
@@ -102,7 +110,7 @@ export default function DmcaPage() {
             </li>
             <li>
               Identification of the material claimed to be infringing, with enough detail for us
-              to locate it &ndash; for SyncTogether this means the <strong>room code</strong> and,
+              to locate it. For SyncTogether this means the <strong>room code</strong> and,
               where you have it, the approximate date and time it was shared.
             </li>
             <li>Your name, postal address, telephone number and email address.</li>
@@ -117,14 +125,15 @@ export default function DmcaPage() {
           </ul>
           <p className="text-sm text-gray-400">
             Rooms are short-lived by design and uploaded files are deleted automatically when a
-            room closes, so please send notices promptly &ndash; material may already be gone by
+            room closes, so please send notices promptly, as material may already be gone by
             the time a notice arrives.
           </p>
         </section>
 
-        <section className="space-y-3">
-          <h2 className="text-xl sm:text-2xl font-bold text-white font-[family-name:var(--font-space-grotesk)]">
-            4. What We Do
+        <section id="s-4" className="space-y-3">
+          <h2>
+            <LegalNum n="4" />
+            What We Do
           </h2>
           <p>
             On receiving a valid notice we remove or disable access to the material, delete the
@@ -133,9 +142,10 @@ export default function DmcaPage() {
           </p>
         </section>
 
-        <section className="space-y-3">
-          <h2 className="text-xl sm:text-2xl font-bold text-white font-[family-name:var(--font-space-grotesk)]">
-            5. Counter-Notification
+        <section id="s-5" className="space-y-3">
+          <h2>
+            <LegalNum n="5" />
+            Counter-Notification
           </h2>
           <p>
             If you believe your material was removed by mistake or misidentification, you may send
@@ -155,9 +165,10 @@ export default function DmcaPage() {
           </p>
         </section>
 
-        <section className="space-y-3">
-          <h2 className="text-xl sm:text-2xl font-bold text-white font-[family-name:var(--font-space-grotesk)]">
-            6. Repeat Infringers
+        <section id="s-6" className="space-y-3">
+          <h2>
+            <LegalNum n="6" />
+            Repeat Infringers
           </h2>
           <p>
             We terminate, in appropriate circumstances, the accounts of people who are repeat
@@ -166,20 +177,22 @@ export default function DmcaPage() {
           </p>
         </section>
 
-        <section className="space-y-3">
-          <h2 className="text-xl sm:text-2xl font-bold text-white font-[family-name:var(--font-space-grotesk)]">
-            7. Misrepresentations
+        <section id="s-7" className="space-y-3">
+          <h2>
+            <LegalNum n="7" />
+            Misrepresentations
           </h2>
           <p>
             Under 17 U.S.C. &sect; 512(f), anyone who knowingly materially misrepresents that
-            material is infringing &ndash; or that it was removed by mistake &ndash; may be liable
+            material is infringing, or that it was removed by mistake, may be liable
             for damages, including costs and legal fees. Please be sure before you send a notice.
           </p>
         </section>
 
-        <section className="space-y-3">
-          <h2 className="text-xl sm:text-2xl font-bold text-white font-[family-name:var(--font-space-grotesk)]">
-            8. Reporting From Inside the App
+        <section id="s-8" className="space-y-3">
+          <h2>
+            <LegalNum n="8" />
+            Reporting From Inside the App
           </h2>
           <p>
             You can also report content without writing an email. In any room, open the chat or
@@ -189,7 +202,6 @@ export default function DmcaPage() {
             designated agent above.
           </p>
         </section>
-      </GlassPanel>
-    </div>
+    </LegalShell>
   );
 }

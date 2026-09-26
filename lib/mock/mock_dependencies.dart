@@ -260,8 +260,13 @@ class MockProfileService extends ProfileService {
   }
 }
 
+/// `--dart-define=DEMO_TIER=premium` runs demo mode as a Patron, so the
+/// premium states (crowns, the Patron screen's "You're a Patron.", video
+/// facecams) can be captured. Defaults to the free tier.
+const kDemoTier = String.fromEnvironment('DEMO_TIER', defaultValue: kFreeTier);
+
 class MockEntitlementService extends EntitlementService {
-  static const mockTierLimits = TierLimits(
+  static const _freeLimits = TierLimits(
     tier: kFreeTier,
     maxLiveRooms: 4,
     maxMembers: 8,
@@ -275,6 +280,22 @@ class MockEntitlementService extends EntitlementService {
     mediaSharingWeeklyBytes: 2684354560,
   );
 
+  static const _premiumLimits = TierLimits(
+    tier: kPremiumTier,
+    maxLiveRooms: 20,
+    maxMembers: 16,
+    maxSessionMinutes: 240,
+    maxTotalSessionMinutes: 1440,
+    avLevel: .video,
+    persistentRoomCap: 20,
+    dormantHours: 24,
+    freeExtensionMinutes: 0,
+    mediaSharing: 'full',
+    mediaSharingWeeklyBytes: 0,
+  );
+
+  static const mockTierLimits = kDemoTier == kPremiumTier ? _premiumLimits : _freeLimits;
+
   @override
   TierLimits? get limits => mockTierLimits;
 
@@ -285,7 +306,14 @@ class MockEntitlementService extends EntitlementService {
   String get tier => mockTierLimits.tier;
 
   @override
-  bool get isPremium => false;
+  bool get isPremium => kDemoTier == kPremiumTier;
+
+  /// A Paddle seat paid through a month from launch, so the Patron ticket
+  /// carries a real-looking date in captures.
+  @override
+  PremiumTerm? get premiumTerm => kDemoTier == kPremiumTier
+      ? PremiumTerm(until: DateTime.now().add(const Duration(days: 30)), source: 'paddle')
+      : null;
 
   @override
   Future<TierLimits?> load() async => mockTierLimits;

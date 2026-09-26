@@ -18,41 +18,64 @@ class PlaySharedVideoDialog extends StatelessWidget {
       mainAxisSize: .min,
       crossAxisAlignment: .stretch,
       children: [
-        ClipRRect(
-          borderRadius: BorderRadius.circular(14),
-          child: AspectRatio(
-            aspectRatio: 16 / 9,
-            child: DecoratedBox(
-              decoration: BoxDecoration(color: PTColors.white(0.06)),
-              child: Image.network(
-                youtubeThumbnailUrl(videoId),
-                fit: .cover,
-                loadingBuilder: (context, child, progress) =>
-                    progress == null ? child : const Center(child: PTLoader(size: 22)),
-                errorBuilder: (context, _, _) => Center(
-                  child: Icon(
-                    Symbols.smart_display_rounded,
-                    size: 34,
-                    fill: 1,
-                    color: PTColors.white(0.3),
+        GlassDialogHeader(
+          eyebrow: 'Requested from the floor',
+          title: 'Play this video?',
+          onClose: () => Navigator.of(context).pop(false),
+        ),
+        const SizedBox(height: 16),
+        Row(
+          spacing: 12,
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(PTRadius.control),
+              child: SizedBox(
+                width: 96,
+                height: 54,
+                child: DecoratedBox(
+                  decoration: const BoxDecoration(color: PTColors.ink),
+                  child: Image.network(
+                    youtubeThumbnailUrl(videoId),
+                    fit: .cover,
+                    loadingBuilder: (context, child, progress) =>
+                        progress == null ? child : const Center(child: PTLoader(size: 16)),
+                    errorBuilder: (context, _, _) => Center(
+                      child: Icon(
+                        Symbols.play_arrow_rounded,
+                        size: 22,
+                        fill: 1,
+                        color: PTColors.white(0.6),
+                      ),
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: .start,
+                spacing: 3,
+                children: [
+                  Text(
+                    '$sharedBy shared it in chat',
+                    maxLines: 2,
+                    overflow: .ellipsis,
+                    style: PTText.body.copyWith(
+                      fontSize: 14,
+                      fontWeight: .w600,
+                      color: PTColors.fg,
+                    ),
+                  ),
+                  Text('YOUTUBE', style: PTText.label),
+                ],
+              ),
+            ),
+          ],
         ),
-        const SizedBox(height: 18),
+        const SizedBox(height: 14),
         Text(
-          'Play this video?',
-          textAlign: .center,
-          textScaler: dialogHeadingScaler(context),
-          style: PTText.screenTitle.copyWith(fontSize: 20),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          '$sharedBy shared it in chat. Everyone in the room switches over to it.',
-          textAlign: .center,
-          style: PTText.body.copyWith(fontSize: 13.5, color: PTColors.white(0.55)),
+          'Everyone in the room switches over to it.',
+          style: PTText.body.copyWith(fontSize: 13.5, color: PTColors.white(0.6)),
         ),
         const SizedBox(height: 20),
         PTButtonBar(

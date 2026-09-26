@@ -13,15 +13,12 @@ class ShortcutsDialog extends StatelessWidget {
 
   static const _playback = <_Shortcut>[
     _Shortcut(['Space', 'K'], 'Play or pause'),
-    _Shortcut(['J'], 'Seek back 10s'),
-    _Shortcut(['L'], 'Seek forward 10s'),
-    _Shortcut(['←'], 'Seek back 5s'),
-    _Shortcut(['→'], 'Seek forward 5s'),
+    _Shortcut(['J', 'L'], 'Back or forward 10s'),
+    _Shortcut(['←', '→'], 'Back or forward 5s'),
   ];
 
   static const _audio = <_Shortcut>[
-    _Shortcut(['↑'], 'Volume up'),
-    _Shortcut(['↓'], 'Volume down'),
+    _Shortcut(['↑', '↓'], 'Volume up or down'),
     _Shortcut(['M'], 'Mute or unmute'),
   ];
 
@@ -35,7 +32,7 @@ class ShortcutsDialog extends StatelessWidget {
       if (facecams) const _Shortcut(['E'], 'Turn your camera on or off'),
       const _Shortcut(['R'], 'Open or close the reactions tray'),
       if (isDesktop) const _Shortcut(['F'], 'Enter or exit fullscreen'),
-      const _Shortcut(['F1'], 'Privacy mode - black out the room, mute mic and cam'),
+      const _Shortcut(['F1'], 'Privacy mode: black out the room, mute mic and cam'),
       if (kDebugMode) const _Shortcut(['F2'], 'Debug: Simulate / toggle YouTube ad'),
       const _Shortcut(['?'], 'Show keyboard shortcuts'),
       _Shortcut([
@@ -48,17 +45,12 @@ class ShortcutsDialog extends StatelessWidget {
       mainAxisSize: .min,
       crossAxisAlignment: .stretch,
       children: [
-        Text(
-          'Keyboard shortcuts',
-          textAlign: .center,
-          textScaler: dialogHeadingScaler(context),
-          style: PTText.screenTitle.copyWith(fontSize: 20),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          'These stay quiet while you\'re typing in chat.',
-          textAlign: .center,
-          style: PTText.body.copyWith(fontSize: 13.5, color: PTColors.white(0.55)),
+        GlassDialogHeader(
+          eyebrow: 'The booth controls',
+          title: 'Keyboard shortcuts',
+          subtitle: 'Quiet while you type in chat.',
+          titleGap: 5,
+          subtitleStyle: PTText.body.copyWith(fontSize: 13.5, color: PTColors.white(0.6)),
         ),
         const SizedBox(height: 20),
         // No Flexible: showGlassDialog scrolls the whole body, and a flex
@@ -108,15 +100,32 @@ class _Section extends StatelessWidget {
       crossAxisAlignment: .stretch,
       spacing: 10,
       children: [
-        Text(
-          title.toUpperCase(),
-          style: PTText.finePrint.copyWith(
-            fontSize: 10.5,
-            letterSpacing: 1.4,
-            color: PTColors.white(0.4),
+        Container(
+          padding: const EdgeInsets.only(bottom: 6),
+          decoration: const BoxDecoration(
+            border: Border(bottom: BorderSide(color: PTColors.rail)),
           ),
+          child: Text(title.toUpperCase(), style: PTText.label),
         ),
-        for (final shortcut in shortcuts) _ShortcutRow(shortcut: shortcut),
+        // Two columns wherever each still fits a keycap pair and a label;
+        // a single column on a phone or at large text.
+        LayoutBuilder(
+          builder: (context, box) {
+            final columns = box.maxWidth >= MediaQuery.textScalerOf(context).scale(440) ? 2 : 1;
+            final cell = (box.maxWidth - 16 * (columns - 1)) / columns;
+            return Wrap(
+              spacing: 16,
+              runSpacing: 10,
+              children: [
+                for (final shortcut in shortcuts)
+                  SizedBox(
+                    width: cell,
+                    child: _ShortcutRow(shortcut: shortcut),
+                  ),
+              ],
+            );
+          },
+        ),
       ],
     );
   }
@@ -167,11 +176,16 @@ class _KeyCap extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       alignment: .center,
       decoration: BoxDecoration(
-        color: PTColors.white(0.06),
-        border: Border.all(color: PTColors.white(0.14)),
-        borderRadius: BorderRadius.circular(8),
+        color: PTColors.aisle,
+        border: const Border(
+          top: BorderSide(color: PTColors.rail),
+          left: BorderSide(color: PTColors.rail),
+          right: BorderSide(color: PTColors.rail),
+          bottom: BorderSide(color: PTColors.rail, width: 2),
+        ),
+        borderRadius: BorderRadius.circular(PTRadius.control),
       ),
-      child: Text(label, style: PTText.mono.copyWith(fontSize: 11.5, color: PTColors.textAccent)),
+      child: Text(label, style: PTText.mono.copyWith(fontSize: 11.5, color: PTColors.fg)),
     );
   }
 }

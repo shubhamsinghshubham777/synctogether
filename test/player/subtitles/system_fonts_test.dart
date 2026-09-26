@@ -83,10 +83,10 @@ void main() {
   });
 
   test('readFontNames reads the name table of a real font', () {
-    final names = readFontNames(File('assets/fonts/Outfit-400.ttf').readAsBytesSync());
+    final names = readFontNames(File('assets/fonts/HankenGrotesk-400.ttf').readAsBytesSync());
     expect(names, isNotNull);
-    expect(names!.family, startsWith('Outfit'));
-    expect(names.full, startsWith('Outfit'));
+    expect(names!.family, startsWith('Hanken Grotesk'));
+    expect(names.full, startsWith('Hanken Grotesk'));
   });
 
   test('readFontNames refuses garbage without throwing', () {

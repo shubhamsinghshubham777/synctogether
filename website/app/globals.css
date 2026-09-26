@@ -1,41 +1,119 @@
 @import "tailwindcss";
 
+/*
+ * Booth Light - the SyncTogether design language, shared with the app
+ * (lib/ui/pt_theme.dart). Dark only: the room is dark and the picture is the
+ * brightest thing in it. ~90% warm booth neutral; Beam amber is spent only on
+ * what is live (the one primary action per view); Signal coral is on-air and
+ * streaks; Cue teal is ready; Brass is premium. No gradients, no blur.
+ *
+ * The site predates this palette and spells its accent `purple-*` in ~450
+ * class names across the components. Rather than churn every file, the theme
+ * redefines those scales: `purple` and `indigo` ARE Beam here, and `gray` is
+ * the warm booth ramp. New code should prefer the Booth names below.
+ */
+@theme {
+  --color-beam-50: #FFF7EA;
+  --color-beam-100: #FFEDCC;
+  --color-beam-200: #FFE2B0;
+  --color-beam-300: #FFD08A;
+  --color-beam-400: #FFC266;
+  --color-beam-500: #FFB23F;
+  --color-beam-600: #D98E1F;
+  --color-beam-700: #A86A14;
+  --color-beam-800: #6B4712;
+  --color-beam-900: #3A2710;
+  --color-beam-950: #221709;
+
+  --color-purple-50: #FFF7EA;
+  --color-purple-100: #FFEDCC;
+  --color-purple-200: #FFE2B0;
+  --color-purple-300: #FFD08A;
+  --color-purple-400: #FFC266;
+  --color-purple-500: #FFB23F;
+  --color-purple-600: #D98E1F;
+  --color-purple-700: #A86A14;
+  --color-purple-800: #6B4712;
+  --color-purple-900: #3A2710;
+  --color-purple-950: #221709;
+
+  --color-indigo-300: #FFD08A;
+  --color-indigo-400: #FFC266;
+  --color-indigo-500: #FFB23F;
+
+  --color-gray-100: #F4ECDF;
+  --color-gray-200: #E4D9C8;
+  --color-gray-300: #C9BDAC;
+  --color-gray-400: #B5A999;
+  --color-gray-500: #8F8476;
+  --color-gray-600: #6B5F52;
+  --color-gray-700: #4A4037;
+  --color-gray-800: #27221F;
+  --color-gray-900: #1C1917;
+  --color-zinc-900: #1C1917;
+
+  /* Text and overlays warm with the booth: `text-white` is Screen. */
+  --color-white: #F4ECDF;
+
+  --color-booth: #121010;
+  --color-seat: #1C1917;
+  --color-aisle: #27221F;
+  --color-rail: #3A332E;
+  --color-screen: #F4ECDF;
+  --color-signal: #FF6A4D;
+  --color-cue: #6FD6C4;
+  --color-brass: #E8C877;
+
+  /* Tight corners: 4px controls, 6px panels. Pills stay pills. */
+  --radius-md: 4px;
+  --radius-lg: 4px;
+  --radius-xl: 6px;
+  --radius-2xl: 6px;
+  --radius-3xl: 6px;
+}
+
 @layer base {
   :root {
     color-scheme: dark;
-    --pt-canvas: #08070C;
-    --pt-screen-bg: #0B0A14;
-    --pt-glass-base: rgba(22, 18, 38, 0.75);
-    --pt-glass-base-solid: #161226;
-    --pt-dialog-glass: rgba(24, 19, 42, 0.88);
-    --pt-glass-border: rgba(201, 184, 255, 0.12);
-    --pt-glass-border-hover: rgba(201, 184, 255, 0.25);
-    --pt-text-accent: #C9B8FF;
-    --pt-primary: #8B5CF6;
-    --pt-gradient-mid: #A855F7;
-    --pt-gradient-end: #C084FC;
-    --pt-deep: #7C3AED;
-    --pt-premium: #FBBF24;
-    --pt-premium-border: #D97706;
-    --pt-online: #4ADE80;
-    --pt-away: #6B7280;
-    --pt-warning: #FDE68A;
-    --pt-warning-border: #FACC15;
-    --pt-danger: #FCA5A5;
-    --pt-danger-border: #F87171;
-    --pt-cyan: #22D3EE;
+    /* Font slots keep their old names; they now carry the Booth faces. */
+    --font-space-grotesk: var(--font-display);
+    --font-outfit: var(--font-body);
+
+    --pt-canvas: #121010;
+    --pt-screen-bg: #121010;
+    --pt-glass-base: #1C1917;
+    --pt-glass-base-solid: #1C1917;
+    --pt-dialog-glass: #1C1917;
+    --pt-glass-border: #3A332E;
+    --pt-glass-border-hover: rgba(255, 178, 63, 0.6);
+    --pt-text-accent: #FFB23F;
+    --pt-primary: #FFB23F;
+    --pt-gradient-mid: #FFB23F;
+    --pt-gradient-end: #FFC266;
+    --pt-deep: #D98E1F;
+    --pt-premium: #E8C877;
+    --pt-premium-border: #A8893E;
+    --pt-online: #6FD6C4;
+    --pt-away: #8F8476;
+    --pt-warning: #FFD27A;
+    --pt-warning-border: #FFB23F;
+    --pt-danger: #FF8A70;
+    --pt-danger-border: #FF6A4D;
+    --pt-cyan: #6FD6C4;
+    --pt-fg: #F4ECDF;
+    --pt-on-beam: #1A1206;
   }
 
   html {
     color-scheme: dark;
-    background-color: #08070C;
-    color: #F3F4F6;
+    background-color: #121010;
+    color: #F4ECDF;
   }
 
   body {
     color-scheme: dark;
     background-color: var(--pt-canvas);
-    color: #F3F4F6;
+    color: #F4ECDF;
     font-family: var(--font-outfit), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     overflow-x: hidden;
   }
@@ -52,71 +130,71 @@
   }
 }
 
-/* Glassmorphism primitives */
+/* Panels: opaque Seat with a Rail hairline. Named for the old glass. */
 .glass-panel {
   background: var(--pt-glass-base);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
   border: 1px solid var(--pt-glass-border);
 }
 
 .glass-panel-hover {
-  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1),
+    border-color 0.2s cubic-bezier(0.2, 0.8, 0.2, 1),
+    box-shadow 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 .glass-panel-hover:hover {
   border-color: var(--pt-glass-border-hover);
-  box-shadow: 0 8px 32px -8px rgba(139, 92, 246, 0.2);
+  box-shadow: 0 0 28px -8px rgba(255, 178, 63, 0.35);
   transform: translateY(-2px);
 }
 
 .glass-dialog {
   background: var(--pt-dialog-glass);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
-  border: 1px solid rgba(201, 184, 255, 0.18);
+  border: 1px solid var(--pt-glass-border);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
 }
 
-/* Gradient text utilities */
+/* Formerly gradient text. Booth Light has no gradients: brand text is Screen,
+   accent text is Beam, gold is Brass. */
 .text-gradient-brand {
-  background: linear-gradient(135deg, #FFFFFF 0%, #C9B8FF 50%, #C084FC 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+  color: var(--pt-fg);
 }
 
 .text-gradient-accent {
-  background: linear-gradient(135deg, #C9B8FF 0%, #A855F7 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+  color: var(--pt-primary);
 }
 
 .text-gradient-gold {
-  background: linear-gradient(135deg, #FDE68A 0%, #FBBF24 50%, #F59E0B 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+  color: var(--pt-premium);
 }
 
-/* Button & interactive gradients */
+/* The one lit button: flat Beam, ink text, a straight-out glow. */
 .btn-primary-gradient {
-  background: linear-gradient(135deg, #8B5CF6 0%, #A855F7 100%);
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  background: var(--pt-primary);
+  color: var(--pt-on-beam) !important;
+  box-shadow: 0 0 32px -10px var(--pt-primary);
+  transition: background-color 0.14s cubic-bezier(0.2, 0.8, 0.2, 1),
+    box-shadow 0.14s cubic-bezier(0.2, 0.8, 0.2, 1),
+    transform 0.09s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 .btn-primary-gradient:hover {
-  background: linear-gradient(135deg, #9D74FF 0%, #B86BFC 100%);
-  box-shadow: 0 0 24px rgba(168, 85, 247, 0.45);
+  background: #FFC266;
+  box-shadow: 0 0 28px -6px rgba(255, 178, 63, 0.55);
 }
 
 .btn-gold-gradient {
-  background: linear-gradient(135deg, #FBBF24 0%, #D97706 100%);
-  color: #08070C;
+  background: transparent;
+  color: var(--pt-premium);
+  border-color: #A8893E !important;
   font-weight: 600;
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: background-color 0.14s cubic-bezier(0.2, 0.8, 0.2, 1),
+    box-shadow 0.14s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 .btn-gold-gradient:hover {
-  background: linear-gradient(135deg, #FCD34D 0%, #F59E0B 100%);
-  box-shadow: 0 0 24px rgba(251, 191, 36, 0.5);
+  background: rgba(232, 200, 119, 0.08);
+  box-shadow: 0 0 24px -8px rgba(232, 200, 119, 0.45);
 }
 
 /* Ambient glow blobs */
@@ -124,8 +202,9 @@
   position: absolute;
   width: 600px;
   height: 600px;
-  background: radial-gradient(circle, rgba(139, 92, 246, 0.18) 0%, rgba(124, 58, 237, 0.05) 45%, transparent 70%);
-  filter: blur(50px);
+  /* The one sanctioned light: a faint projector spill. No blur filter - the
+     radial falloff already reads as soft, and filter: blur re-rasterises. */
+  background: radial-gradient(circle, rgba(255, 178, 63, 0.07) 0%, transparent 65%);
   pointer-events: none;
   z-index: 0;
 }
@@ -134,8 +213,7 @@
   position: absolute;
   width: 500px;
   height: 500px;
-  background: radial-gradient(circle, rgba(34, 211, 238, 0.12) 0%, rgba(34, 211, 238, 0.02) 45%, transparent 70%);
-  filter: blur(50px);
+  display: none; /* Retired with the glass look. */
   pointer-events: none;
   z-index: 0;
 }
@@ -147,16 +225,16 @@
 }
 
 ::-webkit-scrollbar-track {
-  background: #08070C;
+  background: #121010;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(201, 184, 255, 0.15);
+  background: rgba(255, 178, 63, 0.15);
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(201, 184, 255, 0.3);
+  background: rgba(255, 178, 63, 0.3);
 }
 
 /* Animations */
@@ -230,7 +308,7 @@
    drag still reads as tracking the pointer. */
 .pt-slider-wrap {
   position: relative;
-  height: 24px;
+  height: 20px;
   display: flex;
   align-items: center;
 }
@@ -238,21 +316,19 @@
 .pt-slider-track {
   position: absolute;
   inset-inline: 0;
-  height: 10px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.1);
+  height: 3px;
+  background: var(--color-aisle);
   pointer-events: none;
 }
 
 .pt-slider-fill {
   position: absolute;
   left: 0;
-  height: 10px;
-  border-radius: 999px;
+  height: 3px;
   /* The thumb's centre travels only between 12px and 100%-12px, so the fill has
      to use the same inset track or it would run ahead of the thumb. */
   width: calc(12px + (100% - 24px) * var(--pct) / 100);
-  background: linear-gradient(to right, var(--pt-primary), var(--pt-gradient-mid));
+  background: var(--pt-primary);
   pointer-events: none;
   transition: width 160ms cubic-bezier(0.16, 1, 0.3, 1);
 }
@@ -260,13 +336,12 @@
 .pt-slider-thumb {
   position: absolute;
   left: calc(12px + (100% - 24px) * var(--pct) / 100);
-  width: 24px;
-  height: 24px;
-  margin-left: -12px;
-  border-radius: 50%;
-  background: radial-gradient(circle at 35% 30%, #ffffff, var(--pt-gradient-end) 55%, var(--pt-primary));
-  border: 2px solid rgba(255, 255, 255, 0.85);
-  box-shadow: 0 0 0 4px rgba(139, 92, 246, 0.25), 0 2px 10px rgba(0, 0, 0, 0.5);
+  width: 18px;
+  height: 18px;
+  margin-left: -9px;
+  border-radius: 4px;
+  background: var(--pt-fg);
+  box-shadow: 0 0 0 3px var(--pt-primary);
   pointer-events: none;
   transition: left 160ms cubic-bezier(0.16, 1, 0.3, 1),
     transform 150ms cubic-bezier(0.16, 1, 0.3, 1),
@@ -281,7 +356,7 @@
   position: relative;
   width: 100%;
   height: 24px;
-  margin: 0;
+  margin: -2px 0;
   background: transparent;
   opacity: 0;
   outline: none;
@@ -316,16 +391,15 @@
 }
 
 .pt-slider:hover ~ .pt-slider-thumb {
-  transform: scale(1.12);
-  box-shadow: 0 0 0 6px rgba(139, 92, 246, 0.35), 0 2px 14px rgba(0, 0, 0, 0.6);
+  transform: scale(1.1);
 }
 
 .pt-slider:active ~ .pt-slider-thumb {
-  transform: scale(1.28);
+  transform: scale(1.2);
 }
 
 .pt-slider:focus-visible ~ .pt-slider-thumb {
-  box-shadow: 0 0 0 4px rgba(139, 92, 246, 0.25), 0 0 0 7px rgba(201, 184, 255, 0.5), 0 2px 10px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 0 0 3px var(--pt-primary), 0 0 0 6px var(--pt-canvas), 0 0 0 8px var(--pt-fg);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -339,9 +413,7 @@
    Microsoft blue rather than the site's violet, so the badge reads as a store
    badge sitting on the card instead of another brand button. */
 .ms-store-badge {
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.07) 0%, rgba(255, 255, 255, 0.02) 100%),
-    #0A0913;
+  background: var(--color-seat);
   transition: background 0.25s cubic-bezier(0.16, 1, 0.3, 1),
     border-color 0.25s cubic-bezier(0.16, 1, 0.3, 1),
     box-shadow 0.25s cubic-bezier(0.16, 1, 0.3, 1),
@@ -349,10 +421,8 @@
 }
 
 .ms-store-badge:hover {
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.11) 0%, rgba(255, 255, 255, 0.03) 100%),
-    #110F1F;
-  border-color: rgba(255, 255, 255, 0.3);
+  background: var(--color-aisle);
+  border-color: #6B5F52;
   box-shadow: 0 0 26px rgba(0, 164, 239, 0.22);
 }
 
@@ -369,18 +439,22 @@
 }
 
 /* Scroll reveal (components/motion/Reveal.tsx). Content without JS stays
-   visible: the hidden state only applies once the script has marked <html>. */
-.js .pt-reveal {
-  opacity: 0;
-  transform: translateY(12px);
-  transition: opacity 600ms cubic-bezier(0.22, 1, 0.36, 1), transform 600ms cubic-bezier(0.22, 1, 0.36, 1);
-}
-.js .pt-reveal.pt-reveal-in {
-  opacity: 1;
-  transform: none;
+   visible: the hidden state applies only where the browser says scripting is
+   on - a media query rather than a class set by an inline script, because
+   React warns about (and will not run) a script it renders on the client. */
+@media (scripting: enabled) {
+  .pt-reveal {
+    opacity: 0;
+    transform: translateY(12px);
+    transition: opacity 600ms cubic-bezier(0.22, 1, 0.36, 1), transform 600ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .pt-reveal.pt-reveal-in {
+    opacity: 1;
+    transform: none;
+  }
 }
 @media (prefers-reduced-motion: reduce) {
-  .js .pt-reveal {
+  .pt-reveal {
     opacity: 1;
     transform: none;
     transition: none;
@@ -393,7 +467,199 @@
 }
 a:focus-visible,
 button:focus-visible {
-  outline: 2px solid #c9b8ff;
+  outline: 2px solid #FFB23F;
   outline-offset: 3px;
   border-radius: 6px;
+}
+
+/* The ticket (components/Ticket.tsx): notches masked out of each long edge
+   where the perforation runs, --stub from the right. */
+.ticket {
+  --stub: 7rem;
+  --notch: 12px;
+  border-radius: 6px;
+  /* A notch bitten out of each short edge at mid-height - the Components
+     board's ticket, and the app's TicketBorder. */
+  -webkit-mask:
+    radial-gradient(circle var(--notch) at 0 50%, #0000 98%, #000) left / 51% 100% no-repeat,
+    radial-gradient(circle var(--notch) at 100% 50%, #0000 98%, #000) right / 51% 100% no-repeat;
+  mask:
+    radial-gradient(circle var(--notch) at 0 50%, #0000 98%, #000) left / 51% 100% no-repeat,
+    radial-gradient(circle var(--notch) at 100% 50%, #0000 98%, #000) right / 51% 100% no-repeat;
+}
+
+@media (min-width: 640px) {
+  .ticket {
+    --stub: 9rem;
+  }
+}
+
+/* Printed, then settled: rises out of the slot with a slight tilt that
+   straightens. Once - never a loop. Transform/opacity only, so it stays on
+   the compositor. */
+@keyframes ticket-print {
+  from {
+    opacity: 0;
+    transform: translateY(14px) rotate(-1.5deg);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.ticket-print {
+  animation: ticket-print 0.42s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+/* The sync dot's arrival heartbeat, mirroring the app's SyncDot: two beats,
+   then a steady glow. */
+@keyframes sync-beat {
+  0%, 50%, 100% {
+    transform: scale(1);
+  }
+  25%, 75% {
+    transform: scale(1.35);
+  }
+}
+
+.sync-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--pt-primary);
+  box-shadow: 0 0 10px var(--pt-primary);
+  animation: sync-beat 0.9s ease-out 1 both;
+}
+
+/* The wordmark's Beam dot warms up on hover - a transition, never a loop. */
+.logo-dot {
+  display: inline-block;
+  transition: text-shadow 0.24s cubic-bezier(0.2, 0.8, 0.2, 1), transform 0.24s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.group:hover .logo-dot {
+  text-shadow: 0 0 14px rgba(255, 178, 63, 0.9);
+  transform: scale(1.25);
+}
+
+/* Nav: a Beam underline draws in from the left on hover, and holds on the
+   current page. */
+.nav-link::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -6px;
+  height: 2px;
+  background: var(--pt-primary);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.24s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.nav-link:hover::after,
+.nav-link-active::after {
+  transform: scaleX(1);
+}
+
+/* Hero poster choreography (components/hero/HeroPoster.tsx). Each piece
+   arrives once, in order: the screen settles onto the wall, the ticket slides
+   in against it, the stamp is pressed on last. Transform/opacity only. */
+.hero-screen {
+  transform: rotate(-1.5deg);
+  box-shadow: 0 0 120px -40px var(--pt-primary);
+  animation: hero-screen-in 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+@keyframes hero-screen-in {
+  from {
+    opacity: 0;
+    transform: translateY(18px) rotate(-3deg);
+  }
+  to {
+    opacity: 1;
+    transform: rotate(-1.5deg);
+  }
+}
+
+.hero-ticket {
+  transform: rotate(3deg);
+  animation: hero-ticket-in 0.55s cubic-bezier(0.2, 0.8, 0.2, 1) 0.28s both;
+}
+
+@keyframes hero-ticket-in {
+  from {
+    opacity: 0;
+    transform: translate(40px, 20px) rotate(9deg);
+  }
+  to {
+    opacity: 1;
+    transform: rotate(3deg);
+  }
+}
+
+.hero-stamp {
+  transform: rotate(12deg);
+  animation: stamp-in 0.42s cubic-bezier(0.34, 1.56, 0.64, 1) 0.7s both;
+}
+
+/* Mirrors the app's StampIn: pressed down from 1.6x, overshoots, settles. */
+@keyframes stamp-in {
+  from {
+    opacity: 0;
+    transform: scale(1.6) rotate(0deg);
+  }
+  45% {
+    opacity: 1;
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) rotate(12deg);
+  }
+}
+
+/* Headline lines rise in one after another. */
+.line-in {
+  display: block;
+  animation: line-in 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+@keyframes line-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.35em);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Hero poster tilt (components/hero/TiltPoster.tsx). The stage owns the
+   perspective; the poster rotates by the variables the pointer writes, and the
+   ticket and stamp sit forward of the screen so they parallax against it. */
+.tilt-stage {
+  perspective: 1200px;
+}
+
+.tilt-poster {
+  transform-style: preserve-3d;
+  transform: rotateX(var(--tilt-x, 0deg)) rotateY(var(--tilt-y, 0deg));
+  transition: transform 0.5s cubic-bezier(0.2, 0.8, 0.2, 1);
+  will-change: transform;
+}
+
+.tilt-poster .hero-ticket-lift {
+  transform: translateZ(40px);
+}
+
+.tilt-poster .hero-stamp-lift {
+  transform: translateZ(60px);
+}
+
+@media (prefers-reduced-motion: reduce), (hover: none) {
+  .tilt-poster {
+    transform: none;
+  }
 }

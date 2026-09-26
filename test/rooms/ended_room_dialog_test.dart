@@ -29,10 +29,9 @@ void main() {
         ),
       );
 
-      expect(find.text('Start fresh room'), findsOneWidget);
-      expect(find.text('Get Premium'), findsOneWidget);
-      expect(find.text('Premium keeps up to 20 rooms saved forever.'), findsOneWidget);
-      expect(find.textContaining('upgrade to Premium'), findsOneWidget);
+      expect(find.text('Open a fresh room'), findsOneWidget);
+      expect(find.text('Patron: 20 saved rooms'), findsOneWidget);
+      expect(find.textContaining('That show has closed'), findsOneWidget);
     });
   });
 }

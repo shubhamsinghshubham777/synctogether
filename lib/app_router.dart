@@ -1,6 +1,8 @@
 import 'dart:async';
 
-import 'package:flutter/widgets.dart';
+import 'package:flutter/cupertino.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' show AuthChangeEvent;
@@ -57,23 +59,32 @@ GoRouter buildRouter([Player? player]) {
         routes: [
           GoRoute(
             path: 'profile',
-            pageBuilder: (context, state) => _sharedAxis(state, const ProfileScreen()),
+            pageBuilder: (context, state) => _detail(state, const ProfileScreen()),
           ),
           GoRoute(
             path: 'leaderboard',
-            pageBuilder: (context, state) => _sharedAxis(state, const LeaderboardScreen()),
+            pageBuilder: (context, state) => _detail(state, const LeaderboardScreen()),
           ),
           GoRoute(
             path: 'subscribe',
-            pageBuilder: (context, state) =>
-                _sharedAxis(state, SubscriptionScreen(source: state.uri.queryParameters['source'])),
+            pageBuilder: (context, state) => _detail(
+              state,
+              SubscriptionScreen(
+                // go_router reuses the page for the same pattern; keying on
+                // the demo state makes `?state=` switches rebuild it.
+                key: kDemoMode ? ValueKey(state.uri.queryParameters['state']) : null,
+                source: state.uri.queryParameters['source'],
+                // Const-gated, so release builds drop the branch entirely.
+                demoState: kDemoMode ? state.uri.queryParameters['state'] : null,
+              ),
+            ),
           ),
           GoRoute(
             path: 'room/:id',
             // Keyed by room id: go_router reuses the page for room A → room B
             // (same route pattern), and without the key the old room's State -
             // sync channel, countdown, chat - would survive the navigation.
-            pageBuilder: (context, state) => _rise(
+            pageBuilder: (context, state) => _mobileOr(
               state,
               RoomScreen(
                 key: ValueKey(
@@ -84,6 +95,7 @@ GoRouter buildRouter([Player? player]) {
                 initialChatOpen: state.uri.queryParameters['chat'] == 'true',
                 initialDialogOpen: state.uri.queryParameters['dialog'],
               ),
+              _rise,
             ),
           ),
         ],
@@ -141,6 +153,28 @@ CustomTransitionPage<void> _rise(GoRouterState state, Widget child) {
       ),
     );
   });
+}
+
+/// Sub-pages of the lobby. On a phone or tablet they are the platform's own
+/// pages, so the system back works the way the OS teaches it: iOS gets the
+/// edge swipe (CupertinoPage), Android its predictive back (MaterialPage).
+/// Desktop has no such gesture and keeps the short shared-axis fade.
+Page<void> _detail(GoRouterState state, Widget child) => _mobileOr(state, child, _sharedAxis);
+
+/// The room also uses the platform page on mobile. Its `PopScope(canPop:
+/// false)` still owns the exit (it routes a back gesture through
+/// `_leaveRoom`), so the swipe can never strand the membership.
+Page<void> _mobileOr(
+  GoRouterState state,
+  Widget child,
+  CustomTransitionPage<void> Function(GoRouterState, Widget) desktop,
+) {
+  if (kIsWeb) return desktop(state, child);
+  return switch (defaultTargetPlatform) {
+    TargetPlatform.iOS => CupertinoPage<void>(key: state.pageKey, child: child),
+    TargetPlatform.android => MaterialPage<void>(key: state.pageKey, child: child),
+    _ => desktop(state, child),
+  };
 }
 
 /// Sibling detail page - a subtle horizontal shared axis.

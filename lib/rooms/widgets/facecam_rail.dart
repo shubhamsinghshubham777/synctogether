@@ -17,7 +17,7 @@ const bool kDemoMode = bool.fromEnvironment('DEMO_MODE', defaultValue: false);
 enum FacecamLayout { railLeft, stripTop, miniStackRight }
 
 /// Facecam tiles per present member: live video when the member publishes a
-/// cam track, avatar tile otherwise; self first with the violet ring.
+/// cam track, avatar tile otherwise; self first with a brighter hairline, Signal ring while speaking.
 ///
 /// People arriving and leaving is a social event, so tiles animate both ways:
 /// departures are held in the tree for one [PTMotion.state] while they fade,
@@ -228,39 +228,30 @@ class _FacecamTile extends StatelessWidget {
     final speaking = participant?.isSpeaking ?? (isMockOrDemo && member.userId == 'user-sarah');
 
     final height = compact ? 58.0 : 112.0;
-    final radius = compact ? 13.0 : 16.0;
+    const radius = PTRadius.control;
 
-    // The highest-value AV micro: this is how you know who just laughed.
-    // Snaps on and lingers on the way out, the way a voice does - an equal
-    // fade both ways reads as a flicker on short utterances.
+    // The highest-value AV micro: this is how you know who just laughed. A
+    // Signal ring, the colour of a live mic - snaps on and lingers on the way
+    // out, the way a voice does. No blurred shadows: these tiles sit over
+    // playing video, where every soft shadow is a per-frame cost.
     return AnimatedContainer(
       duration: speaking ? const Duration(milliseconds: 200) : const Duration(milliseconds: 600),
       curve: PTMotion.enter,
       height: height,
       decoration: BoxDecoration(
+        color: PTColors.aisle,
         borderRadius: BorderRadius.circular(radius),
         border: Border.all(
           color: speaking
-              ? PTColors.accentSoft
+              ? PTColors.ember
               : isSelf
-              ? PTColors.accentSoft.withValues(alpha: 0.85)
-              : PTColors.white(0.13),
-          width: speaking || isSelf ? 2 : 1,
+              ? PTColors.white(0.32)
+              : PTColors.rail,
+          width: speaking ? 2 : 1,
         ),
-        boxShadow: [
-          if (speaking)
-            BoxShadow(
-              color: PTColors.primary.withValues(alpha: 0.55),
-              blurRadius: 16,
-              spreadRadius: 2,
-            )
-          else if (isSelf)
-            BoxShadow(color: PTColors.primary.withValues(alpha: 0.25), spreadRadius: 3),
-          BoxShadow(color: PTColors.black(0.45), blurRadius: 32, offset: const Offset(0, 12)),
-        ],
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(radius - 1),
+        borderRadius: BorderRadius.circular(radius - (speaking ? 2 : 1)),
         child: Stack(
           fit: .expand,
           children: [
@@ -269,144 +260,105 @@ class _FacecamTile extends StatelessWidget {
             else if (mockAsset != null)
               Image.asset(mockAsset, fit: BoxFit.cover)
             else
-              Container(
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: .topLeft,
-                    end: .bottomRight,
-                    colors: [PTColors.tileTop, PTColors.tileBottom],
+              Center(
+                child: Padding(
+                  // Clear of the name tag below it.
+                  padding: EdgeInsets.only(bottom: compact ? 0 : 14),
+                  child: PTAvatar(
+                    userId: member.userId,
+                    displayName: member.displayName,
+                    size: compact ? 24 : 40,
+                    premium: premium,
+                    frame: frame,
                   ),
                 ),
-                child: Center(
-                  child: compact
-                      ? PTAvatar(
-                          userId: member.userId,
-                          displayName: member.displayName,
-                          size: 24,
-                          premium: premium,
-                          frame: frame,
-                        )
-                      : Column(
-                          mainAxisSize: .min,
-                          spacing: 7,
-                          children: [
-                            PTAvatar(
-                              userId: member.userId,
-                              displayName: member.displayName,
-                              size: 40,
-                              premium: premium,
-                              frame: frame,
-                            ),
-                            Row(
-                              mainAxisSize: .min,
-                              spacing: 5,
-                              children: [
-                                Flexible(
-                                  child: AnimatedSize(
-                                    duration: PTMotion.functional(context, PTMotion.state),
-                                    curve: showNames ? PTMotion.enter : PTMotion.exit,
-                                    child: showNames
-                                        ? Text(
-                                            member.displayName,
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                            style: PTText.finePrint.copyWith(
-                                              fontSize: 11,
-                                              color: PTColors.white(0.6),
-                                            ),
-                                          )
-                                        : const SizedBox.shrink(),
+              ),
+            Positioned(
+              left: compact ? 5 : 8,
+              right: compact ? 5 : 8,
+              bottom: compact ? 5 : 8,
+              // Hugs its name, ellipsizing only once it reaches the far edge.
+              child: Row(
+                children: [
+                  Flexible(
+                    child: AnimatedSlide(
+                      offset: showNames ? Offset.zero : const Offset(0, 0.5),
+                      duration: PTMotion.functional(context, PTMotion.state),
+                      curve: showNames ? PTMotion.enter : PTMotion.exit,
+                      child: AnimatedOpacity(
+                        opacity: showNames ? 1 : 0,
+                        duration: PTMotion.functional(context, PTMotion.state),
+                        child: Container(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: compact ? 7 : 9,
+                            vertical: compact ? 2 : 3,
+                          ),
+                          decoration: BoxDecoration(
+                            color: PTColors.canvasScrim,
+                            borderRadius: BorderRadius.circular(2),
+                          ),
+                          child: Row(
+                            mainAxisSize: .min,
+                            spacing: 3,
+                            children: [
+                              if (premium)
+                                Icon(
+                                  Symbols.crown_rounded,
+                                  size: compact ? 10 : 12,
+                                  fill: 1,
+                                  color: PTColors.premium,
+                                ),
+                              Flexible(
+                                child: Text(
+                                  member.displayName,
+                                  maxLines: 1,
+                                  overflow: .ellipsis,
+                                  style: TextStyle(
+                                    fontFamily: PTFonts.body,
+                                    fontSize: compact ? 9.5 : 12,
+                                    fontWeight: .w600,
+                                    color: PTColors.fg,
                                   ),
                                 ),
+                              ),
+                              if (!hasVideo && !compact)
                                 Icon(
                                   member.privacyMode
                                       ? Symbols.visibility_off_rounded
                                       : Symbols.videocam_off_rounded,
                                   size: 12,
                                   fill: 1,
-                                  color: PTColors.white(0.4),
+                                  color: PTColors.white(0.5),
+                                )
+                              else if (member.privacyMode)
+                                Icon(
+                                  Symbols.visibility_off_rounded,
+                                  size: compact ? 10 : 12,
+                                  fill: 1,
+                                  color: PTColors.white(0.75),
                                 ),
-                              ],
-                            ),
-                            if (member.privacyMode)
-                              Text(
-                                'Screen hidden',
-                                style: PTText.finePrint.copyWith(
-                                  fontSize: 10,
-                                  color: PTColors.white(0.42),
-                                ),
+                              // The border glow is now the primary speaking cue; this
+                              // stays as a redundant, colour-blind-safe marker.
+                              AnimatedSize(
+                                duration: PTMotion.functional(context, PTMotion.state),
+                                curve: PTMotion.enter,
+                                child: speaking
+                                    ? Icon(
+                                        Symbols.graphic_eq_rounded,
+                                        size: compact ? 10 : 12,
+                                        color: PTColors.ember,
+                                      )
+                                    : const SizedBox.shrink(),
                               ),
-                          ],
+                            ],
+                          ),
                         ),
-                ),
-              ),
-            if (hasVideo || compact)
-              Positioned(
-                left: compact ? 5 : 8,
-                bottom: compact ? 5 : 8,
-                child: AnimatedSlide(
-                  offset: showNames ? Offset.zero : const Offset(0, 0.5),
-                  duration: PTMotion.functional(context, PTMotion.state),
-                  curve: showNames ? PTMotion.enter : PTMotion.exit,
-                  child: AnimatedOpacity(
-                    opacity: showNames ? 1 : 0,
-                    duration: PTMotion.functional(context, PTMotion.state),
-                    child: Container(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: compact ? 7 : 9,
-                        vertical: compact ? 2 : 3,
-                      ),
-                      decoration: BoxDecoration(
-                        color: PTColors.canvasScrim,
-                        borderRadius: BorderRadius.circular(999),
-                      ),
-                      child: Row(
-                        mainAxisSize: .min,
-                        spacing: 3,
-                        children: [
-                          if (premium)
-                            Icon(
-                              Symbols.crown_rounded,
-                              size: compact ? 10 : 12,
-                              fill: 1,
-                              color: PTColors.premium,
-                            ),
-                          Text(
-                            isSelf ? 'You' : member.displayName,
-                            overflow: .ellipsis,
-                            style: TextStyle(
-                              fontFamily: PTFonts.body,
-                              fontSize: compact ? 9.5 : 11,
-                              fontWeight: isSelf ? .w600 : .w500,
-                              color: Colors.white,
-                            ),
-                          ),
-                          if (member.privacyMode)
-                            Icon(
-                              Symbols.visibility_off_rounded,
-                              size: compact ? 10 : 12,
-                              fill: 1,
-                              color: PTColors.white(0.75),
-                            ),
-                          // The border glow is now the primary speaking cue; this
-                          // stays as a redundant, colour-blind-safe marker.
-                          AnimatedSize(
-                            duration: PTMotion.functional(context, PTMotion.state),
-                            curve: PTMotion.enter,
-                            child: speaking
-                                ? Icon(
-                                    Symbols.graphic_eq_rounded,
-                                    size: compact ? 10 : 12,
-                                    color: PTColors.textAccent,
-                                  )
-                                : const SizedBox.shrink(),
-                          ),
-                        ],
                       ),
                     ),
                   ),
-                ),
+                ],
               ),
+            ),
             Positioned(
               top: compact ? 5 : 7,
               right: compact ? 5 : 7,

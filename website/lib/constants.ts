@@ -77,7 +77,7 @@ export const PRICING_TIERS = {
       inrAnnual: "₹0",
     },
     description: "Ideal for friend groups and watch parties with voice chat and extended sessions.",
-    cta: "Get Started Free",
+    cta: "Get started free",
     ctaLink: "/download",
     limits: {
       rooms: 4,
@@ -151,14 +151,14 @@ export const FAQ_ITEMS = [
     questions: [
       {
         q: "What is SyncTogether?",
-        a: "SyncTogether is a dedicated desktop application (macOS & Windows) for synchronizing media playback across devices. Whether you are watching a local MP4/MKV movie or a YouTube video, play, pause, seek, and audio tracks stay in lockstep across every participant, with automatic drift correction if a machine falls behind."
+        a: "A desktop app for Mac and Windows that keeps a film on the same frame for everyone in a room. Play your own MP4 or MKV, or a YouTube link. Play, pause, seek and audio track stay in lockstep, and a machine that falls behind catches up by itself."
       },
       {
         q: "What platforms does SyncTogether support?",
         a: "SyncTogether currently supports macOS (12.0+) and Windows (10 and 11). Both platforms offer native hardware acceleration and seamless window management."
       },
       {
-        q: "Do I need an account to use SyncTogether?",
+        q: "Do I need an account?",
         a: "No! You can use SyncTogether as a Guest without creating an account. Guests can create 60-minute rooms with up to 4 members. To get 4-hour rooms, voice chat, and cloud media sharing, simply sign in with a free account (Google, Apple, or Email)."
       },
       {
@@ -168,18 +168,18 @@ export const FAQ_ITEMS = [
     ]
   },
   {
-    category: "Rooms & Sync",
+    category: "Rooms & sync",
     questions: [
       {
         q: "How do I create and join a room?",
-        a: "Launch SyncTogether and click 'Create Room'. You will receive a unique 6-character room code (e.g. `X7K9P2`) and an invite link (`https://synctogether.app/join/X7K9P2`). Share it anywhere - the link opens the app for anyone who has it, and offers the download to anyone who does not, with the code kept for them."
+        a: "Launch SyncTogether and click 'Create Room'. You will receive a unique 6-character room code (e.g. `X7K9P2`) and an invite link (`https://synctogether.app/join/X7K9P2`). Share it anywhere. The link opens the app for anyone who has it, and offers the download to anyone who does not, with the code kept for them."
       },
       {
         q: "What media formats are supported?",
         a: "SyncTogether supports all major local video containers and codecs (MP4, MKV, AVI, WEBM, MOV, etc.) along with direct YouTube video playback."
       },
       {
-        q: "Does SyncTogether stream or upload my video files to other people?",
+        q: "Does SyncTogether upload my video files?",
         a: "SyncTogether gives you two seamless options: (1) Local File Sync: If everyone already has the video file on their device, playback is 100% local and peer-synced with zero uploads. (2) Cloud Media Sharing: Room hosts can optionally upload and stream their video file directly to room guests (2.5 GB weekly quota / up to 2.0 GB per video on Free; unlimited uploads / up to 10.0 GB per video on Premium)."
       },
       {
@@ -189,7 +189,7 @@ export const FAQ_ITEMS = [
     ]
   },
   {
-    category: "Premium & Subscriptions",
+    category: "Premium & billing",
     questions: [
       {
         q: "What do I get with SyncTogether Premium?",
@@ -214,7 +214,7 @@ export const FAQ_ITEMS = [
     ]
   },
   {
-    category: "Privacy & Security",
+    category: "Privacy & security",
     questions: [
       {
         q: "What data does SyncTogether collect?",
@@ -222,19 +222,19 @@ export const FAQ_ITEMS = [
       },
       {
         q: "What are streaks, badges and the leaderboard?",
-        a: "SyncTogether counts the time you spend watching with other people. Twenty minutes in a room with somebody makes the day count towards your streak, and badges unlock along the way. Points are one a minute watched together (capped daily), plus a bonus for each different person you watch with, multiplied by your streak - so watching 40 minutes every day beats twelve hours on one Saturday. Watching alone earns nothing, and neither does a room left open, because the point is time spent together. Guests do not collect streaks: guest accounts are wiped after a few days, so a streak held on one would not survive the week."
+        a: "SyncTogether counts the time you spend watching with other people. Twenty minutes in a room with somebody makes the day count towards your streak, and badges unlock along the way. Points are one a minute watched together (capped daily), plus a bonus for each different person you watch with, multiplied by your streak, so watching 40 minutes every day beats twelve hours on one Saturday. Watching alone earns nothing, and neither does a room left open, because the point is time spent together. Guests do not collect streaks: guest accounts are wiped after a few days, so a streak held on one would not survive the week."
       },
       {
         q: "Does the leaderboard show my name to strangers?",
-        a: "Only if you turn it on. Leaderboards and public profile pages are opt-in from Profile in the desktop app, and turning it on publishes your display name, avatar, streak, rank and badges - nothing about what you watched, who you watched it with, or anything you typed. Turning it off removes you immediately. You can see your own rank privately either way."
+        a: "Only if you turn it on. Leaderboards and public profile pages are opt-in from Profile in the desktop app, and turning it on publishes your display name, avatar, streak, rank and badges, and nothing about what you watched, who you watched it with, or anything you typed. Turning it off removes you immediately. You can see your own rank privately either way."
       },
       {
         q: "What is in a shared recap, and who can see it?",
-        a: "A recap is a page you can post anywhere: how long the session ran, how many reactions and messages there were, and a few silly awards. It never includes what you watched - no file names, no links, no chat. Anyone else in the room who has not turned on a public profile appears as an anonymous avatar with no name. Recap links are unguessable, hidden from search engines, and expire after 90 days."
+        a: "A recap is a page you can post anywhere: how long the session ran, how many reactions and messages there were, and a few silly awards. It never includes what you watched: no file names, no links, no chat. Anyone else in the room who has not turned on a public profile appears as an anonymous avatar with no name. Recap links are unguessable, hidden from search engines, and expire after 90 days."
       },
       {
         q: "Does Premium buy a better leaderboard position?",
-        a: "No, and it never will. Premium gets an extra streak freeze (so a busy week costs you less), exclusive avatar frames, and a claimable @handle with its own public profile page - but not a single extra point. Appearing on a board and ranking on it are both free. A board you can buy your way up is not worth climbing."
+        a: "No, and it never will. Premium gets an extra streak freeze (so a busy week costs you less), exclusive avatar frames, and a claimable @handle with its own public profile page, but not a single extra point. Appearing on a board and ranking on it are both free. A board you can buy your way up is not worth climbing."
       },
       {
         q: "Can I opt out of analytics?",

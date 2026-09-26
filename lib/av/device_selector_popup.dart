@@ -269,7 +269,7 @@ class _DeviceRowState extends State<_DeviceRow> {
                   ? PTColors.accentBorder.withValues(alpha: 0.45)
                   : Colors.transparent,
             ),
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(PTRadius.control),
           ),
           child: Row(
             children: [

@@ -2,13 +2,14 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { PRICING_TIERS } from "@/lib/constants";
 import { PlanCard } from "./PlanCard";
-import { GlassPanel } from "./GlassPanel";
+import { Eyebrow, display, mono } from "./PageHead";
 import { LocationDebugSwitcher } from "./LocationDebugSwitcher";
 import { usePricing } from "@/lib/usePricing";
 import { usePremiumCheckout } from "@/lib/usePremiumCheckout";
-import { Check, Minus, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 
 export function PricingTable() {
   const [billingCycle, setBillingCycle] = useState<"monthly" | "annual">("annual");
@@ -18,8 +19,10 @@ export function PricingTable() {
     monthlyFormatted,
     annualFormatted,
     monthlyEquivalentFormatted,
-    savingsPct,
+    monthlyAmount,
+    annualAmount,
     currencyCode,
+    currencySymbol,
     countryCode,
     isLoading: isPriceLoading,
   } = usePricing();
@@ -35,8 +38,8 @@ export function PricingTable() {
   };
 
   const premiumPrice = isPriceLoading ? (
-    <span className="inline-flex items-center gap-2 py-1 text-2xl font-mono text-amber-400 font-bold">
-      <Loader2 className="w-6 h-6 animate-spin" />
+    <span className="inline-flex items-center py-1 text-brass">
+      <Loader2 className="w-8 h-8 animate-spin" />
     </span>
   ) : billingCycle === "annual" ? (
     annualFormatted
@@ -44,172 +47,195 @@ export function PricingTable() {
     monthlyFormatted
   );
 
+  // The discount is derived from the very two amounts the cards display, never
+  // from a separately-carried figure: the live page once read "-58%" (the INR
+  // ratio, 199x12 vs 999) beside USD prices. Computing it here from
+  // monthlyAmount/annualAmount means the chip can only disagree with the
+  // prices if the prices themselves are wrong.
+  const savingsPct =
+    monthlyAmount > 0 && annualAmount > 0
+      ? `${Math.max(1, Math.round((1 - annualAmount / (monthlyAmount * 12)) * 100))}%`
+      : null;
+
   const isUsdOutsideUs = currencyCode === "USD" && countryCode !== "US";
+  // Free tiers speak the same currency as the Patron card beside them.
+  const zeroPrice = `${isUsdOutsideUs ? "US$" : currencySymbol}0`;
   const premiumSubPrice = isPriceLoading
     ? "Fetching live pricing..."
     : billingCycle === "annual"
-    ? `${monthlyEquivalentFormatted} (Billed annually${isUsdOutsideUs ? " in USD" : ""} - Save ${savingsPct})`
+    ? `${monthlyEquivalentFormatted} billed annually${isUsdOutsideUs ? " in USD" : ""}${savingsPct ? ` · save ${savingsPct}` : ""}`
     : isUsdOutsideUs
     ? "Billed monthly in USD. Cancel anytime."
     : "Billed monthly. Cancel anytime.";
 
   return (
-    <div className="space-y-12">
-      {/* Controls Bar: Billing Toggle & Debug Switcher */}
-      <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-        {/* Monthly / Annual Toggle */}
-        <div className="p-1 rounded-2xl bg-[#141024] border border-purple-500/20 flex items-center shadow-inner">
-          <button
-            onClick={() => setBillingCycle("monthly")}
-            className={`px-5 py-2 rounded-xl text-sm font-semibold transition-all cursor-pointer ${
-              billingCycle === "monthly"
-                ? "btn-primary-gradient text-white shadow-md shadow-purple-900/40"
-                : "text-gray-400 hover:text-white"
-            }`}
-          >
-            Monthly Billing
-          </button>
-          <button
-            onClick={() => setBillingCycle("annual")}
-            className={`px-5 py-2 rounded-xl text-sm font-semibold transition-all flex items-center gap-2 cursor-pointer ${
-              billingCycle === "annual"
-                ? "btn-primary-gradient text-white shadow-md shadow-purple-900/40"
-                : "text-gray-400 hover:text-white"
-            }`}
-          >
-            <span>Annual Billing</span>
-            <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-amber-400/20 text-amber-300 border border-amber-400/30">
-              Save {savingsPct}
-            </span>
-          </button>
+    <section className="space-y-6">
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+        <div className="flex flex-col gap-3.5">
+          <Eyebrow n="02">The plans</Eyebrow>
+          <h2 className={`${display} text-4xl sm:text-[52px] font-extrabold tracking-[-0.04em] leading-[0.92]`}>
+            Three tickets. Two of them free.
+          </h2>
         </div>
 
-        <LocationDebugSwitcher />
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+          {/* Monthly / annual */}
+          <div role="group" aria-label="Billing cycle" className={`${mono} inline-flex self-start p-[3px] rounded-[4px] border border-rail text-xs`}>
+            <button
+              onClick={() => setBillingCycle("monthly")}
+              aria-pressed={billingCycle === "monthly"}
+              className={`h-[34px] px-4 rounded-[2px] transition-colors cursor-pointer ${
+                billingCycle === "monthly" ? "bg-screen text-booth font-semibold" : "text-gray-500 hover:text-white"
+              }`}
+            >
+              Monthly
+            </button>
+            <button
+              onClick={() => setBillingCycle("annual")}
+              aria-pressed={billingCycle === "annual"}
+              className={`h-[34px] px-4 rounded-[2px] transition-colors flex items-center gap-2 cursor-pointer ${
+                billingCycle === "annual" ? "bg-screen text-booth font-semibold" : "text-gray-500 hover:text-white"
+              }`}
+            >
+              <span>Annual</span>
+              {savingsPct && !isPriceLoading && (
+                <span className={billingCycle === "annual" ? "text-[#A33A22]" : "text-signal"}>−{savingsPct}</span>
+              )}
+            </button>
+          </div>
+
+          <LocationDebugSwitcher />
+        </div>
       </div>
 
-      {/* Pricing Cards Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-        {/* Guest Tier */}
-        <PlanCard
-          name={PRICING_TIERS.guest.name}
-          badge={PRICING_TIERS.guest.badge}
-          price="$0"
-          periodText="forever"
-          description={PRICING_TIERS.guest.description}
-          features={PRICING_TIERS.guest.features}
-          ctaText={PRICING_TIERS.guest.cta}
-          onSelect={() => handleSelectPlan("guest")}
-        />
-
-        {/* Free Tier */}
-        <PlanCard
-          name={PRICING_TIERS.free.name}
-          badge={PRICING_TIERS.free.badge}
-          price="$0"
-          periodText="with free account"
-          description={PRICING_TIERS.free.description}
-          features={PRICING_TIERS.free.features}
-          ctaText={PRICING_TIERS.free.cta}
-          isPopular
-          onSelect={() => handleSelectPlan("free")}
-        />
-
-        {/* Premium Tier */}
-        <PlanCard
-          name={PRICING_TIERS.premium.name}
-          badge={isPremium ? "Active Plan" : PRICING_TIERS.premium.badge}
-          price={premiumPrice}
-          periodText={billingCycle === "annual" ? "/year" : "/month"}
-          subPrice={premiumSubPrice}
-          description={PRICING_TIERS.premium.description}
-          features={PRICING_TIERS.premium.features}
-          ctaText={
+      {/* The playbill: three tickets. Phones stack Free, Patron, Guest. */}
+      <div className="space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <PlanCard
+            className="order-3 md:order-1"
+            name={PRICING_TIERS.guest.name}
+            badge={PRICING_TIERS.guest.badge}
+            price={zeroPrice}
+            periodText="forever"
+            description="Join with a six-letter code in seconds. For a quick one."
+            features={CARD_FEATURES.guest}
+            ctaText="Download the app"
+            onSelect={() => handleSelectPlan("guest")}
+          />
+          <PlanCard
+            className="order-1 md:order-2"
+            name={PRICING_TIERS.free.name}
+            badge="Most nights"
+            price={zeroPrice}
+            periodText="with a free account"
+            description="Friend groups and watch parties, with voice beside the film."
+            features={CARD_FEATURES.free}
+            ctaText={PRICING_TIERS.free.cta}
+            isPopular
+            onSelect={() => handleSelectPlan("free")}
+          />
+          <PlanCard
+            className="order-2 md:order-3"
+            name="Patron"
+            badge={isPremium ? "Your plan" : "The whole theatre"}
+            price={premiumPrice}
+            periodText={billingCycle === "annual" ? "/ year" : "/ month"}
+            subPrice={premiumSubPrice}
+            description="Video facecams, 16 seats, all-day shows and rooms that never close."
+            features={CARD_FEATURES.premium}
+            ctaText={isPremium ? "Manage Subscription" : user ? "Become a Patron" : "Sign in to become a Patron"}
             isPremium
-              ? "Manage Subscription"
-              : user
-              ? "Upgrade to Premium"
-              : "Sign in to Subscribe"
-          }
-          isPremium
-          isLoading={isLoadingCheckout}
-          onSelect={() => handleSelectPlan("premium")}
-        />
-      </div>
-
-      {/* Feature Comparison Matrix Table */}
-      <div className="pt-12">
-        <div className="text-center mb-8">
-          <h3 className="text-2xl font-bold text-white font-[family-name:var(--font-space-grotesk)]">
-            Compare Plan Capabilities
-          </h3>
-          <p className="text-sm text-gray-400 mt-1">
-            Detailed breakdown of room limits, audio/video capabilities, and perks.
-          </p>
+            isLoading={isLoadingCheckout}
+            onSelect={() => handleSelectPlan("premium")}
+          />
         </div>
-
-        <GlassPanel className="overflow-x-auto p-0 border border-purple-500/20">
-          <table className="w-full text-left text-sm text-gray-300">
-            <thead className="bg-[#120E22] text-xs uppercase font-bold text-purple-300/80 border-b border-purple-500/20">
-              <tr>
-                <th className="p-4 sm:p-5">Feature</th>
-                <th className="p-4 sm:p-5">Guest</th>
-                <th className="p-4 sm:p-5 text-purple-200">Free</th>
-                <th className="p-4 sm:p-5 text-amber-300">Premium</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-white/5">
-              <tr>
-                <td className="p-4 sm:p-5 font-semibold text-white">Active Rooms</td>
-                <td className="p-4 sm:p-5">1 room</td>
-                <td className="p-4 sm:p-5">4 rooms</td>
-                <td className="p-4 sm:p-5 text-amber-300 font-bold">20 persistent rooms</td>
-              </tr>
-              <tr>
-                <td className="p-4 sm:p-5 font-semibold text-white">Members per Room</td>
-                <td className="p-4 sm:p-5">4 members</td>
-                <td className="p-4 sm:p-5">8 members</td>
-                <td className="p-4 sm:p-5 text-amber-300 font-bold">16 members</td>
-              </tr>
-              <tr>
-                <td className="p-4 sm:p-5 font-semibold text-white">Session Length</td>
-                <td className="p-4 sm:p-5">60 minutes</td>
-                <td className="p-4 sm:p-5">4 hours</td>
-                <td className="p-4 sm:p-5 text-amber-300 font-bold">Up to 24 hours</td>
-              </tr>
-              <tr>
-                <td className="p-4 sm:p-5 font-semibold text-white">Voice & Video Facecams</td>
-                <td className="p-4 sm:p-5 text-gray-500"><Minus className="w-4 h-4" /></td>
-                <td className="p-4 sm:p-5 text-purple-300">Voice only</td>
-                <td className="p-4 sm:p-5 text-amber-300 font-bold">Video + Voice</td>
-              </tr>
-              <tr>
-                <td className="p-4 sm:p-5 font-semibold text-white">Room Persistence & Saved Rooms</td>
-                <td className="p-4 sm:p-5 text-gray-500"><Minus className="w-4 h-4" /></td>
-                <td className="p-4 sm:p-5 text-gray-500"><Minus className="w-4 h-4" /></td>
-                <td className="p-4 sm:p-5 text-amber-300 font-bold">20 persistent rooms</td>
-              </tr>
-              <tr>
-                <td className="p-4 sm:p-5 font-semibold text-white">Animated Emoji Reactions</td>
-                <td className="p-4 sm:p-5">8 standard</td>
-                <td className="p-4 sm:p-5">8 standard</td>
-                <td className="p-4 sm:p-5 text-amber-300 font-bold">24 Lottie animated</td>
-              </tr>
-              <tr>
-                <td className="p-4 sm:p-5 font-semibold text-white">Media Support (Local + YouTube)</td>
-                <td className="p-4 sm:p-5"><Check className="w-4 h-4 text-emerald-400" /></td>
-                <td className="p-4 sm:p-5"><Check className="w-4 h-4 text-emerald-400" /></td>
-                <td className="p-4 sm:p-5"><Check className="w-4 h-4 text-emerald-400" /></td>
-              </tr>
-              <tr>
-                <td className="p-4 sm:p-5 font-semibold text-white">Cloud Media Streaming (Host Upload)</td>
-                <td className="p-4 sm:p-5 text-gray-500"><Minus className="w-4 h-4" /></td>
-                <td className="p-4 sm:p-5 text-purple-300">2.5 GB/wk (up to 2 GB file)</td>
-                <td className="p-4 sm:p-5 text-amber-300 font-bold">Unlimited (up to 10 GB file)</td>
-              </tr>
-            </tbody>
-          </table>
-        </GlassPanel>
+        {/* Wording follows app/refund/page.tsx: cancel any time, perks run to
+            the end of the paid period, 14-day refund on a first purchase. */}
+        <p className="text-sm text-gray-500 leading-relaxed">
+          Cancel any time. You keep Premium until the end of the period you paid for. First purchase?{" "}
+          <Link href="/refund" className="underline underline-offset-2 hover:text-white">14-day refund</Link>, no questions asked.
+        </p>
       </div>
-    </div>
+
+      {/* Comparison */}
+      <div className="pt-2 space-y-4">
+        <h3 className={`${display} text-3xl sm:text-[36px] font-extrabold tracking-[-0.04em] leading-[0.92]`}>Side by side.</h3>
+
+        {/* One ruled table at every width: four columns fit 360px because the
+            cells are short and the text steps down on phones. */}
+        <table className="w-full table-fixed text-left text-[12px] sm:text-[15px]">
+          <colgroup>
+            <col className="w-[34%] sm:w-[31.8%]" />
+            <col />
+            <col />
+            <col />
+          </colgroup>
+          <thead className={`${mono} text-[9px] sm:text-[11px] tracking-[0.14em] uppercase`}>
+            <tr className="border-b border-rail">
+              <th className="py-3.5 pr-3 font-normal text-gray-500">The seat</th>
+              <th className="py-3.5 px-3 font-normal text-gray-500">Guest</th>
+              <th className="py-3.5 px-3 font-normal text-beam-500">Free</th>
+              <th className="py-3.5 pl-3 font-normal text-brass">Patron</th>
+            </tr>
+          </thead>
+          <tbody>
+            {COMPARISON.map((row) => (
+              <tr key={row.feature} className="align-top border-b border-aisle leading-snug">
+                <th scope="row" className="py-[11px] pr-3 font-semibold text-white">{row.feature}</th>
+                {row.values.map((v, i) => (
+                  <td key={i} className={`py-[11px] px-3 last:pr-0 break-words ${cellTone(v, i)}`}>
+                    {cellText(v)}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
   );
+}
+
+/** Short lists for the cards; the full story is in the table below. */
+const CARD_FEATURES = {
+  guest: ["1 live room at a time", "Up to 4 people per room", "60-minute shows", "Local files & YouTube", "Chat and 8 reactions"],
+  free: ["4 live rooms", "Up to 8 people per room", "4-hour shows, room waits 24 h", "Voice facecams", "Upload your film: 2.5 GB a week"],
+  premium: [
+    "20 rooms, kept for good",
+    "Up to 16 people per room",
+    "Shows up to 24 hours",
+    "Voice + video facecams",
+    "24 animated reactions",
+    "Unlimited uploads, 10 GB a file",
+    "Your page at /u/handle",
+    "Your perks shared with the whole room",
+  ],
+};
+
+/** `null` is "not on this plan", `true` is "included". */
+type Cell = string | null | true;
+
+// Mirrors tier_limits: guest dormant_hours 0 (room closes at expiry), free
+// 24 h dormant, premium persistent. Handles are Patron-only (claim_handle).
+const COMPARISON: { feature: string; values: [Cell, Cell, Cell] }[] = [
+  { feature: "Live rooms", values: ["1", "4", "20, kept for good"] },
+  { feature: "People per room", values: ["4", "8", "16"] },
+  { feature: "Session length", values: ["60 min", "4 hours", "up to 24 hours"] },
+  { feature: "Facecams", values: [null, "Voice", "Voice + video"] },
+  { feature: "Room waits between shows", values: [null, "24 hours", "Never closes"] },
+  { feature: "Upload your film for the room", values: [null, "2.5 GB / week · 2 GB file", "Unlimited · 10 GB file"] },
+  { feature: "Local files + YouTube", values: [true, true, true] },
+  { feature: "Public page at /u/handle", values: [null, null, true] },
+];
+
+function cellText(v: Cell) {
+  if (v === null) return <span aria-label="Not included">×</span>;
+  if (v === true) return <span aria-label="Included">Included</span>;
+  return v;
+}
+
+// Guest reads muted, Free in Screen, Patron in Brass: the board's columns.
+function cellTone(v: Cell, i: number) {
+  if (v === null) return "text-[#5A4F44]";
+  return ["text-gray-400", "text-white", "text-brass"][i];
 }

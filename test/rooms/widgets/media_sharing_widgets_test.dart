@@ -80,7 +80,7 @@ void main() {
       await tester.tap(find.text('Open Dialog'));
       await tester.pumpAndSettle();
 
-      expect(find.text('Share with room?'), findsOneWidget);
+      expect(find.text('Share with the room?'), findsOneWidget);
       expect(find.textContaining('vacation.mp4'), findsOneWidget);
       expect(find.textContaining('150 MB'), findsOneWidget);
 

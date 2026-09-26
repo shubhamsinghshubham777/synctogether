@@ -10,6 +10,7 @@ import 'package:synctogether/platform.dart';
 import 'package:synctogether/player/youtube/pt_youtube_controller.dart';
 import 'package:synctogether/ui/buttons.dart';
 import 'package:synctogether/ui/glass.dart';
+import 'package:synctogether/ui/loader.dart';
 import 'package:synctogether/ui/pt_theme.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -17,16 +18,23 @@ import 'package:url_launcher/url_launcher.dart';
 /// captcha token (null on cancel/failure). The page is served from a throwaway
 /// loopback server so its origin really is `localhost` - that hostname must
 /// stay in the Turnstile widget allow-list.
-Future<String?> showTurnstileDialog(BuildContext context) {
+Future<String?> showTurnstileDialog(
+  BuildContext context, {
+  @visibleForTesting bool previewLoading = false,
+}) {
   return showGlassDialog<String>(
     context: context,
     width: 380,
-    builder: (_) => const _TurnstileBody(),
+    builder: (_) => _TurnstileBody(previewLoading: previewLoading),
   );
 }
 
 class _TurnstileBody extends StatefulWidget {
-  const _TurnstileBody();
+  const _TurnstileBody({this.previewLoading = false});
+
+  /// Holds the dialog in its loading state with no server and no webview,
+  /// so the layout matrix can render it (tests have no platform webview).
+  final bool previewLoading;
 
   @override
   State<_TurnstileBody> createState() => _TurnstileBodyState();
@@ -52,9 +60,14 @@ class _TurnstileBodyState extends State<_TurnstileBody> {
   bool _pageRequested = false;
   bool _webViewCreated = false;
 
+  /// Until the challenge page finishes loading, its slot shows a placeholder
+  /// rather than an empty box.
+  bool _pageLoaded = false;
+
   @override
   void initState() {
     super.initState();
+    if (widget.previewLoading) return;
     // Known before anything is drawn, and no amount of waiting or retrying
     // changes it - so say so immediately instead of after the full deadline.
     if (PTWebView.runtimeMissing) {
@@ -222,9 +235,9 @@ function onloadTurnstile() {
       crossAxisAlignment: .start,
       spacing: 14,
       children: [
-        Text('Quick check', textScaler: dialogHeadingScaler(context), style: PTText.cardHeading),
+        const GlassDialogHeader(eyebrow: 'At the door', title: 'Quick check'),
         Text(
-          _failed ? _failureMessage : "Just making sure you're human - takes a second.",
+          _failed ? _failureMessage : "Just making sure you're human. It takes a second.",
           style: PTText.body.copyWith(fontSize: 13.5, color: PTColors.white(0.6)),
         ),
         // Shown only on failure, and deliberately not dressed up as friendly
@@ -262,7 +275,17 @@ function onloadTurnstile() {
               // so a narrow phone scales the whole box down instead.
               child: FittedBox(
                 fit: .scaleDown,
-                child: SizedBox(width: 300, height: 65, child: _buildWebView(context)),
+                child: SizedBox(
+                  width: 300,
+                  height: 65,
+                  child: Stack(
+                    fit: .expand,
+                    children: [
+                      _buildWebView(context),
+                      if (!_pageLoaded && !_failed) const _ChallengeLoading(),
+                    ],
+                  ),
+                ),
               ),
             ),
           ),
@@ -319,8 +342,10 @@ function onloadTurnstile() {
         category: 'turnstile.webview',
         data: {'url': '${request.url}'},
       ),
-      onLoadStop: (_, url) =>
-          trace('load finished', category: 'turnstile.webview', data: {'url': '$url'}),
+      onLoadStop: (_, url) {
+        trace('load finished', category: 'turnstile.webview', data: {'url': '$url'});
+        if (mounted && !_pageLoaded) setState(() => _pageLoaded = true);
+      },
       onWebViewCreated: (controller) {
         // Never fires if the platform could not build the webview
         // - which is the failure this dialog could not previously
@@ -361,6 +386,31 @@ function onloadTurnstile() {
           },
         );
       },
+    );
+  }
+}
+
+/// The challenge slot while Cloudflare's page loads: a hairline box the size
+/// of the widget it will become, so nothing jumps when it arrives.
+class _ChallengeLoading extends StatelessWidget {
+  const _ChallengeLoading();
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: PTColors.aisle,
+        border: Border.all(color: PTColors.rail),
+        borderRadius: BorderRadius.circular(PTRadius.control),
+      ),
+      child: Row(
+        mainAxisAlignment: .center,
+        spacing: 10,
+        children: [
+          const PTLoader(size: 14),
+          Text('CHECKING', style: PTText.label.copyWith(color: PTColors.white(0.55))),
+        ],
+      ),
     );
   }
 }

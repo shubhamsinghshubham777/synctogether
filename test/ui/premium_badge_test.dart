@@ -81,13 +81,13 @@ void main() {
   });
 
   group('PremiumBadge', () {
-    testWidgets('reads as Premium', (tester) async {
+    testWidgets('reads as Patron', (tester) async {
       await tester.pumpWidget(
         const MaterialApp(
           home: Scaffold(body: Center(child: PremiumBadge())),
         ),
       );
-      expect(find.text('Premium'), findsOneWidget);
+      expect(find.text('Patron'), findsOneWidget);
       expect(_crown, findsOneWidget);
     });
   });

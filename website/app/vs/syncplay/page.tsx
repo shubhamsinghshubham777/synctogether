@@ -17,7 +17,7 @@ export default function VsSyncplayPage() {
       headline={
         <>
           Syncplay alternative with{" "}
-          <span className="text-gradient-brand">voice and facecams built in</span>
+          <span className="text-beam-500">voice and facecams built in.</span>
         </>
       }
       intro="Syncplay is free, open source, cross-platform and genuinely good at the hard part: keeping local video files in lockstep across machines. It has been doing this for over a decade. If it already works for you, there is a reasonable argument that you should keep using it, and this page will not pretend otherwise. What follows is what SyncTogether does that Syncplay does not."

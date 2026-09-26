@@ -11,7 +11,7 @@
 <p align="center">
   <a href="#license"><img src="https://img.shields.io/badge/License-PolyForm_Noncommercial_1.0.0-blue.svg" alt="License: PolyForm Noncommercial 1.0.0"></a>
   <img src="https://img.shields.io/badge/Flutter-3.44.x-02569B?logo=flutter" alt="Flutter">
-  <img src="https://img.shields.io/badge/Platforms-macOS_%7C_Windows_%7C_Android_%7C_iOS-blueviolet" alt="Platforms">
+  <img src="https://img.shields.io/badge/Platforms-macOS_%7C_Windows_%7C_Android_%7C_iOS-FFB23F" alt="Platforms">
 </p>
 
 ---
@@ -22,7 +22,7 @@ SyncTogether is a modern cross-platform application for synchronized media playb
 
 | Lobby | Theater Room |
 |:---:|:---:|
-| <img src="assets/store/1_violet_glass_lobby.jpg" alt="Lobby Screen" /> | <img src="assets/store/2_theater_room.jpg" alt="Theater Room" /> |
+| <img src="assets/store/1_lobby.jpg" alt="Lobby Screen" /> | <img src="assets/store/2_theater_room.jpg" alt="Theater Room" /> |
 | **Room Chat** | **Media Chooser** |
 | <img src="assets/store/3_room_chat.jpg" alt="Room Chat" /> | <img src="assets/store/4_media_chooser.jpg" alt="Media Chooser" /> |
 
@@ -37,7 +37,7 @@ SyncTogether is a modern cross-platform application for synchronized media playb
 - **Flexible Authentication** - Instant anonymous guest accounts (protected by Cloudflare Turnstile), Sign in with Apple, Google Sign-In, or Passwordless Email OTP with seamless in-place identity upgrades.
 - **Resumable & Persistent Rooms** - Dormant rooms can be resumed by the host with playback position preserved, or extended/ended on demand.
 - **Self-Hosting Ready** - Deploy the complete stack (Postgres database, Realtime engine, Edge Functions, LiveKit server, Web portal) on your own infrastructure or cloud free tiers.
-- **Modern Violet Glass UI** - Consistent, dark glassmorphism design system across desktop, tablet, and mobile orientations.
+- **Booth Light design** - A warm, matte "projection booth" look where the video is always the brightest thing on screen, consistent across desktop, tablet and mobile.
 
 ---
 
@@ -114,7 +114,7 @@ Release builds and installer artifacts are built via GitHub Actions (`.github/wo
 
 | Directory | Description |
 |---|---|
-| `lib/ui/` | Violet glass design system: tokens (`PTColors`, `PTText`), buttons, inputs, loaders (`PTLoader`), dialogs |
+| `lib/ui/` | Booth Light design system: tokens (`PTColors`, `PTText`), buttons, inputs, loaders (`PTLoader`), dialogs |
 | `lib/auth/`, `lib/profile/` | Authentication flows, Turnstile captcha bridge, user profiles, entitlement management |
 | `lib/rooms/` | Lobby, room screen, participant grid, room lifecycle & service |
 | `lib/sync/` | Lockstep synchronization engine (`SyncService`, `SyncBackend`, `SyncLogic`) |

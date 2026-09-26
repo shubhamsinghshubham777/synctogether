@@ -105,7 +105,7 @@ void showPTSnackVia(
           decoration: BoxDecoration(
             color: background,
             border: Border.all(color: border),
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(PTRadius.panel),
             boxShadow: [
               BoxShadow(color: PTColors.black(0.45), blurRadius: 32, offset: const Offset(0, 12)),
             ],
@@ -257,7 +257,7 @@ class _PTBannerState extends State<PTBanner> with TickerProviderStateMixin {
       decoration: BoxDecoration(
         color: bg,
         border: Border.all(color: border),
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(PTRadius.panel),
         boxShadow: [
           BoxShadow(color: PTColors.black(0.45), blurRadius: 40, offset: const Offset(0, 14)),
         ],

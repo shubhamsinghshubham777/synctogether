@@ -1,199 +1,143 @@
+"use client";
+
 import Link from "next/link";
-import { Logo } from "./Logo";
+import { usePathname } from "next/navigation";
 import { SITE_CONFIG } from "@/lib/constants";
-import { Mail, Heart, ShieldCheck } from "lucide-react";
+
+type FooterLink = { label: string; href: string };
+
+const COLUMNS: { title: string; links: FooterLink[] }[] = [
+  {
+    title: "Product",
+    links: [
+      { label: "Download for macOS", href: "/download" },
+      { label: "Download for Windows", href: "/download" },
+      { label: "Pricing", href: "/pricing" },
+      { label: "Changelog", href: "/changelog" },
+    ],
+  },
+  {
+    title: "Resources",
+    links: [
+      { label: "Leaderboard", href: "/leaderboard" },
+      { label: "vs Syncplay", href: "/vs/syncplay" },
+      { label: "vs Discord", href: "/vs/discord" },
+      { label: "vs Teleparty", href: "/vs/teleparty" },
+      { label: "FAQ", href: "/faq" },
+    ],
+  },
+  {
+    title: "House rules",
+    links: [
+      { label: "Terms of Service", href: "/terms" },
+      { label: "Privacy Policy", href: "/privacy" },
+      { label: "Refund Policy (14 days)", href: "/refund" },
+      { label: "Copyright & DMCA", href: "/dmca" },
+    ],
+  },
+];
+
+const mono = "font-[family-name:var(--font-jetbrains-mono)]";
+const display = "font-[family-name:var(--font-space-grotesk)]";
+
+/**
+ * The end credits. A closing line set big, the wordmark, three ruled columns
+ * of links in the mono label voice, and a credits bar. Flat Booth-black under
+ * a Rail hairline - no glow, no icons standing in for words.
+ */
+const COMPACT_LINKS: FooterLink[] = [
+  { label: "Download", href: "/download" },
+  { label: "Pricing", href: "/pricing" },
+  { label: "FAQ", href: "/faq" },
+  { label: "Changelog", href: "/changelog" },
+  { label: "Leaderboard", href: "/leaderboard" },
+  { label: "Terms", href: "/terms" },
+  { label: "Privacy", href: "/privacy" },
+  { label: "Refunds", href: "/refund" },
+  { label: "DMCA", href: "/dmca" },
+];
+
+/** Home and pricing close on one row; everything else gets the full credits. */
+const COMPACT_PATHS = new Set(["/", "/pricing"]);
+
+function Credits({ year }: { year: number }) {
+  return (
+    <>
+      <span>
+        © {year} {SITE_CONFIG.name} · Made by{" "}
+        <a
+          href={SITE_CONFIG.creatorLinkedIn}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="hover:text-white underline underline-offset-4 decoration-rail hover:decoration-beam-500 transition-colors"
+        >
+          {SITE_CONFIG.creatorName}
+        </a>
+      </span>
+      <span>
+        <a href={SITE_CONFIG.githubRepo} target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">
+          Source available
+        </a>{" "}
+        · PolyForm Noncommercial
+      </span>
+    </>
+  );
+}
 
 export function Footer() {
   const currentYear = new Date().getFullYear();
+  const pathname = usePathname();
 
-  return (
-    <footer className="relative bg-[#06050A] border-t border-purple-500/15 pt-16 pb-12 overflow-hidden">
-      {/* Background subtle glow */}
-      <div className="glow-blob-purple -bottom-40 left-1/2 -translate-x-1/2 opacity-30" />
-
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-10 mb-12">
-          {/* Col 1: Brand & Tagline */}
-          <div className="md:col-span-1 space-y-4">
-            <Logo size="md" />
-            <p className="text-sm text-gray-400 leading-relaxed font-[family-name:var(--font-outfit)]">
-              {SITE_CONFIG.tagline}
-            </p>
-            <div className="flex items-center gap-3 pt-2">
-              <a
-                href={SITE_CONFIG.githubRepo}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="p-2 rounded-xl bg-purple-500/10 hover:bg-purple-500/20 text-purple-300 hover:text-white border border-purple-500/20 transition-colors"
-                aria-label="GitHub Repository"
-              >
-                <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
-                  <path fillRule="evenodd" clipRule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" />
-                </svg>
-              </a>
-              <a
-                href={`mailto:${SITE_CONFIG.supportEmail}`}
-                className="p-2 rounded-xl bg-purple-500/10 hover:bg-purple-500/20 text-purple-300 hover:text-white border border-purple-500/20 transition-colors"
-                aria-label="Support Email"
-              >
-                <Mail className="w-4 h-4" />
-              </a>
-            </div>
+  if (COMPACT_PATHS.has(pathname ?? "")) {
+    return (
+      <footer className="relative bg-[#0D0B0B] border-t border-aisle">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-7">
+          <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-5">
+            <p className={`${display} text-[32px] leading-[0.92] font-extrabold tracking-[-0.04em] text-white`}>House lights up.</p>
+            <nav aria-label="Footer" className="flex flex-wrap gap-x-[22px] gap-y-2 text-sm">
+              {COMPACT_LINKS.map((l) => (
+                <Link key={l.label} href={l.href} className="text-gray-300 hover:text-white transition-colors">
+                  {l.label}
+                </Link>
+              ))}
+            </nav>
           </div>
-
-          {/* Col 2: Product */}
-          <div>
-            <h4 className="text-xs font-bold uppercase tracking-wider text-purple-300/80 mb-4 font-[family-name:var(--font-space-grotesk)]">
-              Product
-            </h4>
-            <ul className="space-y-2.5 text-sm text-gray-400">
-              <li>
-                <Link
-                  href="/download"
-                  className="hover:text-white transition-colors"
-                >
-                  Download for macOS
-                </Link>
-              </li>
-              <li>
-                <Link
-                  href="/download"
-                  className="hover:text-white transition-colors"
-                >
-                  Download for Windows
-                </Link>
-              </li>
-              <li>
-                <Link
-                  href="/pricing"
-                  className="hover:text-white transition-colors"
-                >
-                  Pricing & Plans
-                </Link>
-              </li>
-              <li>
-                <Link
-                  href="/changelog"
-                  className="hover:text-white transition-colors"
-                >
-                  Changelog & Releases
-                </Link>
-              </li>
-            </ul>
-          </div>
-
-          {/* Col 3: Resources & Support */}
-          <div>
-            <h4 className="text-xs font-bold uppercase tracking-wider text-purple-300/80 mb-4 font-[family-name:var(--font-space-grotesk)]">
-              Resources
-            </h4>
-            <ul className="space-y-2.5 text-sm text-gray-400">
-              <li>
-                <Link href="/leaderboard" className="hover:text-white transition-colors">
-                  Leaderboard
-                </Link>
-              </li>
-              <li>
-                <Link href="/vs/syncplay" className="hover:text-white transition-colors">
-                  vs Syncplay
-                </Link>
-              </li>
-              <li>
-                <Link href="/vs/discord" className="hover:text-white transition-colors">
-                  vs Discord
-                </Link>
-              </li>
-              <li>
-                <Link href="/vs/teleparty" className="hover:text-white transition-colors">
-                  vs Teleparty
-                </Link>
-              </li>
-              <li>
-                <Link href="/faq" className="hover:text-white transition-colors">
-                  Frequently Asked Questions
-                </Link>
-              </li>
-              <li>
-                <a
-                  href={`mailto:${SITE_CONFIG.supportEmail}`}
-                  className="hover:text-white transition-colors flex items-center gap-1.5"
-                >
-                  <span>Email Support</span>
-                </a>
-              </li>
-              <li>
-                <a
-                  href={`${SITE_CONFIG.githubRepo}/issues`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="hover:text-white transition-colors"
-                >
-                  Report an Issue
-                </a>
-              </li>
-            </ul>
-          </div>
-
-          {/* Col 4: Legal */}
-          <div>
-            <h4 className="text-xs font-bold uppercase tracking-wider text-purple-300/80 mb-4 font-[family-name:var(--font-space-grotesk)]">
-              Legal & Trust
-            </h4>
-            <ul className="space-y-2.5 text-sm text-gray-400">
-              <li>
-                <Link
-                  href="/terms"
-                  className="hover:text-white transition-colors"
-                >
-                  Terms of Service
-                </Link>
-              </li>
-              <li>
-                <Link
-                  href="/privacy"
-                  className="hover:text-white transition-colors flex items-center gap-1.5"
-                >
-                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-                  <span>Privacy Policy</span>
-                </Link>
-              </li>
-              <li>
-                <Link
-                  href="/refund"
-                  className="hover:text-white transition-colors"
-                >
-                  Refund Policy (14 Days)
-                </Link>
-              </li>
-              <li>
-                <Link
-                  href="/dmca"
-                  className="hover:text-white transition-colors"
-                >
-                  Copyright &amp; DMCA
-                </Link>
-              </li>
-            </ul>
+          <div className={`${mono} mt-5 flex flex-col md:flex-row justify-between gap-2 text-xs tracking-[0.08em] uppercase text-[#5A4F44]`}>
+            <Credits year={currentYear} />
           </div>
         </div>
+      </footer>
+    );
+  }
 
-        {/* Bottom Bar */}
-        <div className="pt-8 border-t border-white/5 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-gray-500">
-          <div className="flex items-center gap-2">
-            <span>© {currentYear} {SITE_CONFIG.name}. All rights reserved.</span>
-            <span>•</span>
-            <span className="inline-flex items-center gap-1">
-              Made with <Heart className="w-3 h-3 text-rose-500 fill-rose-500" /> by{" "}
-              <a
-                href={SITE_CONFIG.creatorLinkedIn}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-purple-300 hover:text-white underline underline-offset-4 decoration-purple-400/50 hover:decoration-purple-200 font-medium transition-all"
-              >
-                {SITE_CONFIG.creatorName}
-              </a>
-            </span>
+  return (
+    <footer className="relative bg-[#0D0B0B] border-t border-aisle">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-12 md:pt-14 pb-10 flex flex-col gap-12">
+        <div className="grid grid-cols-2 lg:grid-cols-[1.3fr_1fr_1fr_1fr] gap-x-6 gap-y-10 lg:gap-12">
+          <div className="col-span-2 lg:col-span-1 flex flex-col gap-5">
+            <p className={`${display} text-4xl sm:text-[44px] font-extrabold tracking-[-0.04em] leading-[0.92] text-white`}>
+              House lights up.
+              <br />
+              <span className="text-[#5A4F44]">See you next showing.</span>
+            </p>
+            <p className="text-[15px] text-gray-500 leading-[1.55]">Movie night, even when you&apos;re not in the same room.</p>
           </div>
+
+          {COLUMNS.map((col) => (
+            <nav key={col.title} aria-label={col.title} className="min-w-0 flex flex-col gap-3.5">
+              <h4 className={`${mono} text-[11px] tracking-[0.14em] uppercase text-gray-500`}>{col.title}</h4>
+              <div className="h-px bg-rail shrink-0" />
+              {col.links.map((l) => (
+                <Link key={l.label} href={l.href} className="text-[15px] text-gray-300 hover:text-white transition-colors">
+                  {l.label}
+                </Link>
+              ))}
+            </nav>
+          ))}
+        </div>
+
+        <div className={`${mono} flex flex-col md:flex-row justify-between gap-2 text-xs tracking-[0.08em] uppercase text-[#5A4F44]`}>
+          <Credits year={currentYear} />
         </div>
       </div>
     </footer>

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:synctogether/ui/buttons.dart';
 import 'package:synctogether/ui/glass.dart';
@@ -72,6 +73,7 @@ class RoomControlBar extends StatefulWidget {
     this.camAvailable = true,
     required this.actions,
     this.compact = false,
+    this.docked = false,
     this.fullscreen = false,
     this.reactOpen = false,
     this.transportEnabled = true,
@@ -89,6 +91,11 @@ class RoomControlBar extends StatefulWidget {
   final bool camAvailable;
   final RoomControlBarActions actions;
   final bool compact;
+
+  /// Flat, full-width, in the layout flow (the theatre layout under the
+  /// video, the phone room below it) rather than a floating panel over it.
+  /// With [compact] it keeps the compact rows and only loses the shell.
+  final bool docked;
   final bool fullscreen;
   final bool reactOpen;
 
@@ -104,7 +111,91 @@ class RoomControlBar extends StatefulWidget {
   State<RoomControlBar> createState() => _RoomControlBarState();
 }
 
-class _RoomControlBarState extends State<RoomControlBar> {
+/// Where the playhead should be drawn [sinceReport] after the player last
+/// reported [reported], while playing.
+///
+/// The player reports its position a few times a second; drawing only those
+/// values makes the fill tick forward in visible steps. Between reports the
+/// playhead advances on the wall clock, capped at [kMaxExtrapolation] past the
+/// report so a stalled player (which keeps reporting `playing`) freezes rather
+/// than running away, and never past [duration].
+@visibleForTesting
+Duration extrapolatedPlayhead({
+  required Duration reported,
+  required Duration sinceReport,
+  required Duration duration,
+}) {
+  final ahead = sinceReport > kMaxExtrapolation ? kMaxExtrapolation : sinceReport;
+  final at = reported + ahead;
+  return duration > Duration.zero && at > duration ? duration : at;
+}
+
+/// How far the drawn playhead may run ahead of the last report.
+const kMaxExtrapolation = Duration(milliseconds: 1200);
+
+class _RoomControlBarState extends State<RoomControlBar> with SingleTickerProviderStateMixin {
+  /// The playhead as drawn. Separate from `widget.position` so the per-frame
+  /// advance rebuilds only the slider and readout, never the whole bar.
+  late final ValueNotifier<Duration> _playhead = ValueNotifier(widget.position);
+  late final Ticker _ticker = createTicker(_onTick);
+  Duration _reportedAt = Duration.zero;
+  Duration _lastTick = Duration.zero;
+
+  @override
+  void initState() {
+    super.initState();
+    _syncTicker();
+  }
+
+  @override
+  void didUpdateWidget(RoomControlBar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.position != oldWidget.position) {
+      _reportedAt = _ticker.isActive ? _lastTick : Duration.zero;
+      // A report slightly behind what we drew is the player catching up with
+      // our extrapolation - holding the drawn value hides a backwards twitch.
+      // Anything larger is a seek and snaps.
+      final drawn = _playhead.value;
+      final behind = drawn - widget.position;
+      if (!(widget.playing && behind > Duration.zero && behind < kMaxExtrapolation)) {
+        _playhead.value = widget.position;
+      }
+    }
+    if (widget.playing != oldWidget.playing) {
+      if (!widget.playing) _playhead.value = widget.position;
+      _syncTicker();
+    }
+  }
+
+  void _syncTicker() {
+    // The ticker runs only while playing: a paused room costs no frames.
+    final run = widget.playing && widget.duration > Duration.zero;
+    if (run && !_ticker.isActive) {
+      _reportedAt = Duration.zero;
+      _lastTick = Duration.zero;
+      _ticker.start();
+    } else if (!run && _ticker.isActive) {
+      _ticker.stop();
+    }
+  }
+
+  void _onTick(Duration elapsed) {
+    _lastTick = elapsed;
+    final next = extrapolatedPlayhead(
+      reported: widget.position,
+      sinceReport: elapsed - _reportedAt,
+      duration: widget.duration,
+    );
+    if (next > _playhead.value) _playhead.value = next;
+  }
+
+  @override
+  void dispose() {
+    _ticker.dispose();
+    _playhead.dispose();
+    super.dispose();
+  }
+
   /// While scrubbing, the bar previews this value locally; the actual seek
   /// (and its room-wide broadcast) fires once, on release.
   double? _dragValue;
@@ -114,9 +205,9 @@ class _RoomControlBarState extends State<RoomControlBar> {
   double? _hoverValue;
   final _sliderLink = LayerLink();
 
-  double get _progress => widget.duration.inMilliseconds == 0
+  double _progressOf(Duration position) => widget.duration.inMilliseconds == 0
       ? 0
-      : widget.position.inMilliseconds / widget.duration.inMilliseconds;
+      : (position.inMilliseconds / widget.duration.inMilliseconds).clamp(0.0, 1.0);
 
   void _endScrub(double v) {
     setState(() => _dragValue = null);
@@ -134,39 +225,72 @@ class _RoomControlBarState extends State<RoomControlBar> {
     final compact = widget.compact;
     final drag = _dragValue;
     final hover = _hoverValue;
-    final shownPosition = drag == null ? widget.position : widget.duration * drag;
-    final panel = GlassPanel(
-      radius: compact ? 20 : 24,
-      opacity: 0.6,
-      blur: 32,
-      baseColor: PTColors.surfaceBase,
-      padding: EdgeInsets.symmetric(horizontal: compact ? 16 : 26, vertical: compact ? 14 : 18),
+    final docked = widget.docked;
+    Widget shell(Widget child) => docked
+        ? DecoratedBox(
+            decoration: const BoxDecoration(
+              color: PTColors.canvas,
+              border: Border(top: BorderSide(color: PTColors.aisle)),
+            ),
+            child: Padding(
+              padding: compact
+                  ? const EdgeInsets.fromLTRB(14, 10, 14, 10)
+                  : const EdgeInsets.fromLTRB(24, 12, 20, 12),
+              child: child,
+            ),
+          )
+        : GlassPanel(
+            radius: compact ? 20 : 24,
+            opacity: 0.6,
+            blur: 32,
+            baseColor: PTColors.surfaceBase,
+            padding: EdgeInsets.symmetric(
+              horizontal: compact ? 16 : 26,
+              vertical: compact ? 14 : 18,
+            ),
+            child: child,
+          );
+    final panel = shell(
       // Two nested columns on purpose: the hint sits *outside* the spaced
       // column so its collapsed state costs nothing. As a spaced sibling, an
       // empty hint would still leave a row gap behind it.
-      child: Column(
+      Column(
         mainAxisSize: .min,
         children: [
           Column(
             mainAxisSize: .min,
-            spacing: compact ? 10 : 14,
+            spacing: docked ? 8 : (compact ? 10 : 14),
             children: [
               Row(
                 spacing: compact ? 10 : 16,
                 children: [
-                  _timeReadout(context, _fmt(shownPosition), compact: compact),
+                  ValueListenableBuilder(
+                    valueListenable: _playhead,
+                    builder: (context, playhead, _) => _timeReadout(
+                      context,
+                      _fmt(drag == null ? playhead : widget.duration * drag),
+                      compact: compact,
+                    ),
+                  ),
                   Expanded(
                     child: CompositedTransformTarget(
                       link: _sliderLink,
-                      child: PTSlider(
-                        value: drag ?? _progress,
-                        bufferedValue: _bufferedProgress,
-                        trackHeight: compact ? 4 : 5,
-                        thumbRadius: compact ? 6 : 7,
-                        enabled: widget.transportEnabled,
-                        onChanged: (v) => setState(() => _dragValue = v),
-                        onChangeEnd: _endScrub,
-                        onHover: (v) => setState(() => _hoverValue = v),
+                      // Its own layer: the playhead repaints every frame while
+                      // playing, and nothing else in the bar should.
+                      child: RepaintBoundary(
+                        child: ValueListenableBuilder(
+                          valueListenable: _playhead,
+                          builder: (context, playhead, _) => PTSlider(
+                            value: drag ?? _progressOf(playhead),
+                            bufferedValue: _bufferedProgress,
+                            trackHeight: compact ? 4 : 5,
+                            thumbRadius: compact ? 6 : 7,
+                            enabled: widget.transportEnabled,
+                            onChanged: (v) => setState(() => _dragValue = v),
+                            onChangeEnd: _endScrub,
+                            onHover: (v) => setState(() => _hoverValue = v),
+                          ),
+                        ),
                       ),
                     ),
                   ),
@@ -178,7 +302,11 @@ class _RoomControlBarState extends State<RoomControlBar> {
                   ),
                 ],
               ),
-              compact ? _compactRow() : _fullRow(),
+              compact
+                  ? _compactRow()
+                  : docked
+                  ? _dockedRow()
+                  : _fullRow(),
             ],
           ),
           // Grows and collapses rather than appearing: the gate can flap, and
@@ -258,249 +386,302 @@ class _RoomControlBarState extends State<RoomControlBar> {
     );
   }
 
-  Widget _fullRow() {
+  /// Mic, camera (or its Premium lock) and the reaction toggle.
+  List<Widget> _avButtons() {
     final actions = widget.actions;
+    return [
+      if (widget.avAvailable) ...[
+        _SplitDeviceButton(
+          height: 42,
+          onDropdown: actions.onMicDeviceSelect,
+          dropdownTooltip: 'Select microphone',
+          mainButton: PTIconButton(
+            icon: Symbols.mic_rounded,
+            active: widget.micOn,
+            glass: false,
+            borderRadius: BorderRadius.circular(PTRadius.control),
+            size: 42,
+            tooltip: widget.micOn ? 'Mute mic (D)' : 'Mic on (D)',
+            onPressed: () => actions.onMicToggle(!widget.micOn),
+          ),
+        ),
+        if (widget.camAvailable)
+          _SplitDeviceButton(
+            height: 42,
+            onDropdown: actions.onCamDeviceSelect,
+            dropdownTooltip: 'Select camera',
+            mainButton: PTIconButton(
+              icon: Symbols.videocam_rounded,
+              active: widget.camOn,
+              glass: false,
+              borderRadius: BorderRadius.circular(PTRadius.control),
+              size: 42,
+              tooltip: widget.camOn ? 'Camera off (E)' : 'Camera on (E)',
+              onPressed: () => actions.onCamToggle(!widget.camOn),
+            ),
+          )
+        else if (actions.onCamLocked != null)
+          Tooltip(
+            message: 'Video facecams (Premium)',
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                PTIconButton(
+                  icon: Symbols.videocam_off_rounded,
+                  active: false,
+                  glass: false,
+                  borderRadius: BorderRadius.circular(PTRadius.control),
+                  size: 42,
+                  iconSize: 20,
+                  onPressed: actions.onCamLocked,
+                ),
+                Positioned(
+                  bottom: 4,
+                  right: 4,
+                  child: Container(
+                    padding: const EdgeInsets.all(2),
+                    decoration: BoxDecoration(
+                      color: PTColors.raised,
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: PTColors.accentBorder.withValues(alpha: 0.5),
+                        width: 1,
+                      ),
+                    ),
+                    child: const Icon(
+                      Symbols.lock_rounded,
+                      size: 9,
+                      fill: 1,
+                      color: PTColors.textAccent,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+      ],
+      if (actions.onReact != null)
+        PTIconButton(
+          icon: Symbols.add_reaction_rounded,
+          active: widget.reactOpen,
+          glass: false,
+          borderRadius: BorderRadius.circular(PTRadius.control),
+          size: 42,
+          iconSize: 22,
+          tooltip: widget.reactOpen ? 'Close reactions (R)' : 'React (R)',
+          onPressed: actions.onReact,
+        ),
+    ];
+  }
+
+  /// The local file's audio and subtitle choosers.
+  List<Widget> _trackButtons() {
+    final actions = widget.actions;
+    return [
+      if (actions.onAudioTracks != null)
+        PTIconButton(
+          icon: Symbols.audiotrack_rounded,
+          glass: false,
+          borderRadius: BorderRadius.circular(PTRadius.control),
+          size: 42,
+          iconSize: 22,
+          tooltip: 'Audio track',
+          onPressed: actions.onAudioTracks,
+        ),
+      if (actions.onSubtitles != null)
+        PTIconButton(
+          icon: Symbols.subtitles_rounded,
+          glass: false,
+          borderRadius: BorderRadius.circular(PTRadius.control),
+          size: 42,
+          iconSize: 22,
+          tooltip: 'Subtitles',
+          onPressed: actions.onSubtitles,
+        ),
+    ];
+  }
+
+  /// -10 s, play/pause, +10 s.
+  List<Widget> _transportButtons() {
+    final actions = widget.actions;
+    return [
+      PTIconButton(
+        icon: Symbols.replay_10_rounded,
+        glass: false,
+        iconSize: 26,
+        spinOnPress: -40,
+        onPressed: widget.transportEnabled
+            ? () => actions.onSkip(const Duration(seconds: -10))
+            : null,
+      ),
+      PTPlayButton(
+        playing: widget.playing,
+        onPressed: widget.transportEnabled ? actions.onPlayPause : null,
+      ),
+      PTIconButton(
+        icon: Symbols.forward_10_rounded,
+        glass: false,
+        iconSize: 26,
+        spinOnPress: 40,
+        onPressed: widget.transportEnabled
+            ? () => actions.onSkip(const Duration(seconds: 10))
+            : null,
+      ),
+    ];
+  }
+
+  /// Source and file pickers, volume (slider optional), hide and fullscreen.
+  List<Widget> _outputButtons({bool slider = true}) {
+    final actions = widget.actions;
+    return [
+      if (actions.onSwitchSource != null)
+        PTIconButton(
+          icon: Symbols.smart_display_rounded,
+          glass: false,
+          borderRadius: BorderRadius.circular(PTRadius.control),
+          size: 42,
+          iconSize: 22,
+          tooltip: 'Switch source',
+          onPressed: actions.onSwitchSource,
+        ),
+      if (actions.onOpenFile != null)
+        PTIconButton(
+          icon: Symbols.folder_open_rounded,
+          glass: false,
+          borderRadius: BorderRadius.circular(PTRadius.control),
+          size: 42,
+          iconSize: 22,
+          tooltip: actions.openFileTooltip ?? 'Open file',
+          onPressed: actions.onOpenFile,
+        ),
+      Padding(
+        padding: const EdgeInsets.only(left: 6),
+        child: Row(
+          spacing: 4,
+          children: [
+            _SplitDeviceButton(
+              height: 36,
+              showDropdown:
+                  actions.onAudioOutputSelect != null || actions.audioOutputDisabledTooltip != null,
+              onDropdown: actions.onAudioOutputSelect,
+              dropdownTooltip: 'Select audio output',
+              disabledDropdownTooltip: actions.audioOutputDisabledTooltip,
+              mainButton: PTIconButton(
+                icon: widget.volume == 0 ? Symbols.volume_off_rounded : Symbols.volume_up_rounded,
+                glass: false,
+                size: 36,
+                iconSize: 20,
+                tooltip: widget.volume == 0 ? 'Unmute (M)' : 'Mute (M)',
+                onPressed: actions.onToggleMute,
+              ),
+            ),
+            if (slider)
+              SizedBox(
+                width: 110,
+                child: PTSlider(
+                  value: widget.volume,
+                  trackHeight: 4,
+                  thumbRadius: 5.5,
+                  onChanged: actions.onVolume,
+                ),
+              ),
+          ],
+        ),
+      ),
+      if (actions.onHideControls != null)
+        Padding(
+          padding: const EdgeInsets.only(left: 4),
+          child: PTIconButton(
+            icon: Symbols.keyboard_arrow_down_rounded,
+            glass: false,
+            borderRadius: BorderRadius.circular(PTRadius.control),
+            size: 36,
+            iconSize: 22,
+            tooltip: 'Hide controls (H)',
+            onPressed: actions.onHideControls,
+          ),
+        ),
+      if (actions.onFullscreenToggle != null)
+        Padding(
+          padding: const EdgeInsets.only(left: 4),
+          child: PTIconButton(
+            icon: widget.fullscreen ? Symbols.fullscreen_exit_rounded : Symbols.fullscreen_rounded,
+            glass: false,
+            borderRadius: BorderRadius.circular(PTRadius.control),
+            size: 36,
+            iconSize: 22,
+            tooltip: widget.fullscreen ? 'Exit fullscreen (F)' : 'Fullscreen (F)',
+            onPressed: actions.onFullscreenToggle,
+          ),
+        ),
+    ];
+  }
+
+  Widget _groupDivider() => Container(
+    width: 1,
+    height: 26,
+    margin: const EdgeInsets.symmetric(horizontal: 4),
+    color: PTColors.rail,
+  );
+
+  Widget _fullRow() {
+    final av = _avButtons();
+    final tracks = _trackButtons();
     return Row(
       children: [
         Row(
           spacing: 8,
-          children: [
-            if (widget.avAvailable) ...[
-              _SplitDeviceButton(
-                height: 42,
-                onDropdown: actions.onMicDeviceSelect,
-                dropdownTooltip: 'Select microphone',
-                mainButton: PTIconButton(
-                  icon: Symbols.mic_rounded,
-                  active: widget.micOn,
-                  glass: false,
-                  borderRadius: BorderRadius.circular(12),
-                  size: 42,
-                  tooltip: widget.micOn ? 'Mute mic (D)' : 'Mic on (D)',
-                  onPressed: () => actions.onMicToggle(!widget.micOn),
-                ),
-              ),
-              if (widget.camAvailable)
-                _SplitDeviceButton(
-                  height: 42,
-                  onDropdown: actions.onCamDeviceSelect,
-                  dropdownTooltip: 'Select camera',
-                  mainButton: PTIconButton(
-                    icon: Symbols.videocam_rounded,
-                    active: widget.camOn,
-                    glass: false,
-                    borderRadius: BorderRadius.circular(12),
-                    size: 42,
-                    tooltip: widget.camOn ? 'Camera off (E)' : 'Camera on (E)',
-                    onPressed: () => actions.onCamToggle(!widget.camOn),
-                  ),
-                )
-              else if (actions.onCamLocked != null)
-                Tooltip(
-                  message: 'Video facecams (Premium)',
-                  child: Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      PTIconButton(
-                        icon: Symbols.videocam_off_rounded,
-                        active: false,
-                        glass: false,
-                        borderRadius: BorderRadius.circular(12),
-                        size: 42,
-                        iconSize: 20,
-                        onPressed: actions.onCamLocked,
-                      ),
-                      Positioned(
-                        bottom: 4,
-                        right: 4,
-                        child: Container(
-                          padding: const EdgeInsets.all(2),
-                          decoration: BoxDecoration(
-                            color: PTColors.raised,
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: PTColors.accentBorder.withValues(alpha: 0.5),
-                              width: 1,
-                            ),
-                          ),
-                          child: const Icon(
-                            Symbols.lock_rounded,
-                            size: 9,
-                            fill: 1,
-                            color: PTColors.textAccent,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-            ],
-            if (actions.onReact != null)
-              PTIconButton(
-                icon: Symbols.add_reaction_rounded,
-                active: widget.reactOpen,
-                glass: false,
-                borderRadius: BorderRadius.circular(12),
-                size: 42,
-                iconSize: 22,
-                tooltip: widget.reactOpen ? 'Close reactions (R)' : 'React (R)',
-                onPressed: actions.onReact,
-              ),
-            if ((widget.avAvailable || actions.onReact != null) &&
-                (actions.onAudioTracks != null || actions.onSubtitles != null))
-              Container(
-                width: 1,
-                height: 26,
-                margin: const EdgeInsets.symmetric(horizontal: 4),
-                color: PTColors.white(0.12),
-              ),
-            if (actions.onAudioTracks != null)
-              PTIconButton(
-                icon: Symbols.audiotrack_rounded,
-                glass: false,
-                borderRadius: BorderRadius.circular(12),
-                size: 42,
-                iconSize: 22,
-                tooltip: 'Audio track',
-                onPressed: actions.onAudioTracks,
-              ),
-            if (actions.onSubtitles != null)
-              PTIconButton(
-                icon: Symbols.subtitles_rounded,
-                glass: false,
-                borderRadius: BorderRadius.circular(12),
-                size: 42,
-                iconSize: 22,
-                tooltip: 'Subtitles',
-                onPressed: actions.onSubtitles,
-              ),
-          ],
+          children: [...av, if (av.isNotEmpty && tracks.isNotEmpty) _groupDivider(), ...tracks],
         ),
         Expanded(
           // Icon-only: shrinks rather than overflows when touch targets (44px
           // on a tablet) or extra actions crowd the row; 1:1 otherwise.
           child: FittedBox(
             fit: .scaleDown,
-            child: Row(
-              mainAxisSize: .min,
-              spacing: 20,
-              children: [
-                PTIconButton(
-                  icon: Symbols.replay_10_rounded,
-                  glass: false,
-                  iconSize: 26,
-                  spinOnPress: -40,
-                  onPressed: widget.transportEnabled
-                      ? () => actions.onSkip(const Duration(seconds: -10))
-                      : null,
-                ),
-                PTPlayButton(
-                  playing: widget.playing,
-                  onPressed: widget.transportEnabled ? actions.onPlayPause : null,
-                ),
-                PTIconButton(
-                  icon: Symbols.forward_10_rounded,
-                  glass: false,
-                  iconSize: 26,
-                  spinOnPress: 40,
-                  onPressed: widget.transportEnabled
-                      ? () => actions.onSkip(const Duration(seconds: 10))
-                      : null,
-                ),
-              ],
-            ),
+            child: Row(mainAxisSize: .min, spacing: 20, children: _transportButtons()),
           ),
         ),
-        Row(
-          spacing: 8,
+        Row(spacing: 8, children: _outputButtons()),
+      ],
+    );
+  }
+
+  /// The theatre layout's bar: flat under the video, transport first (where
+  /// the eye lands leaving the picture), talk and react beside it, and what
+  /// you watch *with* - tracks, source, volume, fullscreen - on the far side.
+  /// The volume slider is the first thing to go when the row runs short.
+  Widget _dockedRow() {
+    final av = _avButtons();
+    return LayoutBuilder(
+      builder: (context, box) {
+        final slider = box.maxWidth >= 820;
+        return Row(
           children: [
-            if (actions.onSwitchSource != null)
-              PTIconButton(
-                icon: Symbols.smart_display_rounded,
-                glass: false,
-                borderRadius: BorderRadius.circular(12),
-                size: 42,
-                iconSize: 22,
-                tooltip: 'Switch source',
-                onPressed: actions.onSwitchSource,
-              ),
-            if (actions.onOpenFile != null)
-              PTIconButton(
-                icon: Symbols.folder_open_rounded,
-                glass: false,
-                borderRadius: BorderRadius.circular(12),
-                size: 42,
-                iconSize: 22,
-                tooltip: actions.openFileTooltip ?? 'Open file',
-                onPressed: actions.onOpenFile,
-              ),
-            Padding(
-              padding: const EdgeInsets.only(left: 6),
-              child: Row(
-                spacing: 4,
-                children: [
-                  _SplitDeviceButton(
-                    height: 36,
-                    showDropdown:
-                        actions.onAudioOutputSelect != null ||
-                        actions.audioOutputDisabledTooltip != null,
-                    onDropdown: actions.onAudioOutputSelect,
-                    dropdownTooltip: 'Select audio output',
-                    disabledDropdownTooltip: actions.audioOutputDisabledTooltip,
-                    mainButton: PTIconButton(
-                      icon: widget.volume == 0
-                          ? Symbols.volume_off_rounded
-                          : Symbols.volume_up_rounded,
-                      glass: false,
-                      size: 36,
-                      iconSize: 20,
-                      tooltip: widget.volume == 0 ? 'Unmute (M)' : 'Mute (M)',
-                      onPressed: actions.onToggleMute,
-                    ),
-                  ),
-                  SizedBox(
-                    width: 110,
-                    child: PTSlider(
-                      value: widget.volume,
-                      trackHeight: 4,
-                      thumbRadius: 5.5,
-                      onChanged: actions.onVolume,
-                    ),
-                  ),
-                ],
+            Row(mainAxisSize: .min, spacing: 12, children: _transportButtons()),
+            if (av.isNotEmpty) ...[
+              const SizedBox(width: 8),
+              _groupDivider(),
+              const SizedBox(width: 8),
+            ],
+            Row(mainAxisSize: .min, spacing: 8, children: av),
+            const Spacer(),
+            Flexible(
+              flex: 0,
+              child: FittedBox(
+                fit: .scaleDown,
+                child: Row(
+                  mainAxisSize: .min,
+                  spacing: 8,
+                  children: [
+                    ..._trackButtons(),
+                    ..._outputButtons(slider: slider),
+                  ],
+                ),
               ),
             ),
-            if (actions.onHideControls != null)
-              Padding(
-                padding: const EdgeInsets.only(left: 4),
-                child: PTIconButton(
-                  icon: Symbols.keyboard_arrow_down_rounded,
-                  glass: false,
-                  borderRadius: BorderRadius.circular(12),
-                  size: 36,
-                  iconSize: 22,
-                  tooltip: 'Hide controls (H)',
-                  onPressed: actions.onHideControls,
-                ),
-              ),
-            if (actions.onFullscreenToggle != null)
-              Padding(
-                padding: const EdgeInsets.only(left: 4),
-                child: PTIconButton(
-                  icon: widget.fullscreen
-                      ? Symbols.fullscreen_exit_rounded
-                      : Symbols.fullscreen_rounded,
-                  glass: false,
-                  borderRadius: BorderRadius.circular(12),
-                  size: 36,
-                  iconSize: 22,
-                  tooltip: widget.fullscreen ? 'Exit fullscreen (F)' : 'Fullscreen (F)',
-                  onPressed: actions.onFullscreenToggle,
-                ),
-              ),
           ],
-        ),
-      ],
+        );
+      },
     );
   }
 
@@ -560,7 +741,7 @@ class _RoomControlBarState extends State<RoomControlBar> {
               icon: Symbols.mic_rounded,
               active: widget.micOn,
               glass: false,
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(PTRadius.control),
               iconSize: 20,
               tooltip: widget.micOn ? 'Mute mic (D)' : 'Mic on (D)',
               onPressed: () => actions.onMicToggle(!widget.micOn),
@@ -570,7 +751,7 @@ class _RoomControlBarState extends State<RoomControlBar> {
                 icon: Symbols.videocam_rounded,
                 active: widget.camOn,
                 glass: false,
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(PTRadius.control),
                 iconSize: 20,
                 tooltip: widget.camOn ? 'Camera off (E)' : 'Camera on (E)',
                 onPressed: () => actions.onCamToggle(!widget.camOn),
@@ -585,7 +766,7 @@ class _RoomControlBarState extends State<RoomControlBar> {
                       icon: Symbols.videocam_off_rounded,
                       active: false,
                       glass: false,
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(PTRadius.control),
                       iconSize: 18,
                       onPressed: actions.onCamLocked,
                     ),
@@ -620,7 +801,7 @@ class _RoomControlBarState extends State<RoomControlBar> {
           icon: Symbols.add_reaction_rounded,
           active: widget.reactOpen,
           glass: false,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(PTRadius.control),
           iconSize: 21,
           tooltip: widget.reactOpen ? 'Close reactions (R)' : 'React (R)',
           onPressed: actions.onReact,
@@ -638,7 +819,7 @@ class _RoomControlBarState extends State<RoomControlBar> {
         PTIconButton(
           icon: Symbols.smart_display_rounded,
           glass: false,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(PTRadius.control),
           iconSize: 21,
           tooltip: 'Switch source',
           onPressed: actions.onSwitchSource,
@@ -647,7 +828,7 @@ class _RoomControlBarState extends State<RoomControlBar> {
         PTIconButton(
           icon: Symbols.folder_open_rounded,
           glass: false,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(PTRadius.control),
           iconSize: 21,
           tooltip: actions.openFileTooltip ?? 'Open file',
           onPressed: actions.onOpenFile,
@@ -656,7 +837,7 @@ class _RoomControlBarState extends State<RoomControlBar> {
         PTIconButton(
           icon: Symbols.audiotrack_rounded,
           glass: false,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(PTRadius.control),
           iconSize: 21,
           tooltip: 'Audio track',
           onPressed: actions.onAudioTracks,
@@ -665,7 +846,7 @@ class _RoomControlBarState extends State<RoomControlBar> {
         PTIconButton(
           icon: Symbols.subtitles_rounded,
           glass: false,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(PTRadius.control),
           iconSize: 21,
           tooltip: 'Subtitles',
           onPressed: actions.onSubtitles,
@@ -674,7 +855,7 @@ class _RoomControlBarState extends State<RoomControlBar> {
         PTIconButton(
           icon: Symbols.keyboard_arrow_down_rounded,
           glass: false,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(PTRadius.control),
           iconSize: 21,
           tooltip: 'Hide controls (H)',
           onPressed: actions.onHideControls,
@@ -683,7 +864,7 @@ class _RoomControlBarState extends State<RoomControlBar> {
         PTIconButton(
           icon: widget.fullscreen ? Symbols.fullscreen_exit_rounded : Symbols.fullscreen_rounded,
           glass: false,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(PTRadius.control),
           iconSize: 21,
           tooltip: widget.fullscreen ? 'Exit fullscreen (F)' : 'Fullscreen (F)',
           onPressed: actions.onFullscreenToggle,

@@ -50,11 +50,11 @@ class AnalyticsEventDoc {
 
 /// What is *never* sent, stated positively so it can be shown next to the list.
 const kAnalyticsNeverCollected = <String>[
-  'Anything you type - chat messages are never read, counted per person, or sent',
-  'What you watch - no file names, no folder paths, no YouTube links or video IDs',
-  'Your video or audio - facecams are never recorded, stored or analysed',
+  'Anything you type: chat messages are never read, counted per person, or sent',
+  'What you watch: no file names, no folder paths, no YouTube links or video IDs',
+  'Your video or audio: facecams are never recorded, stored or analysed',
   'Your contacts, your screen, your keystrokes or your location',
-  'Any advertising or cross-app tracking identifier - there are no ad networks here',
+  'Any advertising or cross-app tracking identifier. There are no ad networks here',
 ];
 
 const kAnalyticsEvents = <AnalyticsEventDoc>[
@@ -92,7 +92,7 @@ const kAnalyticsEvents = <AnalyticsEventDoc>[
     event: 'room_joined',
     group: .rooms,
     what: 'You joined a room.',
-    why: 'Tells us whether invites actually work - the link, or the typed code.',
+    why: 'Tells us whether invites actually work: the link, or the typed code.',
     properties: ['room ID', 'how you joined (code, link or web page)'],
   ),
   AnalyticsEventDoc(
@@ -134,7 +134,7 @@ const kAnalyticsEvents = <AnalyticsEventDoc>[
     event: 'media_selected',
     group: .rooms,
     what: 'You picked something to watch.',
-    why: 'Whether people use local files or YouTube. The kind only - never what it was.',
+    why: 'Whether people use local files or YouTube. The kind only, never what it was.',
     properties: ['kind (local file or YouTube)', 'room ID'],
   ),
   AnalyticsEventDoc(
@@ -221,7 +221,7 @@ const kAnalyticsEvents = <AnalyticsEventDoc>[
     event: 'leaderboard_viewed',
     group: .rewards,
     what: 'You opened a leaderboard.',
-    why: 'Which board people actually look at - their circle, or everyone.',
+    why: 'Which board people actually look at: their circle, or everyone.',
     properties: ['which board'],
   ),
   AnalyticsEventDoc(
@@ -243,7 +243,7 @@ const kAnalyticsEvents = <AnalyticsEventDoc>[
     group: .rewards,
     what: 'You took a shared recap back down.',
     why:
-        'A share that gets deleted is not a share - this is what keeps the '
+        'A share that gets deleted is not a share. This is what keeps the '
         'previous number honest.',
     properties: ['how many times it had been opened'],
   ),
@@ -270,7 +270,7 @@ const kAnalyticsEvents = <AnalyticsEventDoc>[
     what: 'You reported someone in a room.',
     why:
         'So we can tell whether the report button is findable, and how often '
-        'it is needed. Only the category you picked is sent here - anything '
+        'it is needed. Only the category you picked is sent here. Anything '
         'you typed goes to the moderation queue, never to analytics.',
     properties: ['the category you picked'],
   ),

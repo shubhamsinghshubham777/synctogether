@@ -165,7 +165,10 @@ them set. Changing any of these needs a rebuild and a release.
 | `TURNSTILE_SITE_KEY` | The client skips the captcha dialog, **but the server still demands a token**, so guest sign-in fails. Set it or disable captcha server-side too. |
 | `SUPABASE_URL` / `SUPABASE_PUBLISHABLE_KEY` | Required. Debug builds fall back to the local stack. |
 | `DEMO_MODE` / `DEMO_ROOM` | Mock data for screenshots. Off in real builds. |
-| `CAPTURE_STORE` | Store-screenshot capture flow. Off in real builds. |
+| `DEMO_TIER` | With `DEMO_MODE`: `free` (default) or `premium`, so Patron-side states can be shot. |
+| `CAPTURE_STORE` | Store-screenshot capture flow: 1920x1080 into `assets/store/` (Microsoft Store and README). Add `STORE_TARGET=mac` and `STORE_BUILD=true` for the Mac App Store set, 2880x1800 into `assets/store/mac/`. Off in real builds. |
+| `CAPTURE_WEBSITE` | Writes the homepage product shot. Off in real builds. |
+| `CAPTURE_REVIEW` | With `DEMO_MODE`: renders every screen and state that has a design board to `build/review/<tier>/` at 1280x720 @ 1.5x, for comparing the build against the canvas. Run the built binary from the repo root. Off in real builds. |
 
 Server-side captcha is separate, in `supabase/config.toml` under `[auth.captcha]`,
 and ships with `supabase config push` (**not** `db push`).

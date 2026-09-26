@@ -6,6 +6,7 @@ import 'package:material_symbols_icons/symbols.dart';
 import 'package:synctogether/rooms/room_models.dart';
 import 'package:synctogether/rooms/widgets/readiness_overlay.dart';
 import 'package:synctogether/sync/sync_service.dart';
+import 'package:synctogether/ui/booth.dart';
 import 'package:synctogether/ui/buttons.dart';
 import 'package:synctogether/ui/glass.dart';
 import 'package:synctogether/ui/identity.dart';
@@ -33,6 +34,7 @@ class RoomMenuData {
     this.premiumMembers = const {},
     this.memberFrames = const {},
     this.blockedIds = const {},
+    this.maxMembers,
   });
 
   static const empty = RoomMenuData(
@@ -59,6 +61,10 @@ class RoomMenuData {
   /// still shows them - it is where unblocking lives, so hiding them here
   /// would make a block permanent by accident.
   final Set<String> blockedIds;
+
+  /// The room's seat count (`rooms.max_members`, from the host's tier). The
+  /// header reads "N OF max" only when it is known - never a guessed 8.
+  final int? maxMembers;
 
   /// Derived rather than passed alongside, so "who is online" and "who is
   /// ready" can never disagree.
@@ -244,11 +250,8 @@ class _OverflowMenuPanelState extends State<_OverflowMenuPanel> {
     final data = _data;
     final onlineIds = data.onlineIds;
     return GlassPanel(
-      radius: 20,
-      opacity: 0.68,
-      blur: 32,
       baseColor: PTColors.surfaceBase,
-      borderColor: PTColors.white(0.14),
+      shadow: true,
       child: SingleChildScrollView(
         child: Column(
           mainAxisSize: .min,
@@ -257,14 +260,10 @@ class _OverflowMenuPanelState extends State<_OverflowMenuPanel> {
             Padding(
               padding: const EdgeInsets.fromLTRB(18, 16, 18, 10),
               child: Text(
-                'IN THE ROOM · ${data.members.length} OF 8',
-                style: TextStyle(
-                  fontFamily: PTFonts.body,
-                  fontSize: 12,
-                  fontWeight: .w600,
-                  letterSpacing: 0.96,
-                  color: PTColors.white(0.45),
-                ),
+                data.maxMembers == null
+                    ? 'IN THE ROOM · ${data.members.length}'
+                    : 'IN THE ROOM · ${data.members.length} OF ${data.maxMembers}',
+                style: PTText.label,
               ),
             ),
             Padding(
@@ -306,7 +305,7 @@ class _OverflowMenuPanelState extends State<_OverflowMenuPanel> {
             ),
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 8),
-              child: Container(height: 1, color: PTColors.white(0.09)),
+              child: Container(height: 1, color: PTColors.rail),
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(8, 0, 8, 10),
@@ -315,22 +314,30 @@ class _OverflowMenuPanelState extends State<_OverflowMenuPanel> {
                   for (final action in widget.playbackActions)
                     _ActionRow(
                       icon: action.icon,
-                      iconColor: PTColors.textAccent,
+                      iconColor: PTColors.white(0.7),
                       label: action.label,
                       onTap: () => _dismiss(action.onTap),
                     ),
                   _ActionRow(
                     icon: Symbols.link_rounded,
-                    iconColor: PTColors.textAccent,
+                    iconColor: PTColors.white(0.7),
                     label: 'Copy invite link',
                     onTap: () => _dismiss(widget.onCopyInvite),
                   ),
                   if (data.selfIsHost && widget.onExtendRoom != null)
                     _ActionRow(
                       icon: Symbols.more_time_rounded,
-                      iconColor: PTColors.textAccent,
-                      label: 'Extend room duration',
+                      iconColor: PTColors.white(0.7),
+                      label: 'Extend room',
                       onTap: () => _dismiss(widget.onExtendRoom!),
+                    ),
+                  if (data.selfIsHost)
+                    _ActionRow(
+                      icon: data.transportLock ? Symbols.lock_rounded : Symbols.lock_open_rounded,
+                      iconColor: data.transportLock ? PTColors.warningBorder : PTColors.white(0.7),
+                      label: data.transportLock ? 'You have the remote' : 'Take the remote',
+                      onTap: () =>
+                          _dismiss(() => widget.onTransportLockChanged(!data.transportLock)),
                     ),
                   if (widget.onReportConcern != null)
                     _ActionRow(
@@ -345,22 +352,20 @@ class _OverflowMenuPanelState extends State<_OverflowMenuPanel> {
                     label: 'Leave room',
                     onTap: () => _dismiss(widget.onLeave),
                   ),
-                  if (data.selfIsHost)
-                    _ActionRow(
-                      icon: data.transportLock ? Symbols.lock_rounded : Symbols.lock_open_rounded,
-                      iconColor: data.transportLock ? PTColors.warningBorder : PTColors.white(0.7),
-                      label: data.transportLock ? 'You have the remote' : 'Take the remote',
-                      onTap: () =>
-                          _dismiss(() => widget.onTransportLockChanged(!data.transportLock)),
+                  // The one irreversible action, below its own rule, in Signal.
+                  if (data.selfIsHost) ...[
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      child: Container(height: 1, color: PTColors.rail),
                     ),
-                  if (data.selfIsHost)
                     _ActionRow(
                       icon: Symbols.power_settings_new_rounded,
-                      iconColor: PTColors.danger,
-                      label: 'End room for everyone',
-                      labelColor: PTColors.danger,
+                      iconColor: PTColors.ember,
+                      label: 'End for everyone',
+                      labelColor: PTColors.ember,
                       onTap: () => _dismiss(widget.onEndRoom),
                     ),
+                  ],
                 ],
               ),
             ),
@@ -413,14 +418,23 @@ class _MemberRow extends StatelessWidget {
         child: Row(
           spacing: 12,
           children: [
-            PTAvatar(
-              userId: member.userId,
-              displayName: member.displayName,
-              avatarUrl: member.profile?.avatarUrl,
-              size: 34,
-              presence: online,
+            // Readiness reads off the ring (Cue once they have the room's
+            // media open), the same ReadyRing the docked roster uses.
+            ReadyRing(
+              diameter: 30,
+              gap: 1.5,
+              clip: false,
+              ready: presence != null && media.isSet && memberSatisfiesGate(presence!, media),
               premium: premium,
-              frame: frame,
+              child: PTAvatar(
+                userId: member.userId,
+                displayName: member.displayName,
+                avatarUrl: member.profile?.avatarUrl,
+                size: 30,
+                presence: online,
+                premium: premium,
+                frame: frame,
+              ),
             ),
             Expanded(
               child: Text.rich(
@@ -452,9 +466,8 @@ class _MemberRow extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                  color: PTColors.white(0.07),
-                  borderRadius: BorderRadius.circular(999),
-                  border: Border.all(color: PTColors.white(0.14)),
+                  borderRadius: BorderRadius.circular(PTRadius.control),
+                  border: Border.all(color: PTColors.rail),
                 ),
                 child: Text(
                   'Blocked',
@@ -463,7 +476,8 @@ class _MemberRow extends StatelessWidget {
               )
             else if (presence != null && media.isSet)
               _chip(context),
-            if (member.isHost && !blocked) const HostBadge(),
+            if (member.isHost && !blocked) const DialogTag('Host', tone: DialogTagTone.host),
+            if (premium && !blocked) const DialogTag('Patron', tone: DialogTagTone.premium),
             if (onAssignHost != null)
               PTIconButton(
                 icon: Symbols.star_rounded,
@@ -497,7 +511,7 @@ class _MemberRow extends StatelessWidget {
                 glass: false,
                 size: 30,
                 iconSize: 16,
-                tooltip: 'Remove ${member.displayName}',
+                tooltip: 'Show ${member.displayName} out',
                 onPressed: onKick,
               ),
           ],
@@ -520,9 +534,8 @@ class _MemberRow extends StatelessWidget {
         maxWidth: math.min(MediaQuery.textScalerOf(context).scale(116), 150),
       ),
       decoration: BoxDecoration(
-        color: status.color.withValues(alpha: 0.13),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: status.color.withValues(alpha: 0.3)),
+        borderRadius: BorderRadius.circular(PTRadius.control),
+        border: Border.all(color: status.color.withValues(alpha: 0.5)),
       ),
       child: AnimatedSwitcher(
         duration: PTMotion.functional(context, PTMotion.state),
@@ -574,16 +587,16 @@ class _ActionRowState extends State<_ActionRow> {
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 11),
           decoration: BoxDecoration(
             color: _hovered
-                ? (widget.labelColor == PTColors.danger
+                ? (widget.labelColor == PTColors.ember
                       ? PTColors.dangerBorder.withValues(alpha: 0.1)
-                      : PTColors.white(0.06))
+                      : PTColors.aisle)
                 : Colors.transparent,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(PTRadius.control),
           ),
           child: Row(
             spacing: 12,
             children: [
-              Icon(widget.icon, size: 19, fill: 1, color: widget.iconColor),
+              Icon(widget.icon, size: 19, color: widget.iconColor),
               Expanded(
                 child: Text(
                   widget.label,

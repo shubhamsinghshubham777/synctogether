@@ -295,6 +295,8 @@ class PTYouTubeController extends ChangeNotifier {
   /// Toggle simulated ad playback in debug builds for manual and automated testing.
   void debugToggleAdState() {
     assert(kDebugMode, 'debugToggleAdState must only be called in debug mode');
+    // Asserts are stripped from release, so the guard has to be real too.
+    if (!kDebugMode) return;
     _debugSimulatedAd = !_debugSimulatedAd;
     if (_debugSimulatedAd) {
       pause();

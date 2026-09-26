@@ -1,16 +1,12 @@
 import type { Metadata } from "next";
-import { GlassPanel } from "@/components/GlassPanel";
-import { PTButton } from "@/components/PTButton";
-import { ReleaseChip } from "@/components/ReleaseChip";
+import Link from "next/link";
 import { getLatestRelease } from "@/lib/github";
 import { normalizeRoomCode } from "@/lib/rewards";
-import {
-  Download,
-  Smartphone,
-} from "lucide-react";
-
-import { AppleLogo, WindowsLogo } from "@/components/Icons";
-import { MicrosoftStoreBadge } from "@/components/MicrosoftStoreBadge";
+import { Ticket } from "@/components/Ticket";
+import { PageHead, display, mono } from "@/components/PageHead";
+import { JoinStamp } from "@/components/JoinStamp";
+import { DownloadDoors } from "@/components/DownloadDoors";
+import { DownloadInviteActions } from "@/components/DownloadInviteActions";
 
 export const metadata: Metadata = {
   title: "Download SyncTogether for macOS and Windows",
@@ -33,149 +29,100 @@ export default async function DownloadPage({
   const inviteCode = normalizeRoomCode(code ?? "");
 
   return (
-    <div className="relative py-10 md:py-14 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto space-y-12 md:space-y-14">
-      {/* Background Ambient Glow */}
-      <div className="glow-blob-purple top-10 left-1/2 -translate-x-1/2 opacity-30" />
-
-      {inviteCode && (
-        <div className="max-w-2xl mx-auto glass-panel rounded-2xl px-6 py-5 text-center space-y-2">
-          <p className="text-sm text-gray-300">
-            Someone invited you to a watch party. Install SyncTogether, then join with
-            this code:
-          </p>
-          <p className="font-[family-name:var(--font-jetbrains-mono)] text-3xl font-semibold tracking-[0.3em] text-white">
-            {inviteCode}
-          </p>
-          <p className="text-xs text-gray-500">
-            Worth writing down - it will not follow you through the installer.
-          </p>
-        </div>
-      )}
-
-      {/* Header */}
-      <div className="text-center max-w-3xl mx-auto space-y-4">
-        <ReleaseChip tag={displayTag} />
-        <h1 className="text-4xl sm:text-6xl font-extrabold text-white tracking-tight font-[family-name:var(--font-space-grotesk)]">
-          Download <span className="text-gradient-brand">SyncTogether.</span>
-        </h1>
-        <p className="text-lg text-gray-300">
-          Standalone desktop application with native hardware acceleration, zero bloat, and automatic self-updates.
-        </p>
-      </div>
-
-      {/* Platform Download Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
-        {/* macOS Card */}
-        <GlassPanel
-          hoverEffect
-          glow="purple"
-          className="flex flex-col justify-between p-8 space-y-6 border-purple-500/20"
-        >
-          <div className="space-y-4">
-            <div className="w-14 h-14 rounded-2xl bg-purple-500/10 border border-purple-400/30 flex items-center justify-center text-purple-300 shadow-inner">
-              <AppleLogo className="w-7 h-7" />
+    <div className="relative pt-8 md:pt-14 pb-12 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto space-y-10">
+      <PageHead
+        titleClassName="text-[clamp(2.75rem,7vw,5.5rem)]"
+        gridClassName="lg:grid-cols-[1fr_480px] items-center"
+        eyebrow={<>Take your seat · v{release.version}</>}
+        title={
+          <>
+            One install.
+            <br />
+            Then you&apos;re in.
+          </>
+        }
+        lede="A native desktop app: hardware-accelerated playback, no bloat, and it updates itself quietly between shows."
+        aside={
+          inviteCode ? (
+            <div className="space-y-4 pt-12 lg:pt-0">
+              <div className="relative">
+                <Ticket
+                  animate
+                  stubClassName="w-28 sm:w-[140px]"
+                  stub={
+                    <span className={`${mono} text-base sm:text-xl font-semibold tracking-[0.1em]`}>{inviteCode}</span>
+                  }
+                >
+                  <p className={`${mono} text-[10px] sm:text-[11px] tracking-[0.16em] uppercase text-[#A33A22]`}>
+                    Admit one
+                  </p>
+                  <p className={`${display} mt-1.5 text-xl sm:text-[26px] font-extrabold tracking-[-0.035em] leading-[0.98]`}>
+                    Install, then join with this code.
+                  </p>
+                  <p className="mt-3 text-xs sm:text-sm text-[#5A4F44]">
+                    It won&apos;t follow you through the installer.
+                  </p>
+                </Ticket>
+                {/* Overhangs the top edge, left of the perforation, clear of the copy. */}
+                <JoinStamp
+                  top="Keep"
+                  big="Code"
+                  bottom="For later"
+                  size="h-20 w-20 sm:h-[90px] sm:w-[90px]"
+                  rotate="-rotate-[10deg]"
+                  className="absolute -top-12 sm:-top-[46px] right-[6.5rem] sm:right-[150px]"
+                />
+              </div>
+              <DownloadInviteActions code={inviteCode} />
             </div>
-            <div>
-              <h2 className="text-2xl font-bold text-white font-[family-name:var(--font-space-grotesk)]">
-                macOS
-              </h2>
-              <p className="text-xs text-gray-400 mt-0.5">
-                Universal Binary • Apple Silicon &amp; Intel
-              </p>
-            </div>
-            <div className="text-xs font-mono text-purple-300/80 bg-purple-950/40 p-2.5 rounded-xl border border-purple-500/15">
-              <span>Version: <strong>{release.version}</strong></span> • <span>Size: ~{release.macSizeMb} MB</span>
-            </div>
-          </div>
-
-          <div className="space-y-3 pt-4 border-t border-white/5">
-            <PTButton
-              href="/api/download?platform=macos"
-              variant="primary"
-              size="lg"
-              className="w-full"
-              leftIcon={<Download className="w-5 h-5" />}
+          ) : (
+            <Link
+              href="/changelog"
+              className="group block border-l-2 border-beam-500 pl-5 py-1 space-y-1.5"
             >
-              Download macOS (.dmg)
-            </PTButton>
-            <p className="text-[11px] text-center text-gray-400">
-              Requires macOS 12.0 (Monterey) or later
-            </p>
-          </div>
-        </GlassPanel>
-
-        {/* Windows Card */}
-        <GlassPanel
-          hoverEffect
-          glow="purple"
-          className="flex flex-col justify-between p-8 space-y-6 border-purple-500/20"
-        >
-          <div className="space-y-4">
-            <div className="w-14 h-14 rounded-2xl bg-purple-500/10 border border-purple-400/30 flex items-center justify-center text-purple-300 shadow-inner">
-              <WindowsLogo className="w-7 h-7" />
-            </div>
-            <div>
-              <h2 className="text-2xl font-bold text-white font-[family-name:var(--font-space-grotesk)]">
-                Windows
-              </h2>
-              <p className="text-xs text-gray-400 mt-0.5">
-                64-bit Installer • Windows 10 &amp; Windows 11
-              </p>
-            </div>
-            <div className="text-xs font-mono text-purple-300/80 bg-purple-950/40 p-2.5 rounded-xl border border-purple-500/15">
-              <span>Version: <strong>{release.version}</strong></span> • <span>Size: ~{release.winSizeMb} MB</span>
-            </div>
-          </div>
-
-          <div className="space-y-3 pt-4 border-t border-white/5">
-            <PTButton
-              href="/api/download?platform=windows"
-              variant="secondary"
-              size="lg"
-              className="w-full"
-              leftIcon={<Download className="w-5 h-5" />}
-            >
-              Download Windows (.exe)
-            </PTButton>
-
-            <div className="flex items-center gap-3" aria-hidden="true">
-              <span className="h-px flex-1 bg-gradient-to-r from-transparent to-white/10" />
-              <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-gray-500">
-                or
+              <span className={`${mono} block text-[11px] tracking-[0.16em] uppercase text-gray-500`}>Now showing</span>
+              <span className={`${display} block text-xl font-extrabold tracking-[-0.02em] text-white`}>
+                {displayTag.replace(/^SyncTogether\s+/, "")}
               </span>
-              <span className="h-px flex-1 bg-gradient-to-l from-transparent to-white/10" />
-            </div>
+              <span className="block text-sm text-gray-400 group-hover:text-white transition-colors">
+                What&apos;s new in this release →
+              </span>
+            </Link>
+          )
+        }
+      />
 
-            <MicrosoftStoreBadge className="w-full justify-center" />
+      <DownloadDoors version={release.version} macSizeMb={release.macSizeMb} winSizeMb={release.winSizeMb} />
 
-            <p className="text-[11px] text-center text-gray-400">
-              Windows 10 / 11 with WebView2 runtime
+      <section className="grid md:grid-cols-3 gap-8 md:gap-10">
+        {[
+          {
+            label: "Signed & notarized",
+            body: "Apple Developer ID on the Mac, a signed installer on Windows. No scary warnings.",
+          },
+          {
+            label: "Updates itself",
+            body: "New versions download in the background and install from the lobby, never mid-film.",
+          },
+          {
+            label: "In rehearsal",
+            body: "iPhone, iPad and Android are on the way. Big screens first.",
+            live: true,
+          },
+        ].map(({ label, body, live }) => (
+          <div key={label} className="border-t border-rail pt-[18px] space-y-2.5">
+            <p
+              className={`${mono} flex items-center gap-2 text-[11px] tracking-[0.14em] uppercase ${
+                live ? "text-signal" : "text-gray-500"
+              }`}
+            >
+              {live && <span className="w-1.5 h-1.5 rounded-full bg-signal" aria-hidden="true" />}
+              {label}
             </p>
+            <p className="text-[15px] text-gray-400 leading-[1.55]">{body}</p>
           </div>
-        </GlassPanel>
-      </div>
-
-      {/* Mobile Teaser Card */}
-      <div className="max-w-4xl mx-auto">
-        <GlassPanel className="p-6 flex flex-col sm:flex-row items-center justify-between gap-6 border-white/5 bg-[#120E22]/60">
-          <div className="flex items-center gap-4">
-            <div className="p-3 rounded-2xl bg-purple-500/10 text-purple-400 border border-purple-500/20">
-              <Smartphone className="w-6 h-6" />
-            </div>
-            <div>
-              <h4 className="text-base font-bold text-white font-[family-name:var(--font-space-grotesk)]">
-                Mobile Apps Coming Soon
-              </h4>
-              <p className="text-xs text-gray-400">
-                SyncTogether is built desktop-first for big screens. iOS and Android companion apps are currently on our roadmap.
-              </p>
-            </div>
-          </div>
-          <span className="text-xs font-mono font-bold px-3 py-1.5 rounded-full bg-purple-500/10 text-purple-300 border border-purple-400/20 whitespace-nowrap">
-            In Development
-          </span>
-        </GlassPanel>
-      </div>
+        ))}
+      </section>
     </div>
   );
 }

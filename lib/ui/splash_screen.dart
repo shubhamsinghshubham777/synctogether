@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:synctogether/diagnostics.dart';
+import 'package:synctogether/ui/logo.dart';
 import 'package:synctogether/ui/pt_motion.dart';
 import 'package:synctogether/ui/pt_theme.dart';
 
@@ -250,11 +251,8 @@ class _Tile extends StatelessWidget {
                   width: _size * (0.9 + ring * 0.8),
                   height: _size * (0.9 + ring * 0.8),
                   decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(_size * 0.32 * (1 + ring)),
-                    border: Border.all(
-                      color: PTColors.gradientEnd.withValues(alpha: 0.55),
-                      width: 2,
-                    ),
+                    borderRadius: BorderRadius.circular(_size * 0.24 * (1 + ring)),
+                    border: Border.all(color: PTColors.primary.withValues(alpha: 0.55), width: 2),
                   ),
                 ),
               ),
@@ -263,33 +261,21 @@ class _Tile extends StatelessWidget {
             opacity: fade,
             child: Transform.scale(
               scale: 0.5 + 0.5 * spring,
-              // Same geometry as the lobby wordmark (_Wordmark in
-              // lobby_screen.dart) so the splash resolves into the real logo.
-              child: Container(
-                width: _size,
-                height: _size,
+              // The same mark the app icon draws, so the splash resolves into
+              // the icon the user just clicked. The letters fade in while the
+              // tile springs; the Beam spill blooms with the tile.
+              child: DecoratedBox(
                 decoration: BoxDecoration(
-                  gradient: PTColors.brandGradient,
-                  borderRadius: BorderRadius.circular(_size * 0.32),
+                  borderRadius: BorderRadius.circular(_size * 0.24),
                   boxShadow: [
                     BoxShadow(
-                      color: PTColors.primary.withValues(alpha: 0.45 * fade),
+                      color: PTColors.primary.withValues(alpha: 0.32 * fade),
                       blurRadius: 46,
-                      spreadRadius: 4,
-                      offset: const Offset(0, 12),
+                      spreadRadius: -8,
                     ),
                   ],
                 ),
-                child: Center(
-                  child: Transform.scale(
-                    scale: 0.55 + 0.45 * glyph,
-                    child: Icon(
-                      Icons.play_arrow_rounded,
-                      size: _size * 0.55,
-                      color: Colors.white.withValues(alpha: glyph),
-                    ),
-                  ),
-                ),
+                child: PTLogoMark(size: _size, glyphOpacity: glyph),
               ),
             ),
           ),
@@ -313,17 +299,7 @@ class _Wordmark extends StatelessWidget {
         // Anchored to the tile it grows out of, rather than to its own middle,
         // so the two read as one object springing in.
         alignment: .centerLeft,
-        child: const Text(
-          'SyncTogether',
-          style: TextStyle(
-            fontFamily: PTFonts.display,
-            fontSize: 42,
-            fontWeight: .w700,
-            letterSpacing: -0.6,
-            color: Colors.white,
-            height: 1.1,
-          ),
-        ),
+        child: const PTWordmark(size: 44),
       ),
     );
   }

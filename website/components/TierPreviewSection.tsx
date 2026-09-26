@@ -1,116 +1,111 @@
 "use client";
 
-import { GlassPanel } from "./GlassPanel";
-import { PTButton } from "./PTButton";
-import { LocationDebugSwitcher } from "./LocationDebugSwitcher";
+import Link from "next/link";
+import { Loader2 } from "lucide-react";
 import { usePricing } from "@/lib/usePricing";
-import { Check, ArrowRight, Loader2 } from "lucide-react";
+import { PRICING_TIERS } from "@/lib/constants";
+
+const mono = "font-[family-name:var(--font-jetbrains-mono)]";
+const display = "font-[family-name:var(--font-space-grotesk)]";
+
+function hours(min: number) {
+  return min <= 60 ? `${min} min` : `${min / 60} h`;
+}
+
+function avLabel(av: string) {
+  if (/video/i.test(av)) return "Voice + video";
+  if (/voice/i.test(av)) return "Voice";
+  return "×";
+}
+
+type Seat = {
+  key: "guest" | "free" | "premium";
+  name: string;
+  note: string;
+  price: React.ReactNode;
+  tone: "plain" | "beam" | "brass";
+};
+
+function SeatCard({ seat }: { seat: Seat }) {
+  const t = PRICING_TIERS[seat.key].limits;
+  const border =
+    seat.tone === "beam"
+      ? "border-beam-500 border-t-beam-500"
+      : seat.tone === "brass"
+        ? "border-[#6B5A2E] border-t-brass"
+        : "border-rail border-t-rail";
+  const accent = seat.tone === "beam" ? "text-beam-500" : seat.tone === "brass" ? "text-brass" : "text-gray-500";
+  const rows: [string, string][] = [
+    ["People", String(t.members)],
+    ["Show", seat.key === "premium" ? `up to ${hours(t.totalSessionMinutes)}` : hours(t.sessionMinutes)],
+    ["Voice", avLabel(t.av)],
+  ];
+  return (
+    <div className={`rounded-md border border-t-[3px] bg-seat p-[26px] flex flex-col gap-4 ${border}`}>
+      <div className="flex items-baseline justify-between gap-3">
+        <span
+          className={`${display} text-[30px] font-extrabold tracking-[-0.03em] leading-none ${
+            seat.tone === "brass" ? "text-brass" : "text-screen"
+          }`}
+        >
+          {seat.name}
+        </span>
+        <span className={`${mono} text-[11px] tracking-[0.14em] uppercase ${accent}`}>{seat.note}</span>
+      </div>
+      <p className={`${display} text-[40px] font-extrabold tracking-[-0.04em] leading-none text-screen`}>{seat.price}</p>
+      <dl>
+        {rows.map(([k, v]) => (
+          <div key={k} className={`${mono} flex items-center justify-between py-[9px] border-t border-aisle text-[13px] leading-tight`}>
+            <dt className="uppercase text-gray-500">{k}</dt>
+            <dd className="text-screen">{v}</dd>
+          </div>
+        ))}
+      </dl>
+    </div>
+  );
+}
 
 export function TierPreviewSection() {
-  const { monthlyFormatted, isLoading } = usePricing();
+  const { monthlyFormatted, currencySymbol, isLoading } = usePricing();
+  const zero = `${currencySymbol || "$"}0`;
+
+  const seats: Seat[] = [
+    { key: "guest", name: "Guest", note: "No account", price: zero, tone: "plain" },
+    { key: "free", name: "Free", note: "Sign in", price: zero, tone: "beam" },
+    {
+      key: "premium",
+      name: "Patron",
+      note: "Per month",
+      tone: "brass",
+      price: isLoading ? (
+        <Loader2 className="w-6 h-6 my-1.5 animate-spin text-brass" aria-label="Loading price" />
+      ) : (
+        <span id="features-premium-price">{monthlyFormatted}</span>
+      ),
+    },
+  ];
 
   return (
-    <section id="tiers" className="relative py-12 md:py-16 bg-[#0A0814] border-t border-purple-500/10">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 mb-12">
-          <div>
-            <h2 className="text-3xl sm:text-4xl font-extrabold text-white font-[family-name:var(--font-space-grotesk)]">
-              Simple, transparent tiers.
-            </h2>
-            <p className="text-sm text-gray-400 mt-1">
-              Start completely free. Upgrade whenever you need persistent rooms and video facecams.
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-3">
-            <LocationDebugSwitcher />
-            <PTButton
-              href="/pricing"
-              variant="outline"
-              size="md"
-              rightIcon={<ArrowRight className="w-4 h-4" />}
-            >
-              View Full Pricing &amp; Details
-            </PTButton>
-          </div>
+    <section id="tiers" className="relative pt-4 pb-12">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid lg:grid-cols-[1fr_2.2fr] gap-10 lg:gap-14 items-start">
+        <div className="flex flex-col gap-[18px]">
+          <p className={`${mono} text-xs tracking-[0.16em] text-beam-500 uppercase`}>
+            <span className="text-[#5A4F44]">05 · </span>Seats
+          </p>
+          <h2 className={`${display} text-4xl sm:text-[44px] font-extrabold tracking-[-0.04em] leading-[0.92] text-screen`}>
+            Free for most nights. Patron for the big ones.
+          </h2>
+          <Link
+            href="/pricing"
+            className="inline-block text-[15px] font-semibold text-screen underline underline-offset-[6px] decoration-[#5A4F44] hover:decoration-beam-500 transition-colors"
+          >
+            Compare every seat
+          </Link>
         </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {/* Guest Tier */}
-          <GlassPanel className="p-6 space-y-4">
-            <div className="flex items-center justify-between">
-              <span className="font-bold text-lg text-white font-[family-name:var(--font-space-grotesk)]">
-                Guest
-              </span>
-              <span className="text-xs font-mono text-gray-400">Free</span>
-            </div>
-            <p className="text-xs text-gray-400">
-              1 room • 4 members • 60 mins • No sign-in
-            </p>
-            <ul className="text-xs text-gray-300 space-y-2 pt-2 border-t border-white/5">
-              <li className="flex items-center gap-2">
-                <Check className="w-3.5 h-3.5 text-purple-400" /> Local &amp; YouTube Sync
-              </li>
-              <li className="flex items-center gap-2">
-                <Check className="w-3.5 h-3.5 text-purple-400" /> Text Chat &amp; Reactions
-              </li>
-            </ul>
-          </GlassPanel>
-
-          {/* Free Tier */}
-          <GlassPanel className="p-6 space-y-4 border-purple-400/30 bg-[#161226]/80">
-            <div className="flex items-center justify-between">
-              <span className="font-bold text-lg text-white font-[family-name:var(--font-space-grotesk)]">
-                Free
-              </span>
-              <span className="text-xs font-mono text-purple-300 font-bold">
-                Free Account
-              </span>
-            </div>
-            <p className="text-xs text-gray-400">
-              4 rooms • 8 members • 4 hours • Voice chat
-            </p>
-            <ul className="text-xs text-gray-300 space-y-2 pt-2 border-t border-white/5">
-              <li className="flex items-center gap-2">
-                <Check className="w-3.5 h-3.5 text-purple-400" /> Voice Chat
-              </li>
-              <li className="flex items-center gap-2">
-                <Check className="w-3.5 h-3.5 text-purple-400" /> 4-Hour Watch Sessions
-              </li>
-            </ul>
-          </GlassPanel>
-
-          {/* Premium Tier */}
-          <GlassPanel className="p-6 space-y-4 border-amber-400/40 bg-[#1A1428]/85">
-            <div className="flex items-center justify-between">
-              <span className="font-bold text-lg text-amber-300 font-[family-name:var(--font-space-grotesk)]">
-                Premium
-              </span>
-              {isLoading ? (
-                <div className="flex items-center gap-1.5 text-xs font-mono text-amber-400 font-bold py-0.5">
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  <span>Loading price...</span>
-                </div>
-              ) : (
-                <span
-                  id="features-premium-price"
-                  className="text-xs font-mono text-amber-400 font-bold animate-in fade-in duration-200"
-                >
-                  {monthlyFormatted}/mo
-                </span>
-              )}
-            </div>
-            <p className="text-xs text-gray-400">
-              20 persistent rooms • 16 members • 24h • Video Cams
-            </p>
-            <ul className="text-xs text-gray-300 space-y-2 pt-2 border-t border-white/5">
-              <li className="flex items-center gap-2">
-                <Check className="w-3.5 h-3.5 text-amber-400" /> Video &amp; Voice Facecams
-              </li>
-              <li className="flex items-center gap-2">
-                <Check className="w-3.5 h-3.5 text-amber-400" /> 24 Animated Emoji Reactions
-              </li>
-            </ul>
-          </GlassPanel>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {seats.map((s) => (
+            <SeatCard key={s.key} seat={s} />
+          ))}
         </div>
       </div>
     </section>

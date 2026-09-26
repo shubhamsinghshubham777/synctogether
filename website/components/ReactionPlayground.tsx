@@ -175,10 +175,10 @@ export function ReactionPlayground() {
               key={r.codepoint}
               onClick={() => pop(r)}
               title={r.label}
-              className="w-12 h-12 sm:w-14 sm:h-14 shrink-0 rounded-2xl glass-panel flex items-center justify-center hover:border-purple-400/40 transition-colors cursor-pointer"
+              className="w-11 h-11 shrink-0 rounded-[4px] bg-seat border border-rail flex items-center justify-center hover:border-beam-500/50 transition-colors cursor-pointer"
             >
               {/* eslint-disable-next-line @next/next/no-img-element -- tiny fixed-size static frame, not an LCP candidate */}
-              <img src={`/emoji/${r.codepoint}.webp`} alt={r.label} width={32} height={32} loading="lazy" />
+              <img src={`/emoji/${r.codepoint}.webp`} alt={r.label} width={26} height={26} loading="lazy" />
             </button>
           ))}
 
@@ -190,10 +190,10 @@ export function ReactionPlayground() {
             title="16 more with Premium"
             aria-expanded={panelOpen}
             aria-controls={panelId}
-            className="w-12 h-12 sm:w-14 sm:h-14 shrink-0 rounded-2xl glass-panel border-[color:var(--pt-premium-border)]/40 flex flex-col items-center justify-center gap-0.5 text-[color:var(--pt-premium)] cursor-pointer"
+            className="w-11 h-11 shrink-0 rounded-[4px] border border-rail flex flex-col items-center justify-center gap-0.5 text-gray-300 cursor-pointer"
           >
             <Lock className="w-3.5 h-3.5" />
-            <span className="text-[10px] font-mono font-bold">+16</span>
+            <span className="text-[9px] font-[family-name:var(--font-jetbrains-mono)]">+16</span>
           </button>
         </div>
       </div>
@@ -206,7 +206,7 @@ export function ReactionPlayground() {
           inert={!panelOpen}
           onPointerEnter={hoverOpen}
           onPointerLeave={hoverClose}
-          className={`pointer-events-auto mt-2 w-full max-w-xs sm:max-w-sm bg-[#141022] border border-[color:var(--pt-premium-border)]/40 rounded-2xl p-3 shadow-2xl space-y-2.5 origin-top transform-gpu transition-[opacity,translate,scale,visibility] duration-200 ease-out motion-reduce:transition-none ${
+          className={`pointer-events-auto mt-2 w-full max-w-xs sm:max-w-sm bg-seat border border-rail rounded-md p-3 shadow-2xl space-y-2.5 origin-top transform-gpu transition-[opacity,translate,scale,visibility] duration-200 ease-out motion-reduce:transition-none ${
             panelOpen
               ? "visible opacity-100 scale-100 translate-y-0"
               : "invisible opacity-0 scale-95 -translate-y-1"

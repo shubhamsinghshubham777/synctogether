@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:synctogether/rooms/widgets/room_control_bar.dart';
 import 'package:synctogether/ui/buttons.dart';
+import 'package:synctogether/ui/inputs.dart';
 
 void main() {
   group('RoomControlBar AV Controls (TDD)', () {
@@ -478,6 +479,65 @@ void main() {
       await tester.pump();
 
       expect(fullscreenTriggered, isTrue);
+    });
+  });
+
+  group('RoomControlBar playhead', () {
+    final actions = RoomControlBarActions(
+      onPlayPause: () {},
+      onSeek: (_) {},
+      onSkip: (_) {},
+      onMicToggle: (_) {},
+      onCamToggle: (_) {},
+      onAudioTracks: () {},
+      onSubtitles: () {},
+      onSwitchSource: () {},
+      onOpenFile: () {},
+      onVolume: (_) {},
+      onToggleMute: () {},
+    );
+
+    Widget bar({required bool playing, required Duration position}) => MaterialApp(
+      home: Scaffold(
+        body: RoomControlBar(
+          playing: playing,
+          position: position,
+          duration: const Duration(minutes: 10),
+          volume: 1,
+          micOn: false,
+          camOn: false,
+          avAvailable: false,
+          actions: actions,
+        ),
+      ),
+    );
+
+    double fill(WidgetTester tester) => tester.widget<PTSlider>(find.byType(PTSlider).first).value;
+
+    testWidgets('glides forward between position reports while playing', (tester) async {
+      await tester.pumpWidget(bar(playing: true, position: const Duration(minutes: 1)));
+      final start = fill(tester);
+      await tester.pump(const Duration(milliseconds: 16));
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(fill(tester), greaterThan(start), reason: 'fill advances with no new report');
+      // A report slightly behind what was drawn must not twitch the fill back.
+      final drawn = fill(tester);
+      await tester.pumpWidget(
+        bar(playing: true, position: const Duration(minutes: 1, milliseconds: 100)),
+      );
+      expect(fill(tester), greaterThanOrEqualTo(drawn));
+    });
+
+    testWidgets('a seek snaps, and pausing stops every frame', (tester) async {
+      await tester.pumpWidget(bar(playing: true, position: const Duration(minutes: 1)));
+      await tester.pump(const Duration(milliseconds: 500));
+      await tester.pumpWidget(bar(playing: true, position: const Duration(minutes: 5)));
+      expect(fill(tester), closeTo(0.5, 0.001));
+
+      await tester.pumpWidget(bar(playing: false, position: const Duration(minutes: 5)));
+      await tester.pumpAndSettle();
+      expect(fill(tester), closeTo(0.5, 0.001));
+      expect(tester.binding.hasScheduledFrame, isFalse, reason: 'a paused bar costs no frames');
     });
   });
 }

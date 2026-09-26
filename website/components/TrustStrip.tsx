@@ -3,12 +3,12 @@ import { GitBranch, HardDrive, ShieldCheck, RefreshCw, EyeOff, Undo2 } from "luc
 import { SITE_CONFIG } from "@/lib/constants";
 import { getPublicStats } from "@/lib/public-metrics";
 
-const ITEMS: { icon: typeof GitBranch; label: string; href?: string }[] = [
+const ITEMS: { icon: typeof GitBranch; label: string; href?: string; wide?: boolean }[] = [
   { icon: GitBranch, label: "Source available", href: SITE_CONFIG.githubRepo },
   { icon: HardDrive, label: "Private by default" },
   { icon: ShieldCheck, label: "Signed & notarized" },
-  { icon: RefreshCw, label: "Automatic updates" },
-  { icon: EyeOff, label: "No ads, analytics opt-out", href: "/privacy" },
+  { icon: RefreshCw, label: "Updates itself", wide: true },
+  { icon: EyeOff, label: "No ads · analytics opt-out", href: "/privacy", wide: true },
   { icon: Undo2, label: "14-day refund", href: "/refund" },
 ];
 
@@ -17,44 +17,38 @@ export async function TrustStrip() {
   const stats = showUsageStats ? await getPublicStats().catch(() => null) : null;
 
   return (
-    <section className="relative py-8 md:py-10 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+    <section className="relative px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
       {stats?.publishable && (
-        <p className="text-center text-xs sm:text-sm font-mono text-purple-300/80 mb-6">
+        <p className="text-center text-xs sm:text-sm font-mono text-gray-400 mb-6">
           {stats.roomsAllTime} rooms hosted · {stats.downloadsAllTime} downloads ·{" "}
           {stats.messagesSent} messages sent
         </p>
       )}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-x-4 gap-y-5 max-w-4xl mx-auto">
-        {ITEMS.map(({ icon: Icon, label, href }) => {
+      {/* Two hairlines, six items spread edge to edge; a 2-column grid on phones and tablets. */}
+      <ul className="grid grid-cols-2 md:grid-cols-3 lg:flex lg:justify-between gap-x-6 gap-y-3 border-y border-aisle py-4 lg:py-0 lg:h-16 lg:items-center">
+        {ITEMS.map(({ icon: Icon, label, href, wide }) => {
           const content = (
-            <div className="flex items-start justify-center gap-2 text-center">
-              {/* h-5 matches the label's leading-5, so the icon centres on the first line only */}
-              <span className="flex items-center h-5 shrink-0">
-                <Icon className="w-4 h-4 text-purple-300" />
-              </span>
-              <span
-                className={`text-xs sm:text-[13px] leading-5 text-gray-300 font-medium ${
-                  href ? "underline decoration-gray-500 underline-offset-4 hover:decoration-white" : ""
-                }`}
-              >
-                {label}
-              </span>
-            </div>
+            <span className="inline-flex items-center gap-2.5 text-[13px] lg:text-sm leading-5 text-gray-300">
+              <Icon className="hidden sm:block w-4 h-4 shrink-0 text-gray-500" strokeWidth={1.8} aria-hidden />
+              <span className={href ? "hover:text-screen transition-colors" : ""}>{label}</span>
+            </span>
           );
-          return href ? (
-            <Link
-              key={label}
-              href={href}
-              className="hover:text-white transition-colors"
-              {...(href.startsWith("http") ? { target: "_blank", rel: "noopener noreferrer" } : {})}
-            >
-              {content}
-            </Link>
-          ) : (
-            <div key={label}>{content}</div>
+          return (
+            <li key={label} className={wide ? "hidden md:block" : undefined}>
+              {href ? (
+                <Link
+                  href={href}
+                  {...(href.startsWith("http") ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+                >
+                  {content}
+                </Link>
+              ) : (
+                content
+              )}
+            </li>
           );
         })}
-      </div>
+      </ul>
     </section>
   );
 }

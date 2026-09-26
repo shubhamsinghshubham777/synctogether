@@ -75,7 +75,7 @@ class _PTTextFieldState extends State<PTTextField> {
           decoration: BoxDecoration(
             color: PTColors.white(widget.enabled ? 0.06 : 0.04),
             border: Border.all(color: borderColor),
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(PTRadius.control),
           ),
           child: Row(
             children: [
@@ -249,7 +249,7 @@ class PTCodeInputState extends State<PTCodeInput> with SingleTickerProviderState
               )!,
               width: 1 + pulse,
             ),
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(PTRadius.control),
           ),
           child: char != null
               ? Text(
@@ -306,7 +306,7 @@ class _BlinkingCaretState extends State<_BlinkingCaret> with SingleTickerProvide
   }
 }
 
-/// Progress/duration slider with the violet gradient fill.
+/// Progress/duration slider with a flat Beam fill.
 class PTSlider extends StatefulWidget {
   const PTSlider({
     super.key,
@@ -462,7 +462,7 @@ class _PTSliderPainter extends CustomPainter {
       final fillRect = Rect.fromLTWH(0, trackTop, size.width * value, trackHeight);
       canvas.drawRRect(
         RRect.fromRectAndRadius(fillRect, radius),
-        Paint()..shader = PTColors.barGradient.createShader(fillRect),
+        Paint()..color = PTColors.primary,
       );
     }
 
@@ -520,7 +520,7 @@ class PTToggleRow extends StatelessWidget {
                 height: 38,
                 decoration: BoxDecoration(
                   color: PTColors.white(0.06),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(PTRadius.control),
                 ),
                 child: Icon(icon, size: 19, color: PTColors.white(0.6)),
               ),
@@ -569,10 +569,11 @@ class _PTSwitch extends StatelessWidget {
         width: _width,
         height: _height,
         padding: const EdgeInsets.all(3),
+        // Cue, not Beam: an "on" setting is a state, not the live thing,
+        // and a screen of lit switches would outshine its one lit button.
         decoration: BoxDecoration(
-          gradient: value ? PTColors.buttonGradient : null,
-          color: value ? null : PTColors.white(0.1),
-          border: Border.all(color: PTColors.white(value ? 0.0 : 0.14)),
+          color: value ? PTColors.online : PTColors.white(0.1),
+          border: Border.all(color: value ? PTColors.online : PTColors.white(0.14)),
           borderRadius: BorderRadius.circular(999),
         ),
         child: AnimatedAlign(
@@ -583,7 +584,7 @@ class _PTSwitch extends StatelessWidget {
             width: _knob,
             height: _knob,
             decoration: BoxDecoration(
-              color: value ? Colors.white : PTColors.white(0.55),
+              color: value ? PTColors.canvas : PTColors.white(0.55),
               shape: .circle,
             ),
           ),
@@ -614,7 +615,7 @@ class PTCheckTile extends StatelessWidget {
           decoration: BoxDecoration(
             color: PTColors.white(0.05),
             border: Border.all(color: PTColors.white(0.12)),
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(PTRadius.control),
           ),
           child: Row(
             spacing: 12,
@@ -625,13 +626,12 @@ class PTCheckTile extends StatelessWidget {
                 height: 22,
                 alignment: .center,
                 decoration: BoxDecoration(
-                  gradient: value ? PTColors.buttonGradient : null,
-                  color: value ? null : PTColors.white(0.06),
+                  color: value ? PTColors.primary : PTColors.white(0.06),
                   border: Border.all(color: value ? Colors.transparent : PTColors.white(0.22)),
-                  borderRadius: BorderRadius.circular(7),
+                  borderRadius: BorderRadius.circular(PTRadius.control),
                 ),
                 child: value
-                    ? const Icon(Symbols.check_rounded, size: 15, color: Colors.white)
+                    ? const Icon(Symbols.check_rounded, size: 15, color: PTColors.onAccent)
                     : null,
               ),
               Expanded(child: Text(label, style: PTText.body.copyWith(fontSize: 13.5))),

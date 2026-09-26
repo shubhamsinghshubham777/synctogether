@@ -754,38 +754,66 @@ Learned the hard way, and all four matter:
 
 1. **Flat pure black background**, never "transparent".
 2. **Bare glyph - no tile, frame, badge, container or border.** `BadgeTile`
-   already draws a glass tile; art that carries its own nests glass on glass,
+   already draws a tile; art that carries its own nests a tile in a tile,
    which the design system forbids and which looks muddy.
 3. **One bold silhouette, no scenes.** These render at **40px**. The first
    attempt asked for a laurel wreath *plus* a film reel, a ring of ten figures, a
    calendar with grid lines - all mush at that size.
-4. **Generate one reference, then attach it to every other prompt.** The model is
-   an image *editor* at heart; "same style, change only the symbol" gives
-   consistency that 18 independent prompts never will.
+4. **Generate one reference, then attach it to every other prompt, scoped to
+   texture only.** The model is an image *editor* at heart, so a reference gives
+   consistency that independent prompts never will. It also copies *subjects*: told
+   only "same style, replace the symbol", it drew a clapperboard with the reference
+   handshake still inside it. Every follow-up therefore describes its own symbol in
+   full, says the attachment is a reference for ink texture only, and forbids hands
+   outright. A fresh chat per badge helps when it still leaks.
+5. **Attach the downloaded file, never a screenshot**: a screenshot's rounded frame
+   and the generator's sparkle watermark leak into the next render. The watermark
+   that does appear is dropped by the speck filter, and so is any part of a glyph
+   that does not touch the rest (`night_owl` lost its second star that way), so ask
+   for one connected shape.
 
-The reference prompt:
+The Booth Light set is **flat rubber-stamp ink**, one colour per badge, slightly
+rotated: the "stamps" of the Components board. Colours are Cue teal #6FD6C4 for the
+sync badges (`first_sync`, `perfect_sync`), Brass #E8C877 for the gold ones
+(`unbroken`, `century`, `devoted`, `season_1`), Screen #F4ECDF for `season_2`,
+bronze #C98A5A for `season_3`, and Signal coral #FF6A4D for everything else.
 
-> A single glowing icon symbol floating on a solid pure black background. The
-> symbol is two hands clasped in a handshake, drawn as bold thick simplified
-> shapes with no fine detail. Glossy 3D glass material with a violet-to-magenta
-> gradient (#8B5CF6 to #C084FC), bright inner glow, crisp rim light, and a soft
-> violet glow spilling onto the black around it. The symbol is centred and fills
-> about 80% of the frame. Square 1:1 image. Background is flat pure black
-> #000000 with nothing else in it - no tile, no rounded square, no frame, no
-> border, no container, no card, no checkerboard, no text, no letters, no
-> numbers. Just the glowing symbol on black.
+The reference prompt (`first_sync`):
 
-Every other badge is that image plus: *"Using the attached image as the exact
-style reference - same glossy violet glass material, same lighting, same glow,
-same size in frame, same flat pure black background - replace the symbol with
-SUBJECT. Keep everything else identical. No tile, no frame, no text."*
+> A single icon symbol printed like a rubber ink stamp on a solid pure black
+> background. The symbol is two hands clasped in a handshake, drawn as one bold,
+> thick, simplified flat silhouette with no fine detail, readable at 40 pixels. Flat
+> matte ink in one solid colour, teal #6FD6C4, with a slightly imperfect
+> hand-stamped texture: faint grain, a few tiny ink gaps and slightly uneven edges,
+> like a real rubber stamp pressed firmly onto paper. The whole symbol is rotated
+> about 6 degrees. Completely flat: no gradient, no glow, no shine, no 3D, no bevel,
+> no shadow, no lighting effects. The symbol is centred and fills about 80% of the
+> frame. Square 1:1 image. The background is flat pure black #000000 with nothing
+> else in it: no circle, no ring, no stamp border, no tile, no rounded square, no
+> frame, no container, no card, no checkerboard, no text, no letters, no numbers.
 
-Subjects: handshake · flame · upward arrow with flame trail · lightning bolt
-through an unbroken ring *(gold)* · two overlapping clapperboards · cluster of
-three person silhouettes · hourglass with a light trail · crescent moon and
-stars · three interlocking rings · laurel wreath *(gold)* · party popper · game
-controller · bullseye with an arrow *(magenta)* · three speech bubbles ·
-calendar with a checkmark *(gold)* · trophy cup in gold / silver / bronze.
+Every other badge, with the reference attached:
+
+> Draw a brand new icon: SUBJECT. It is one bold, thick, simplified flat
+> silhouette, readable at 40 pixels, centred and filling about 80% of a square 1:1
+> frame, rotated about ANGLE degrees. Print it as a rubber ink stamp in one solid
+> flat ink colour, COLOUR, on a flat pure black #000000 background. The attached
+> image is ONLY a reference for the ink texture: copy its faint grain, tiny ink gaps
+> and slightly uneven stamped edges, and nothing else. Do NOT copy its subject. The
+> image must contain no handshake, no hands, no fingers and no arms, only the
+> SUBJECT. No gradient, no glow, no 3D, no shadow, no tile, no frame, no border, no
+> text, no letters, no numbers.
+
+Subjects: bullseye with an arrow · single flame · upward arrow with a flame trail ·
+lightning bolt through an unbroken ring · two overlapping clapperboards · three
+head-and-shoulders figures · hourglass · crescent moon with two stars · three
+interlocking rings · laurel wreath · party popper with attached confetti · game
+controller · three speech bubbles · calendar page with a checkmark cut out · trophy
+cup (gold / silver / bronze).
+
+The processed files are **palette PNGs** (256 colours including alpha, about 8 KB
+each): one flat ink colour is visually lossless in a palette, at under a fifth of the
+RGBA size. Not JPEG, which has no alpha and rings around hard ink edges.
 
 ### Locked badges
 

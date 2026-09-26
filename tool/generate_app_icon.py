@@ -1,17 +1,16 @@
 """Build the SyncTogether app-icon source art in assets/icon/.
 
-The art mirrors the in-app wordmark logo (`_Wordmark` in
-lib/rooms/lobby_screen.dart): a rounded square filled with
-PTColors.brandGradient (top-left -> bottom-right, #8B5CF6 -> #C084FC), corner
-radius 32% of the tile, and a white Icons.play_arrow_rounded glyph at 55%. The
-glyph outline is lifted straight out of the MaterialIcons font the app ships
-with, so the icon and the on-screen logo can never drift apart.
+The art is `PTLogoMark` (lib/ui/logo.dart): the wordmark compressed to "s·t",
+Screen letters (PTColors.fg, #F4ECDF) with a Beam middle dot (PTColors.primary,
+#FFB23F) on a Booth tile (PTColors.canvas, #121010). The letter outlines are
+lifted straight out of the Bricolage Grotesque 800 the app bundles, so the icon
+and the on-screen mark can never drift apart.
 
     pip install fonttools          # plus rsvg-convert (brew install librsvg)
     python3 tool/generate_app_icon.py
     fvm dart run flutter_launcher_icons
 
-Usage: generate_app_icon.py [font.otf] [out_dir]
+Usage: generate_app_icon.py [font.ttf] [out_dir]
 """
 
 import os
@@ -19,68 +18,86 @@ import subprocess
 import sys
 import tempfile
 
+from fontTools.pens.boundsPen import BoundsPen
+from fontTools.pens.svgPathPen import SVGPathPen
+from fontTools.pens.transformPen import TransformPen
+from fontTools.ttLib import TTFont
+
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-DEFAULT_FONT = os.path.join(
-    ROOT, ".fvm", "flutter_sdk", "bin", "cache", "artifacts", "material_fonts",
-    "MaterialIcons-Regular.otf",
-)
+DEFAULT_FONT = os.path.join(ROOT, "assets", "fonts", "BricolageGrotesque-800.ttf")
 
 FONT = sys.argv[1] if len(sys.argv) > 1 else DEFAULT_FONT
 OUT = sys.argv[2] if len(sys.argv) > 2 else os.path.join(ROOT, "assets", "icon")
 
-CODEPOINT = 0xF00A0  # Icons.play_arrow_rounded
-GRAD_START = "#8B5CF6"  # PTColors.primary
-GRAD_END = "#C084FC"  # PTColors.gradientEnd
-RADIUS_RATIO = 0.32
-GLYPH_RATIO = 0.55
+TILE = "#121010"  # PTColors.canvas (Booth)
+INK = "#F4ECDF"  # PTColors.fg (Screen)
+BEAM = "#FFB23F"  # PTColors.primary
+RADIUS_RATIO = 0.24  # PTLogoMark's corner radius
+# PTLogoMark sets the letters at 46% of the tile; the icon runs them a little
+# larger, since at 16-32 px the mark is all there is to read.
+TEXT_RATIO = 0.56
+TRACKING = -0.02  # of the font size, as PTLogoMark's letterSpacing
 SIZE = 1024
 
-try:
-    from fontTools.pens.svgPathPen import SVGPathPen
-    from fontTools.ttLib import TTFont
+font = TTFont(FONT)
+upem = font["head"].unitsPerEm
+glyphs = font.getGlyphSet()
+cmap = font.getBestCmap()
+hmtx = font["hmtx"]
 
-    font = TTFont(FONT)
-    upem = font["head"].unitsPerEm
-    glyphs = font.getGlyphSet()
+
+def glyph_runs(text):
+    """[(glyph name, x offset in font units)] for `text`, tracked."""
+    x = 0
+    runs = []
+    for ch in text:
+        name = cmap[ord(ch)]
+        runs.append((name, x))
+        x += hmtx[name][0] + TRACKING * upem
+    return runs
+
+
+RUNS = glyph_runs("s\u00b7t")
+
+# Ink bounds of the whole mark, so it centres optically on its outlines rather
+# than on advance widths (the dot's side bearings would pull it off-centre).
+_bounds = BoundsPen(glyphs)
+for _name, _x in RUNS:
+    glyphs[_name].draw(TransformPen(_bounds, (1, 0, 0, 1, _x, 0)))
+XMIN, YMIN, XMAX, YMAX = _bounds.bounds
+
+
+def glyph_path(name):
     pen = SVGPathPen(glyphs)
-    glyphs[font.getBestCmap()[CODEPOINT]].draw(pen)
-    GLYPH_PATH = pen.getCommands()
-except (ImportError, FileNotFoundError):
-    upem = 512
-    GLYPH_PATH = "M171 367V145C171 129 189 118 204 128L377 238C390 246 390 266 377 274L204 384C189 394 171 383 171 367Z"
+    glyphs[name].draw(pen)
+    return pen.getCommands()
 
 
-
-
-
-def art(tile, rounded=True, glyph=True, bg=True):
+def art(tile, rounded=True, glyph=True, bg=True, mono=False):
     """SVG for a SIZE canvas holding a `tile`-wide icon tile, centred."""
     pad = (SIZE - tile) / 2
-    em = tile * GLYPH_RATIO
-    scale = em / upem
-    offset = (SIZE - em) / 2
     r = tile * RADIUS_RATIO if rounded else 0
+    scale = tile * TEXT_RATIO / upem
+    # Font y grows upward from the baseline; SVG y grows downward.
+    tx = SIZE / 2 - (XMIN + XMAX) / 2 * scale
+    ty = SIZE / 2 + (YMIN + YMAX) / 2 * scale
     parts = [
         f'<svg xmlns="http://www.w3.org/2000/svg" width="{SIZE}" height="{SIZE}" '
-        f'viewBox="0 0 {SIZE} {SIZE}">',
-        "<defs>"
-        f'<linearGradient id="g" x1="{pad}" y1="{pad}" x2="{pad + tile}" y2="{pad + tile}" '
-        f'gradientUnits="userSpaceOnUse">'
-        f'<stop offset="0" stop-color="{GRAD_START}"/>'
-        f'<stop offset="1" stop-color="{GRAD_END}"/>'
-        "</linearGradient></defs>",
+        f'viewBox="0 0 {SIZE} {SIZE}">'
     ]
     if bg:
         parts.append(
             f'<rect x="{pad}" y="{pad}" width="{tile}" height="{tile}" '
-            f'rx="{r}" ry="{r}" fill="url(#g)"/>'
+            f'rx="{r}" ry="{r}" fill="{TILE}"/>'
         )
     if glyph:
-        # Font y grows upward from the baseline; SVG y grows downward.
-        parts.append(
-            f'<g transform="translate({offset} {offset + em}) scale({scale} {-scale})">'
-            f'<path d="{GLYPH_PATH}" fill="#FFFFFF"/></g>'
-        )
+        parts.append(f'<g transform="translate({tx} {ty}) scale({scale} {-scale})">')
+        for name, x in RUNS:
+            fill = INK if mono or name != cmap[0xB7] else BEAM
+            parts.append(
+                f'<path transform="translate({x} 0)" d="{glyph_path(name)}" fill="{fill}"/>'
+            )
+        parts.append("</g>")
     parts.append("</svg>")
     return "\n".join(parts)
 
@@ -135,7 +152,14 @@ write("app_icon_square", art(SIZE, rounded=False))
 # on the background layer only - the launcher mask does the real rounding.
 write("app_icon_background", art(SIZE, rounded=False, glyph=False))
 write("app_icon_foreground", art(SIZE, bg=False))
-write("app_icon_monochrome", art(SIZE, bg=False))
+write("app_icon_monochrome", art(SIZE, bg=False, mono=True))
+
+# Microsoft Store listing logos. The store shows them as drawn, never masked,
+# so they get the rounded master like the Windows .ico.
+for size in (150, 300):
+    dest = os.path.join(ROOT, "assets", "store", f"store_logo_{size}x{size}.png")
+    render(master, dest, size)
+    print("wrote", os.path.relpath(dest, ROOT))
 
 # Marketing website favicons and icons
 website_app = os.path.join(ROOT, "website", "app")

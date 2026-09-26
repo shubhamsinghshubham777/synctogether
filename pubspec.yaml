@@ -65,27 +65,25 @@ flutter:
     - assets/badges/
     - assets/store/
   fonts:
-    - family: Space Grotesk
+    - family: Bricolage Grotesque
       fonts:
-        - asset: assets/fonts/SpaceGrotesk-400.ttf
-          weight: 400
-        - asset: assets/fonts/SpaceGrotesk-500.ttf
+        - asset: assets/fonts/BricolageGrotesque-500.ttf
           weight: 500
-        - asset: assets/fonts/SpaceGrotesk-600.ttf
+        - asset: assets/fonts/BricolageGrotesque-600.ttf
           weight: 600
-        - asset: assets/fonts/SpaceGrotesk-700.ttf
+        - asset: assets/fonts/BricolageGrotesque-700.ttf
           weight: 700
-    - family: Outfit
+        - asset: assets/fonts/BricolageGrotesque-800.ttf
+          weight: 800
+    - family: Hanken Grotesk
       fonts:
-        - asset: assets/fonts/Outfit-300.ttf
-          weight: 300
-        - asset: assets/fonts/Outfit-400.ttf
+        - asset: assets/fonts/HankenGrotesk-400.ttf
           weight: 400
-        - asset: assets/fonts/Outfit-500.ttf
+        - asset: assets/fonts/HankenGrotesk-500.ttf
           weight: 500
-        - asset: assets/fonts/Outfit-600.ttf
+        - asset: assets/fonts/HankenGrotesk-600.ttf
           weight: 600
-        - asset: assets/fonts/Outfit-700.ttf
+        - asset: assets/fonts/HankenGrotesk-700.ttf
           weight: 700
     - family: JetBrains Mono
       fonts:
@@ -93,6 +91,8 @@ flutter:
           weight: 400
         - asset: assets/fonts/JetBrainsMono-500.ttf
           weight: 500
+        - asset: assets/fonts/JetBrainsMono-600.ttf
+          weight: 600
 
 inno_bundle:
   id: a05680d0-e422-11f0-af00-4b68febb008b

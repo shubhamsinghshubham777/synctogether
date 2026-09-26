@@ -65,8 +65,8 @@ export function SyncTogetherIcon({ className }: IconProps) {
           y2="1024.0"
           gradientUnits="userSpaceOnUse"
         >
-          <stop offset="0" stopColor="#8B5CF6" />
-          <stop offset="1" stopColor="#C084FC" />
+          <stop offset="0" stopColor="#FFB23F" />
+          <stop offset="1" stopColor="#FFC266" />
         </linearGradient>
       </defs>
       <rect

@@ -43,6 +43,8 @@ class MediaQuotaDialogBody extends StatelessWidget {
 
   final MediaQuotaContext? quotaContext;
 
+  static const _kGb = 1024 * 1024 * 1024;
+
   @override
   Widget build(BuildContext context) {
     final profile = ProfileService.instance.profile;
@@ -55,6 +57,25 @@ class MediaQuotaDialogBody extends StatelessWidget {
     final remainingBytes = profile?.remainingWeeklyBytes(weeklyLimit) ?? weeklyLimit;
     final fractionUsed = weeklyLimit > 0 ? (usedBytes / weeklyLimit).clamp(0.0, 1.0) : 0.0;
     final resetDuration = profile?.timeUntilQuotaReset;
+    final reason = quotaContext?.reason;
+    final blocked = reason != null;
+
+    final title = switch (reason) {
+      .singleFileLimitExceeded => 'Too big to share',
+      .weeklyQuotaExceeded => 'Not enough allowance left',
+      .guestBlocked => 'Sharing needs an account',
+      null => isGuest ? 'Sharing needs an account' : 'Sharing allowance',
+    };
+
+    void subscribe() {
+      Navigator.of(context).pop();
+      final source = switch (reason) {
+        .singleFileLimitExceeded => 'quota_dialog_single_file',
+        .weeklyQuotaExceeded => 'quota_dialog_weekly',
+        _ => 'quota_dialog',
+      };
+      context.push('/lobby/subscribe?source=$source');
+    }
 
     // Tall enough: header and actions stay pinned and only the middle
     // scrolls. Short windows (landscape phones, big text) cannot afford two
@@ -63,23 +84,6 @@ class MediaQuotaDialogBody extends StatelessWidget {
       builder: (context, constraints) {
         final maxBodyHeight = constraints.maxHeight.clamp(0.0, 720.0);
         final compact = maxBodyHeight < MediaQuery.textScalerOf(context).scale(520);
-        // Side-by-side actions need room for both labels; on a narrow or
-        // large-text dialog they stack instead of ellipsizing to nothing.
-        final stackActions = constraints.maxWidth / MediaQuery.textScalerOf(context).scale(1) < 300;
-        Widget actionRow(Widget main, Widget side) => stackActions
-            ? Column(
-                mainAxisSize: .min,
-                crossAxisAlignment: .stretch,
-                spacing: 10,
-                children: [main, side],
-              )
-            : Row(
-                spacing: 10,
-                children: [
-                  Expanded(child: main),
-                  side,
-                ],
-              );
         Widget middle(Widget child) => compact
             ? Padding(padding: const EdgeInsets.symmetric(horizontal: 20), child: child)
             : Flexible(
@@ -92,234 +96,98 @@ class MediaQuotaDialogBody extends StatelessWidget {
           mainAxisSize: .min,
           crossAxisAlignment: .start,
           children: [
-            // Header (pinned)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Row(
-                spacing: 12,
-                // Pinned to the top so a heading that wraps at large text
-                // keeps the tile beside its first line, not its middle.
-                crossAxisAlignment: .start,
-                children: [
-                  Container(
-                    width: 46,
-                    height: 46,
-                    decoration: BoxDecoration(
-                      color: isPrem
-                          ? PTColors.primary.withValues(alpha: 0.25)
-                          : PTColors.white(0.08),
-                      border: Border.all(
-                        color: isPrem
-                            ? PTColors.accentBorder.withValues(alpha: 0.5)
-                            : PTColors.white(0.12),
-                      ),
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    child: Icon(
-                      isPrem ? Symbols.crown_rounded : Symbols.cloud_queue_rounded,
-                      size: 24,
-                      fill: 1,
-                      color: isPrem ? PTColors.textAccent : Colors.white,
-                    ),
-                  ),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Media Sharing Quota',
-                          textScaler: dialogHeadingScaler(context),
-                          style: PTText.cardHeading,
-                        ),
-                        Text(
-                          isPrem
-                              ? 'Unlimited with Premium'
-                              : isGuest
-                              ? 'Sign in to unlock weekly quota'
-                              : '${Profile.formatBytes(remainingBytes)} of ${Profile.formatBytes(weeklyLimit)} remaining',
-                          style: PTText.caption.copyWith(
-                            fontSize: 12,
-                            color: isPrem
-                                ? PTColors.textAccent
-                                : remainingBytes < 1024 * 1024 * 1024 && !isGuest
-                                ? PTColors.warning
-                                : PTColors.white(0.6),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
+              child: GlassDialogHeader(
+                eyebrow: isPrem ? 'Patron · projection' : 'Projection allowance',
+                eyebrowColor: blocked && reason != .guestBlocked ? PTColors.danger : null,
+                title: title,
+                onClose: () => Navigator.of(context).pop(),
               ),
             ),
-            const SizedBox(height: 14),
-
-            // Scrollable middle section extending full width with comfortable 20px horizontal padding
+            const SizedBox(height: 16),
             middle(
               Column(
                 mainAxisSize: .min,
-                crossAxisAlignment: .start,
-                spacing: 14,
+                crossAxisAlignment: .stretch,
+                spacing: 16,
                 children: [
-                  // Contextual Blockage Card (shown when an upload was rejected)
-                  if (quotaContext != null) _ContextualBlockageCard(quotaContext: quotaContext!),
-
-                  // Live Meter Card
-                  if (isPrem)
-                    Container(
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [
-                            PTColors.primary.withValues(alpha: 0.15),
-                            PTColors.gradientEnd.withValues(alpha: 0.08),
-                          ],
-                        ),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: PTColors.primary.withValues(alpha: 0.3)),
-                      ),
-                      child: Row(
-                        spacing: 10,
-                        children: [
-                          const Icon(
-                            Symbols.verified_rounded,
-                            color: PTColors.textAccent,
-                            size: 20,
-                          ),
-                          Expanded(
-                            child: Text(
-                              'No upload limits! Share videos up to 10.0 GB each with high-speed priority.',
-                              style: PTText.body.copyWith(fontSize: 12),
-                            ),
-                          ),
-                        ],
-                      ),
+                  if (blocked && reason != .guestBlocked)
+                    _BlockedFile(quotaContext: quotaContext!)
+                  else if (isPrem)
+                    const DialogNote(
+                      tone: DialogNoteTone.premium,
+                      icon: Symbols.verified_rounded,
+                      child: Text('No weekly cap. Share videos up to 10 GB each.'),
                     )
                   else if (!isGuest)
-                    Container(
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        color: PTColors.glass(0.25),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: PTColors.white(0.08)),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        spacing: 10,
-                        children: [
-                          Wrap(
-                            alignment: WrapAlignment.spaceBetween,
-                            spacing: 8,
-                            runSpacing: 4,
-                            children: [
-                              Text(
-                                '7-Day Rolling Usage',
-                                style: PTText.caption.copyWith(fontSize: 12),
-                              ),
-                              Text(
-                                '${Profile.formatBytes(usedBytes)} / ${Profile.formatBytes(weeklyLimit)}',
-                                style: PTText.mono.copyWith(
-                                  fontSize: 12,
-                                  color: PTColors.textAccent,
-                                ),
-                              ),
-                            ],
-                          ),
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(3),
-                            child: LinearProgressIndicator(
-                              value: fractionUsed,
-                              backgroundColor: PTColors.white(0.1),
-                              valueColor: AlwaysStoppedAnimation<Color>(
-                                fractionUsed > 0.85 ? PTColors.warning : PTColors.textAccent,
-                              ),
-                              minHeight: 6,
-                            ),
-                          ),
-                          Wrap(
-                            alignment: WrapAlignment.spaceBetween,
-                            spacing: 8,
-                            runSpacing: 4,
-                            children: [
-                              Text(
-                                '${Profile.formatBytes(remainingBytes)} available',
-                                style: PTText.caption.copyWith(
-                                  fontSize: 11,
-                                  color: PTColors.online,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                              if (resetDuration != null && resetDuration.inHours > 0)
-                                Text(
-                                  'Recharges in ${_formatReset(resetDuration)}',
-                                  style: PTText.caption.copyWith(
-                                    fontSize: 11,
-                                    color: PTColors.white(0.5),
-                                  ),
-                                ),
-                            ],
-                          ),
-                        ],
-                      ),
+                    _Allowance(
+                      remaining: remainingBytes,
+                      limit: weeklyLimit,
+                      used: usedBytes,
+                      fraction: fractionUsed,
+                      recharge: resetDuration != null && resetDuration.inHours > 0
+                          ? _formatReset(resetDuration)
+                          : null,
                     )
                   else
-                    Container(
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        color: PTColors.glass(0.25),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: PTColors.white(0.08)),
-                      ),
-                      child: Text(
-                        'Sign in to get a free 2.5 GB rolling weekly quota to stream any video file with your room.',
-                        style: PTText.body.copyWith(fontSize: 12, color: PTColors.white(0.75)),
+                    Text(
+                      'Guest rooms play local files only. Sign in and you get a free '
+                      '2.5 GB a week to stream a file to everyone in your room.',
+                      style: PTText.body.copyWith(
+                        fontSize: 14,
+                        height: 1.45,
+                        color: PTColors.white(0.8),
                       ),
                     ),
-
-                  // Tier Breakdown / Comparison
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: PTColors.glass(0.15),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: PTColors.white(0.06)),
+                  if (reason == .singleFileLimitExceeded)
+                    Text(
+                      isPrem
+                          ? 'Patron seats share up to 10 GB a file. It still plays locally.'
+                          : 'Free seats share up to 2 GB a file. It still plays locally.',
+                      style: PTText.body.copyWith(
+                        fontSize: 14,
+                        height: 1.45,
+                        color: PTColors.white(0.8),
+                      ),
+                    )
+                  else if (reason == .weeklyQuotaExceeded)
+                    Text(
+                      'Your allowance tops back up as uploads age out of the last 7 days. '
+                      'It still plays locally.',
+                      style: PTText.body.copyWith(
+                        fontSize: 14,
+                        height: 1.45,
+                        color: PTColors.white(0.8),
+                      ),
                     ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      spacing: 8,
+                  if (!blocked)
+                    Column(
+                      crossAxisAlignment: .start,
+                      spacing: 10,
                       children: [
-                        Text(
-                          'How Quotas Work',
-                          style: PTText.caption.copyWith(fontSize: 11, fontWeight: FontWeight.w600),
-                        ),
                         _FeatureRow(
                           icon: Symbols.schedule_rounded,
-                          title: 'Rolling 7-Day Window',
-                          description:
-                              'Uploaded bytes automatically clear 7 days after the upload completed.',
+                          title: 'Rolling 7 days',
+                          description: 'Uploads free up a week after they finish.',
                         ),
                         _FeatureRow(
                           icon: Symbols.person_rounded,
-                          title: 'Free Plan (\$0/mo)',
-                          description:
-                              '2.5 GB weekly quota • Up to 2.0 GB single file • Room duration up to 4 hrs.',
+                          title: 'Free',
+                          description: '2.5 GB a week, 2 GB per file.',
                         ),
                         _FeatureRow(
-                          icon: Symbols.workspace_premium_rounded,
-                          title: 'Premium Plan',
-                          description:
-                              'Unlimited weekly uploads • Up to 10.0 GB single file • 24h rooms & facecams.',
+                          icon: Symbols.star_rounded,
+                          title: 'Patron',
+                          description: 'No weekly cap, 10 GB per file.',
                           highlight: true,
                         ),
                       ],
                     ),
-                  ),
                 ],
               ),
             ),
-            const SizedBox(height: 14),
-
-            // Action Buttons (pinned at bottom)
+            const SizedBox(height: 18),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: isGuest
@@ -377,55 +245,63 @@ class MediaQuotaDialogBody extends StatelessWidget {
                             }
                           },
                         ),
-                        actionRow(
-                          PTButton(
-                            maxLines: 2,
-                            label: 'Go Premium (Unlimited)',
-                            icon: Symbols.crown_rounded,
-                            variant: .secondary,
-                            onPressed: () {
-                              Navigator.of(context).pop();
-                              context.push('/lobby/subscribe?source=quota_dialog');
-                            },
-                          ),
-                          PTButton(
-                            maxLines: 2,
-                            label: 'Got it',
-                            variant: .secondary,
-                            expand: false,
-                            onPressed: () => Navigator.of(context).pop(),
-                          ),
+                        DialogTextButton(
+                          label: 'Maybe later',
+                          onPressed: () => Navigator.of(context).pop(),
                         ),
                       ],
                     )
                   : isPrem
                   ? PTButton(
                       maxLines: 2,
-                      label: 'Got it',
+                      label: blocked ? 'Play it locally' : 'Got it',
                       onPressed: () => Navigator.of(context).pop(),
                     )
-                  : actionRow(
-                      PTButton(
-                        maxLines: 2,
-                        label: quotaContext?.reason == .singleFileLimitExceeded
-                            ? 'Upgrade for 10.0 GB Files'
-                            : 'Get Unlimited with Premium',
-                        icon: Symbols.crown_rounded,
-                        onPressed: () {
-                          Navigator.of(context).pop();
-                          final source = quotaContext?.reason == .singleFileLimitExceeded
-                              ? 'quota_dialog_single_file'
-                              : 'quota_dialog_weekly';
-                          context.push('/lobby/subscribe?source=$source');
-                        },
-                      ),
-                      PTButton(
-                        maxLines: 2,
-                        label: 'Got it',
-                        variant: .secondary,
-                        expand: false,
-                        onPressed: () => Navigator.of(context).pop(),
-                      ),
+                  : blocked
+                  // A blocked upload still plays locally - sharing only adds
+                  // a stream for members without a copy - so that is the lit
+                  // action, and the upsell is Brass text beneath it.
+                  ? Column(
+                      mainAxisSize: .min,
+                      crossAxisAlignment: .stretch,
+                      spacing: 12,
+                      children: [
+                        PTButton(
+                          maxLines: 2,
+                          label: 'Play it locally',
+                          onPressed: () => Navigator.of(context).pop(),
+                        ),
+                        DialogTextButton(
+                          label: reason == .singleFileLimitExceeded
+                              ? 'Patron seats share up to 10 GB'
+                              : 'Patron seats have no weekly cap',
+                          color: PTColors.premium,
+                          underline: false,
+                          onPressed: subscribe,
+                        ),
+                      ],
+                    )
+                  : Row(
+                      children: [
+                        Expanded(
+                          child: Align(
+                            alignment: .centerLeft,
+                            child: DialogTextButton(
+                              label: 'Get a Patron seat',
+                              color: PTColors.premium,
+                              underline: false,
+                              textAlign: TextAlign.start,
+                              onPressed: subscribe,
+                            ),
+                          ),
+                        ),
+                        PTButton(
+                          maxLines: 2,
+                          label: 'Got it',
+                          expand: false,
+                          onPressed: () => Navigator.of(context).pop(),
+                        ),
+                      ],
                     ),
             ),
           ],
@@ -453,228 +329,151 @@ class MediaQuotaDialogBody extends StatelessWidget {
   }
 }
 
-class _ContextualBlockageCard extends StatelessWidget {
-  const _ContextualBlockageCard({required this.quotaContext});
+/// What is left this week, set big, with a thin Cue bar of what is used.
+class _Allowance extends StatelessWidget {
+  const _Allowance({
+    required this.remaining,
+    required this.limit,
+    required this.used,
+    required this.fraction,
+    this.recharge,
+  });
+
+  final int remaining;
+  final int limit;
+  final int used;
+  final double fraction;
+  final String? recharge;
+
+  @override
+  Widget build(BuildContext context) {
+    final low = remaining < MediaQuotaDialogBody._kGb;
+    return Column(
+      crossAxisAlignment: .stretch,
+      spacing: 10,
+      children: [
+        Row(
+          crossAxisAlignment: .baseline,
+          textBaseline: .alphabetic,
+          children: [
+            Expanded(
+              child: Text(
+                Profile.formatBytes(remaining),
+                style: PTText.display.copyWith(
+                  fontSize: 30,
+                  letterSpacing: -0.8,
+                  color: low ? PTColors.warning : PTColors.fg,
+                ),
+              ),
+            ),
+            Text('LEFT OF ${Profile.formatBytes(limit)}'.toUpperCase(), style: PTText.label),
+          ],
+        ),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(2),
+          child: SizedBox(
+            height: 4,
+            child: Stack(
+              fit: .expand,
+              children: [
+                const ColoredBox(color: PTColors.rail),
+                FractionallySizedBox(
+                  alignment: .centerLeft,
+                  widthFactor: fraction,
+                  child: ColoredBox(color: fraction > 0.85 ? PTColors.warning : PTColors.online),
+                ),
+              ],
+            ),
+          ),
+        ),
+        Text(
+          [
+            '${Profile.formatBytes(used)} used this week',
+            if (recharge != null) 'tops up in $recharge',
+          ].join(' · ').toUpperCase(),
+          style: PTText.label.copyWith(fontSize: 10),
+        ),
+      ],
+    );
+  }
+}
+
+/// The file that could not be shared, and by how much: one Signal box.
+class _BlockedFile extends StatelessWidget {
+  const _BlockedFile({required this.quotaContext});
 
   final MediaQuotaContext quotaContext;
 
   @override
   Widget build(BuildContext context) {
-    final reason = quotaContext.reason;
-    final fileName = quotaContext.fileName;
-    final fileSize = quotaContext.fileSize;
-    final maxBytes = quotaContext.maxBytes;
-    final remainingBytes = quotaContext.remainingBytes;
-
+    final c = quotaContext;
     final isPrem = EntitlementService.instance.isPremium;
-
-    final String badgeText;
-    final String titleText;
-    final String bodyText;
-    final IconData badgeIcon;
-
-    switch (reason) {
-      case .singleFileLimitExceeded:
-        badgeText = 'SINGLE-FILE LIMIT EXCEEDED';
-        badgeIcon = Symbols.warning_amber_rounded;
-        titleText = isPrem ? 'Video Exceeds Premium File Limit' : 'Video Exceeds Free File Limit';
-        bodyText = isPrem
-            ? 'SyncTogether Premium supports videos up to 10.0 GB per file. Please select a video within this limit.'
-            : 'Free accounts can upload videos up to 2.0 GB per file. Upgrade to SyncTogether Premium for files up to 10.0 GB with zero weekly caps.';
-      case .weeklyQuotaExceeded:
-        badgeText = 'WEEKLY QUOTA EXCEEDED';
-        badgeIcon = Symbols.speed_rounded;
-        titleText = 'Insufficient Weekly Quota';
-        bodyText = isPrem
-            ? 'This video exceeds the allowable upload quota. Upgrade or wait for your quota to recharge.'
-            : 'This video requires more quota than your remaining 7-day balance. Upgrade to SyncTogether Premium for unlimited sharing, or wait for your rolling quota to recharge.';
-      case .guestBlocked:
-        badgeText = 'SIGN-IN REQUIRED';
-        badgeIcon = Symbols.lock_person_rounded;
-        titleText = 'Media Sharing Requires an Account';
-        bodyText =
-            'Guest accounts cannot upload or share media. Sign up or log in using Email OTP, Apple, or Google to unlock a free 2.5 GB rolling weekly quota.';
-    }
-
-    final int? deltaBytes;
-    final String? deltaLabel;
-    if (fileSize != null && reason == .singleFileLimitExceeded && maxBytes != null) {
-      deltaBytes = (fileSize - maxBytes).clamp(0, 100 * 1024 * 1024 * 1024);
-      deltaLabel = 'Over limit by';
-    } else if (fileSize != null &&
-        reason == .weeklyQuotaExceeded &&
-        remainingBytes != null &&
-        remainingBytes >= 0) {
-      deltaBytes = (fileSize - remainingBytes).clamp(0, 100 * 1024 * 1024 * 1024);
-      deltaLabel = 'Quota shortfall';
-    } else {
-      deltaBytes = null;
-      deltaLabel = null;
-    }
-
+    final single = c.reason == .singleFileLimitExceeded;
+    final cap = single ? c.maxBytes : c.remainingBytes;
+    final over = c.fileSize != null && cap != null && cap >= 0
+        ? (c.fileSize! - cap).clamp(0, 100 * MediaQuotaDialogBody._kGb)
+        : null;
+    Widget metric(String label, String value, {Color? color}) => Expanded(
+      child: Column(
+        crossAxisAlignment: .start,
+        spacing: 2,
+        children: [
+          Text(label, style: PTText.label.copyWith(fontSize: 10)),
+          Text(
+            value,
+            style: PTText.mono.copyWith(
+              fontSize: 15,
+              fontWeight: .w600,
+              color: color ?? PTColors.fg,
+            ),
+          ),
+        ],
+      ),
+    );
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: PTColors.warning.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: PTColors.warning.withValues(alpha: 0.45)),
+        borderRadius: BorderRadius.circular(PTRadius.control),
+        border: Border.all(color: PTColors.dangerBorder),
       ),
       child: Column(
         crossAxisAlignment: .start,
-        spacing: 10,
+        spacing: 12,
         children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: PTColors.warning.withValues(alpha: 0.22),
-              borderRadius: BorderRadius.circular(6),
-              border: Border.all(color: PTColors.warning.withValues(alpha: 0.5)),
-            ),
-            child: Row(
-              mainAxisSize: .min,
-              spacing: 5,
+          if (c.fileName != null && c.fileName!.isNotEmpty)
+            Row(
+              spacing: 8,
               children: [
-                Icon(badgeIcon, size: 14, color: PTColors.warning),
-                Flexible(
+                Icon(Symbols.draft_rounded, size: 16, color: PTColors.white(0.6)),
+                Expanded(
                   child: Text(
-                    badgeText,
-                    style: PTText.mono.copyWith(
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                      color: PTColors.warning,
-                      letterSpacing: 0.5,
-                    ),
+                    c.fileName!,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: PTText.mono.copyWith(fontSize: 12.5, color: PTColors.fg),
                   ),
                 ),
               ],
             ),
-          ),
-          Text(titleText, style: PTText.cardHeading.copyWith(fontSize: 15, color: Colors.white)),
-          Text(
-            bodyText,
-            style: PTText.body.copyWith(fontSize: 12, color: PTColors.white(0.82), height: 1.35),
-          ),
-          if (fileSize != null || (fileName != null && fileName.isNotEmpty))
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: PTColors.glass(0.3),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: PTColors.white(0.08)),
-              ),
-              child: Column(
-                crossAxisAlignment: .start,
-                spacing: 10,
-                children: [
-                  if (fileName != null && fileName.isNotEmpty)
-                    Row(
-                      spacing: 8,
-                      children: [
-                        const Icon(Symbols.movie_rounded, size: 16, color: PTColors.textAccent),
-                        Expanded(
-                          child: Text(
-                            fileName,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: PTText.mono.copyWith(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500,
-                              color: PTColors.white(0.9),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  if (fileSize != null) ...[
-                    if (fileName != null && fileName.isNotEmpty)
-                      Divider(height: 1, thickness: 1, color: PTColors.white(0.08)),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _MetricBadge(
-                            label: 'Selected Video',
-                            value: Profile.formatBytes(fileSize),
-                            highlightColor: Colors.white,
-                          ),
-                        ),
-                        Container(width: 1, height: 28, color: PTColors.white(0.12)),
-                        if (reason == .singleFileLimitExceeded && maxBytes != null) ...[
-                          Expanded(
-                            child: _MetricBadge(
-                              label: isPrem ? 'Premium Cap' : 'Free Plan Cap',
-                              value: Profile.formatBytes(maxBytes),
-                              highlightColor: PTColors.white(0.75),
-                            ),
-                          ),
-                          if (deltaBytes != null) ...[
-                            Container(width: 1, height: 28, color: PTColors.white(0.12)),
-                            Expanded(
-                              child: _MetricBadge(
-                                label: deltaLabel!,
-                                value: '+${Profile.formatBytes(deltaBytes)}',
-                                highlightColor: PTColors.dangerBorder,
-                              ),
-                            ),
-                          ],
-                        ] else if (reason == .weeklyQuotaExceeded && remainingBytes != null) ...[
-                          Expanded(
-                            child: _MetricBadge(
-                              label: 'Remaining',
-                              value: Profile.formatBytes(remainingBytes),
-                              highlightColor: PTColors.white(0.75),
-                            ),
-                          ),
-                          if (deltaBytes != null) ...[
-                            Container(width: 1, height: 28, color: PTColors.white(0.12)),
-                            Expanded(
-                              child: _MetricBadge(
-                                label: deltaLabel!,
-                                value: '-${Profile.formatBytes(deltaBytes)}',
-                                highlightColor: PTColors.dangerBorder,
-                              ),
-                            ),
-                          ],
-                        ],
-                      ],
-                    ),
-                  ],
-                ],
-              ),
+          if (c.fileSize != null)
+            Row(
+              children: [
+                metric('FILE', Profile.formatBytes(c.fileSize!)),
+                if (cap != null && cap >= 0)
+                  metric(
+                    single ? (isPrem ? 'PATRON CAP' : 'FREE CAP') : 'LEFT',
+                    Profile.formatBytes(cap),
+                  ),
+                if (over != null)
+                  metric(
+                    single ? 'OVER BY' : 'SHORT BY',
+                    Profile.formatBytes(over),
+                    color: PTColors.danger,
+                  ),
+              ],
             ),
         ],
       ),
-    );
-  }
-}
-
-class _MetricBadge extends StatelessWidget {
-  const _MetricBadge({required this.label, required this.value, required this.highlightColor});
-
-  final String label;
-  final String value;
-  final Color highlightColor;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: .min,
-      children: [
-        Text(
-          label,
-          style: PTText.caption.copyWith(fontSize: 10, color: PTColors.white(0.55)),
-          textAlign: TextAlign.center,
-        ),
-        const SizedBox(height: 2),
-        Text(
-          value,
-          style: PTText.mono.copyWith(
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-            color: highlightColor,
-          ),
-          textAlign: TextAlign.center,
-        ),
-      ],
     );
   }
 }
@@ -698,17 +497,17 @@ class _FeatureRow extends StatelessWidget {
       crossAxisAlignment: .start,
       spacing: 8,
       children: [
-        Icon(icon, size: 16, color: highlight ? PTColors.textAccent : PTColors.white(0.5)),
+        Icon(icon, size: 16, color: highlight ? PTColors.premium : PTColors.white(0.5)),
         Expanded(
           child: RichText(
             text: TextSpan(
-              style: PTText.caption.copyWith(fontSize: 11, color: PTColors.white(0.7)),
+              style: PTText.caption.copyWith(fontSize: 12, color: PTColors.white(0.7)),
               children: [
                 TextSpan(
                   text: '$title: ',
                   style: TextStyle(
                     fontWeight: FontWeight.w600,
-                    color: highlight ? PTColors.textAccent : Colors.white,
+                    color: highlight ? PTColors.premium : PTColors.fg,
                   ),
                 ),
                 TextSpan(text: description),

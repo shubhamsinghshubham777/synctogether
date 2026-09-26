@@ -5542,7 +5542,6 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
   }
 
   bool get _theaterFits {
-    if (_fullscreen) return false;
     final size = MediaQuery.sizeOf(context);
     return size.width >= kTheaterMinSize.width && size.height >= kTheaterMinSize.height;
   }

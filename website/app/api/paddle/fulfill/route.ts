@@ -60,6 +60,7 @@ export async function POST() {
           tier: "premium",
           source: "paddle",
           current_period_end: resolution.periodEnd,
+          ...resolution.billing,
           updated_at: new Date().toISOString(),
         },
         { onConflict: "user_id" }

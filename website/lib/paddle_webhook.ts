@@ -180,14 +180,106 @@ export function resolvePeriodEnd(data: {
   );
 }
 
+interface PaddleUnitPrice {
+  amount?: string | null;
+  currency_code?: string | null;
+}
+
+/** The slice of a Paddle subscription entity that says what it charges. */
+export interface PaddleBillingSource {
+  status?: string | null;
+  currency_code?: string | null;
+  scheduled_change?: { action?: string | null; effective_at?: string | null } | null;
+  items?: Array<{
+    quantity?: number | null;
+    price?: {
+      id?: string | null;
+      billing_cycle?: { interval?: string | null; frequency?: number | null } | null;
+      unit_price?: PaddleUnitPrice | null;
+      unit_price_overrides?: Array<{ unit_price?: PaddleUnitPrice | null }> | null;
+    } | null;
+  }> | null;
+}
+
+/** Columns on `subscriptions` that record what a Paddle subscription charges. */
+export interface BillingDetails {
+  price_id: string | null;
+  unit_amount: number | null;
+  currency: string | null;
+  billing_interval: string | null;
+  billing_frequency: number | null;
+  paddle_status: string | null;
+  scheduled_cancel_at: string | null;
+}
+
+const BILLING_INTERVALS = new Set(["day", "week", "month", "year"]);
+
+/**
+ * What the subscription charges, for the revenue figures on the internal
+ * dashboard. Localised prices (INR) are `unit_price_overrides`, so the amount
+ * recorded is whichever unit price is in the subscription's own currency -
+ * the base USD price would misstate every Indian subscriber. When no unit price
+ * matches the currency, the amount is null: an unpriced row is reported as
+ * such rather than summed at a guess.
+ */
+export function resolveBilling(data: PaddleBillingSource | null | undefined): BillingDetails {
+  const item = data?.items?.[0];
+  const price = item?.price;
+  const currency = data?.currency_code?.toUpperCase() ?? null;
+
+  const candidates = [price?.unit_price, ...(price?.unit_price_overrides ?? []).map((o) => o?.unit_price)];
+  const match = currency
+    ? candidates.find((p) => p?.currency_code?.toUpperCase() === currency)
+    : undefined;
+  const perUnit = match?.amount != null && /^\d+$/.test(match.amount) ? Number(match.amount) : null;
+  const quantity = item?.quantity && item.quantity > 0 ? item.quantity : 1;
+
+  const interval = price?.billing_cycle?.interval ?? null;
+  const frequency = price?.billing_cycle?.frequency ?? null;
+
+  return {
+    price_id: price?.id ?? null,
+    unit_amount: perUnit == null ? null : perUnit * quantity,
+    currency: currency && /^[A-Z]{3}$/.test(currency) ? currency : null,
+    billing_interval: interval && BILLING_INTERVALS.has(interval) ? interval : null,
+    billing_frequency: frequency && frequency > 0 ? frequency : null,
+    paddle_status: data?.status ?? null,
+    scheduled_cancel_at:
+      data?.scheduled_change?.action === "cancel" ? data.scheduled_change.effective_at ?? null : null,
+  };
+}
+
+const BILLING_KEYS: (keyof BillingDetails)[] = [
+  "price_id",
+  "unit_amount",
+  "currency",
+  "billing_interval",
+  "billing_frequency",
+  "paddle_status",
+  "scheduled_cancel_at",
+];
+
 /**
  * Whether a grant would change nothing. Suppressing the write matters because
  * `subscriptions` is published to `supabase_realtime`, so a redundant upsert
- * wakes every subscribed client's `EntitlementService` for no reason.
+ * wakes every subscribed client's `EntitlementService` for no reason. A change
+ * of price, status or scheduled cancellation is not redundant even when the
+ * entitlement is unchanged - the revenue figures depend on it.
  */
 export function isRedundantGrant(
-  existing: { tier?: string | null; current_period_end?: string | null } | null,
-  periodEnd: string
+  existing:
+    | ({ tier?: string | null; current_period_end?: string | null } & Partial<BillingDetails>)
+    | null,
+  periodEnd: string,
+  billing?: BillingDetails
 ): boolean {
-  return existing?.tier === "premium" && existing?.current_period_end === periodEnd;
+  if (existing?.tier !== "premium" || existing?.current_period_end !== periodEnd) return false;
+  if (!billing) return true;
+  return BILLING_KEYS.every((k) => {
+    const a = existing[k] ?? null;
+    const b = billing[k];
+    // Postgres answers `+00:00`, Paddle sends `Z`: compare the instant.
+    if (k === "scheduled_cancel_at" && a && b) return Date.parse(String(a)) === Date.parse(String(b));
+    return a === b;
+  });
 }

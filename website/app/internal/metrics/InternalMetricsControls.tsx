@@ -72,8 +72,8 @@ export function InternalMetricsControls({ timestamp, data }: ControlsProps) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-4 p-4 rounded-2xl bg-purple-950/20 border border-purple-500/20 ">
       <div className="flex items-center gap-3">
-        <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-400/20 text-emerald-400 text-xs font-mono font-medium">
-          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+        <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-cue/10 border border-cue/20 text-cue text-xs font-mono font-medium">
+          <span className="w-2 h-2 rounded-full bg-cue animate-ping" />
           <span>LOCAL DEV ONLY • CONFIDENTIAL</span>
         </div>
         {mounted && (
@@ -125,7 +125,7 @@ export function InternalMetricsControls({ timestamp, data }: ControlsProps) {
           className="text-xs font-mono"
           leftIcon={
             copied ? (
-              <Check className="w-3.5 h-3.5 text-emerald-400" />
+              <Check className="w-3.5 h-3.5 text-cue" />
             ) : (
               <Copy className="w-3.5 h-3.5 text-purple-300" />
             )

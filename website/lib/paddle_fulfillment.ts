@@ -1,4 +1,6 @@
-export interface PaddleSubscriptionItem {
+import { resolveBilling, type BillingDetails, type PaddleBillingSource } from "./paddle_webhook.ts";
+
+export interface PaddleSubscriptionItem extends PaddleBillingSource {
   id?: string;
   status?: string;
   custom_data?: {
@@ -25,6 +27,7 @@ export interface FulfillmentResult {
   error?: string;
   subscription?: unknown;
   periodEnd?: string;
+  billing?: BillingDetails;
   tier?: string;
 }
 
@@ -130,6 +133,7 @@ export async function validateAndResolveFulfillment(
       success: true,
       shouldUpsert: true,
       periodEnd,
+      billing: resolveBilling(matchedSub),
       tier: "premium",
     };
   } catch (err: unknown) {

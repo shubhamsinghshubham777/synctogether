@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../../ui/booth_icons.g.dart';
 
 import 'package:flutter/material.dart';
 import 'package:livekit_client/livekit_client.dart' as lk;
@@ -121,11 +122,7 @@ class _FacecamRailState extends State<FacecamRail> {
           if (overflow > 0 && widget.layout == .miniStackRight)
             PTActionPill(label: '+$overflow', icon: Symbols.sync_rounded),
           if (widget.onHide != null && widget.layout == .railLeft)
-            PTActionPill(
-              label: 'Hide cams',
-              icon: Symbols.keyboard_arrow_left_rounded,
-              onTap: widget.onHide,
-            ),
+            PTActionPill(label: 'Hide cams', icon: BoothIcons.chevronLeft, onTap: widget.onHide),
         ];
 
         final rail = switch (widget.layout) {
@@ -303,7 +300,7 @@ class _FacecamTile extends StatelessWidget {
                             children: [
                               if (premium)
                                 Icon(
-                                  Symbols.crown_rounded,
+                                  BoothIcons.crown,
                                   size: compact ? 10 : 12,
                                   fill: 1,
                                   color: PTColors.premium,
@@ -324,15 +321,15 @@ class _FacecamTile extends StatelessWidget {
                               if (!hasVideo && !compact)
                                 Icon(
                                   member.privacyMode
-                                      ? Symbols.visibility_off_rounded
-                                      : Symbols.videocam_off_rounded,
+                                      ? BoothIcons.visibilityOff
+                                      : BoothIcons.videocamOff,
                                   size: 12,
                                   fill: 1,
                                   color: PTColors.white(0.5),
                                 )
                               else if (member.privacyMode)
                                 Icon(
-                                  Symbols.visibility_off_rounded,
+                                  BoothIcons.visibilityOff,
                                   size: compact ? 10 : 12,
                                   fill: 1,
                                   color: PTColors.white(0.75),
@@ -379,7 +376,7 @@ class _FacecamTile extends StatelessWidget {
                     border: Border.all(color: PTColors.dangerBorder.withValues(alpha: 0.45)),
                   ),
                   child: Icon(
-                    Symbols.mic_off_rounded,
+                    BoothIcons.micOff,
                     size: compact ? 10 : 12,
                     fill: 1,
                     color: PTColors.danger,

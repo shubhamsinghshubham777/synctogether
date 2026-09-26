@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../ui/booth_icons.g.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:synctogether/player/track_label.dart';
@@ -48,13 +49,13 @@ class ChooserDialog<T> extends StatelessWidget {
               final isSelected = isTrackSelected(value, selected);
               IconData? icon;
               if (value is SubtitleTrack) {
-                if (value.id == 'no') icon = Symbols.subtitles_off_rounded;
+                if (value.id == 'no') icon = BoothIcons.subtitlesOff;
                 if (value.id == 'auto') icon = Symbols.auto_mode_rounded;
               } else if (value is AudioTrack) {
-                if (value.id == 'no') icon = Symbols.volume_off_rounded;
+                if (value.id == 'no') icon = BoothIcons.volumeOff;
                 if (value.id == 'auto') icon = Symbols.auto_mode_rounded;
               } else if (value is PTYouTubeCaptionTrack) {
-                if (value.isOff) icon = Symbols.subtitles_off_rounded;
+                if (value.isOff) icon = BoothIcons.subtitlesOff;
               }
               return _TrackRow(
                 label: label,
@@ -80,7 +81,7 @@ class ChooserDialog<T> extends StatelessWidget {
             if (onAddFromFile != null)
               _TrackRow(
                 label: 'Add from file…',
-                icon: Symbols.file_open_rounded,
+                icon: BoothIcons.file,
                 isSelected: false,
                 onTap: onAddFromFile!,
               ),

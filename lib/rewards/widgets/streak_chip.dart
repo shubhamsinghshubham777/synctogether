@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:material_symbols_icons/symbols.dart';
+import '../../ui/booth_icons.g.dart';
 
 import '../../ui/booth.dart';
 import '../../ui/glass.dart';
@@ -68,12 +68,7 @@ class StreakChip extends StatelessWidget {
                   // Stamped in on the day's qualifying edge, then still.
                   StampIn(
                     angle: -0.08,
-                    child: Icon(
-                      Symbols.local_fire_department_rounded,
-                      size: _glyph(context, 17),
-                      fill: 1,
-                      color: colour,
-                    ),
+                    child: Icon(BoothIcons.fire, size: _glyph(context, 17), fill: 1, color: colour),
                   )
                 else ...[
                   // Determinate, so this is the documented exception to the
@@ -93,12 +88,7 @@ class StreakChip extends StatelessWidget {
                       valueColor: AlwaysStoppedAnimation(colour),
                     ),
                   ),
-                  Icon(
-                    Symbols.local_fire_department_rounded,
-                    size: _glyph(context, 10),
-                    fill: 1,
-                    color: colour,
-                  ),
+                  Icon(BoothIcons.fire, size: _glyph(context, 10), fill: 1, color: colour),
                 ],
               ],
             ),
@@ -146,12 +136,7 @@ class StreakChip extends StatelessWidget {
         mainAxisSize: .min,
         spacing: 7,
         children: [
-          Icon(
-            Symbols.local_fire_department_rounded,
-            size: _glyph(context, 17),
-            fill: 1,
-            color: PTColors.white(0.3),
-          ),
+          Icon(BoothIcons.fire, size: _glyph(context, 17), fill: 1, color: PTColors.white(0.3)),
           Text(
             compact ? 'Streaks' : 'Sign in for streaks',
             style: PTText.body.copyWith(

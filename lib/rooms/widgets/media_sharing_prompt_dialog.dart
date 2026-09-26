@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:material_symbols_icons/symbols.dart';
+import '../../ui/booth_icons.g.dart';
 import 'package:synctogether/ui/buttons.dart';
 import 'package:synctogether/ui/glass.dart';
 import 'package:synctogether/ui/inputs.dart';
@@ -66,7 +66,7 @@ class _MediaSharingPromptDialogState extends State<_MediaSharingPromptDialog> {
             child: Row(
               spacing: 10,
               children: [
-                Icon(Symbols.draft_rounded, size: 17, color: PTColors.white(0.6)),
+                Icon(BoothIcons.file, size: 17, color: PTColors.white(0.6)),
                 Expanded(
                   child: Text(
                     widget.fileName,
@@ -107,7 +107,7 @@ class _MediaSharingPromptDialogState extends State<_MediaSharingPromptDialog> {
             PTButton(
               maxLines: 2,
               label: 'Share with room',
-              icon: Symbols.cloud_upload_rounded,
+              icon: BoothIcons.cloudUpload,
               height: 44,
               onPressed: () => _pop(true),
             ),

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:material_symbols_icons/symbols.dart';
+import '../../ui/booth_icons.g.dart';
 
 import '../../ui/pt_theme.dart';
 import '../reward_icons.dart';
@@ -114,7 +114,7 @@ class BadgeArt extends StatelessWidget {
   }
 
   Widget _glyph() => Icon(
-    locked ? Symbols.lock_rounded : rewardIcon(fallbackIcon),
+    locked ? BoothIcons.lock : rewardIcon(fallbackIcon),
     size: size * 0.52,
     fill: locked ? 0 : 1,
     color: fallbackColor ?? PTColors.white(locked ? 0.35 : 0.9),

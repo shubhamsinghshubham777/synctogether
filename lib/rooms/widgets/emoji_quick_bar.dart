@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import '../../ui/booth_icons.g.dart';
 
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
@@ -190,7 +191,7 @@ class _QuickBarEditorState extends State<_QuickBarEditor> {
           mainAxisSize: .min,
           children: [
             PTIconButton(
-              icon: Symbols.chevron_left_rounded,
+              icon: BoothIcons.chevronLeft,
               size: 36,
               iconSize: 18,
               tooltip: 'Move left',
@@ -204,7 +205,7 @@ class _QuickBarEditorState extends State<_QuickBarEditor> {
               onPressed: () => widget.prefs.setPin(_slot, pinned ? null : slots[_slot].emoji),
             ),
             PTIconButton(
-              icon: Symbols.chevron_right_rounded,
+              icon: BoothIcons.chevronRight,
               size: 36,
               iconSize: 18,
               tooltip: 'Move right',
@@ -212,14 +213,14 @@ class _QuickBarEditorState extends State<_QuickBarEditor> {
             ),
             if (compact) ...[
               PTIconButton(
-                icon: Symbols.restart_alt_rounded,
+                icon: BoothIcons.restore,
                 size: 36,
                 iconSize: 18,
                 tooltip: 'Reset to defaults',
                 onPressed: widget.prefs.resetQuickBar,
               ),
               PTIconButton(
-                icon: Symbols.check_rounded,
+                icon: BoothIcons.check,
                 size: 36,
                 iconSize: 18,
                 active: true,

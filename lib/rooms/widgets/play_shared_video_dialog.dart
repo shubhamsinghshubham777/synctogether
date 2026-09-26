@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:material_symbols_icons/symbols.dart';
+import '../../ui/booth_icons.g.dart';
 import 'package:synctogether/player/youtube/youtube_links.dart';
 import 'package:synctogether/ui/buttons.dart';
 import 'package:synctogether/ui/loader.dart';
@@ -41,7 +41,7 @@ class PlaySharedVideoDialog extends StatelessWidget {
                         progress == null ? child : const Center(child: PTLoader(size: 16)),
                     errorBuilder: (context, _, _) => Center(
                       child: Icon(
-                        Symbols.play_arrow_rounded,
+                        BoothIcons.playFilled,
                         size: 22,
                         fill: 1,
                         color: PTColors.white(0.6),
@@ -89,7 +89,7 @@ class PlaySharedVideoDialog extends StatelessWidget {
             PTButton(
               maxLines: 2,
               label: 'Play it',
-              icon: Symbols.play_arrow_rounded,
+              icon: BoothIcons.playFilled,
               onPressed: () => Navigator.of(context).pop(true),
             ),
           ],

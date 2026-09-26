@@ -1,7 +1,7 @@
 import 'dart:math' as math;
+import 'booth_icons.g.dart';
 
 import 'package:flutter/material.dart';
-import 'package:material_symbols_icons/symbols.dart';
 
 import 'buttons.dart';
 
@@ -483,7 +483,7 @@ class GlassDialogHeader extends StatelessWidget {
             Expanded(child: text),
             if (onClose != null)
               PTIconButton(
-                icon: Symbols.close_rounded,
+                icon: BoothIcons.close,
                 iconSize: closeIconSize,
                 size: closeSize,
                 tooltip: closeTooltip,
@@ -606,9 +606,9 @@ class _DialogOptionRowState extends State<DialogOptionRow> {
     final trailing =
         widget.trailing ??
         (selected
-            ? const Icon(Symbols.check_rounded, size: 18, color: PTColors.primary)
+            ? const Icon(BoothIcons.check, size: 18, color: PTColors.primary)
             : widget.chevron
-            ? Icon(Symbols.chevron_right_rounded, size: 18, color: PTColors.white(0.4))
+            ? Icon(BoothIcons.chevronRight, size: 18, color: PTColors.white(0.4))
             : null);
     return Semantics(
       button: true,

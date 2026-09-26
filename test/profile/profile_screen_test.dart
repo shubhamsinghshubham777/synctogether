@@ -1,9 +1,9 @@
 import 'package:flutter/gestures.dart';
+import 'package:synctogether/ui/booth_icons.g.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:material_symbols_icons/symbols.dart';
 import 'package:synctogether/profile/entitlement_service.dart';
 import 'package:synctogether/profile/profile_models.dart';
 import 'package:synctogether/profile/profile_screen.dart';
@@ -165,7 +165,7 @@ void main() {
       expect(find.text('Terms of service'), findsOneWidget);
     });
 
-    testWidgets('media sharing preference toggle and reset works correctly', (tester) async {
+    testWidgets('media sharing choice switches between ask, share and keep local', (tester) async {
       tester.view.physicalSize = const Size(1200, 1000);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(() {
@@ -204,37 +204,25 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('Auto-share local videos with room'), findsOneWidget);
-      expect(
-        find.text('Always uploads and shares local videos with room members.'),
-        findsOneWidget,
-      );
-      expect(find.text('Reset to ask every time'), findsOneWidget);
-
-      // The profile screen scrolls, and the sections above this one grow as
-      // features land - so scroll to the control rather than assuming it is on
-      // screen at whatever height the test viewport happens to be.
-      await tester.ensureVisible(find.text('Reset to ask every time'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Reset to ask every time'));
-      await tester.pumpAndSettle();
-
+      // The board's three-way choice: the remembered "always share" is lit.
+      expect(find.text('When you open a local video'), findsOneWidget);
+      expect(find.text('Ask me'), findsOneWidget);
+      expect(find.text('Keep it local'), findsOneWidget);
       final prefs = await SharedPreferences.getInstance();
+
+      await tester.ensureVisible(find.text('Ask me'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Ask me'));
+      await tester.pumpAndSettle();
       expect(prefs.getBool('pt.media_sharing.remember_choice'), isNull);
-      expect(find.text('Reset to ask every time'), findsNothing);
-      expect(
-        find.textContaining('Currently asks every time you pick a local video'),
-        findsOneWidget,
-      );
 
-      // Tap the toggle to enable auto-share
-      await tester.ensureVisible(find.text('Auto-share local videos with room'));
+      await tester.tap(find.text('Keep it local'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Auto-share local videos with room'));
-      await tester.pumpAndSettle();
+      expect(prefs.getBool('pt.media_sharing.remember_choice'), isFalse);
 
+      await tester.tap(find.text('Always share'));
+      await tester.pumpAndSettle();
       expect(prefs.getBool('pt.media_sharing.remember_choice'), isTrue);
-      expect(find.text('Reset to ask every time'), findsOneWidget);
     });
 
     testWidgets('tapping avatar opens options dialog with camera and file choices', (tester) async {
@@ -260,7 +248,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      final avatarCameraBtn = find.byIcon(Symbols.photo_camera_rounded);
+      final avatarCameraBtn = find.byIcon(BoothIcons.camera);
       expect(avatarCameraBtn, findsOneWidget);
 
       await tester.tap(avatarCameraBtn);

@@ -1,4 +1,5 @@
 import 'dart:ui';
+import '../../ui/booth_icons.g.dart';
 import 'package:flutter/material.dart';
 import '../../ui/pt_theme.dart';
 
@@ -80,7 +81,7 @@ class SharingProgressIndicator extends StatelessWidget {
                         ? Icons.check_circle_outline
                         : isFailed
                         ? Icons.error_outline
-                        : Icons.cloud_upload_outlined,
+                        : BoothIcons.cloudUpload,
                     size: 18,
                     color: isDone
                         ? PTColors.online
@@ -112,7 +113,7 @@ class SharingProgressIndicator extends StatelessWidget {
                   if (onCancel != null && !isDone) ...[
                     const SizedBox(width: 4),
                     IconButton(
-                      icon: const Icon(Icons.close, size: 16),
+                      icon: const Icon(BoothIcons.close, size: 16),
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
                       splashRadius: 16,
@@ -122,7 +123,7 @@ class SharingProgressIndicator extends StatelessWidget {
                   if (onRetry != null && isFailed) ...[
                     const SizedBox(width: 4),
                     IconButton(
-                      icon: const Icon(Icons.refresh, size: 16),
+                      icon: const Icon(BoothIcons.restore, size: 16),
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
                       splashRadius: 16,

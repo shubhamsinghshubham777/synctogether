@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
+import '../../ui/booth_icons.g.dart';
 import 'package:flutter/services.dart';
-import 'package:material_symbols_icons/symbols.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../diagnostics.dart';
@@ -137,7 +137,7 @@ class _RecapBodyState extends State<_RecapBody> {
         PTButton(
           maxLines: 2,
           label: _url != null ? 'Copy link again' : 'Share this',
-          icon: _url != null ? Symbols.link_rounded : Symbols.ios_share_rounded,
+          icon: _url != null ? BoothIcons.link : BoothIcons.share,
           loading: _sharing,
           onPressed: _sharing
               ? null

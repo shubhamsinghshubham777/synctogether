@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:synctogether/ui/booth_icons.g.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:material_symbols_icons/symbols.dart';
 import 'package:synctogether/profile/entitlement_service.dart';
 import 'package:synctogether/ui/identity.dart';
 
-Finder get _crown => find.byIcon(Symbols.crown_rounded);
+Finder get _crown => find.byIcon(BoothIcons.crown);
 
 Future<void> _pumpAvatar(WidgetTester tester, {required bool premium}) async {
   await tester.pumpWidget(

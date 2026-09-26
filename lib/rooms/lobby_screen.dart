@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../ui/booth_icons.g.dart';
 import 'dart:io';
 
 import 'package:fast_file_picker/fast_file_picker.dart';
@@ -715,7 +716,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
           _avatarButton(size: avatarSize, menuLevel: level),
         if (level <= 1)
           PTIconButton(
-            icon: Symbols.logout_rounded,
+            icon: BoothIcons.logout,
             iconSize: _glyph(20),
             size: avatarSize,
             tooltip: 'Log out',
@@ -781,7 +782,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
       items: [
         if (_showStreakChip && level >= 4)
           LobbyMenuItem(
-            icon: Symbols.local_fire_department_rounded,
+            icon: BoothIcons.fire,
             color: guest || streak.current == 0 ? null : PTColors.streak,
             label: guest
                 ? 'Sign in for streaks'
@@ -793,7 +794,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
           ),
         if (_showQuotaChip && level >= 3)
           LobbyMenuItem(
-            icon: entitlement.isPremium ? Symbols.crown_rounded : Symbols.cloud_queue_rounded,
+            icon: entitlement.isPremium ? BoothIcons.crown : Symbols.cloud_queue_rounded,
             label: 'Upload quota',
             detail: _quotaLabel(compact: true),
             color: entitlement.isPremium ? PTColors.textAccent : null,
@@ -801,7 +802,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
           ),
         if (_showPremiumChip && level >= 3)
           LobbyMenuItem(
-            icon: Symbols.crown_rounded,
+            icon: BoothIcons.crown,
             label: 'Get a Patron seat',
             color: PTColors.textAccent,
             onTap: () => context.go('/lobby/subscribe?source=lobby_chip'),
@@ -809,12 +810,12 @@ class _LobbyScreenState extends State<LobbyScreen> {
       ],
       footer: [
         LobbyMenuItem(
-          icon: Symbols.person_rounded,
+          icon: BoothIcons.person,
           label: 'Profile & settings',
           onTap: () => context.go('/lobby/profile'),
         ),
         const LobbyMenuItem(
-          icon: Symbols.logout_rounded,
+          icon: BoothIcons.logout,
           label: 'Log out',
           danger: true,
           onTap: _signOut,
@@ -1187,7 +1188,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
         ),
         PTButton(
           label: 'Take your seat',
-          trailingIcon: Symbols.arrow_forward_rounded,
+          trailingIcon: BoothIcons.arrowForward,
           variant: .secondary,
           height: compact ? 50 : 52,
           loading: _joining,
@@ -1342,12 +1343,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
   }
 
   Widget _premiumChip({bool iconOnly = false}) {
-    final crown = Icon(
-      Symbols.crown_rounded,
-      size: _glyph(16),
-      fill: 1,
-      color: PTColors.textAccent,
-    );
+    final crown = Icon(BoothIcons.crown, size: _glyph(16), fill: 1, color: PTColors.textAccent);
     if (iconOnly) {
       return Tooltip(
         message: 'Get a Patron seat',
@@ -1415,7 +1411,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
         spacing: 6,
         children: [
           Icon(
-            isPrem ? Symbols.crown_rounded : Symbols.cloud_queue_rounded,
+            isPrem ? BoothIcons.crown : Symbols.cloud_queue_rounded,
             size: _glyph(16),
             fill: 1,
             color: colour ?? PTColors.white(0.75),
@@ -1529,7 +1525,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
             ),
             IconButton(
               tooltip: 'Remove staged video',
-              icon: Icon(Symbols.close_rounded, size: 18, color: PTColors.white(0.6)),
+              icon: Icon(BoothIcons.close, size: 18, color: PTColors.white(0.6)),
               onPressed: _creating ? null : _cancelStagedMedia,
             ),
           ],
@@ -1574,7 +1570,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
                 const SizedBox(width: 4),
                 IconButton(
                   tooltip: 'Cancel upload',
-                  icon: Icon(Symbols.close_rounded, size: 16, color: PTColors.white(0.6)),
+                  icon: Icon(BoothIcons.close, size: 16, color: PTColors.white(0.6)),
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(minWidth: 20, minHeight: 20),
                   onPressed: _creating ? null : _cancelStagedMedia,
@@ -1636,7 +1632,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
           ),
           child: Row(
             children: [
-              Icon(Symbols.video_library_rounded, color: PTColors.textAccent, size: _glyph(20)),
+              Icon(BoothIcons.film, color: PTColors.textAccent, size: _glyph(20)),
               const SizedBox(width: 10),
               Expanded(
                 child: Column(
@@ -1673,12 +1669,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
                     mainAxisSize: MainAxisSize.min,
                     spacing: 4,
                     children: [
-                      const Icon(
-                        Symbols.lock_rounded,
-                        size: 14,
-                        fill: 1,
-                        color: PTColors.textAccent,
-                      ),
+                      const Icon(BoothIcons.lock, size: 14, fill: 1, color: PTColors.textAccent),
                       Text(
                         'Unlock',
                         style: PTText.caption.copyWith(
@@ -1693,10 +1684,10 @@ class _LobbyScreenState extends State<LobbyScreen> {
               else ...[
                 IconButton(
                   tooltip: 'Bandwidth quota info',
-                  icon: const Icon(Symbols.info_rounded, size: 18, color: PTColors.textAccent),
+                  icon: const Icon(BoothIcons.info, size: 18, color: PTColors.textAccent),
                   onPressed: () => showMediaQuotaDialog(context),
                 ),
-                Icon(Symbols.add_rounded, color: PTColors.white(0.6), size: 18),
+                Icon(BoothIcons.add, color: PTColors.white(0.6), size: 18),
               ],
             ],
           ),

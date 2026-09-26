@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:material_symbols_icons/symbols.dart';
 import 'package:synctogether/rewards/rewards_models.dart';
 import 'package:synctogether/rewards/widgets/badge_shelf.dart';
 import 'package:synctogether/rewards/widgets/streak_chip.dart';
@@ -96,7 +95,7 @@ void main() {
       expect(find.textContaining('first badge'), findsOneWidget);
     });
 
-    testWidgets('shows earned badges and the ones in reach', (tester) async {
+    testWidgets('shows earned badges and counts the ones in reach', (tester) async {
       await tester.pumpWidget(
         wrap(
           BadgeShelf(
@@ -110,9 +109,10 @@ void main() {
           ),
         ),
       );
+      // Earned badges get a tile; the rest are a count on one dashed tile.
       expect(find.text('earned'), findsOneWidget);
-      expect(find.text('locked'), findsOneWidget);
-      expect(find.byIcon(Symbols.lock_rounded), findsOneWidget);
+      expect(find.text('locked'), findsNothing);
+      expect(find.text('+1'), findsOneWidget);
     });
 
     testWidgets('never shows a secret that has not been earned', (tester) async {

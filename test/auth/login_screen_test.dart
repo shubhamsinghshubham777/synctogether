@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:synctogether/ui/booth_icons.g.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:material_symbols_icons/symbols.dart';
 import 'package:synctogether/auth/auth_service.dart';
 import 'package:synctogether/auth/login_screen.dart';
 import 'package:synctogether/ui/buttons.dart';
@@ -36,7 +36,7 @@ void main() {
       expect(find.byType(TextField), findsNWidgets(2));
 
       // Tap back arrow to return to providers
-      await tester.tap(find.byIcon(Symbols.arrow_back_rounded));
+      await tester.tap(find.byIcon(BoothIcons.arrowBack));
       await tester.pump(const Duration(milliseconds: 400));
 
       // Verify returned to providers view
@@ -56,13 +56,13 @@ void main() {
 
       expect(passwordField().obscureText, isTrue);
 
-      await tester.ensureVisible(find.byIcon(Symbols.visibility_rounded));
+      await tester.ensureVisible(find.byIcon(BoothIcons.visibility));
       await tester.pump();
-      await tester.tap(find.byIcon(Symbols.visibility_rounded));
+      await tester.tap(find.byIcon(BoothIcons.visibility));
       await tester.pump();
 
       expect(passwordField().obscureText, isFalse);
-      expect(find.byIcon(Symbols.visibility_off_rounded), findsOneWidget);
+      expect(find.byIcon(BoothIcons.visibilityOff), findsOneWidget);
     });
   });
 }

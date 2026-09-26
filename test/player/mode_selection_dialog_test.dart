@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:synctogether/ui/booth_icons.g.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:material_symbols_icons/symbols.dart';
 import 'package:synctogether/player/mode_selection_dialog.dart';
 import 'package:synctogether/ui/glass.dart';
 
@@ -19,7 +19,7 @@ void main() {
       expect(find.text('Pick a source. Everyone stays in sync either way.'), findsOneWidget);
       expect(find.text('Local file'), findsOneWidget);
       expect(find.text('YouTube'), findsOneWidget);
-      expect(find.byIcon(Symbols.close_rounded), findsOneWidget);
+      expect(find.byIcon(BoothIcons.close), findsOneWidget);
     });
 
     testWidgets('selecting local file pops InitialMode.local', (tester) async {
@@ -107,7 +107,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // Tap close button
-      await tester.tap(find.byIcon(Symbols.close_rounded));
+      await tester.tap(find.byIcon(BoothIcons.close));
       await tester.pumpAndSettle();
 
       expect(find.text('Leave the room?'), findsOneWidget);
@@ -152,7 +152,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // Tap close button
-      await tester.tap(find.byIcon(Symbols.close_rounded));
+      await tester.tap(find.byIcon(BoothIcons.close));
       await tester.pumpAndSettle();
 
       // Tap Leave room

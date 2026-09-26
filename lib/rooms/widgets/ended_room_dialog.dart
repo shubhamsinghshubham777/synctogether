@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:material_symbols_icons/symbols.dart';
+import '../../ui/booth_icons.g.dart';
 import 'package:synctogether/rooms/room_models.dart';
 import 'package:synctogether/ui/booth.dart';
 import 'package:synctogether/ui/buttons.dart';
@@ -85,7 +85,7 @@ class EndedRoomDialog extends StatelessWidget {
           child: PTButton(
             maxLines: 2,
             label: 'Open a fresh room',
-            icon: Symbols.add_rounded,
+            icon: BoothIcons.add,
             height: 46,
             onPressed: () {
               Navigator.of(context).pop();

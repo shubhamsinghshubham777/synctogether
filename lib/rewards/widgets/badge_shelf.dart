@@ -8,138 +8,152 @@ import '../rewards_models.dart';
 import 'badge_art.dart';
 import 'unlock_toast.dart';
 
-/// The badge grid: unlocked first, then whatever is in reach.
+/// The earned badges as a row of compact tiles, then one dashed tile counting
+/// what is still to earn - the "12 · Profile" / "Leaderboard" boards.
 ///
-/// Secret badges are absent until they are earned - that absence is the whole
-/// point of a secret, and it is what makes one worth screenshotting.
+/// Locked badges are a count, not tiles: eighteen full tiles made the earned
+/// ones hard to find and squeezed their titles out of a narrow column. Secret
+/// badges are absent until they are earned - that absence is the whole point
+/// of a secret, and it is what makes one worth screenshotting.
 class BadgeShelf extends StatelessWidget {
-  const BadgeShelf({super.key, required this.state, this.crossAxisCount = 4});
+  const BadgeShelf({super.key, required this.state, this.showLabels = true});
 
   final RewardState state;
-  final int crossAxisCount;
+
+  /// The profile names each badge under its tile; the leaderboard's shelf is
+  /// tiles only, with the title in the tooltip.
+  final bool showLabels;
 
   @override
   Widget build(BuildContext context) {
     final unlocked = state.unlocked;
-    final locked =
-        [
-          for (final a in state.locked)
-            if (!a.isSecret) a,
-        ]..sort(
-          (a, b) => achievementProgress(
-            b,
-            state.metrics,
-          ).compareTo(achievementProgress(a, state.metrics)),
-        );
-    final items = [...unlocked, ...locked];
+    final toEarn = state.locked.where((a) => !a.isSecret).length;
 
-    if (items.isEmpty) {
+    if (unlocked.isEmpty && toEarn == 0) {
       return Text(
         'Watch something with someone and your first badge lands here.',
         style: PTText.caption,
       );
     }
 
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      padding: EdgeInsets.zero,
-      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: crossAxisCount,
-        crossAxisSpacing: 12,
-        mainAxisSpacing: 12,
-        childAspectRatio: 0.84,
-      ),
-      itemCount: items.length,
-      // Tiles deal in with a short stagger, capped so a big shelf still
-      // finishes arriving inside half a second.
-      itemBuilder: (context, i) => PTEntrance(
-        delay: Duration(milliseconds: 25 * (i < 12 ? i : 12)),
-        duration: PTMotion.state,
-        offset: 6,
-        child: BadgeTile(
-          achievement: items[i],
-          progress: achievementProgress(items[i], state.metrics),
-        ),
-      ),
+    final tile = showLabels ? 46.0 : 44.0;
+    return Wrap(
+      spacing: showLabels ? 2 : 8,
+      runSpacing: 12,
+      children: [
+        for (final (i, a) in unlocked.indexed)
+          // Tiles deal in with a short stagger, capped so a big shelf still
+          // finishes arriving inside half a second.
+          PTEntrance(
+            delay: Duration(milliseconds: 25 * (i < 12 ? i : 12)),
+            duration: PTMotion.state,
+            offset: 6,
+            child: BadgeTile(achievement: a, size: tile, showLabel: showLabels),
+          ),
+        if (toEarn > 0)
+          _ToEarnTile(
+            count: toEarn,
+            size: tile,
+            showLabel: showLabels,
+            next: nextAchievement(state.achievements, state.metrics),
+          ),
+      ],
     );
   }
 }
 
 class BadgeTile extends StatelessWidget {
-  const BadgeTile({super.key, required this.achievement, this.progress = 0});
+  const BadgeTile({super.key, required this.achievement, this.size = 46, this.showLabel = true});
 
   final Achievement achievement;
-  final double progress;
+  final double size;
+  final bool showLabel;
 
   @override
   Widget build(BuildContext context) {
-    final unlocked = achievement.unlocked;
-    final colour = unlocked ? gradeColor(achievement.grade) : PTColors.white(0.35);
-
+    final box = Container(
+      width: size,
+      height: size,
+      alignment: .center,
+      decoration: BoxDecoration(
+        color: PTColors.aisle,
+        border: Border.all(color: PTColors.rail),
+        borderRadius: BorderRadius.circular(PTRadius.panel),
+      ),
+      child: BadgeArt(
+        size: size - 12,
+        achievementId: achievement.id,
+        fallbackIcon: achievement.icon,
+        fallbackColor: gradeColor(achievement.grade),
+      ),
+    );
     return Tooltip(
-      message: unlocked
-          ? achievement.description
-          : '${achievement.description}  ·  ${(progress * 100).round()}%',
-      child: GlassPanel(
-        radius: 16,
-        opacity: unlocked ? 0.5 : 0.3,
-        blur: 18,
-        shadow: false,
-        borderColor: unlocked ? colour.withValues(alpha: 0.35) : PTColors.white(0.08),
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
-        child: Column(
-          mainAxisAlignment: .center,
-          mainAxisSize: .min,
-          spacing: 6,
-          children: [
-            Stack(
-              alignment: .center,
-              children: [
-                // No tinted chip behind the art: the artwork carries its own
-                // glow, and a disc under it would be a second container inside
-                // the tile this already sits in.
-                BadgeArt(
-                  size: 42,
-                  achievementId: achievement.id,
-                  fallbackIcon: achievement.icon,
-                  locked: !unlocked,
-                  fallbackColor: colour,
-                ),
-                if (!unlocked && progress > 0)
-                  SizedBox.square(
-                    dimension: 44,
-                    child: TweenAnimationBuilder<double>(
-                      tween: Tween(begin: 0, end: progress),
-                      duration: PTMotion.functional(context, PTMotion.entrance),
-                      curve: PTMotion.enter,
-                      builder: (context, value, _) => CircularProgressIndicator(
-                        value: value,
-                        strokeWidth: 2,
-                        backgroundColor: PTColors.white(0.08),
-                        valueColor: AlwaysStoppedAnimation(PTColors.primary.withValues(alpha: 0.7)),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-            // Flexible: the art is taller than the glyph chip it replaced, so a
-            // long two-line title would otherwise overflow the tile.
-            Flexible(
-              child: Text(
-                achievement.title,
-                textAlign: .center,
-                maxLines: 2,
-                overflow: .ellipsis,
-                style: PTText.finePrint.copyWith(
-                  fontSize: 11,
-                  fontWeight: .w600,
-                  color: unlocked ? PTColors.white(0.9) : PTColors.white(0.45),
-                ),
-              ),
-            ),
-          ],
+      message: '${achievement.title} · ${achievement.description}',
+      child: showLabel ? _Labelled(label: achievement.title, child: box) : box,
+    );
+  }
+}
+
+class _ToEarnTile extends StatelessWidget {
+  const _ToEarnTile({required this.count, required this.size, required this.showLabel, this.next});
+
+  final int count;
+  final double size;
+  final bool showLabel;
+  final Achievement? next;
+
+  @override
+  Widget build(BuildContext context) {
+    final box = CustomPaint(
+      painter: DashedRectPainter(color: PTColors.rail, radius: PTRadius.panel),
+      child: SizedBox.square(
+        dimension: size,
+        child: Center(
+          child: Text(
+            '+$count',
+            style: PTText.mono.copyWith(fontSize: 12, color: PTColors.white(0.3)),
+          ),
         ),
+      ),
+    );
+    final n = next;
+    return Tooltip(
+      message: n == null ? '$count to earn' : 'Closest: ${n.title} · ${n.description}',
+      child: showLabel ? _Labelled(label: 'to earn', muted: true, child: box) : box,
+    );
+  }
+}
+
+/// A tile with its title underneath, in a column a little wider than the tile
+/// so two-word titles ("Double Feature") wrap instead of clipping.
+class _Labelled extends StatelessWidget {
+  const _Labelled({required this.label, required this.child, this.muted = false});
+
+  final String label;
+  final Widget child;
+  final bool muted;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 58,
+      child: Column(
+        mainAxisSize: .min,
+        spacing: 6,
+        children: [
+          child,
+          Text(
+            label,
+            textAlign: .center,
+            maxLines: 2,
+            overflow: .ellipsis,
+            style: PTText.finePrint.copyWith(
+              fontSize: 11,
+              height: 1.2,
+              color: muted ? PTColors.white(0.4) : PTColors.white(0.75),
+            ),
+          ),
+        ],
       ),
     );
   }

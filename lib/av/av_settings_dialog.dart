@@ -1,10 +1,10 @@
 import 'dart:async';
+import '../ui/booth_icons.g.dart';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart' as rtc;
 import 'package:livekit_client/livekit_client.dart' as lk;
-import 'package:material_symbols_icons/symbols.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:synctogether/av/device_preference_service.dart';
 import 'package:synctogether/av/livekit_service.dart';
@@ -507,7 +507,7 @@ class _AvSettingsDialogContentState extends State<_AvSettingsDialogContent> {
                 crossAxisAlignment: .start,
                 children: [
                   _deviceSection(
-                    icon: Symbols.mic_rounded,
+                    icon: BoothIcons.mic,
                     title: 'Microphone',
                     devices: _audioInputs,
                     selectedDevice: _selectedMic,
@@ -527,7 +527,7 @@ class _AvSettingsDialogContentState extends State<_AvSettingsDialogContent> {
                     footer: _micMeter(),
                   ),
                   _deviceSection(
-                    icon: Symbols.volume_up_rounded,
+                    icon: BoothIcons.volume,
                     title: 'Audio Output',
                     subtitle: 'Does not apply to YouTube mode',
                     devices: _audioOutputs,
@@ -538,7 +538,7 @@ class _AvSettingsDialogContentState extends State<_AvSettingsDialogContent> {
                       });
                     },
                     trailingAction: PTIconButton(
-                      icon: Symbols.volume_up_rounded,
+                      icon: BoothIcons.volume,
                       tooltip: _isPlayingTestSound ? 'Playing test audio...' : 'Test output',
                       size: 32,
                       iconSize: 18,
@@ -546,7 +546,7 @@ class _AvSettingsDialogContentState extends State<_AvSettingsDialogContent> {
                     ),
                   ),
                   _deviceSection(
-                    icon: Symbols.videocam_rounded,
+                    icon: BoothIcons.videocam,
                     title: 'Camera',
                     devices: _videoInputs,
                     selectedDevice: _selectedCam,
@@ -669,11 +669,7 @@ class _AvSettingsDialogContentState extends State<_AvSettingsDialogContent> {
                 child: DropdownButton<String>(
                   isExpanded: true,
                   dropdownColor: PTColors.menuSurface,
-                  icon: Icon(
-                    Symbols.keyboard_arrow_down_rounded,
-                    size: 18,
-                    color: PTColors.white(0.6),
-                  ),
+                  icon: Icon(BoothIcons.chevronDown, size: 18, color: PTColors.white(0.6)),
                   value: matchingSelected?.deviceId,
                   items: devices.map((d) {
                     final label = d.label.trim().isEmpty ? 'Default Device' : d.label;

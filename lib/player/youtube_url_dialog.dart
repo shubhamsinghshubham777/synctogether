@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:material_symbols_icons/symbols.dart';
+import '../ui/booth_icons.g.dart';
 import 'package:synctogether/player/youtube/youtube_links.dart';
 import 'package:synctogether/ui/buttons.dart';
 import 'package:synctogether/ui/inputs.dart';
@@ -53,7 +53,7 @@ class _YouTubeUrlDialogState extends State<YouTubeUrlDialog> {
         PTTextField(
           controller: _controller,
           hint: 'youtube.com/watch?v=…',
-          prefixIcon: Symbols.link_rounded,
+          prefixIcon: BoothIcons.link,
           autofocus: true,
           errorText: _errorMessage,
           onChanged: (_) {
@@ -67,7 +67,7 @@ class _YouTubeUrlDialogState extends State<YouTubeUrlDialog> {
         // an embedded webview, which Google forbids and which asks people
         // to type their password into a container we control.
         const DialogNote(
-          icon: Symbols.info_rounded,
+          icon: BoothIcons.info,
           child: Text('Plays signed out, so YouTube may show ads even if you pay for Premium.'),
         ),
         PTButtonBar(
@@ -82,7 +82,7 @@ class _YouTubeUrlDialogState extends State<YouTubeUrlDialog> {
             PTButton(
               maxLines: 2,
               label: 'Load video',
-              trailingIcon: Symbols.arrow_forward_rounded,
+              trailingIcon: BoothIcons.arrowForward,
               height: 46,
               onPressed: _submitUrl,
             ),

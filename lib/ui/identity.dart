@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'booth_icons.g.dart';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
@@ -153,7 +154,7 @@ class PremiumCrown extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Icon(
-      Symbols.crown_rounded,
+      BoothIcons.crown,
       size: size * 0.46,
       fill: 1,
       weight: 600,
@@ -373,7 +374,7 @@ class _RoomCodeChipState extends State<RoomCodeChip> {
                     child: ScaleTransition(scale: animation, child: child),
                   ),
                   child: Icon(
-                    _copied ? Symbols.check_rounded : Symbols.content_copy_rounded,
+                    _copied ? BoothIcons.check : Symbols.content_copy_rounded,
                     key: ValueKey(_copied),
                     size: fontSize + 2,
                     fill: 1,
@@ -431,7 +432,7 @@ class GuestBadge extends StatelessWidget {
         mainAxisSize: .min,
         spacing: 6,
         children: [
-          Icon(Symbols.lock_rounded, size: 14, fill: 1, color: PTColors.white(0.55)),
+          Icon(BoothIcons.lock, size: 14, fill: 1, color: PTColors.white(0.55)),
           Flexible(
             child: Text(
               label,
@@ -464,7 +465,7 @@ class PremiumBadge extends StatelessWidget {
         mainAxisSize: .min,
         spacing: 6,
         children: [
-          const Icon(Symbols.crown_rounded, size: 14, fill: 1, color: PTColors.premium),
+          const Icon(BoothIcons.crown, size: 14, fill: 1, color: PTColors.premium),
           Text(
             label,
             style: const TextStyle(

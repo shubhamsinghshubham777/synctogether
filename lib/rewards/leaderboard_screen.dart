@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../ui/booth_icons.g.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -161,7 +162,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
               spacing: 14,
               children: [
                 PTIconButton(
-                  icon: Symbols.arrow_back_rounded,
+                  icon: BoothIcons.arrowBack,
                   iconSize: 20,
                   size: compact ? 44 : 42,
                   onPressed: () => context.go('/lobby'),
@@ -240,7 +241,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
         const SizedBox(height: 40),
         _scoring(state),
         const SizedBox(height: 40),
-        _badges(state, columns: compact ? 3 : 5),
+        _badges(state),
       ],
     );
   }
@@ -267,7 +268,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
               ),
               child: Column(
                 crossAxisAlignment: .stretch,
-                children: [_scoring(state), const SizedBox(height: 40), _badges(state, columns: 4)],
+                children: [_scoring(state), const SizedBox(height: 40), _badges(state)],
               ),
             ),
           ],
@@ -510,7 +511,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
           'watch it with and anything you type stays private either way.',
       action: PTButton(
         label: 'Show me on the board',
-        icon: Symbols.trophy_rounded,
+        icon: BoothIcons.trophy,
         expand: false,
         onPressed: () => unawaited(_setPublic(true)),
       ),
@@ -653,7 +654,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
           Row(
             spacing: 8,
             children: [
-              const Icon(Symbols.crown_rounded, size: 14, color: PTColors.premium),
+              const Icon(BoothIcons.crown, size: 14, color: PTColors.premium),
               Text('PATRON', style: PTText.label.copyWith(color: PTColors.premium)),
             ],
           ),
@@ -713,7 +714,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
     );
   }
 
-  Widget _badges(RewardState state, {required int columns}) {
+  Widget _badges(RewardState state) {
     final next = nextAchievement(state.achievements, state.metrics);
     return Column(
       crossAxisAlignment: .stretch,
@@ -731,7 +732,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
             style: PTText.caption.copyWith(fontSize: 12.5),
           ),
         if (state.seasons.isNotEmpty) SeasonTrophies(seasons: state.seasons),
-        BadgeShelf(state: state, crossAxisCount: columns),
+        BadgeShelf(state: state, showLabels: false),
         if (state.publicProfile) _profileLink(state),
       ],
     );
@@ -750,7 +751,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
     final url = profileUrl(handle);
     return PTButton(
       label: 'Share my profile',
-      icon: Symbols.ios_share_rounded,
+      icon: BoothIcons.share,
       variant: .secondary,
       onPressed: () async {
         Analytics.instance.track('profile_shared', {'surface': 'leaderboard'});
@@ -887,7 +888,7 @@ class _BoardRow extends StatelessWidget {
     mainAxisSize: .min,
     spacing: 3,
     children: [
-      const Icon(Symbols.local_fire_department_rounded, size: 14, fill: 1, color: PTColors.streak),
+      const Icon(BoothIcons.fire, size: 14, fill: 1, color: PTColors.streak),
       Text('${row.streak}', style: PTText.mono.copyWith(fontSize: 12)),
     ],
   );

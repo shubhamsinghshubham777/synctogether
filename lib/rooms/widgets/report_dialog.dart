@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:material_symbols_icons/symbols.dart';
+import '../../ui/booth_icons.g.dart';
 
 import '../../ui/buttons.dart';
 import '../../ui/glass.dart';
@@ -195,7 +195,7 @@ class _ReportDialogState extends State<_ReportDialog> {
             PTButton(
               maxLines: 2,
               label: 'Send report',
-              icon: Symbols.send_rounded,
+              icon: BoothIcons.send,
               // A report with no category is not triageable, so the button
               // waits rather than filing something nobody can act on.
               onPressed: _reason == null
@@ -284,7 +284,7 @@ class _BlockCheck extends StatelessWidget {
                 borderRadius: BorderRadius.circular(PTRadius.control),
               ),
               child: value
-                  ? const Icon(Symbols.check_rounded, size: 15, color: PTColors.onAccent)
+                  ? const Icon(BoothIcons.check, size: 15, color: PTColors.onAccent)
                   : null,
             ),
             Expanded(

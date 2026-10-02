@@ -1,0 +1,5 @@
+# Rendered by scripts/setup-livekit-server.sh. Caddy fetches and renews the
+# TLS certificate for the domain by itself (needs ports 80 and 443 open).
+__DOMAIN__ {
+	reverse_proxy 127.0.0.1:7880
+}

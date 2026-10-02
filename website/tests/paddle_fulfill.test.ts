@@ -28,6 +28,8 @@ test("validateAndResolveFulfillment returns existing active premium subscription
     user: { id: "user_123" },
     existingSub: existing,
     paddleApiKey: "pdl_live_apikey_123",
+    // Pinned: against the real clock this fixture expired on 2026-10-01.
+    now: new Date("2026-09-01T00:00:00.000Z"),
     fetchPaddleSubs: async () => {
       paddleApiCalled = true;
       return { data: [] };

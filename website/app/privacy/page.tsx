@@ -59,6 +59,12 @@ export default function PrivacyPage() {
       privacyUrl: "https://livekit.com/legal/privacy-policy",
     },
     {
+      name: "Oracle Cloud Infrastructure (self-operated LiveKit server)",
+      purpose: "Hosts a LiveKit media relay that we run ourselves, used alongside LiveKit Cloud for the same voice and video facecams. A room uses one relay at a time and may move between the two while it is open.",
+      location: "Region set by our deployment",
+      privacyUrl: "https://www.oracle.com/legal/privacy/",
+    },
+    {
       name: "Paddle Payments Ltd / Paddle.com",
       purpose: "Authorized Merchant of Record (MoR) handling payment processing, billing subscriptions, invoices, and sales tax / VAT compliance.",
       location: "United Kingdom / United States",
@@ -180,7 +186,7 @@ export default function PrivacyPage() {
               <strong className="text-white text-base block">C. Real-time Communication (Voice, Video &amp; Chat)</strong>
               <ul className="space-y-1.5 text-gray-400 list-disc list-inside">
                 <li>
-                  <strong className="text-gray-200">Voice &amp; Video Facecams:</strong> Live audio and video streams are transmitted in real-time over encrypted WebRTC connections via LiveKit Cloud. <strong>Voice and video streams are NEVER recorded, monitored, transcribed, or stored on our servers.</strong>
+                  <strong className="text-gray-200">Voice &amp; Video Facecams:</strong> Live audio and video streams are transmitted in real-time over encrypted WebRTC connections via LiveKit Cloud or a LiveKit server we operate ourselves (see the service providers list below). <strong>Voice and video streams are NEVER recorded, monitored, transcribed, or stored on our servers.</strong>
                 </li>
                 <li>
                   <strong className="text-gray-200">Room Chat &amp; Reactions:</strong> Text chat messages and emoji/Lottie reaction triggers are broadcast to room participants. In-room messages are temporary and tied strictly to the active room lifecycle.

@@ -1,0 +1,31 @@
+# Production LiveKit for SyncTogether on a public VPS: LiveKit + Caddy (TLS).
+# Rendered and started by scripts/setup-livekit-server.sh - see
+# docs/self-hosting.md ("Self-hosted LiveKit on a VPS"). For a LAN or local
+# test server use docker-compose.selfhost.yml at the repo root instead.
+#
+# Host networking is LiveKit's own recommendation: WebRTC media through
+# Docker's userland proxy costs CPU and breaks ICE candidates.
+
+name: synctogether-livekit
+
+services:
+  livekit:
+    image: livekit/livekit-server:v1.13
+    restart: unless-stopped
+    network_mode: host
+    command: --config /etc/livekit.yaml
+    volumes:
+      - ./livekit.yaml:/etc/livekit.yaml:ro
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    network_mode: host
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  caddy_data:
+  caddy_config:

@@ -130,6 +130,43 @@ SyncTogether uses LiveKit for ultra-low-latency voice and video facecam rails.
    - `50000-50100/UDP`: WebRTC media streams
 4. Clients connect over `wss://`, so terminate TLS for port 7880 behind a reverse proxy (Caddy, nginx, Traefik) on a domain such as `livekit.yourdomain.com`.
 
+The steps above suit a LAN or a quick test. For a public server, use Option 3.
+
+#### Option 3: Self-Hosted LiveKit on a VPS (production)
+
+`scripts/setup-livekit-server.sh` turns a fresh Ubuntu VPS (x86_64 or ARM) into a production LiveKit server: Docker, LiveKit on host networking, Caddy with an automatic TLS certificate, host firewall rules, and freshly generated API keys. It is safe to re-run; existing keys are kept.
+
+**Ports to allow in your cloud firewall**
+
+| Port | Protocol | Purpose |
+|---|---|---|
+| 22 | TCP | SSH |
+| 80, 443 | TCP | TLS certificate and `wss://` signalling (Caddy) |
+| 7881 | TCP | WebRTC over TCP, for networks that block UDP |
+| 7882 | UDP | WebRTC media |
+| 3478 | UDP | TURN |
+| 30000-40000 | UDP | TURN relay range |
+
+**Run it**
+
+1. Point a DNS `A` record (e.g. `av.yourdomain.com`) at the server's public IP. If your DNS is on Cloudflare, leave it **DNS only** (grey cloud): Cloudflare's proxy does not carry WebRTC.
+2. On the server:
+   ```bash
+   git clone https://github.com/<you>/synctogether.git && cd synctogether
+   sudo ./scripts/setup-livekit-server.sh av.yourdomain.com
+   ```
+3. The script prints an endpoint entry. Add it to `LIVEKIT_ENDPOINTS` in `supabase/functions/.env`, then run `supabase secrets set --env-file supabase/functions/.env`. List it first to make it the preferred endpoint, with any LiveKit Cloud project after it as a fallback.
+4. Updating later: `docker compose -f deploy/livekit/docker-compose.yml up -d --pull always`.
+
+**Notes for Oracle Cloud's Always Free tier**
+
+An Ampere A1 VM (up to 4 OCPU / 24 GB, 10 TB egress a month) runs this comfortably at no cost.
+
+- **Shape:** `VM.Standard.A1.Flex`, image Ubuntu 24.04 (aarch64). 2 OCPU / 12 GB is plenty. If the console reports *Out of host capacity*, try another availability domain or retry later.
+- **Public IP:** reserve one (Networking → Reserved public IPs) and attach it, so the DNS record survives a stop/start.
+- **Cloud firewall:** add the port table above as ingress rules on the subnet's security list (Networking → Virtual cloud networks → your VCN → Security lists). Oracle's Ubuntu image also has an `iptables` REJECT rule of its own; the script opens the same ports there. A server that is "configured correctly" but unreachable is almost always that rule.
+- **Idle reclamation:** Oracle may reclaim an Always Free VM whose CPU, network and memory use all stay low for 7 days, which is a quiet AV server's normal state. Upgrading the account to Pay As You Go keeps the Always Free allowances at no charge and stops reclamation. Set a budget alert (Billing → Budgets) at a small amount so a misconfiguration can never cost you silently.
+
 ---
 
 ### Step 3: Deploy Backend Edge Functions
@@ -148,6 +185,8 @@ SyncTogether uses Supabase Edge Functions to mint short-lived LiveKit JWT access
 
    # LiveKit token minter (required for voice/video facecams)
    supabase functions deploy livekit-token
+   # Mirrors room end/kick onto every LiveKit endpoint (set app_settings.av_cleanup.endpoint_url to enable)
+   supabase functions deploy av-cleanup
    ```
 
 *(Optional)* Media file sharing via Cloudflare R2 (or any S3-compatible store) - set the four `CF_R2_*` secrets first:
@@ -295,6 +334,7 @@ In debug builds with no local values set, the client falls back to `http://127.0
 | `LIVEKIT_API_KEY` | **Yes** *(for AV)* | LiveKit API Key (matches key in `livekit.yaml` or LiveKit Cloud) |
 | `LIVEKIT_API_SECRET` | **Yes** *(for AV)* | LiveKit API Secret (used by edge function to sign JWT tokens) |
 | `LIVEKIT_URL` | **Yes** *(for AV)* | LiveKit WebSocket URL |
+| `LIVEKIT_ENDPOINTS` | *No* | JSON array of `{id, url, key, secret}` LiveKit endpoints in priority order; replaces the three above. Rooms fail over between them (see `docs/feature-toggles.md`) |
 | `CF_R2_ENDPOINT` | *No* | Cloudflare R2 / S3 S3-compatible endpoint for media sharing |
 | `CF_R2_ACCESS_KEY_ID` | *No* | Cloudflare R2 / S3 access key |
 | `CF_R2_SECRET_ACCESS_KEY` | *No* | Cloudflare R2 / S3 secret key |

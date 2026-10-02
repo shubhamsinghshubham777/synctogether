@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:synctogether/av/livekit_service.dart';
 import 'package:synctogether/rooms/widgets/facecam_rail.dart';
 import 'package:synctogether/sync/sync_logic.dart';
@@ -117,6 +118,45 @@ void main() {
       expect(find.text('Alice'), findsOneWidget);
       expect(find.text('Bob'), findsOneWidget);
       expect(find.text('Charlie'), findsOneWidget);
+
+      av.dispose();
+    });
+
+    testWidgets('shows a warm resting note, not an error, when AV is exhausted', (tester) async {
+      LiveKitService.isMockMode = false;
+      final av = LiveKitService(
+        roomId: 'room-1',
+        avLevel: .video,
+        fetchToken: (_, {failedEndpoint, forceEndpoint}) async => throw const FunctionException(
+          status: 503,
+          details: {'error': 'av_capacity_exhausted', 'retry_after_s': 300},
+        ),
+      );
+      await av.connect();
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: FacecamRail(
+              av: av,
+              present: [
+                PresentMember(
+                  userId: 'user-alice',
+                  displayName: 'Alice',
+                  role: 'host',
+                  joinedAt: DateTime(2026, 1, 1),
+                ),
+              ],
+              selfId: 'user-alice',
+              layout: .railLeft,
+            ),
+          ),
+        ),
+      );
+      await tester.pump(const Duration(seconds: 1));
+
+      expect(find.text('Facecams are taking a breather'), findsOneWidget);
+      expect(find.text('Alice'), findsOneWidget);
 
       av.dispose();
     });

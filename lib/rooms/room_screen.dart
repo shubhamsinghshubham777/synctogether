@@ -442,6 +442,10 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
       _snack('Cameras are a premium thing. This room is voice only.', kind: .info);
       return;
     }
+    if (on && av.state == .unavailable) {
+      // The wish is kept, so it applies by itself when AV comes back.
+      _snack(kAvRestingMessage, kind: .info);
+    }
     if (on) _facecamUsed = true;
     Analytics.instance.track('facecam_toggled', {'kind': kind, 'on': on});
     unawaited(kind == 'mic' ? av.setMicEnabled(on) : av.setCamEnabled(on));
@@ -852,6 +856,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
           }
         }
       }),
+      sync.avEndpointStream.listen((endpoint) => _av?.followEndpoint(endpoint)),
       sync.roomExtendedStream.listen((event) {
         if (!mounted) return;
         final parsed = DateTime.tryParse(event.expiresAt);
@@ -5465,7 +5470,33 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
           label: 'Keyboard shortcuts',
           onTap: _showShortcuts,
         ),
+      // Debug builds against a stack with AV_DEBUG_SWITCHING: move the whole
+      // room to another endpoint to exercise the failover path by hand.
+      if (kDebugMode && (_av?.endpoints.length ?? 0) > 1)
+        RoomMenuAction(
+          icon: Symbols.swap_horiz_rounded,
+          label: 'AV endpoint (debug): ${_av?.endpoint}',
+          onTap: _showAvEndpointChooser,
+        ),
     ];
+  }
+
+  Future<void> _showAvEndpointChooser() async {
+    final av = _av;
+    if (av == null) return;
+    await showGlassDialog(
+      context: context,
+      width: 380,
+      builder: (dialogContext) => ChooserDialog<String>(
+        type: 'AV endpoint',
+        values: av.endpoints,
+        selected: av.endpoint,
+        onChosen: (endpoint) {
+          Navigator.of(dialogContext).pop();
+          unawaited(av.debugSwitchTo(endpoint));
+        },
+      ),
+    );
   }
 
   /// The host has a local file the tier may share and nothing is uploading.

@@ -7,6 +7,8 @@ import 'package:material_symbols_icons/symbols.dart';
 import 'package:synctogether/av/livekit_service.dart';
 import 'package:synctogether/sync/sync_service.dart';
 import 'package:synctogether/ui/buttons.dart';
+import 'package:synctogether/ui/glass.dart';
+import 'package:synctogether/ui/loader.dart';
 import 'package:synctogether/ui/identity.dart';
 import 'package:synctogether/ui/pt_motion.dart';
 import 'package:synctogether/ui/pt_theme.dart';
@@ -16,6 +18,11 @@ import '../../rewards/rewards_models.dart';
 const bool kDemoMode = bool.fromEnvironment('DEMO_MODE', defaultValue: false);
 
 enum FacecamLayout { railLeft, stripTop, miniStackRight }
+
+/// What a mic/cam toggle says while every AV endpoint is spent. Never "service
+/// unavailable": nothing the viewer did is wrong and nothing they can do helps.
+const kAvRestingMessage =
+    "Facecams are full up right now. They'll switch on by themselves the moment there's room.";
 
 /// Facecam tiles per present member: live video when the member publishes a
 /// cam track, avatar tile otherwise; self first with a brighter hairline, Signal ring while speaking.
@@ -104,7 +111,14 @@ class _FacecamRailState extends State<FacecamRail> {
             .take((widget.maxTiles - visible.length).clamp(0, widget.maxTiles))
             .toList();
 
+        final state = widget.av.state;
+        final resting = state == .unavailable;
+        final joining = state == .connecting || state == .reconnecting;
+
         final tiles = <Widget>[
+          if (resting && widget.layout == .railLeft) const _RestingNote(),
+          if (resting && widget.layout == .miniStackRight)
+            const PTActionPill(label: 'Cams resting', icon: BoothIcons.videocamOff),
           for (final member in [...visible, ...departing])
             _AnimatedTile(
               key: ValueKey(member.userId),
@@ -115,6 +129,9 @@ class _FacecamRailState extends State<FacecamRail> {
                 premium: widget.premiumMembers.contains(member.userId),
                 frame: widget.memberFrames[member.userId],
                 av: widget.av,
+                // Endpoint switches stay inside this state, so a failover reads
+                // as a moment of connecting rather than an error.
+                joining: joining && member.userId == widget.selfId,
                 compact: widget.layout != .railLeft,
                 showNames: widget.showNames,
               ),
@@ -134,7 +151,14 @@ class _FacecamRailState extends State<FacecamRail> {
               child: Column(crossAxisAlignment: .start, spacing: 10, children: tiles),
             ),
           ),
-          .stripTop => Row(spacing: 8, children: [for (final t in tiles) Expanded(child: t)]),
+          .stripTop => Column(
+            mainAxisSize: .min,
+            spacing: 6,
+            children: [
+              if (resting) const _RestingNote(compact: true),
+              Row(spacing: 8, children: [for (final t in tiles) Expanded(child: t)]),
+            ],
+          ),
           .miniStackRight => SingleChildScrollView(
             child: Column(crossAxisAlignment: .end, spacing: 6, children: tiles),
           ),
@@ -179,10 +203,12 @@ class _FacecamTile extends StatelessWidget {
     required this.premium,
     this.frame,
     required this.av,
+    this.joining = false,
     required this.compact,
     required this.showNames,
   });
 
+  final bool joining;
   final PresentMember member;
   final bool isSelf;
   final bool premium;
@@ -358,6 +384,15 @@ class _FacecamTile extends StatelessWidget {
             ),
             Positioned(
               top: compact ? 5 : 7,
+              left: compact ? 5 : 7,
+              child: AnimatedOpacity(
+                opacity: joining ? 1 : 0,
+                duration: PTMotion.functional(context, PTMotion.state),
+                child: joining ? PTLoader(size: compact ? 12 : 16) : const SizedBox.shrink(),
+              ),
+            ),
+            Positioned(
+              top: compact ? 5 : 7,
               right: compact ? 5 : 7,
               child: AnimatedScale(
                 scale:
@@ -404,5 +439,58 @@ class _FacecamTile extends StatelessWidget {
       }
     }
     return null;
+  }
+}
+
+/// Every AV endpoint is spent. Said warmly and with the part that matters
+/// first: the film and chat are fine, and nobody has to do anything.
+class _RestingNote extends StatelessWidget {
+  const _RestingNote({this.compact = false});
+
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    return PTEntrance(
+      duration: PTMotion.state,
+      offset: 0,
+      scaleFrom: 0.95,
+      child: GlassPanel(
+        radius: PTRadius.control,
+        padding: EdgeInsets.all(compact ? 8 : 12),
+        child: Row(
+          crossAxisAlignment: .start,
+          spacing: 8,
+          children: [
+            Icon(BoothIcons.videocamOff, size: compact ? 14 : 16, color: PTColors.fgDim),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: .start,
+                mainAxisSize: .min,
+                spacing: 3,
+                children: [
+                  Text(
+                    'Facecams are taking a breather',
+                    maxLines: 2,
+                    overflow: .ellipsis,
+                    style: PTText.finePrint.copyWith(
+                      fontSize: compact ? 11 : 12,
+                      fontWeight: .w700,
+                      color: PTColors.fg,
+                    ),
+                  ),
+                  if (!compact)
+                    Text(
+                      "Lots of rooms are chatting tonight. The film and chat carry on, "
+                      "and cams pop back here on their own.",
+                      style: PTText.finePrint.copyWith(fontSize: 11, color: PTColors.fgDim),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

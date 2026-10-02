@@ -25,7 +25,8 @@ fvm flutter analyze                 # lint (flutter_lints via analysis_options.y
 fvm flutter build macos --release   # release build per platform
 
 supabase db push                    # apply supabase/migrations to the linked project
-supabase functions deploy livekit-token          # also: media-share, cleanup-r2
+supabase functions deploy livekit-token          # also: media-share, cleanup-r2, av-cleanup
+sudo ./scripts/setup-livekit-server.sh av.example.com   # ON a VPS: production LiveKit + TLS (docs/self-hosting.md)
 supabase secrets set --env-file supabase/functions/.env   # LiveKit API key/secret
 supabase config push                # auth config (needs supabase/.env for Google OAuth + captcha secret)
 
@@ -347,6 +348,8 @@ Guideline 1.2 wants an agreement before sign-in, a way to flag content, a way to
 ### AV layer (`lib/av/`)
 
 `LiveKitService` (per room): fetches a token from the `livekit-token` edge function, connects to `LIVEKIT_URL`, publishes mic/cam on toggle. Facecam tiles: `lib/rooms/widgets/facecam_rail.dart` (identity = Supabase user id).
+
+**Endpoints are plural, the protocol is not.** The token function holds a priority list of LiveKit-protocol servers (`LIVEKIT_ENDPOINTS`: self-hosted first, LiveKit Cloud behind it) and `pick_av_endpoint` pins each room to one. Members on different SFUs cannot hear each other, so a room moves as a whole: the client that hit the failure re-pins it, and Postgres broadcasts `av_endpoint_changed` so connected members `followEndpoint`. Failover decisions are pure functions in `lib/av/av_failover.dart`. `NotAllowed` (how a free LiveKit Cloud project answers once its hard cap is spent) moves at once. An SFU that won't answer while our token fetch just worked moves after 2 failures. Marking an endpoint down globally needs 2 distinct reporters, so one bad network cannot take AV off everyone. When all endpoints are out the state is `AvConnectionState.unavailable`: traced not reported, slow retry, and the rail's "taking a breather" note instead of an error. The switch itself happens inside `connecting`, so to the user it is a spinner on their own tile. **Do not add a second vendor SDK behind this seam** (Agora, Daily, 100ms, RealtimeKit): members on two vendors cannot hear each other, so a room has to move as a whole anyway, and most of those SDKs have no Flutter desktop support. Every room-facing type (`facecam_rail.dart`, the device pickers, `macos_audio_devices.dart`) is LiveKit's. A new endpoint is a new LiveKit server, never a new protocol. **Moves are make-before-break** (`_connectRoom` swaps the new `lk.Room` in only once it is connected, and listeners ignore any room that isn't `_room`), so a failover or a followed move never leaves `connected`. **The SFU side is cleaned up like ours**: triggers queue `pending_av_cleanups` on end/retire/delete (whole room) and on any `room_members` delete (participant). `av-cleanup` applies each one to *every* endpoint, because a room may have lived on several. Tokens are 10-minute because removal cannot revoke one. Debug switching is `AV_DEBUG_SWITCHING` on the function plus the debug-only room-menu entry.
 
 Facecams are enabled with a single member present: publishing into an empty room gives you your own preview tile while you wait, which is the normal way to check a mic before people arrive, and the old `_present.length >= 2` guard left a lone member with no way to test either device.
 

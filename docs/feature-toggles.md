@@ -162,6 +162,14 @@ them set. Changing any of these needs a rebuild and a release.
 | `POSTHOG_API_KEY` | No product analytics: no queue, no timer, no socket. |
 | `POSTHOG_HOST` | Defaults to `https://us.i.posthog.com`. |
 | `LIVEKIT_URL` | Facecams disappear entirely - no service, no token fetch, no UI. |
+
+### AV endpoint failover (`LIVEKIT_ENDPOINTS`, function secret)
+
+A JSON array of LiveKit-protocol endpoints in priority order. The token function pins each room to one (`rooms.av_endpoint`) via `pick_av_endpoint`. A client whose endpoint refuses it or will not answer reports it and gets the next one, and Postgres broadcasts `av_endpoint_changed` so the rest of the room follows. One account can only move its own room. An endpoint is marked down for everyone (`av_endpoint_state`, 30 minutes) only after **2 distinct accounts** report it inside 10 minutes. The quorum, window and cooldown are constants in the migration. With nothing left the function answers `503 av_capacity_exhausted`, and the room shows "Facecams are taking a breather" while it retries every 5 minutes. Playback and chat are unaffected. **`AV_DEBUG_SWITCHING=true`** (function secret, local or staging only - never production) makes the token function return the endpoint list and honour `force_endpoint`. A debug build then shows "AV endpoint (debug)" in the room menu, which moves the whole room through the same broadcast a real failover sends. Moves are make-before-break: the new SFU connects before the old one is dropped, and the state stays `connected`.
+
+**SFU cleanup** mirrors our own room lifecycle on every endpoint. Triggers queue `pending_av_cleanups` when a room ends or retires (`ended_at` set), when a live room is deleted (a whole-room delete), and when a membership row goes (kick, ban, leave: participant removal). `invoke_av_cleanup` runs every minute and calls the `av-cleanup` function. Like R2 cleanup it ships inert until `app_settings.av_cleanup.endpoint_url` (and `service_role_key`) is set, and a row is dropped for good after 5 failed attempts. LiveKit tokens live 10 minutes because a removed participant's token cannot be revoked. LiveKit refreshes it for anyone still connected, and every reconnect re-checks membership.
+
+To take an endpoint out by hand: `insert into av_endpoint_state values ('cloud', now() + interval '1 day') on conflict (endpoint) do update set exhausted_until = excluded.exhausted_until;`.
 | `TURNSTILE_SITE_KEY` | The client skips the captcha dialog, **but the server still demands a token**, so guest sign-in fails. Set it or disable captcha server-side too. |
 | `SUPABASE_URL` / `SUPABASE_PUBLISHABLE_KEY` | Required. Debug builds fall back to the local stack. |
 | `DEMO_MODE` / `DEMO_ROOM` | Mock data for screenshots. Off in real builds. |

@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:livekit_client/livekit_client.dart' as lk;
+import 'package:synctogether/av/av_failover.dart';
 import 'package:synctogether/av/macos_audio_devices.dart';
 import 'package:synctogether/diagnostics.dart';
 import 'package:synctogether/env.dart';
@@ -29,14 +30,72 @@ bool isTransientAvError(Object error) => switch (error) {
   _ => false,
 };
 
-enum AvConnectionState { disconnected, connecting, connected, reconnecting }
+enum AvConnectionState {
+  disconnected,
+  connecting,
+  connected,
+  reconnecting,
+
+  /// Every AV endpoint is spent or down. Playback and chat are unaffected;
+  /// the service keeps asking on a slow timer and recovers on its own.
+  unavailable,
+}
+
+/// A minted token and the endpoint it is for.
+typedef AvToken = ({String token, String url, String? endpoint, List<String> endpoints});
+
+/// Fetches a token for [roomId]. [failedEndpoint] reports the endpoint we
+/// could not use so the server re-pins the room elsewhere.
+/// [forceEndpoint] is the debug switch; the server ignores it unless the
+/// deployment sets `AV_DEBUG_SWITCHING`.
+typedef AvTokenFetcher =
+    Future<AvToken> Function(String roomId, {String? failedEndpoint, String? forceEndpoint});
+
+Future<AvToken> _fetchTokenFromSupabase(
+  String roomId, {
+  String? failedEndpoint,
+  String? forceEndpoint,
+}) async {
+  final response = await Supabase.instance.client.functions.invoke(
+    'livekit-token',
+    body: {'room_id': roomId, 'failed_endpoint': ?failedEndpoint, 'force_endpoint': ?forceEndpoint},
+  );
+  final data = (response.data as Map).cast<String, dynamic>();
+  return (
+    token: data['token'] as String,
+    url: (data['url'] as String?) ?? Env.livekitUrl!,
+    endpoint: data['endpoint'] as String?,
+    endpoints: [...?(data['endpoints'] as List?)?.whereType<String>()],
+  );
+}
 
 /// Voice/video layer per room. Identity = Supabase user id (the token minted
 /// by the livekit-token edge function enforces room membership server-side).
+///
+/// The server may hold several LiveKit-protocol endpoints (self-hosted,
+/// LiveKit Cloud). The room is pinned to one; when ours refuses or can't be
+/// reached we report it and are handed the next, staying in [connecting] the
+/// whole time so the switch looks like an ordinary connect. When none is left
+/// we sit in [AvConnectionState.unavailable] and retry slowly.
 class LiveKitService extends ChangeNotifier {
-  LiveKitService({required this.roomId, this.avLevel = AvLevel.voice});
+  LiveKitService({required this.roomId, this.avLevel = AvLevel.voice, AvTokenFetcher? fetchToken})
+    : _fetchToken = fetchToken ?? _fetchTokenFromSupabase;
 
   final String roomId;
+
+  final AvTokenFetcher _fetchToken;
+
+  /// The endpoint we are (or were last) connected to.
+  String? _endpoint;
+  String? get endpoint => _endpoint;
+
+  /// Every endpoint id the server knows - only filled in when the deployment
+  /// allows debug switching, which is what shows the debug menu entry.
+  List<String> _endpoints = const [];
+  List<String> get endpoints => _endpoints;
+
+  /// Consecutive unreachable-SFU failures on [_endpoint].
+  int _endpointFailures = 0;
 
   final AvLevel avLevel;
 
@@ -93,6 +152,8 @@ class LiveKitService extends ChangeNotifier {
     }
     try {
       await _connectInternal();
+    } on AvCapacityExhausted catch (e) {
+      _enterUnavailable(e);
     } catch (e, s) {
       _noteFailure(e, s, during: 'connecting to LiveKit for room $roomId');
       _setState(.disconnected);
@@ -101,15 +162,60 @@ class LiveKitService extends ChangeNotifier {
     }
   }
 
-  Future<void> _connectInternal() async {
-    final response = await Supabase.instance.client.functions.invoke(
-      'livekit-token',
-      body: {'room_id': roomId},
-    );
-    final data = (response.data as Map).cast<String, dynamic>();
-    final token = data['token'] as String;
-    final url = (data['url'] as String?) ?? Env.livekitUrl!;
+  /// Fetches a token and connects, hopping to another endpoint when ours
+  /// refuses or stops answering. Throws [AvCapacityExhausted] when the server
+  /// has nothing left to offer.
+  Future<void> _connectInternal({String? force}) async {
+    String? failed;
+    for (var hop = 0; ; hop++) {
+      final AvToken minted;
+      try {
+        minted = await _fetchToken(
+          roomId,
+          failedEndpoint: failed,
+          forceEndpoint: failed == null ? force : null,
+        );
+      } catch (e) {
+        throw capacityExhaustedFrom(e) ?? e;
+      }
+      if (_disposed) return;
+      if (minted.endpoint != _endpoint) _endpointFailures = 0;
+      _endpoint = minted.endpoint;
+      if (minted.endpoints.isNotEmpty) _endpoints = minted.endpoints;
+      try {
+        await _connectRoom(minted.url, minted.token);
+        _endpointFailures = 0;
+        return;
+      } catch (e) {
+        final verdict = judgeConnectFailure(e);
+        if (verdict == .unreachable) _endpointFailures++;
+        final hopOn =
+            minted.endpoint != null &&
+            hop < kAvMaxHopsPerAttempt &&
+            shouldFailOver(verdict, _endpointFailures);
+        if (!hopOn) rethrow;
+        trace(
+          'av endpoint failing over',
+          category: 'av',
+          data: {
+            'room_id': roomId,
+            'endpoint': minted.endpoint,
+            'verdict': verdict.name,
+            'failures': _endpointFailures,
+            'error': '$e',
+          },
+        );
+        failed = minted.endpoint;
+        _endpointFailures = 0;
+        if (_disposed) return;
+      }
+    }
+  }
 
+  /// Connects a fresh [lk.Room] and only then swaps it in for the old one, so
+  /// an endpoint move is make-before-break: whatever was playing keeps playing
+  /// until the new SFU is actually up. A failure leaves the old room untouched.
+  Future<void> _connectRoom(String url, String token) async {
     final room = lk.Room(
       roomOptions: const lk.RoomOptions(
         adaptiveStream: true,
@@ -117,19 +223,28 @@ class LiveKitService extends ChangeNotifier {
         defaultCameraCaptureOptions: _cameraCapture,
       ),
     );
-    _listener = room.createListener()
-      ..on<lk.RoomReconnectingEvent>((_) => _setState(.reconnecting))
+    // Events from a room that is not (or no longer) ours must not move our
+    // state - the candidate and the outgoing room overlap during a swap.
+    bool live() => identical(room, _room);
+    final listener = room.createListener()
+      ..on<lk.RoomReconnectingEvent>((_) {
+        if (live()) _setState(.reconnecting);
+      })
       ..on<lk.RoomReconnectedEvent>((_) {
+        if (!live()) return;
         _setState(.connected);
         _reconnectAttempts = 0;
         unawaited(_syncTracks());
       })
-      ..on<lk.RoomDisconnectedEvent>(_onDisconnected)
+      ..on<lk.RoomDisconnectedEvent>((event) {
+        if (live()) _onDisconnected(event);
+      })
       // Track/participant churn and speaking changes all surface as change
       // notifications so tiles rebuild.
       ..on<lk.RoomEvent>((_) {
+        if (!live()) return;
         if (_state == .connected) {
-          final local = _room?.localParticipant;
+          final local = room.localParticipant;
           if (local != null) {
             if ((_desiredMicEnabled && !local.isMicrophoneEnabled()) ||
                 (_desiredCamEnabled && canPublishCamera && !local.isCameraEnabled())) {
@@ -140,12 +255,36 @@ class LiveKitService extends ChangeNotifier {
         notifyListeners();
       });
 
-    await room.connect(url, token);
+    try {
+      await room.connect(url, token);
+    } catch (_) {
+      await listener.dispose();
+      try {
+        await room.dispose();
+      } catch (_) {}
+      rethrow;
+    }
+    if (_disposed) {
+      await listener.dispose();
+      await room.dispose();
+      return;
+    }
+
+    final oldRoom = _room;
+    final oldListener = _listener;
     _room = room;
+    _listener = listener;
     _reconnectAttempts = 0;
     _reconnectTimer?.cancel();
     _reconnectTimer = null;
     _setState(.connected);
+    // The old room goes after the swap: its tracks are released before ours
+    // publish, so the camera is never held by two rooms at once.
+    await oldListener?.dispose();
+    try {
+      await oldRoom?.disconnect();
+      await oldRoom?.dispose();
+    } catch (_) {}
 
     // Re-apply selected devices if set
     if (_selectedAudioInput != null) {
@@ -159,6 +298,82 @@ class LiveKitService extends ChangeNotifier {
     }
 
     await _syncTracks();
+  }
+
+  /// Every endpoint is out. Expected, so traced rather than reported; the
+  /// retry is slow because quota does not come back in seconds.
+  void _enterUnavailable(AvCapacityExhausted e) {
+    trace(
+      'av capacity exhausted',
+      category: 'av',
+      data: {'room_id': roomId, 'retry_s': e.retryAfter.inSeconds},
+    );
+    _setState(.unavailable);
+    if (_disposed) return;
+    _reconnectTimer?.cancel();
+    _reconnectTimer = Timer(e.retryAfter, () {
+      if (_disposed || _state != .unavailable) return;
+      _reconnectAttempts = 0;
+      unawaited(_reconnectGuarded());
+    });
+  }
+
+  /// Another member moved the room to [endpoint] (`av_endpoint_changed`).
+  /// Following it is what keeps everyone on one SFU, so it skips the backoff.
+  void followEndpoint(String endpoint) {
+    if (_disposed || isMockMode || endpoint == _endpoint || _state == .connecting) return;
+    trace(
+      'av following room to new endpoint',
+      category: 'av',
+      data: {'room_id': roomId, 'from': _endpoint, 'to': endpoint},
+    );
+    unawaited(_move());
+  }
+
+  /// Debug builds only: pin the room to [endpoint]. The rest of the room
+  /// follows through the same broadcast a real failover sends.
+  Future<void> debugSwitchTo(String endpoint) async {
+    if (!kDebugMode || _disposed || endpoint == _endpoint) return;
+    trace('av debug switch', category: 'av', data: {'room_id': roomId, 'to': endpoint});
+    await _move(force: endpoint);
+  }
+
+  /// Moves a live call to another endpoint without the viewer noticing: the
+  /// state stays [AvConnectionState.connected] and the old room keeps playing
+  /// until the new one is up ([_connectRoom] is make-before-break). Only a
+  /// call that wasn't up in the first place goes through the visible path.
+  Future<void> _move({String? force}) async {
+    _reconnectTimer?.cancel();
+    _reconnectTimer = null;
+    _reconnectAttempts = 0;
+    if (_state != .connected || _room == null) {
+      await _reconnectGuarded(force: force);
+      return;
+    }
+    try {
+      await _connectInternal(force: force);
+    } on AvCapacityExhausted catch (e) {
+      // Nowhere better to go; the room we're on still works, so stay.
+      trace(
+        'av move found nowhere to go',
+        category: 'av',
+        data: {'room_id': roomId, 'retry_s': e.retryAfter.inSeconds},
+      );
+    } catch (e, s) {
+      _noteFailure(e, s, during: 'moving AV to another endpoint for room $roomId');
+    }
+  }
+
+  Future<void> _reconnectGuarded({String? force}) async {
+    try {
+      await _reconnect(force: force);
+    } on AvCapacityExhausted catch (e) {
+      _enterUnavailable(e);
+    } catch (e, s) {
+      _noteFailure(e, s, during: 'av reconnection attempt for room $roomId');
+      _setState(.disconnected);
+      if (!_disposed) _scheduleReconnect();
+    }
   }
 
   void _onDisconnected(lk.RoomDisconnectedEvent event) {
@@ -218,26 +433,18 @@ class LiveKitService extends ChangeNotifier {
     );
 
     _reconnectTimer?.cancel();
-    _reconnectTimer = Timer(Duration(seconds: delaySeconds), () async {
+    _reconnectTimer = Timer(Duration(seconds: delaySeconds), () {
       if (_disposed || _state == .connecting || _state == .connected) return;
-      try {
-        await _reconnect();
-      } catch (e, s) {
-        _noteFailure(e, s, during: 'av reconnection attempt for room $roomId');
-        _setState(.disconnected);
-        if (!_disposed) _scheduleReconnect();
-      }
+      unawaited(_reconnectGuarded());
     });
   }
 
-  Future<void> _reconnect() async {
+  Future<void> _reconnect({String? force}) async {
     if (_disposed) return;
     _setState(.reconnecting);
-
-    await _cleanupRoom();
-    if (_disposed) return;
-
-    await _connectInternal();
+    // No teardown first: _connectRoom swaps the old room out once the new
+    // one is up, and a dead old room costs nothing to keep for that long.
+    await _connectInternal(force: force);
   }
 
   Future<void> _cleanupRoom() async {

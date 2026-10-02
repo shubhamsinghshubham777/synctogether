@@ -102,6 +102,11 @@ class SyncService {
   final _roomExtendedController = StreamController<RoomExtendedEvent>.broadcast();
   Stream<RoomExtendedEvent> get roomExtendedStream => _roomExtendedController.stream;
 
+  final _avEndpointController = StreamController<String>.broadcast();
+
+  /// The room's AV endpoint moved; every connected member should follow.
+  Stream<String> get avEndpointStream => _avEndpointController.stream;
+
   String _mediaUploadState = 'none';
   String get mediaUploadState => _mediaUploadState;
 
@@ -311,6 +316,7 @@ class SyncService {
     on(SyncEventType.uploadProgress, _handleUploadProgress);
     on(SyncEventType.sharingToggled, _handleSharingToggled);
     on(SyncEventType.roomExtended, _handleRoomExtended);
+    on(SyncEventType.avEndpointChanged, _handleAvEndpointChanged);
     on(SyncEventType.catchUpRequest, _handleCatchUpRequest);
     on(SyncEventType.catchUpResponse, _handleCatchUpResponse);
     on(SyncEventType.hostAssigned, _handleHostAssigned);
@@ -1111,6 +1117,12 @@ class SyncService {
     _roomExtendedController.add(event);
   }
 
+  void _handleAvEndpointChanged(Map<String, dynamic> payload) {
+    if (_disposed) return;
+    final endpoint = payload['endpoint'];
+    if (endpoint is String && endpoint.isNotEmpty) _avEndpointController.add(endpoint);
+  }
+
   void updatePlaybackState(String mode, String? youtubeUrl) {
     _currentMode = mode;
     _currentYoutubeUrl = youtubeUrl;
@@ -1636,6 +1648,7 @@ class SyncService {
     _uploadProgressController.close();
     _sharingToggledController.close();
     _roomExtendedController.close();
+    _avEndpointController.close();
     _catchUpController.close();
     _hostAssignedController.close();
     _bufferCatchUpTimeout?.cancel();

@@ -1,0 +1,28 @@
+# Rendered by scripts/setup-livekit-server.sh. Do not commit the rendered file:
+# it holds the API secret.
+port: 7880
+bind_addresses:
+  - "127.0.0.1"   # signalling only via Caddy's TLS on 443
+
+rtc:
+  tcp_port: 7881          # WebRTC over TCP, for networks that block UDP
+  udp_port: 7882          # all UDP media multiplexed on one port
+  use_external_ip: true   # advertise the VM's public IP, not its private one
+
+turn:
+  enabled: true
+  udp_port: 3478          # relay for clients behind strict NATs
+
+# Free LiveKit servers have no per-room cap of their own; keep rooms within
+# what the largest tier allows (tier_limits.max_members).
+room:
+  max_participants: 16
+  empty_timeout: 300
+  departure_timeout: 20
+
+keys:
+  __API_KEY__: __API_SECRET__
+
+logging:
+  json: true
+  level: info

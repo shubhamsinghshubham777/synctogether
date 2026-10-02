@@ -22,6 +22,10 @@ abstract class SyncEventType {
   static const String catchUpRequest = 'catch_up_request';
   static const String catchUpResponse = 'catch_up_response';
   static const String hostAssigned = 'host_assigned';
+
+  /// Sent by Postgres (`pick_av_endpoint`) when the room's AV moves to
+  /// another LiveKit endpoint. Payload: `endpoint`.
+  static const String avEndpointChanged = 'av_endpoint_changed';
 }
 
 /// Why a play/pause happened. Absent means a human pressed something - the

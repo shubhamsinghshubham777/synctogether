@@ -11,14 +11,16 @@ class EndedRoomDialog extends StatelessWidget {
     super.key,
     required this.room,
     required this.onStartFresh,
-    required this.onUpgrade,
+    this.onUpgrade,
     required this.onDelete,
     this.isOwner = true,
   });
 
   final Room room;
   final VoidCallback onStartFresh;
-  final VoidCallback onUpgrade;
+
+  /// Null where the build may not sell Premium (see `canSellPremium`).
+  final VoidCallback? onUpgrade;
   final VoidCallback onDelete;
   final bool isOwner;
 
@@ -99,16 +101,17 @@ class EndedRoomDialog extends StatelessWidget {
           crossAxisAlignment: WrapCrossAlignment.center,
           spacing: 12,
           children: [
-            DialogTextButton(
-              label: 'Patron: 20 saved rooms',
-              color: PTColors.premium,
-              underline: false,
-              fontSize: 13,
-              onPressed: () {
-                Navigator.of(context).pop();
-                onUpgrade();
-              },
-            ),
+            if (onUpgrade case final upgrade?)
+              DialogTextButton(
+                label: 'Patron: 20 saved rooms',
+                color: PTColors.premium,
+                underline: false,
+                fontSize: 13,
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  upgrade();
+                },
+              ),
             if (isOwner)
               DialogTextButton(
                 label: 'Remove from list',

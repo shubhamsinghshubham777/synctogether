@@ -107,6 +107,13 @@ class SyncService {
   /// The room's AV endpoint moved; every connected member should follow.
   Stream<String> get avEndpointStream => _avEndpointController.stream;
 
+  final _videoTrialController = StreamController<({String startedBy, DateTime endsAt})>.broadcast();
+
+  /// A video trial started in this room. Fan-out only: the room row's
+  /// `video_trial_ends_at` stays the truth and is refetched on resubscribe.
+  Stream<({String startedBy, DateTime endsAt})> get videoTrialStream =>
+      _videoTrialController.stream;
+
   String _mediaUploadState = 'none';
   String get mediaUploadState => _mediaUploadState;
 
@@ -317,6 +324,7 @@ class SyncService {
     on(SyncEventType.sharingToggled, _handleSharingToggled);
     on(SyncEventType.roomExtended, _handleRoomExtended);
     on(SyncEventType.avEndpointChanged, _handleAvEndpointChanged);
+    on(SyncEventType.videoTrialStarted, _handleVideoTrialStarted);
     on(SyncEventType.catchUpRequest, _handleCatchUpRequest);
     on(SyncEventType.catchUpResponse, _handleCatchUpResponse);
     on(SyncEventType.hostAssigned, _handleHostAssigned);
@@ -945,6 +953,10 @@ class SyncService {
       _setTransportLock(fresh.transportLock);
       _mediaUploadState = fresh.mediaUploadState;
       _adoptCanonicalMedia(RoomMedia.fromRoom(fresh));
+      // A trial started while we were disconnected never reached us as a
+      // broadcast; the row still knows. RoomScreen ignores a repeat.
+      final trialEnds = fresh.videoTrialEndsAt;
+      if (trialEnds != null) _videoTrialController.add((startedBy: '', endsAt: trialEnds));
     } catch (e, s) {
       // The row is the source of truth for the readiness gate, and this refetch
       // is what a reconnecting client relies on. Failing it leaves the gate
@@ -1121,6 +1133,13 @@ class SyncService {
     if (_disposed) return;
     final endpoint = payload['endpoint'];
     if (endpoint is String && endpoint.isNotEmpty) _avEndpointController.add(endpoint);
+  }
+
+  void _handleVideoTrialStarted(Map<String, dynamic> payload) {
+    if (_disposed) return;
+    final endsAt = DateTime.tryParse('${payload['endsAt']}');
+    if (endsAt == null) return;
+    _videoTrialController.add((startedBy: '${payload['senderId'] ?? ''}', endsAt: endsAt));
   }
 
   void updatePlaybackState(String mode, String? youtubeUrl) {
@@ -1649,6 +1668,7 @@ class SyncService {
     _sharingToggledController.close();
     _roomExtendedController.close();
     _avEndpointController.close();
+    _videoTrialController.close();
     _catchUpController.close();
     _hostAssignedController.close();
     _bufferCatchUpTimeout?.cancel();

@@ -13,56 +13,33 @@ Widget _wrap(Widget child) {
 
 void main() {
   group('SubscriptionScreen', () {
-    testWidgets('desktop renders the Patron checkout button for free users on non-store build', (
-      tester,
-    ) async {
-      await tester.pumpWidget(
-        _wrap(const SubscriptionScreen(desktopOverride: true, storeBuildOverride: false)),
-      );
+    testWidgets('every non-Apple build sells through the web checkout', (tester) async {
+      await tester.pumpWidget(_wrap(const SubscriptionScreen(appleStoreBuildOverride: false)));
       await tester.pump(const Duration(milliseconds: 100));
 
       expect(find.text('Patron seats'), findsOneWidget);
-      expect(find.text('Take a Patron seat'), findsOneWidget);
-      expect(find.text('Checkout opens on synctogether.app in your browser.'), findsOneWidget);
+      expect(find.text('Take a Patron seat'), findsWidgets);
+      expect(find.text('Checkout opens on synctogether.app in your browser.'), findsWidgets);
+      expect(find.text('Subscriptions are managed on our website.'), findsNothing);
       expect(find.byIcon(BoothIcons.crown), findsWidgets);
     });
 
-    testWidgets('desktop store build hides the checkout button and shows compliant info banner', (
-      tester,
-    ) async {
+    testWidgets('a Google Play build neither sells nor points anywhere that does', (tester) async {
       await tester.pumpWidget(
-        _wrap(const SubscriptionScreen(desktopOverride: true, storeBuildOverride: true)),
+        _wrap(const SubscriptionScreen(appleStoreBuildOverride: false, canSellOverride: false)),
       );
       await tester.pump(const Duration(milliseconds: 100));
 
-      expect(find.text('Patron seats'), findsOneWidget);
       expect(find.text('Take a Patron seat'), findsNothing);
-      expect(find.text('Subscriptions are managed on our website.'), findsOneWidget);
-      expect(find.text('Refresh status'), findsOneWidget);
-    });
-
-    testWidgets('mobile renders plain text info instead of button', (tester) async {
-      await tester.pumpWidget(_wrap(const SubscriptionScreen(desktopOverride: false)));
-      await tester.pump(const Duration(milliseconds: 100));
-
-      expect(find.text('Patron seats'), findsOneWidget);
-      expect(find.text('Take a Patron seat'), findsNothing);
-      expect(find.text('Subscriptions are managed on our website.'), findsOneWidget);
-      expect(find.text('Refresh status'), findsOneWidget);
+      expect(find.textContaining('synctogether.app'), findsNothing);
+      expect(find.textContaining('website'), findsNothing);
+      expect(find.text("Patron seats aren't available in this version of the app."), findsWidgets);
     });
 
     testWidgets('apple store build sells through the App Store and never steers to the website', (
       tester,
     ) async {
-      await tester.pumpWidget(
-        _wrap(
-          const SubscriptionScreen(
-            desktopOverride: true,
-            storeBuildOverride: true,
-            appleStoreBuildOverride: true,
-          ),
-        ),
-      );
+      await tester.pumpWidget(_wrap(const SubscriptionScreen(appleStoreBuildOverride: true)));
       await tester.pump(const Duration(milliseconds: 100));
 
       expect(find.text('Patron seats'), findsOneWidget);

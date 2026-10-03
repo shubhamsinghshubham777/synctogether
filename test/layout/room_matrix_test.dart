@@ -150,6 +150,31 @@ void main() {
     await finishCase(tester);
   }, cases: _controlBarCases);
 
+  screenMatrix('room/control-bar-video-trial-offer', (tester, c, s) async {
+    await pumpAtSize(
+      tester,
+      _bottom(
+        RoomControlBar(
+          playing: false,
+          position: Duration.zero,
+          duration: Duration.zero,
+          volume: 1,
+          micOn: false,
+          camOn: false,
+          avAvailable: true,
+          camTrialMinutes: 10,
+          actions: _actions,
+          compact: _compact(c),
+          transportEnabled: false,
+          transportHint: 'Waiting for everyone to load the file',
+        ),
+      ),
+      c,
+      textScale: s,
+    );
+    await finishCase(tester);
+  }, cases: _controlBarCases);
+
   screenMatrix('room/control-bar-playing', (tester, c, s) async {
     await pumpAtSize(
       tester,
@@ -222,6 +247,42 @@ void main() {
       await finishCase(tester);
       av.dispose();
     });
+
+    // Board 32: a free room's video trial, in its last minute and just ended
+    // (the host's note, with the upsell - the larger of the two).
+    for (final ended in [false, true]) {
+      screenMatrix('room/facecams-${layout.name}-trial-${ended ? 'ended' : 'running'}', (
+        tester,
+        c,
+        s,
+      ) async {
+        final av = LiveKitService(roomId: 'room-1', avLevel: .voice);
+        await av.connect();
+        final now = DateTime.utc(2026, 10, 4, 12);
+        await pumpAtSize(
+          tester,
+          Scaffold(
+            body: SafeArea(
+              child: FacecamRail(
+                av: av,
+                present: _members(6),
+                selfId: 'me',
+                layout: layout,
+                onHide: () {},
+                trialEndsAt: ended ? null : now.add(const Duration(seconds: 42)),
+                now: () => now,
+                showTrialEnded: ended,
+                onKeepFaces: () {},
+              ),
+            ),
+          ),
+          c,
+          textScale: s,
+        );
+        await finishCase(tester);
+        av.dispose();
+      });
+    }
   }
 
   screenMatrix('room/banners-stacked', (tester, c, s) async {

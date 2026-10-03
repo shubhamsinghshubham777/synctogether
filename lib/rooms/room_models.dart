@@ -75,6 +75,7 @@ class Room {
     this.mediaUploadId,
     this.mediaUploadState = 'none',
     this.mediaSharingLevel = 'none',
+    this.videoTrialEndsAt,
   });
 
   final String id;
@@ -120,6 +121,10 @@ class Room {
   final String mediaUploadState;
   final String mediaSharingLevel;
 
+  /// When a free room's video trial runs out; null until somebody starts it.
+  /// Never cleared, so a spent trial stays spent across end and resume.
+  final DateTime? videoTrialEndsAt;
+
   bool get hasMedia => mediaKind != .none;
 
   bool get goesDormant => persistent;
@@ -151,6 +156,7 @@ class Room {
     String? mediaUploadId,
     String? mediaUploadState,
     String? mediaSharingLevel,
+    DateTime? videoTrialEndsAt,
   }) {
     return Room(
       id: id ?? this.id,
@@ -179,6 +185,7 @@ class Room {
       mediaUploadId: mediaUploadId ?? this.mediaUploadId,
       mediaUploadState: mediaUploadState ?? this.mediaUploadState,
       mediaSharingLevel: mediaSharingLevel ?? this.mediaSharingLevel,
+      videoTrialEndsAt: videoTrialEndsAt ?? this.videoTrialEndsAt,
     );
   }
 
@@ -220,6 +227,9 @@ class Room {
       mediaUploadId: json['media_upload_id'] as String?,
       mediaUploadState: json['media_upload_state'] as String? ?? 'none',
       mediaSharingLevel: json['media_sharing_level'] as String? ?? 'none',
+      videoTrialEndsAt: json['video_trial_ends_at'] != null
+          ? DateTime.parse(json['video_trial_ends_at'] as String)
+          : null,
     );
   }
 

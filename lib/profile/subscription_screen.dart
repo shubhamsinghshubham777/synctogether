@@ -35,16 +35,14 @@ class SubscriptionScreen extends StatefulWidget {
   const SubscriptionScreen({
     super.key,
     this.source,
-    this.desktopOverride,
-    this.storeBuildOverride,
     this.appleStoreBuildOverride,
+    this.canSellOverride,
     this.demoState,
   });
 
   final String? source;
-  final bool? desktopOverride;
-  final bool? storeBuildOverride;
   final bool? appleStoreBuildOverride;
+  final bool? canSellOverride;
 
   /// Demo builds only (`?state=` on the route, see app_router.dart): opens
   /// straight into `verifying` or `activated`, which otherwise need a real
@@ -61,10 +59,15 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> with WidgetsBin
   bool _celebrating = false;
   StreamSubscription<AppleIapNotice>? _iapNotices;
 
-  bool get _isDesktop => widget.desktopOverride ?? isDesktop;
-  bool get _isStore => widget.storeBuildOverride ?? isStoreBuild;
   bool get _isAppleStore => widget.appleStoreBuildOverride ?? isAppleStoreBuild;
-  bool get _canShowCheckout => _isDesktop && !_isStore;
+
+  bool get _canSell => widget.canSellOverride ?? canSellPremium;
+
+  /// Every build Apple does not distribute sells through Paddle on the web -
+  /// direct desktop, the Microsoft Store (whose policy allows a non-game app
+  /// its own commerce) and direct Android - except Google Play, which is
+  /// consumption-only and neither sells nor links anywhere that does.
+  bool get _canShowCheckout => !_isAppleStore && _canSell;
 
   @override
   void initState() {
@@ -220,9 +223,12 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> with WidgetsBin
   static const _twoColumnMin = 860.0;
 
   /// Phones keep the web checkout in reach: the button docks to the bottom
-  /// edge with the legal links, instead of sitting below a long table.
+  /// edge with the legal links, instead of sitting below a long table - but
+  /// only with the height to spare; a landscape phone with the keyboard up
+  /// keeps it in the scroll flow rather than losing the page to it.
   bool _stickyCta(bool compact) =>
       compact &&
+      MediaQuery.sizeOf(context).height - MediaQuery.viewInsetsOf(context).bottom >= 420 &&
       _canShowCheckout &&
       !EntitlementService.instance.isPremium &&
       !_celebrating &&
@@ -830,28 +836,10 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> with WidgetsBin
     }
 
     if (_isAppleStore) return _appStorePurchase();
-
     return _panel(
-      Column(
-        crossAxisAlignment: .stretch,
-        spacing: 12,
-        children: [
-          Text(
-            'Subscriptions are managed on our website.',
-            style: PTText.body.copyWith(fontWeight: .w600, color: PTColors.fg),
-          ),
-          Text(
-            'Once activated, your account automatically unlocks all features across all your devices.',
-            style: PTText.finePrint.copyWith(color: PTColors.white(0.55), height: 1.4),
-          ),
-          PTButton(
-            label: 'Refresh status',
-            icon: BoothIcons.restore,
-            variant: .secondary,
-            height: 40,
-            onPressed: _pollForSubscription,
-          ),
-        ],
+      Text(
+        "Patron seats aren't available in this version of the app.",
+        style: PTText.body.copyWith(fontSize: 14, color: PTColors.white(0.85)),
       ),
     );
   }
@@ -864,41 +852,29 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> with WidgetsBin
       return _appStoreManage(sources);
     }
 
-    if (_canShowCheckout) {
-      return Column(
-        crossAxisAlignment: .stretch,
-        spacing: 10,
-        children: [
-          PTButton(
-            label: 'Manage subscription',
-            icon: BoothIcons.openInNew,
-            variant: .secondary,
-            height: 48,
-            onPressed: _openAccount,
-          ),
-          _finePrint('Opens account settings in your browser.'),
-        ],
+    // Google Play: no link out, not even to manage a seat bought elsewhere.
+    if (!_canSell) {
+      return _panel(
+        Text(
+          'Your Patron seat is active on this account.',
+          style: PTText.body.copyWith(fontSize: 14, color: PTColors.white(0.85)),
+        ),
       );
     }
 
-    return _panel(
-      Column(
-        crossAxisAlignment: .stretch,
-        spacing: 12,
-        children: [
-          Text(
-            'Your active subscription is managed on our website.',
-            style: PTText.body.copyWith(fontSize: 14, color: PTColors.white(0.85)),
-          ),
-          PTButton(
-            label: 'Refresh status',
-            icon: BoothIcons.restore,
-            variant: .secondary,
-            height: 40,
-            onPressed: _pollForSubscription,
-          ),
-        ],
-      ),
+    return Column(
+      crossAxisAlignment: .stretch,
+      spacing: 10,
+      children: [
+        PTButton(
+          label: 'Manage subscription',
+          icon: BoothIcons.openInNew,
+          variant: .secondary,
+          height: 48,
+          onPressed: _openAccount,
+        ),
+        _finePrint('Opens account settings in your browser.'),
+      ],
     );
   }
 

@@ -90,11 +90,14 @@ update public.tier_limits set max_members = 10 where tier = 'free';
 | `persistent_room_cap` | 0 | 0 | 20 |
 | `media_sharing` | none | limited | full |
 | `media_sharing_weekly_bytes` | 0 | 2.5 GB | unlimited |
+| `video_trial_minutes` | 0 | 10 | 0 |
+| `video_trials_per_day` | 0 | 2 | 0 |
 
 Two of these are read as *behaviour*, not just numbers:
 
 - `av_level = 'none'` hides the facecam UI entirely, exactly as if LiveKit were unconfigured.
 - `max_total_session_minutes > max_session_minutes` is what makes a tier able to choose its own extension length.
+- `video_trial_minutes > 0` gives a `voice` room one video trial in its life: the first camera press calls `start_video_trial`, which stamps `rooms.video_trial_ends_at` and lets everyone in the room publish video until then. It counts against the room **creator's** `video_trials_per_day` (rolling 24 hours, `video_trial_grants`), and ending and resuming a room never resets it. Set either to 0 to switch trials off. The camera key's "10M" tag is a client constant (`kVideoTrialOfferMinutes`), so change it alongside the minutes. When a trial runs out, `close_video_trials` (pg_cron, every minute) queues a `revoke_camera` job on `pending_av_cleanups`; see SFU cleanup below.
 
 ---
 
@@ -169,9 +172,12 @@ A JSON array of LiveKit-protocol endpoints in priority order. The token function
 
 **SFU cleanup** mirrors our own room lifecycle on every endpoint. Triggers queue `pending_av_cleanups` when a room ends or retires (`ended_at` set), when a live room is deleted (a whole-room delete), and when a membership row goes (kick, ban, leave: participant removal). `invoke_av_cleanup` runs every minute and calls the `av-cleanup` function. Like R2 cleanup it ships inert until `app_settings.av_cleanup.endpoint_url` (and `service_role_key`) is set, and a row is dropped for good after 5 failed attempts. LiveKit tokens live 10 minutes because a removed participant's token cannot be revoked. LiveKit refreshes it for anyone still connected, and every reconnect re-checks membership.
 
+**Video trials** run only on endpoints whose entry has `"trial": true`. Omitted, it defaults to on for every server except a `*.livekit.cloud` URL, because trial minutes are only cheap on a server we run ourselves. A room that fails over to an endpoint without trials mid-trial carries on with voice only. `revoke_camera` jobs narrow every participant to microphone-only and server-mute any camera still publishing, on every endpoint.
+
 To take an endpoint out by hand: `insert into av_endpoint_state values ('cloud', now() + interval '1 day') on conflict (endpoint) do update set exhausted_until = excluded.exhausted_until;`.
 | `TURNSTILE_SITE_KEY` | The client skips the captcha dialog, **but the server still demands a token**, so guest sign-in fails. Set it or disable captcha server-side too. |
 | `SUPABASE_URL` / `SUPABASE_PUBLISHABLE_KEY` | Required. Debug builds fall back to the local stack. |
+| `STORE_BUILD` | Store distribution: disables self-update everywhere. On macOS it is the Mac App Store build (StoreKit); on **Android it is the Google Play build**, which is consumption-only - Premium bought elsewhere unlocks, but no upsell, price or link to the web checkout is shown (`canSellPremium`). Every Play release must set it. iOS is always the App Store build regardless. |
 | `DEMO_MODE` / `DEMO_ROOM` | Mock data for screenshots. Off in real builds. |
 | `DEMO_TIER` | With `DEMO_MODE`: `free` (default) or `premium`, so Patron-side states can be shot. |
 | `CAPTURE_STORE` | Store-screenshot capture flow: 1920x1080 into `assets/store/` (Microsoft Store and README). Add `STORE_TARGET=mac` and `STORE_BUILD=true` for the Mac App Store set, 2880x1800 into `assets/store/mac/`. Off in real builds. |

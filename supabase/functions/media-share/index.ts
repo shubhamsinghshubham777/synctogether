@@ -8,6 +8,7 @@ import {
   CompleteMultipartUploadCommand,
   AbortMultipartUploadCommand,
   GetObjectCommand,
+  HeadObjectCommand,
 } from "npm:@aws-sdk/client-s3";
 import { getSignedUrl } from "npm:@aws-sdk/s3-request-presigner";
 
@@ -29,6 +30,63 @@ const supabaseAdmin = createClient(
 );
 
 const kPartSizeBytes = 10485760; // 10 MB chunks
+
+// Nothing the client echoes back after `initiate` is trusted. The slot RPC
+// already priced the upload against the caller's tier and wrote the key, the
+// upload id and the declared size to a row; every later step reads that row.
+// Taking `r2Key`/`uploadId`/`fileSize` from the body let a free account
+// declare 10 MB, upload 10 GB (or write to any key in the bucket) and be
+// debited for 10 MB.
+type UploadSlot = { r2Key: string; uploadId: string; declaredSize: number };
+
+async function roomUploadSlot(roomId: string): Promise<UploadSlot | null> {
+  const { data } = await supabaseAdmin
+    .from("rooms")
+    .select("media_r2_key, media_upload_id, media_file_size, media_upload_state")
+    .eq("id", roomId)
+    .maybeSingle();
+  if (!data || data.media_upload_state !== "uploading" || !data.media_r2_key || !data.media_upload_id) {
+    return null;
+  }
+  return { r2Key: data.media_r2_key, uploadId: data.media_upload_id, declaredSize: Number(data.media_file_size) };
+}
+
+async function stagedUploadSlot(stagedId: string, userId: string): Promise<UploadSlot | null> {
+  const { data } = await supabaseAdmin
+    .from("staged_media_uploads")
+    .select("user_id, r2_key, upload_id, file_size, upload_state")
+    .eq("id", stagedId)
+    .maybeSingle();
+  if (!data || data.user_id !== userId || data.upload_state !== "uploading" || !data.r2_key || !data.upload_id) {
+    return null;
+  }
+  return { r2Key: data.r2_key, uploadId: data.upload_id, declaredSize: Number(data.file_size) };
+}
+
+// The client still sends the key and upload id it was given; a mismatch means
+// it is addressing somebody else's upload.
+function slotMatches(slot: UploadSlot, body: Record<string, unknown>): boolean {
+  const r2Key = body.r2Key ?? body.r2_key;
+  const uploadId = body.uploadId ?? body.upload_id;
+  return (r2Key === undefined || r2Key === slot.r2Key) && (uploadId === undefined || uploadId === slot.uploadId);
+}
+
+function partsWithinSlot(partNumbers: unknown[], slot: UploadSlot): boolean {
+  const maxPart = Math.max(1, Math.ceil(slot.declaredSize / kPartSizeBytes));
+  return partNumbers.length <= maxPart &&
+    partNumbers.every((n) => Number.isInteger(n) && (n as number) >= 1 && (n as number) <= maxPart);
+}
+
+// Part URLs bound the part *count*, not each part's size, so the assembled
+// object is measured before anything is debited or marked ready.
+async function storedObjectSize(r2Key: string): Promise<number | null> {
+  try {
+    const head = await s3.send(new HeadObjectCommand({ Bucket: bucketName, Key: r2Key }));
+    return head.ContentLength ?? null;
+  } catch (_) {
+    return null;
+  }
+}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -234,11 +292,9 @@ async function handleInitiate(userId: string, body: Record<string, unknown>): Pr
 
 async function handlePartUrls(userId: string, body: Record<string, unknown>): Promise<Response> {
   const roomId = (body.roomId || body.room_id) as string;
-  const uploadId = (body.uploadId || body.upload_id) as string;
-  const r2Key = (body.r2Key || body.r2_key) as string;
   const partNumbers = (body.partNumbers || body.part_numbers) as number[];
 
-  if (!roomId || !uploadId || !r2Key || !Array.isArray(partNumbers) || partNumbers.length === 0) {
+  if (!roomId || !Array.isArray(partNumbers) || partNumbers.length === 0) {
     return json({ error: "invalid_arguments" }, 400);
   }
 
@@ -247,12 +303,20 @@ async function handlePartUrls(userId: string, body: Record<string, unknown>): Pr
     return json({ error: "not_host" }, 403);
   }
 
+  const slot = await roomUploadSlot(roomId);
+  if (!slot || !slotMatches(slot, body)) {
+    return json({ error: "upload_slot_mismatch" }, 403);
+  }
+  if (!partsWithinSlot(partNumbers, slot)) {
+    return json({ error: "invalid_part_numbers" }, 400);
+  }
+
   const parts = await Promise.all(
     partNumbers.map(async (partNumber) => {
       const command = new UploadPartCommand({
         Bucket: bucketName,
-        Key: r2Key,
-        UploadId: uploadId,
+        Key: slot.r2Key,
+        UploadId: slot.uploadId,
         PartNumber: partNumber,
       });
       const url = await getSignedUrl(s3, command, { expiresIn: 1800 });
@@ -265,10 +329,8 @@ async function handlePartUrls(userId: string, body: Record<string, unknown>): Pr
 
 async function handleListParts(userId: string, body: Record<string, unknown>): Promise<Response> {
   const roomId = (body.roomId || body.room_id) as string;
-  const uploadId = (body.uploadId || body.upload_id) as string;
-  const r2Key = (body.r2Key || body.r2_key) as string;
 
-  if (!roomId || !uploadId || !r2Key) {
+  if (!roomId) {
     return json({ error: "invalid_arguments" }, 400);
   }
 
@@ -277,12 +339,17 @@ async function handleListParts(userId: string, body: Record<string, unknown>): P
     return json({ error: "not_host" }, 403);
   }
 
+  const slot = await roomUploadSlot(roomId);
+  if (!slot || !slotMatches(slot, body)) {
+    return json({ error: "upload_slot_mismatch" }, 403);
+  }
+
   try {
     const res = await s3.send(
       new ListPartsCommand({
         Bucket: bucketName,
-        Key: r2Key,
-        UploadId: uploadId,
+        Key: slot.r2Key,
+        UploadId: slot.uploadId,
       }),
     );
 
@@ -301,18 +368,23 @@ async function handleListParts(userId: string, body: Record<string, unknown>): P
 
 async function handleComplete(userId: string, body: Record<string, unknown>): Promise<Response> {
   const roomId = (body.roomId || body.room_id) as string;
-  const uploadId = (body.uploadId || body.upload_id) as string;
-  const r2Key = (body.r2Key || body.r2_key) as string;
-  const fileSize = Number(body.fileSize || body.file_size);
   const rawParts = body.parts as Array<{ partNumber: number; etag: string }>;
 
-  if (!roomId || !uploadId || !r2Key || !fileSize || !Array.isArray(rawParts) || rawParts.length === 0) {
+  if (!roomId || !Array.isArray(rawParts) || rawParts.length === 0) {
     return json({ error: "invalid_arguments" }, 400);
   }
 
   const isHost = await verifyHost(roomId, userId);
   if (!isHost) {
     return json({ error: "not_host" }, 403);
+  }
+
+  const slot = await roomUploadSlot(roomId);
+  if (!slot || !slotMatches(slot, body)) {
+    return json({ error: "upload_slot_mismatch" }, 403);
+  }
+  if (!partsWithinSlot(rawParts.map((p) => p.partNumber), slot)) {
+    return json({ error: "invalid_part_numbers" }, 400);
   }
 
   const sortedParts = [...rawParts]
@@ -326,8 +398,8 @@ async function handleComplete(userId: string, body: Record<string, unknown>): Pr
     await s3.send(
       new CompleteMultipartUploadCommand({
         Bucket: bucketName,
-        Key: r2Key,
-        UploadId: uploadId,
+        Key: slot.r2Key,
+        UploadId: slot.uploadId,
         MultipartUpload: { Parts: sortedParts },
       }),
     );
@@ -336,13 +408,27 @@ async function handleComplete(userId: string, body: Record<string, unknown>): Pr
     return json({ error: "s3_complete_failed", details: e.message }, 502);
   }
 
+  const storedSize = await storedObjectSize(slot.r2Key);
+  if (storedSize === null || storedSize > slot.declaredSize) {
+    // `failed` queues the object for deletion, so the oversize bytes do not
+    // linger in the bucket.
+    await supabaseAdmin.rpc("set_media_upload_state", {
+      p_room_id: roomId,
+      p_user_id: userId,
+      p_state: "failed",
+      p_r2_key: slot.r2Key,
+      p_bytes_uploaded: storedSize ?? 0,
+    });
+    return json({ error: "upload_size_mismatch" }, 400);
+  }
+
   const { error: rpcError } = await supabaseAdmin.rpc("set_media_upload_state", {
     p_room_id: roomId,
     p_user_id: userId,
     p_state: "ready",
-    p_file_size: fileSize,
-    p_r2_key: r2Key,
-    p_bytes_uploaded: fileSize,
+    p_file_size: storedSize,
+    p_r2_key: slot.r2Key,
+    p_bytes_uploaded: storedSize,
   });
 
   if (rpcError) {
@@ -354,8 +440,6 @@ async function handleComplete(userId: string, body: Record<string, unknown>): Pr
 
 async function handleAbort(userId: string, body: Record<string, unknown>): Promise<Response> {
   const roomId = (body.roomId || body.room_id) as string;
-  const uploadId = (body.uploadId || body.upload_id) as string;
-  const r2Key = (body.r2Key || body.r2_key) as string;
   const bytesUploaded = Number(body.bytesUploaded ?? body.bytes_uploaded ?? 0);
 
   if (!roomId) {
@@ -367,13 +451,14 @@ async function handleAbort(userId: string, body: Record<string, unknown>): Promi
     return json({ error: "not_host" }, 403);
   }
 
-  if (uploadId && r2Key) {
+  const slot = await roomUploadSlot(roomId);
+  if (slot && slotMatches(slot, body)) {
     try {
       await s3.send(
         new AbortMultipartUploadCommand({
           Bucket: bucketName,
-          Key: r2Key,
-          UploadId: uploadId,
+          Key: slot.r2Key,
+          UploadId: slot.uploadId,
         }),
       );
     } catch (_) {}
@@ -455,30 +540,26 @@ async function handleStagedInitiate(userId: string, body: Record<string, unknown
 
 async function handleStagedPartUrls(userId: string, body: Record<string, unknown>): Promise<Response> {
   const stagedId = (body.stagedId || body.staged_id) as string;
-  const uploadId = (body.uploadId || body.upload_id) as string;
-  const r2Key = (body.r2Key || body.r2_key) as string;
   const partNumbers = (body.partNumbers || body.part_numbers) as number[];
 
-  if (!stagedId || !uploadId || !r2Key || !Array.isArray(partNumbers) || partNumbers.length === 0) {
+  if (!stagedId || !Array.isArray(partNumbers) || partNumbers.length === 0) {
     return json({ error: "invalid_arguments" }, 400);
   }
 
-  const { data: staged } = await supabaseAdmin
-    .from("staged_media_uploads")
-    .select("id, user_id, upload_state")
-    .eq("id", stagedId)
-    .maybeSingle();
-
-  if (!staged || staged.user_id !== userId || staged.upload_state !== "uploading") {
+  const slot = await stagedUploadSlot(stagedId, userId);
+  if (!slot || !slotMatches(slot, body)) {
     return json({ error: "unauthorized_or_invalid_staged_upload" }, 403);
+  }
+  if (!partsWithinSlot(partNumbers, slot)) {
+    return json({ error: "invalid_part_numbers" }, 400);
   }
 
   const parts = await Promise.all(
     partNumbers.map(async (partNumber) => {
       const command = new UploadPartCommand({
         Bucket: bucketName,
-        Key: r2Key,
-        UploadId: uploadId,
+        Key: slot.r2Key,
+        UploadId: slot.uploadId,
         PartNumber: partNumber,
       });
       const url = await getSignedUrl(s3, command, { expiresIn: 1800 });
@@ -491,20 +572,13 @@ async function handleStagedPartUrls(userId: string, body: Record<string, unknown
 
 async function handleStagedListParts(userId: string, body: Record<string, unknown>): Promise<Response> {
   const stagedId = (body.stagedId || body.staged_id) as string;
-  const uploadId = (body.uploadId || body.upload_id) as string;
-  const r2Key = (body.r2Key || body.r2_key) as string;
 
-  if (!stagedId || !uploadId || !r2Key) {
+  if (!stagedId) {
     return json({ error: "invalid_arguments" }, 400);
   }
 
-  const { data: staged } = await supabaseAdmin
-    .from("staged_media_uploads")
-    .select("id, user_id")
-    .eq("id", stagedId)
-    .maybeSingle();
-
-  if (!staged || staged.user_id !== userId) {
+  const slot = await stagedUploadSlot(stagedId, userId);
+  if (!slot || !slotMatches(slot, body)) {
     return json({ error: "unauthorized" }, 403);
   }
 
@@ -512,8 +586,8 @@ async function handleStagedListParts(userId: string, body: Record<string, unknow
     const res = await s3.send(
       new ListPartsCommand({
         Bucket: bucketName,
-        Key: r2Key,
-        UploadId: uploadId,
+        Key: slot.r2Key,
+        UploadId: slot.uploadId,
       }),
     );
 
@@ -532,23 +606,18 @@ async function handleStagedListParts(userId: string, body: Record<string, unknow
 
 async function handleStagedComplete(userId: string, body: Record<string, unknown>): Promise<Response> {
   const stagedId = (body.stagedId || body.staged_id) as string;
-  const uploadId = (body.uploadId || body.upload_id) as string;
-  const r2Key = (body.r2Key || body.r2_key) as string;
-  const fileSize = Number(body.fileSize || body.file_size);
   const rawParts = body.parts as Array<{ partNumber: number; etag: string }>;
 
-  if (!stagedId || !uploadId || !r2Key || !fileSize || !Array.isArray(rawParts) || rawParts.length === 0) {
+  if (!stagedId || !Array.isArray(rawParts) || rawParts.length === 0) {
     return json({ error: "invalid_arguments" }, 400);
   }
 
-  const { data: staged } = await supabaseAdmin
-    .from("staged_media_uploads")
-    .select("id, user_id")
-    .eq("id", stagedId)
-    .maybeSingle();
-
-  if (!staged || staged.user_id !== userId) {
+  const slot = await stagedUploadSlot(stagedId, userId);
+  if (!slot || !slotMatches(slot, body)) {
     return json({ error: "unauthorized" }, 403);
+  }
+  if (!partsWithinSlot(rawParts.map((p) => p.partNumber), slot)) {
+    return json({ error: "invalid_part_numbers" }, 400);
   }
 
   const sortedParts = [...rawParts]
@@ -562,8 +631,8 @@ async function handleStagedComplete(userId: string, body: Record<string, unknown
     await s3.send(
       new CompleteMultipartUploadCommand({
         Bucket: bucketName,
-        Key: r2Key,
-        UploadId: uploadId,
+        Key: slot.r2Key,
+        UploadId: slot.uploadId,
         MultipartUpload: { Parts: sortedParts },
       }),
     );
@@ -572,26 +641,34 @@ async function handleStagedComplete(userId: string, body: Record<string, unknown
     return json({ error: "s3_complete_failed", details: e.message }, 502);
   }
 
+  const storedSize = await storedObjectSize(slot.r2Key);
+  if (storedSize === null || storedSize > slot.declaredSize) {
+    // The row's BEFORE DELETE trigger queues the object for deletion.
+    await supabaseAdmin.rpc("clear_staged_upload", {
+      p_staged_id: stagedId,
+      p_bytes_uploaded: storedSize ?? 0,
+    });
+    return json({ error: "upload_size_mismatch" }, 400);
+  }
+
   const { error: rpcError } = await supabaseAdmin.rpc("set_staged_upload_state", {
     p_staged_id: stagedId,
     p_user_id: userId,
     p_state: "ready",
-    p_file_size: fileSize,
-    p_r2_key: r2Key,
-    p_bytes_uploaded: fileSize,
+    p_file_size: storedSize,
+    p_r2_key: slot.r2Key,
+    p_bytes_uploaded: storedSize,
   });
 
   if (rpcError) {
     return json({ error: rpcError.message }, 500);
   }
 
-  return json({ success: true, stagedId, r2Key, state: "ready" });
+  return json({ success: true, stagedId, r2Key: slot.r2Key, state: "ready" });
 }
 
 async function handleStagedAbort(userId: string, body: Record<string, unknown>): Promise<Response> {
   const stagedId = (body.stagedId || body.staged_id) as string;
-  const uploadId = (body.uploadId || body.upload_id) as string;
-  const r2Key = (body.r2Key || body.r2_key) as string;
   const bytesUploaded = Number(body.bytesUploaded ?? body.bytes_uploaded ?? 0);
 
   if (!stagedId) {
@@ -608,13 +685,14 @@ async function handleStagedAbort(userId: string, body: Record<string, unknown>):
     return json({ error: "unauthorized" }, 403);
   }
 
-  if (uploadId && r2Key) {
+  const slot = await stagedUploadSlot(stagedId, userId);
+  if (slot && slotMatches(slot, body)) {
     try {
       await s3.send(
         new AbortMultipartUploadCommand({
           Bucket: bucketName,
-          Key: r2Key,
-          UploadId: uploadId,
+          Key: slot.r2Key,
+          UploadId: slot.uploadId,
         }),
       );
     } catch (_) {}

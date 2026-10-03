@@ -154,6 +154,54 @@ void main() {
       expect(find.widgetWithIcon(PTIconButton, BoothIcons.videocam), findsNothing);
     });
 
+    for (final compact in [false, true]) {
+      testWidgets('a room without voice draws a locked, explained mic (compact: $compact)', (
+        tester,
+      ) async {
+        var explained = 0;
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: RoomControlBar(
+                playing: false,
+                position: Duration.zero,
+                duration: const Duration(minutes: 10),
+                volume: 1.0,
+                micOn: false,
+                camOn: false,
+                avAvailable: false,
+                compact: compact,
+                actions: RoomControlBarActions(
+                  onPlayPause: () {},
+                  onSeek: (_) {},
+                  onSkip: (_) {},
+                  onMicToggle: (_) {},
+                  onCamToggle: (_) {},
+                  onVoiceLocked: () => explained++,
+                  onAudioTracks: null,
+                  onSubtitles: null,
+                  onSwitchSource: null,
+                  onOpenFile: null,
+                  onVolume: (_) {},
+                  onToggleMute: () {},
+                ),
+              ),
+            ),
+          ),
+        );
+
+        final locked = find.widgetWithIcon(PTIconButton, BoothIcons.micOff);
+        expect(locked, findsOneWidget);
+        expect(
+          find.byWidgetPredicate((w) => w is Tooltip && w.message == kVoiceLockedTooltip),
+          findsOneWidget,
+        );
+        await tester.tap(locked);
+        await tester.pump();
+        expect(explained, 1);
+      });
+    }
+
     testWidgets('opens device menus on right-click when device select callbacks are provided', (
       tester,
     ) async {

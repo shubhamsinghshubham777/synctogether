@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:synctogether/analytics.dart';
+import 'package:synctogether/av/video_trial.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../rewards/rewards_models.dart';
@@ -174,6 +175,18 @@ class RoomService extends ChangeNotifier {
       }
       rethrow;
     }
+  }
+
+  /// Starts the room's video trial, or reports the one already running.
+  /// Refusals are answers, not errors - see `start_video_trial`.
+  Future<({VideoTrialStart status, DateTime? endsAt})> startVideoTrial(String roomId) async {
+    final res = await _client.rpc('start_video_trial', params: {'p_room_id': roomId});
+    final map = (res as Map).cast<String, dynamic>();
+    final ends = map['ends_at'] as String?;
+    return (
+      status: VideoTrialStart.fromWire(map['status'] as String?),
+      endsAt: ends == null ? null : DateTime.parse(ends),
+    );
   }
 
   Future<Room> resumeRoom({required String roomId, required int minutes}) async {

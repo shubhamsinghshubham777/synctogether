@@ -26,6 +26,10 @@ abstract class SyncEventType {
   /// Sent by Postgres (`pick_av_endpoint`) when the room's AV moves to
   /// another LiveKit endpoint. Payload: `endpoint`.
   static const String avEndpointChanged = 'av_endpoint_changed';
+
+  /// Sent by Postgres (`start_video_trial`) when a free room's video trial
+  /// starts. Payload: `senderId` (who pressed), `endsAt`.
+  static const String videoTrialStarted = 'video_trial_started';
 }
 
 /// Why a play/pause happened. Absent means a human pressed something - the

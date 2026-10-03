@@ -128,7 +128,7 @@ const kAnalyticsEvents = <AnalyticsEventDoc>[
     group: .rooms,
     what: 'Something you tried was blocked by a plan limit.',
     why: 'The only way to know which limits are annoying rather than reasonable.',
-    properties: ['which limit (room count, member cap, duration, upload quota)'],
+    properties: ['which limit (room count, member cap, duration, upload quota, video trials)'],
   ),
   AnalyticsEventDoc(
     event: 'media_selected',
@@ -193,6 +193,13 @@ const kAnalyticsEvents = <AnalyticsEventDoc>[
     what: 'You turned your mic or camera on or off.',
     why: 'Whether facecams are used at all. No audio or video is involved.',
     properties: ['mic or camera', 'on or off'],
+  ),
+  AnalyticsEventDoc(
+    event: 'video_trial_started',
+    group: .engagement,
+    what: "You started a free room's 10-minute video trial.",
+    why: 'Whether trying video makes anyone want to keep it. No audio or video is involved.',
+    properties: ['room ID'],
   ),
 
   // --- Streaks and badges --------------------------------------------------

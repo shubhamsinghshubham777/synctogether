@@ -10,6 +10,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../analytics.dart';
 import '../analytics_consent.dart';
 import '../auth/auth_service.dart';
+import '../platform.dart';
 import '../ui/banners.dart';
 import '../ui/booth.dart';
 import '../ui/buttons.dart';
@@ -638,7 +639,11 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
 
   /// Free, on the board, no handle: the one thing a Patron seat adds here.
   bool _showPatronCard(RewardState state) =>
-      !state.isGuest && !state.isPremium && state.publicProfile && state.handle == null;
+      canSellPremium &&
+      !state.isGuest &&
+      !state.isPremium &&
+      state.publicProfile &&
+      state.handle == null;
 
   Widget _patronCard() {
     return Container(

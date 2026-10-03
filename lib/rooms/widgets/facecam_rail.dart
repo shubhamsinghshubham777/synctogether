@@ -14,6 +14,7 @@ import 'package:synctogether/ui/pt_motion.dart';
 import 'package:synctogether/ui/pt_theme.dart';
 
 import '../../rewards/rewards_models.dart';
+import 'video_trial_widgets.dart';
 
 const bool kDemoMode = bool.fromEnvironment('DEMO_MODE', defaultValue: false);
 
@@ -42,6 +43,10 @@ class FacecamRail extends StatefulWidget {
     this.showNames = true,
     this.premiumMembers = const {},
     this.memberFrames = const {},
+    this.trialEndsAt,
+    this.now,
+    this.showTrialEnded = false,
+    this.onKeepFaces,
   });
 
   final LiveKitService av;
@@ -53,6 +58,19 @@ class FacecamRail extends StatefulWidget {
   final bool showNames;
   final Set<String> premiumMembers;
   final Map<String, AvatarFrame> memberFrames;
+
+  /// A running video trial's end, which shows the countdown chip. Null when
+  /// no trial is running.
+  final DateTime? trialEndsAt;
+
+  /// The server-corrected clock the chip counts down against.
+  final DateTime Function()? now;
+
+  /// The "faces off" note, for the few seconds after a trial ends.
+  final bool showTrialEnded;
+
+  /// Host only: the upsell on that note.
+  final VoidCallback? onKeepFaces;
 
   @override
   State<FacecamRail> createState() => _FacecamRailState();
@@ -115,7 +133,21 @@ class _FacecamRailState extends State<FacecamRail> {
         final resting = state == .unavailable;
         final joining = state == .connecting || state == .reconnecting;
 
+        final trialEnds = widget.trialEndsAt;
+        final clock = widget.now ?? DateTime.now;
         final tiles = <Widget>[
+          if (trialEnds != null && widget.layout != .stripTop)
+            VideoTrialChip(
+              key: const ValueKey('video-trial-chip'),
+              endsAt: trialEnds,
+              now: clock,
+              compact: widget.layout == .miniStackRight,
+              short: widget.layout == .miniStackRight,
+            ),
+          if (widget.showTrialEnded && widget.layout == .railLeft)
+            VideoTrialEndedNote(onKeepFaces: widget.onKeepFaces),
+          if (widget.showTrialEnded && widget.layout == .miniStackRight)
+            const PTActionPill(label: 'Faces off', icon: BoothIcons.videocamOff),
           if (resting && widget.layout == .railLeft) const _RestingNote(),
           if (resting && widget.layout == .miniStackRight)
             const PTActionPill(label: 'Cams resting', icon: BoothIcons.videocamOff),
@@ -156,6 +188,13 @@ class _FacecamRailState extends State<FacecamRail> {
             spacing: 6,
             children: [
               if (resting) const _RestingNote(compact: true),
+              if (trialEnds != null)
+                Align(
+                  alignment: .centerLeft,
+                  child: VideoTrialChip(endsAt: trialEnds, now: clock, compact: true),
+                ),
+              if (widget.showTrialEnded)
+                VideoTrialEndedNote(onKeepFaces: widget.onKeepFaces, compact: true),
               Row(spacing: 8, children: [for (final t in tiles) Expanded(child: t)]),
             ],
           ),

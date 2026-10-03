@@ -12,8 +12,8 @@
 // the next one. When none is left the answer is 503 `av_capacity_exhausted`.
 
 import { createClient } from "npm:@supabase/supabase-js@2.58.0";
-import { AccessToken } from "npm:livekit-server-sdk@2.17.0";
-import { parseEndpoints } from "../_shared/av_endpoints.ts";
+import { AccessToken, TrackSource } from "npm:livekit-server-sdk@2.17.0";
+import { cameraGrant, parseEndpoints } from "../_shared/av_endpoints.ts";
 
 type TokenRequest = { room_id?: string; failed_endpoint?: string; force_endpoint?: string };
 
@@ -61,7 +61,7 @@ Deno.serve(async (req) => {
   // Visible through RLS only if the caller is a member of a room they can see.
   const { data: membership } = await supabase
     .from("room_members")
-    .select("room_id, rooms!inner(ended_at, expires_at)")
+    .select("room_id, rooms!inner(ended_at, expires_at, av_level, video_trial_ends_at)")
     .eq("room_id", roomId)
     .eq("user_id", user.id)
     .maybeSingle();
@@ -71,9 +71,18 @@ Deno.serve(async (req) => {
   const room = membership.rooms as unknown as {
     ended_at: string | null;
     expires_at: string;
+    av_level: string;
+    video_trial_ends_at: string | null;
   };
   if (room.ended_at !== null || new Date(room.expires_at) <= new Date()) {
     return json({ error: "room_ended" }, 403);
+  }
+  // The room's tier decides AV, not the client. The app hides the controls
+  // for a `none`/`voice` room, but anyone can call this function directly, so
+  // the token itself carries the limit: no token for `none`, microphone-only
+  // publish for `voice`.
+  if (room.av_level !== "voice" && room.av_level !== "video") {
+    return json({ error: "av_not_available" }, 403);
   }
 
   const { data: profile } = await supabase
@@ -108,6 +117,9 @@ Deno.serve(async (req) => {
     return json({ error: "av_capacity_exhausted", retry_after_s: EXHAUSTED_RETRY_S }, 503);
   }
 
+  // Kept short on purpose; see the ttl note below.
+  const grant = cameraGrant(room.av_level, room.video_trial_ends_at, endpoint, new Date(), 600);
+
   const token = new AccessToken(
     endpoint.key,
     endpoint.secret,
@@ -118,14 +130,19 @@ Deno.serve(async (req) => {
       // call, but cannot revoke a token. LiveKit refreshes the token of a
       // participant who stays connected, and every reconnect comes back
       // here, where membership is re-checked - so 10 minutes is the most a
-      // removed member can sneak back in for.
-      ttl: "10m",
+      // removed member can sneak back in for. A video-trial token lives no
+      // longer than the trial (cameraGrant); av-cleanup's revoke_camera job
+      // takes the camera off anyone still connected when it ends.
+      ttl: grant.ttlSeconds,
     },
   );
   token.addGrant({
     room: roomId,
     roomJoin: true,
     canPublish: true,
+    canPublishSources: grant.camera
+      ? [TrackSource.MICROPHONE, TrackSource.CAMERA]
+      : [TrackSource.MICROPHONE],
     canSubscribe: true,
     canPublishData: true,
   });
@@ -134,6 +151,10 @@ Deno.serve(async (req) => {
     token: await token.toJwt(),
     url: endpoint.url,
     endpoint: endpoint.id,
+    // Whether this token can publish the camera. In a voice room it says the
+    // trial is running *and* this endpoint allows it - a room that failed
+    // over to LiveKit Cloud mid-trial carries on with voice only.
+    camera: grant.camera,
     ...(DEBUG_SWITCHING ? { endpoints: endpoints.map((e) => e.id) } : {}),
   });
 });

@@ -289,6 +289,11 @@ class _LockedMoreCell extends StatefulWidget {
   State<_LockedMoreCell> createState() => _LockedMoreCellState();
 }
 
+/// Says what the `+` unlocks, not just that it is locked.
+final kReactionsLockedTooltip =
+    'Premium unlocks ${kExtendedReactions.length} more animated reactions, '
+    'and everyone in the room sees them.';
+
 class _LockedMoreCellState extends State<_LockedMoreCell> {
   bool _hovered = false;
 
@@ -300,7 +305,7 @@ class _LockedMoreCellState extends State<_LockedMoreCell> {
       onEnter: (_) => setState(() => _hovered = true),
       onExit: (_) => setState(() => _hovered = false),
       child: Tooltip(
-        message: 'More reactions (Premium)',
+        message: kReactionsLockedTooltip,
         waitDuration: const Duration(milliseconds: 400),
         child: PTPressable(
           onTap: widget.onTap,

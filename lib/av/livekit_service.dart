@@ -41,8 +41,16 @@ enum AvConnectionState {
   unavailable,
 }
 
-/// A minted token and the endpoint it is for.
-typedef AvToken = ({String token, String url, String? endpoint, List<String> endpoints});
+/// A minted token and the endpoint it is for. [camera] is whether it may
+/// publish video - always in a video room, and in a voice room only while
+/// its video trial runs on an endpoint that allows trials.
+typedef AvToken = ({
+  String token,
+  String url,
+  String? endpoint,
+  List<String> endpoints,
+  bool camera,
+});
 
 /// Fetches a token for [roomId]. [failedEndpoint] reports the endpoint we
 /// could not use so the server re-pins the room elsewhere.
@@ -66,6 +74,7 @@ Future<AvToken> _fetchTokenFromSupabase(
     url: (data['url'] as String?) ?? Env.livekitUrl!,
     endpoint: data['endpoint'] as String?,
     endpoints: [...?(data['endpoints'] as List?)?.whereType<String>()],
+    camera: data['camera'] as bool? ?? false,
   );
 }
 
@@ -107,7 +116,14 @@ class LiveKitService extends ChangeNotifier {
 
   static bool isAvailableFor(AvLevel level) => isConfigured && level.allowsVoice;
 
-  bool get canPublishCamera => avLevel.allowsVideo;
+  /// Whether the camera may publish right now: a video room always, a voice
+  /// room only while the token we hold carries a video-trial grant.
+  bool get canPublishCamera => avLevel.allowsVideo || _trialCamera;
+
+  /// The current token's camera grant, in a voice room. Flipped on by a fresh
+  /// token after a trial starts, off at the trial's end or by a token from an
+  /// endpoint that does not run trials (a failover to LiveKit Cloud).
+  bool _trialCamera = false;
 
   static const _cameraCapture = lk.CameraCaptureOptions(
     params: lk.VideoParameters(
@@ -182,6 +198,7 @@ class LiveKitService extends ChangeNotifier {
       if (minted.endpoint != _endpoint) _endpointFailures = 0;
       _endpoint = minted.endpoint;
       if (minted.endpoints.isNotEmpty) _endpoints = minted.endpoints;
+      if (!avLevel.allowsVideo) _setTrialCamera(minted.camera);
       try {
         await _connectRoom(minted.url, minted.token);
         _endpointFailures = 0;
@@ -362,6 +379,51 @@ class LiveKitService extends ChangeNotifier {
     } catch (e, s) {
       _noteFailure(e, s, during: 'moving AV to another endpoint for room $roomId');
     }
+  }
+
+  /// A video trial started: fetch a token that carries the camera grant. It
+  /// rides the endpoint-move path, so the call never drops while it swaps.
+  Future<void> beginVideoTrial() async {
+    if (_disposed || avLevel.allowsVideo || _trialCamera || isMockMode) {
+      if (isMockMode) _setTrialCamera(true);
+      return;
+    }
+    trace('av video trial: refreshing grant', category: 'av', data: {'room_id': roomId});
+    await _move();
+  }
+
+  /// The trial ran out. The camera goes off here, before the grant does -
+  /// [_syncTracks] only touches the camera while it may publish, so flipping
+  /// the grant first would leave it live until the server revokes it.
+  Future<void> endVideoTrial() async {
+    if (avLevel.allowsVideo || !_trialCamera) return;
+    if (_desiredCamEnabled) await setCamEnabled(false);
+    _setTrialCamera(false);
+  }
+
+  void _setTrialCamera(bool on) {
+    if (on == _trialCamera) return;
+    _trialCamera = on;
+    trace(
+      on ? 'av video trial camera granted' : 'av video trial camera withdrawn',
+      category: 'av',
+      data: {'room_id': roomId, 'endpoint': _endpoint},
+    );
+    // A token without the grant (trial over, or a move to an endpoint that
+    // runs no trials) must not leave a camera wish behind to re-publish.
+    if (!on && _desiredCamEnabled) {
+      _desiredCamEnabled = false;
+      final local = _room?.localParticipant;
+      if (local != null && local.isCameraEnabled()) {
+        unawaited(
+          local.setCameraEnabled(false).catchError((Object e, StackTrace s) {
+            reportNonFatal(e, s, during: 'turning the camera off as a video trial ended');
+            return null;
+          }),
+        );
+      }
+    }
+    notifyListeners();
   }
 
   Future<void> _reconnectGuarded({String? force}) async {

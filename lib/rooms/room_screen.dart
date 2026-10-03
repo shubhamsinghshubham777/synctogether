@@ -20,6 +20,7 @@ import 'package:synctogether/auth/auth_service.dart';
 import 'package:synctogether/av/device_preference_service.dart';
 import 'package:synctogether/av/device_selector_popup.dart';
 import 'package:synctogether/av/livekit_service.dart';
+import 'package:synctogether/av/video_trial.dart';
 import 'package:synctogether/diagnostics.dart';
 import 'package:synctogether/platform.dart';
 import 'package:synctogether/player/chooser_dialog.dart';
@@ -67,6 +68,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:synctogether/ui/banners.dart';
 import 'package:synctogether/ui/booth.dart';
 import 'package:synctogether/ui/buttons.dart';
+import 'package:synctogether/ui/popover.dart';
 import 'package:synctogether/ui/glass.dart';
 import 'package:synctogether/ui/identity.dart';
 import 'package:synctogether/ui/loader.dart';
@@ -144,6 +146,15 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
   Room? _room;
   SyncService? _sync;
   LiveKitService? _av;
+
+  /// The room's video trial (free rooms only). The end is the room row's
+  /// `video_trial_ends_at`, adopted from the row and the broadcast alike.
+  DateTime? _videoTrialEndsAt;
+  Timer? _videoTrialTimer;
+  bool _videoTrialRefused = false;
+  bool _startingVideoTrial = false;
+  bool _videoTrialEndedNote = false;
+  Timer? _videoTrialNoteTimer;
   List<RoomMember> _members = const [];
   List<PresentMember> _present = const [];
   Set<String> _premiumMembers = const {};
@@ -369,6 +380,10 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
   // notifier instead; null means "close now" (the room is over for us).
   final _menuData = ValueNotifier<RoomMenuData?>(null);
 
+  /// The open overflow menu, if any. It is an overlay entry outside this
+  /// page's PopScope, so back and dispose have to close it by hand.
+  PTPopoverHandle? _overflowMenu;
+
   /// The room's canonical local file. Derived from [_canonicalMedia] rather
   /// than from whoever last broadcast `file_info`, so it survives host
   /// succession and is already correct for a late joiner.
@@ -439,6 +454,10 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     final av = _av;
     if (av == null) return;
     if (kind == 'cam' && on && !av.canPublishCamera) {
+      if (_videoTrialPhase == .available) {
+        unawaited(_startVideoTrial());
+        return;
+      }
       _snack('Cameras are a premium thing. This room is voice only.', kind: .info);
       return;
     }
@@ -449,6 +468,143 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     if (on) _facecamUsed = true;
     Analytics.instance.track('facecam_toggled', {'kind': kind, 'on': on});
     unawaited(kind == 'mic' ? av.setMicEnabled(on) : av.setCamEnabled(on));
+  }
+
+  VideoTrialPhase get _videoTrialPhase => videoTrialPhase(
+    avLevel: _room?.avLevel ?? .none,
+    endsAt: _videoTrialEndsAt,
+    now: RoomService.instance.serverNow,
+    refused: _videoTrialRefused,
+  );
+
+  /// The camera key offers the trial: a free room nobody has started it in,
+  /// with AV up. Never offered to a guest room (no AV) or a video room.
+  bool get _videoTrialOnOffer =>
+      _av != null && !(_av!.canPublishCamera) && _videoTrialPhase == .available;
+
+  /// The countdown chip shows only while this client can actually publish:
+  /// a room that failed over to an endpoint without trials is voice-only, and
+  /// a clock there would promise a camera the key cannot give.
+  DateTime? get _trialChipEndsAt {
+    final phase = _videoTrialPhase;
+    if (phase != .running && phase != .finalStretch) return null;
+    return (_av?.canPublishCamera ?? false) && !(_room?.avLevel.allowsVideo ?? false)
+        ? _videoTrialEndsAt
+        : null;
+  }
+
+  /// A human pressed the camera in a free room: start the trial, then the
+  /// camera. Refusals map to copy; only an unexpected answer is reported.
+  Future<void> _startVideoTrial() async {
+    final av = _av;
+    if (av == null || _startingVideoTrial) return;
+    setState(() => _startingVideoTrial = true);
+    try {
+      final result = await RoomService.instance.startVideoTrial(widget.roomId);
+      if (!mounted) return;
+      trace(
+        'video trial start answered',
+        category: 'av',
+        data: {'room_id': widget.roomId, 'status': result.status.name},
+      );
+      if (result.status.running && result.endsAt != null) {
+        if (result.status == .started) {
+          Analytics.instance.track('video_trial_started', {'room_id': widget.roomId});
+        }
+        _adoptVideoTrial(result.endsAt!, _sync?.userId ?? '', announce: false);
+        await av.beginVideoTrial();
+        if (!mounted) return;
+        _facecamUsed = true;
+        Analytics.instance.track('facecam_toggled', {'kind': 'cam', 'on': true});
+        await av.setCamEnabled(true);
+        if (mounted && result.status == .started) {
+          final mins = (result.endsAt!.difference(RoomService.instance.serverNow).inSeconds / 60)
+              .ceil();
+          _snack(
+            "Video's on for $mins minutes. Everyone here can turn their camera on.",
+            kind: .info,
+          );
+        }
+        return;
+      }
+      if (result.status == .dailyCap) {
+        Analytics.instance.track('limit_hit', {'which': 'video_trial'});
+      }
+      if (result.status == .unknown) {
+        reportNonFatal(
+          StateError('start_video_trial returned an unknown status'),
+          StackTrace.current,
+          during: 'starting the video trial in room ${widget.roomId}',
+        );
+      }
+      setState(() => _videoTrialRefused = true);
+      _snack(result.status.message, kind: .info);
+    } catch (e, s) {
+      reportNonFatal(e, s, during: 'starting the video trial in room ${widget.roomId}');
+      if (mounted) _snack(VideoTrialStart.unknown.message, kind: .info);
+    } finally {
+      if (mounted) setState(() => _startingVideoTrial = false);
+    }
+  }
+
+  /// A trial is running - from our own press, the broadcast, or the room row
+  /// on (re)entry. Repeats of the same end are ignored.
+  void _adoptVideoTrial(DateTime endsAt, String startedBy, {bool announce = true}) {
+    if (!mounted || _videoTrialEndsAt == endsAt) return;
+    final wasOffered = _videoTrialEndsAt == null;
+    setState(() => _videoTrialEndsAt = endsAt);
+    if (!endsAt.isAfter(RoomService.instance.serverNow)) return;
+    _scheduleVideoTrialEnd();
+    if (startedBy == (_sync?.userId ?? '')) return;
+    unawaited(_av?.beginVideoTrial());
+    if (announce && wasOffered && startedBy.isNotEmpty) {
+      final who = _present.where((m) => m.userId == startedBy).firstOrNull?.displayName;
+      _snack(
+        '${who ?? 'Someone'} switched video on for $kVideoTrialOfferMinutes minutes.',
+        kind: .info,
+      );
+    }
+  }
+
+  /// Arms the cutoff. At the end the camera goes off locally - the server's
+  /// revocation is only the backstop - and the "faces off" note shows, with
+  /// the upsell for the host. A trial that already ended arms nothing.
+  void _scheduleVideoTrialEnd() {
+    _videoTrialTimer?.cancel();
+    final ends = _videoTrialEndsAt;
+    if (ends == null) return;
+    final left = ends.difference(RoomService.instance.serverNow);
+    if (left <= Duration.zero) return;
+    _videoTrialTimer = Timer(left, () {
+      if (!mounted) return;
+      final hadCamera = _av?.canPublishCamera ?? false;
+      unawaited(_av?.endVideoTrial());
+      trace('video trial ended', category: 'av', data: {'room_id': widget.roomId});
+      if (!hadCamera) {
+        setState(() {});
+        return;
+      }
+      if (_offersKeepFaces) {
+        Analytics.instance.track('upgrade_cta_shown', {'surface': 'video_trial'});
+      }
+      setState(() => _videoTrialEndedNote = true);
+      _videoTrialNoteTimer?.cancel();
+      _videoTrialNoteTimer = Timer(kVideoTrialEndedNoteFor, () {
+        if (mounted) setState(() => _videoTrialEndedNote = false);
+      });
+    });
+  }
+
+  /// The trial's end note offers Premium to the host only, and never on a
+  /// build that may not sell it (Google Play) - there it is the member note.
+  bool get _offersKeepFaces => canSellPremium && (_sync?.isHost ?? false);
+
+  void _keepFacesOn() {
+    Analytics.instance.track('upgrade_cta_clicked', {
+      'surface': 'video_trial',
+      'action': 'subscribe',
+    });
+    context.push('/lobby/subscribe?source=video_trial');
   }
 
   void _trackPlaybackStarted() {
@@ -767,6 +923,8 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
       _showEndedDialog();
       return;
     }
+    _videoTrialEndsAt = room.videoTrialEndsAt;
+    _scheduleVideoTrialEnd();
 
     try {
       _members = await RoomService.instance.fetchMembers(widget.roomId);
@@ -857,6 +1015,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
         }
       }),
       sync.avEndpointStream.listen((endpoint) => _av?.followEndpoint(endpoint)),
+      sync.videoTrialStream.listen((event) => _adoptVideoTrial(event.endsAt, event.startedBy)),
       sync.roomExtendedStream.listen((event) {
         if (!mounted) return;
         final parsed = DateTime.tryParse(event.expiresAt);
@@ -1091,6 +1250,8 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
       s.cancel();
     }
     _countdownTimer?.cancel();
+    _videoTrialTimer?.cancel();
+    _videoTrialNoteTimer?.cancel();
     _positionWriteTimer?.cancel();
     _idleSourceTimer?.cancel();
     _controlsHideTimer?.cancel();
@@ -1105,6 +1266,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     }
     _shortcutFocus.dispose();
     _resuming.dispose();
+    _overflowMenu?.close(animate: false);
     _menuData.dispose();
     _chatCurve.dispose();
     _chatAnim.dispose();
@@ -3574,7 +3736,9 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
   }
 
   bool get _canShowPremiumUpsell {
-    if (EntitlementService.instance.isPremium || !AuthService.instance.isSignedIn) {
+    if (!canSellPremium ||
+        EntitlementService.instance.isPremium ||
+        !AuthService.instance.isSignedIn) {
       return false;
     }
     return _evictionReason != 'kicked' && _evictionReason != 'deleted';
@@ -3738,8 +3902,9 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
   void _openOverflowMenu() {
     // A null snapshot means "close" - opening on it would strand an empty panel.
     if (_ended) return;
+    if (_overflowMenu?.isOpen ?? false) return;
     _publishMenuData();
-    showRoomOverflowMenu(
+    _overflowMenu = showRoomOverflowMenu(
       context: context,
       data: _menuData,
       onCopyInvite: _copyInvite,
@@ -3977,6 +4142,42 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
 
   TierLimits get _limits => EntitlementService.instance.limitsOrFallback;
 
+  /// AV is deployed but this room's host tier grants none (a guest's room):
+  /// the bar draws a locked mic rather than nothing, so the room says why.
+  bool get _voiceLocked =>
+      _av == null && LiveKitService.isConfigured && _room?.avLevel == AvLevel.none;
+
+  String get _voiceLockedTooltip => _limits.isGuest
+      ? 'Guest rooms have no voice chat. Sign in free and the rooms you host get it.'
+      : canSellPremium
+      ? kVoiceLockedTooltip
+      : 'This is a guest room, so voice chat is off. Rooms hosted from a free '
+            'account get voice.';
+
+  /// A guest can fix this for their own rooms with one sign-in, so they get
+  /// that offer; anyone else is told why - the host's tier decides, and
+  /// upgrading would not change this room.
+  Future<void> _explainVoiceLock() async {
+    if (!_limits.isGuest) {
+      _snack(_voiceLockedTooltip, kind: .info);
+      return;
+    }
+    await _showPremiumTease(
+      surface: 'voice_lock',
+      headline: 'Talk while you watch',
+      body:
+          'Guest rooms are watch-only. Sign in: it takes a moment, it costs '
+          'nothing, and this session carries over.',
+      perks: const [
+        'Voice chat in the rooms you host',
+        'Rooms of 8 that run for four hours',
+        'Rooms that nap in your lobby instead of vanishing',
+      ],
+      onSignIn: _linkGoogleIdentity,
+      onSignInApple: AuthService.instance.isAppleSupported ? _linkAppleIdentity : null,
+    );
+  }
+
   String get _extendLabel => _limits.picksExtensionLength ? 'Add time' : 'Get a Patron seat';
 
   IconData? get _extendIcon => _limits.picksExtensionLength ? null : BoothIcons.crown;
@@ -4097,6 +4298,12 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     VoidCallback? onSignIn,
     VoidCallback? onSignInApple,
   }) async {
+    // A Google Play build may not offer Premium at all (see canSellPremium);
+    // the guest sign-in shape is not a sale and still shows.
+    if (onSignIn == null && !canSellPremium) {
+      _snack('This room ends at $_endsAtLabel.', kind: .info);
+      return;
+    }
     Analytics.instance.track('upgrade_cta_shown', {'surface': surface});
     await showGlassDialog<void>(
       context: context,
@@ -4290,9 +4497,12 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     onSkip: _skip,
     onMicToggle: (v) => _toggleFacecam('mic', v),
     onCamToggle: (v) => _toggleFacecam('cam', v),
-    onCamLocked: (_av?.canPublishCamera == false && !EntitlementService.instance.isPremium)
+    onCamLocked:
+        (canSellPremium && _av?.canPublishCamera == false && !EntitlementService.instance.isPremium)
         ? () => context.push('/lobby/subscribe?source=camera_lock')
         : null,
+    onVoiceLocked: _voiceLocked ? _explainVoiceLock : null,
+    voiceLockedTooltip: _voiceLockedTooltip,
     onMicDeviceSelect: isDesktop && _av != null ? _showMicDeviceSelector : null,
     onCamDeviceSelect: isDesktop && _av != null ? _showCamDeviceSelector : null,
     onAudioOutputSelect: isDesktop && _mode == .local && _av != null
@@ -4340,7 +4550,13 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, _) {
-        if (!didPop) _leaveRoom();
+        if (didPop) return;
+        // Back closes an open menu first, as it did when the menu was a route.
+        if (_overflowMenu?.isOpen ?? false) {
+          _overflowMenu!.close();
+          return;
+        }
+        _leaveRoom();
       },
       child: Scaffold(
         backgroundColor: PTColors.screenBg,
@@ -5262,7 +5478,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
       reactions: available.take(kBaseReactionCount).toList(growable: false),
       hasMore: available.length > kBaseReactionCount,
       onMore: _showReactionPicker,
-      showLockedMore: !isPremium,
+      showLockedMore: !isPremium && canSellPremium,
       onLockedMore: () {
         setState(() => _reactOpen = false);
         context.push('/lobby/subscribe?source=reaction_lock');
@@ -5401,7 +5617,8 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
       micOn: _av?.micEnabled ?? false,
       camOn: _av?.camEnabled ?? false,
       avAvailable: _av != null,
-      camAvailable: _av?.canPublishCamera ?? false,
+      camAvailable: (_av?.canPublishCamera ?? false) || _videoTrialOnOffer,
+      camTrialMinutes: _videoTrialOnOffer ? kVideoTrialOfferMinutes : null,
       actions: _controlActionsFor(
         secondary: !_narrowControlBar(compact),
         docked: docked,
@@ -5556,6 +5773,10 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
       memberFrames: _memberFrames,
       selfId: _sync?.userId ?? '',
       layout: .stripTop,
+      trialEndsAt: _trialChipEndsAt,
+      now: () => RoomService.instance.serverNow,
+      showTrialEnded: _videoTrialEndedNote,
+      onKeepFaces: _offersKeepFaces ? _keepFacesOn : null,
     );
   }
 
@@ -5617,6 +5838,10 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
               memberFrames: _memberFrames,
               selfId: _sync?.userId ?? '',
               layout: .railLeft,
+              trialEndsAt: _trialChipEndsAt,
+              now: () => RoomService.instance.serverNow,
+              showTrialEnded: _videoTrialEndedNote,
+              onKeepFaces: _offersKeepFaces ? _keepFacesOn : null,
               showNames: _controlsVisible,
               onHide: () => setState(() => _camsVisible = false),
             ),
@@ -5919,6 +6144,10 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
                       memberFrames: _memberFrames,
                       selfId: _sync?.userId ?? '',
                       layout: .railLeft,
+                      trialEndsAt: _trialChipEndsAt,
+                      now: () => RoomService.instance.serverNow,
+                      showTrialEnded: _videoTrialEndedNote,
+                      onKeepFaces: _offersKeepFaces ? _keepFacesOn : null,
                       showNames: _controlsVisible,
                       onHide: () => setState(() => _camsVisible = false),
                     ),
@@ -6195,6 +6424,10 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
                               memberFrames: _memberFrames,
                               selfId: _sync?.userId ?? '',
                               layout: .miniStackRight,
+                              trialEndsAt: _trialChipEndsAt,
+                              now: () => RoomService.instance.serverNow,
+                              showTrialEnded: _videoTrialEndedNote,
+                              onKeepFaces: _offersKeepFaces ? _keepFacesOn : null,
                               maxTiles: window.width < 740 ? 2 : 3,
                               showNames: _controlsVisible,
                             ),

@@ -16,6 +16,8 @@ class RoomControlBarActions {
     required this.onMicToggle,
     required this.onCamToggle,
     this.onCamLocked,
+    this.onVoiceLocked,
+    this.voiceLockedTooltip,
     this.onMicDeviceSelect,
     this.onCamDeviceSelect,
     this.onAudioOutputSelect,
@@ -38,6 +40,11 @@ class RoomControlBarActions {
   final ValueChanged<bool> onMicToggle;
   final ValueChanged<bool> onCamToggle;
   final VoidCallback? onCamLocked;
+
+  /// A room whose host's tier grants no AV (a guest's) draws a locked mic in
+  /// place of the voice keys, so the room says what it is missing and why.
+  final VoidCallback? onVoiceLocked;
+  final String? voiceLockedTooltip;
   final void Function(BuildContext context)? onMicDeviceSelect;
   final void Function(BuildContext context)? onCamDeviceSelect;
   final void Function(BuildContext context)? onAudioOutputSelect;
@@ -60,6 +67,17 @@ class RoomControlBarActions {
   final VoidCallback? onFullscreenToggle;
 }
 
+/// The locked camera key teaches rather than labels: video is the host's
+/// tier, so this says what Premium changes and for whom.
+/// For a signed-in viewer; RoomScreen passes guest-specific copy.
+const kVoiceLockedTooltip =
+    'This is a guest room, so voice chat is off. Rooms hosted from a free '
+    'account get voice, and Premium hosts add video.';
+
+const kCamLockedTooltip =
+    'Video facecams are a Premium perk. Host with Premium and everyone in '
+    'your room can turn their camera on.';
+
 class RoomControlBar extends StatefulWidget {
   const RoomControlBar({
     super.key,
@@ -72,6 +90,7 @@ class RoomControlBar extends StatefulWidget {
     required this.camOn,
     required this.avAvailable,
     this.camAvailable = true,
+    this.camTrialMinutes,
     required this.actions,
     this.compact = false,
     this.docked = false,
@@ -82,6 +101,10 @@ class RoomControlBar extends StatefulWidget {
     this.subtitleTag,
     this.audioTag,
   });
+
+  /// A free room's untouched video trial: the camera key offers it with a
+  /// small Beam tag ("10M") and pressing it starts the trial (board 32).
+  final int? camTrialMinutes;
 
   /// The selected tracks, tagged for the `SUBS · EN` / `AUDIO · JA 5.1` keys.
   final String? subtitleTag;
@@ -144,6 +167,12 @@ const kMaxExtrapolation = Duration(milliseconds: 1200);
 const kFloatingBoardWidth = 1000.0;
 
 class _RoomControlBarState extends State<RoomControlBar> with SingleTickerProviderStateMixin {
+  String get _camTooltip => widget.camTrialMinutes != null
+      ? 'Try video free for ${widget.camTrialMinutes} minutes (E)'
+      : widget.camOn
+      ? 'Camera off (E)'
+      : 'Camera on (E)';
+
   /// The playhead as drawn. Separate from `widget.position` so the per-frame
   /// advance rebuilds only the slider and readout, never the whole bar.
   late final ValueNotifier<Duration> _playhead = ValueNotifier(widget.position);
@@ -445,26 +474,34 @@ class _RoomControlBarState extends State<RoomControlBar> with SingleTickerProvid
               icon: BoothIcons.videocam,
               active: widget.camOn,
               activeColor: PTColors.ember,
-              tooltip: _withDeviceHint(
-                widget.camOn ? 'Camera off (E)' : 'Camera on (E)',
-                actions.onCamDeviceSelect,
-              ),
+              tooltip: _withDeviceHint(_camTooltip, actions.onCamDeviceSelect),
               onPressed: () => actions.onCamToggle(!widget.camOn),
             ),
-          )
+          ).withTrialTag(widget.camTrialMinutes)
         else if (actions.onCamLocked != null)
           Stack(
             alignment: Alignment.center,
             children: [
               key(
                 icon: BoothIcons.videocamOff,
-                tooltip: 'Video facecams (Premium)',
+                tooltip: kCamLockedTooltip,
                 onPressed: actions.onCamLocked,
               ),
               const Positioned(bottom: 4, right: 4, child: _PremiumLock()),
             ],
           ),
-      ],
+      ] else if (actions.onVoiceLocked != null)
+        Stack(
+          alignment: Alignment.center,
+          children: [
+            key(
+              icon: BoothIcons.micOff,
+              tooltip: actions.voiceLockedTooltip ?? kVoiceLockedTooltip,
+              onPressed: actions.onVoiceLocked,
+            ),
+            const Positioned(bottom: 4, right: 4, child: _PremiumLock()),
+          ],
+        ),
       if (actions.onReact != null)
         key(
           icon: BoothIcons.react,
@@ -705,6 +742,8 @@ class _RoomControlBarState extends State<RoomControlBar> with SingleTickerProvid
     final leftWidth =
         (widget.avAvailable
             ? 44.0 + (widget.camAvailable || actions.onCamLocked != null ? 48.0 : 0.0)
+            : actions.onVoiceLocked != null
+            ? 44.0
             : 0.0) +
         (actions.onReact != null ? 44.0 : 0.0);
     return LayoutBuilder(
@@ -754,12 +793,12 @@ class _RoomControlBarState extends State<RoomControlBar> with SingleTickerProvid
                 glass: false,
                 borderRadius: BorderRadius.circular(PTRadius.control),
                 iconSize: 20,
-                tooltip: widget.camOn ? 'Camera off (E)' : 'Camera on (E)',
+                tooltip: _camTooltip,
                 onPressed: () => actions.onCamToggle(!widget.camOn),
-              )
+              ).withTrialTag(widget.camTrialMinutes)
             else if (actions.onCamLocked != null)
               Tooltip(
-                message: 'Video facecams (Premium)',
+                message: kCamLockedTooltip,
                 child: Stack(
                   alignment: Alignment.center,
                   children: [
@@ -796,6 +835,24 @@ class _RoomControlBarState extends State<RoomControlBar> with SingleTickerProvid
                 ),
               ),
           ],
+        ),
+      if (!widget.avAvailable && actions.onVoiceLocked != null)
+        Tooltip(
+          message: actions.voiceLockedTooltip ?? kVoiceLockedTooltip,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              PTIconButton(
+                icon: BoothIcons.micOff,
+                active: false,
+                glass: false,
+                borderRadius: BorderRadius.circular(PTRadius.control),
+                iconSize: 18,
+                onPressed: actions.onVoiceLocked,
+              ),
+              const Positioned(bottom: 2, right: 2, child: _PremiumLock()),
+            ],
+          ),
         ),
       if (actions.onReact != null)
         PTIconButton(
@@ -1069,6 +1126,45 @@ class _TextKeyState extends State<_TextKey> {
 }
 
 /// The Brass lock on a camera key the room's tier does not grant.
+extension on Widget {
+  Widget withTrialTag(int? minutes) => minutes == null
+      ? this
+      : Stack(
+          clipBehavior: Clip.none,
+          children: [
+            this,
+            Positioned(top: -6, right: -8, child: _TrialTag(minutes: minutes)),
+          ],
+        );
+}
+
+/// "10M" on the camera key while a free room's video trial is on offer.
+class _TrialTag extends StatelessWidget {
+  const _TrialTag({required this.minutes});
+
+  final int minutes;
+
+  @override
+  Widget build(BuildContext context) {
+    return IgnorePointer(
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+        decoration: BoxDecoration(color: PTColors.primary, borderRadius: BorderRadius.circular(2)),
+        child: Text(
+          '${minutes}M',
+          textScaler: TextScaler.noScaling,
+          style: PTText.label.copyWith(
+            fontSize: 9,
+            letterSpacing: 0,
+            fontWeight: .w600,
+            color: PTColors.onAccent,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _PremiumLock extends StatelessWidget {
   const _PremiumLock();
 

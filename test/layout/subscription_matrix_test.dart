@@ -46,18 +46,7 @@ void main() {
   screenMatrix('subscription/web', (tester, c, s) async {
     await pumpAtSize(
       tester,
-      const SubscriptionScreen(storeBuildOverride: false, appleStoreBuildOverride: false),
-      c,
-      textScale: s,
-    );
-    await _settle(tester);
-    await finishCase(tester);
-  });
-
-  screenMatrix('subscription/store', (tester, c, s) async {
-    await pumpAtSize(
-      tester,
-      const SubscriptionScreen(storeBuildOverride: true, appleStoreBuildOverride: false),
+      const SubscriptionScreen(appleStoreBuildOverride: false),
       c,
       textScale: s,
     );
@@ -68,7 +57,7 @@ void main() {
   screenMatrix('subscription/apple-store', (tester, c, s) async {
     await pumpAtSize(
       tester,
-      const SubscriptionScreen(storeBuildOverride: true, appleStoreBuildOverride: true),
+      const SubscriptionScreen(appleStoreBuildOverride: true),
       c,
       textScale: s,
     );

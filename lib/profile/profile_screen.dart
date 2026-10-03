@@ -74,7 +74,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   void _trackHandleUpsellShown() {
     if (_handleUpsellTracked || !mounted) return;
     final state = RewardsService.instance.state;
-    if (state.isPremium || state.handle != null) return;
+    if (!canSellPremium || state.isPremium || state.handle != null) return;
     _handleUpsellTracked = true;
     Analytics.instance.track('upgrade_cta_shown', {'surface': 'handle'});
   }
@@ -725,13 +725,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ],
           ),
-          PTButton(
-            label: isPrem ? 'Manage' : 'Get a Patron seat',
-            variant: isPrem ? .secondary : .primary,
-            icon: isPrem ? BoothIcons.arrowForward : BoothIcons.crown,
-            height: 48,
-            onPressed: () => context.go('/lobby/subscribe?source=profile'),
-          ),
+          if (isPrem || canSellPremium)
+            PTButton(
+              label: isPrem ? 'Manage' : 'Get a Patron seat',
+              variant: isPrem ? .secondary : .primary,
+              icon: isPrem ? BoothIcons.arrowForward : BoothIcons.crown,
+              height: 48,
+              onPressed: () => context.go('/lobby/subscribe?source=profile'),
+            ),
         ],
       ),
     );
@@ -1089,18 +1090,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ? '16-seat rooms with video facecams, 24-hour rooms and up to 20 saved.'
               : (ProfileService.instance.profile?.isGuest ?? false)
               ? 'Rooms of 4 for an hour. Sign in for free rooms of 8 and four-hour sessions.'
-              : 'Rooms of 8 with voice, 4 hours a session. A Patron seat brings 16-seat '
-                    'rooms, video facecams, 24-hour and saved rooms.',
+              : canSellPremium
+              ? 'Rooms of 8 with voice, 4 hours a session. A Patron seat brings 16-seat '
+                    'rooms, video facecams, 24-hour and saved rooms.'
+              : 'Rooms of 8 with voice, 4 hours a session.',
           titleColor: isPrem ? PTColors.premium : null,
           minRowWidth: 420,
-          trailing: PTButton(
-            label: isPrem ? 'Manage' : 'Get a Patron seat',
-            variant: isPrem ? .secondary : .primary,
-            icon: isPrem ? BoothIcons.arrowForward : BoothIcons.crown,
-            height: 38,
-            expand: false,
-            onPressed: () => context.go('/lobby/subscribe?source=profile'),
-          ),
+          trailing: !isPrem && !canSellPremium
+              ? const SizedBox.shrink()
+              : PTButton(
+                  label: isPrem ? 'Manage' : 'Get a Patron seat',
+                  variant: isPrem ? .secondary : .primary,
+                  icon: isPrem ? BoothIcons.arrowForward : BoothIcons.crown,
+                  height: 38,
+                  expand: false,
+                  onPressed: () => context.go('/lobby/subscribe?source=profile'),
+                ),
         ),
       ],
     );
@@ -1217,6 +1222,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     // one thing here worth squatting - so it is the Premium perk. Being *on*
     // the board is free; having a page of your own is not.
     if (!state.isPremium && handle == null) {
+      if (!canSellPremium) return const SizedBox.shrink();
       return MouseRegion(
         cursor: SystemMouseCursors.click,
         child: PTPressable(

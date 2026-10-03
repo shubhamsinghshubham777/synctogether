@@ -334,7 +334,7 @@ In debug builds with no local values set, the client falls back to `http://127.0
 | `LIVEKIT_API_KEY` | **Yes** *(for AV)* | LiveKit API Key (matches key in `livekit.yaml` or LiveKit Cloud) |
 | `LIVEKIT_API_SECRET` | **Yes** *(for AV)* | LiveKit API Secret (used by edge function to sign JWT tokens) |
 | `LIVEKIT_URL` | **Yes** *(for AV)* | LiveKit WebSocket URL |
-| `LIVEKIT_ENDPOINTS` | *No* | JSON array of `{id, url, key, secret}` LiveKit endpoints in priority order; replaces the three above. Rooms fail over between them (see `docs/feature-toggles.md`) |
+| `LIVEKIT_ENDPOINTS` | *No* | JSON array of `{id, url, key, secret, trial?}` LiveKit endpoints in priority order; replaces the three above. `trial` (default: on unless the URL is `*.livekit.cloud`) allows the free tier's video trial there. Rooms fail over between them (see `docs/feature-toggles.md`) |
 | `CF_R2_ENDPOINT` | *No* | Cloudflare R2 / S3 S3-compatible endpoint for media sharing |
 | `CF_R2_ACCESS_KEY_ID` | *No* | Cloudflare R2 / S3 access key |
 | `CF_R2_SECRET_ACCESS_KEY` | *No* | Cloudflare R2 / S3 secret key |

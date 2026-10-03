@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../ui/booth_icons.g.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_symbols_icons/symbols.dart';
+import 'package:synctogether/platform.dart';
 import 'package:synctogether/auth/auth_service.dart';
 import 'package:synctogether/diagnostics.dart';
 import 'package:synctogether/profile/entitlement_service.dart';
@@ -272,14 +273,15 @@ class MediaQuotaDialogBody extends StatelessWidget {
                           label: 'Play it locally',
                           onPressed: () => Navigator.of(context).pop(),
                         ),
-                        DialogTextButton(
-                          label: reason == .singleFileLimitExceeded
-                              ? 'Patron seats share up to 10 GB'
-                              : 'Patron seats have no weekly cap',
-                          color: PTColors.premium,
-                          underline: false,
-                          onPressed: subscribe,
-                        ),
+                        if (canSellPremium)
+                          DialogTextButton(
+                            label: reason == .singleFileLimitExceeded
+                                ? 'Patron seats share up to 10 GB'
+                                : 'Patron seats have no weekly cap',
+                            color: PTColors.premium,
+                            underline: false,
+                            onPressed: subscribe,
+                          ),
                       ],
                     )
                   : Row(
@@ -287,13 +289,15 @@ class MediaQuotaDialogBody extends StatelessWidget {
                         Expanded(
                           child: Align(
                             alignment: .centerLeft,
-                            child: DialogTextButton(
-                              label: 'Get a Patron seat',
-                              color: PTColors.premium,
-                              underline: false,
-                              textAlign: TextAlign.start,
-                              onPressed: subscribe,
-                            ),
+                            child: !canSellPremium
+                                ? const SizedBox.shrink()
+                                : DialogTextButton(
+                                    label: 'Get a Patron seat',
+                                    color: PTColors.premium,
+                                    underline: false,
+                                    textAlign: TextAlign.start,
+                                    onPressed: subscribe,
+                                  ),
                           ),
                         ),
                         PTButton(

@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:path/path.dart' as p;
+import 'package:synctogether/platform.dart';
 import 'package:synctogether/analytics.dart';
 import 'package:synctogether/app_router.dart';
 import 'package:synctogether/app_version.dart';
@@ -443,13 +444,15 @@ class _LobbyScreenState extends State<LobbyScreen> {
             _nameController.text = entry.room.name;
             _create();
           },
-          onUpgrade: () {
-            Analytics.instance.track('upgrade_cta_clicked', {
-              'surface': 'ended_room',
-              'action': 'subscribe',
-            });
-            context.go('/lobby/subscribe?source=ended_room');
-          },
+          onUpgrade: !canSellPremium
+              ? null
+              : () {
+                  Analytics.instance.track('upgrade_cta_clicked', {
+                    'surface': 'ended_room',
+                    'action': 'subscribe',
+                  });
+                  context.go('/lobby/subscribe?source=ended_room');
+                },
           onDelete: () => _deleteMyRoom(entry),
         ),
       );
@@ -485,6 +488,10 @@ class _LobbyScreenState extends State<LobbyScreen> {
   }
 
   Future<void> _showRoomLimitDialog() async {
+    if (!canSellPremium) {
+      _snack("That's all your rooms. Delete one you're done with to open another.");
+      return;
+    }
     Analytics.instance.track('upgrade_cta_shown', {'surface': 'room_limit'});
     await showGlassDialog<void>(
       context: context,
@@ -1313,7 +1320,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
     }
   }
 
-  bool get _showPremiumChip => !EntitlementService.instance.isPremium;
+  bool get _showPremiumChip => canSellPremium && !EntitlementService.instance.isPremium;
 
   bool get _showQuotaChip {
     final profile = ProfileService.instance.profile;

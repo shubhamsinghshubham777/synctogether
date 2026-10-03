@@ -11,6 +11,7 @@ import 'package:synctogether/ui/booth.dart';
 import 'package:synctogether/ui/buttons.dart';
 import 'package:synctogether/ui/glass.dart';
 import 'package:synctogether/ui/identity.dart';
+import 'package:synctogether/ui/popover.dart';
 import 'package:synctogether/ui/pt_motion.dart';
 import 'package:synctogether/ui/pt_theme.dart';
 
@@ -18,7 +19,7 @@ import '../../rewards/rewards_models.dart';
 
 /// Everything the overflow menu renders, as one snapshot.
 ///
-/// The menu is a Navigator route, so it lives in a sibling subtree of
+/// The menu is a root-overlay entry, so it lives in a sibling subtree of
 /// `RoomScreen` and its `setState` can never reach it - the values are pushed
 /// through a [ValueListenable] instead. Republished by
 /// `_RoomScreenState._publishMenuData` whenever any input changes (presence,
@@ -85,13 +86,13 @@ class RoomMenuAction {
   final VoidCallback onTap;
 }
 
-/// Anchored top-right glass menu: member list (presence + Host badge) and
+/// Anchored top-right menu, on [showPTPopover] rather than a route: member list (presence + Host badge) and
 /// room actions. `Room.dc.html` overflow-menu detail.
 ///
 /// [data] is live: members leaving, readiness chips, host succession and the
 /// transport lock all update while the menu is open. A `null` value means the
 /// room is over and the menu must close itself.
-Future<void> showRoomOverflowMenu({
+PTPopoverHandle showRoomOverflowMenu({
   required BuildContext context,
   required ValueListenable<RoomMenuData?> data,
   required VoidCallback onCopyInvite,
@@ -106,17 +107,14 @@ Future<void> showRoomOverflowMenu({
   void Function(RoomMember member)? onUnblockMember,
   List<RoomMenuAction> playbackActions = const [],
 }) {
-  return showGeneralDialog(
+  late final PTPopoverHandle handle;
+  handle = showPTPopover(
     context: context,
-    barrierDismissible: true,
-    barrierLabel: 'room menu',
-    barrierColor: Colors.transparent,
-    transitionDuration: const Duration(milliseconds: 140),
-    pageBuilder: (dialogContext, _, _) {
+    builder: (popoverContext) {
       // SafeArea ignores the keyboard, so lift the bottom edge above it too:
       // otherwise the last actions sit under an open keyboard.
       return Padding(
-        padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(dialogContext).bottom),
+        padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(popoverContext).bottom),
         child: SafeArea(
           child: LayoutBuilder(
             builder: (context, constraints) => Align(
@@ -129,12 +127,13 @@ Future<void> showRoomOverflowMenu({
                 // The panel scrolls only when the window is genuinely short.
                 child: ConstrainedBox(
                   constraints: BoxConstraints(
-                    maxWidth: math.min(300, MediaQuery.sizeOf(dialogContext).width - 32),
+                    maxWidth: math.min(300, MediaQuery.sizeOf(popoverContext).width - 32),
                     maxHeight: math.max(0, constraints.maxHeight - 76 - 16),
                   ),
                   child: Material(
                     type: .transparency,
                     child: _OverflowMenuPanel(
+                      handle: handle,
                       data: data,
                       onCopyInvite: onCopyInvite,
                       onLeave: onLeave,
@@ -156,24 +155,13 @@ Future<void> showRoomOverflowMenu({
         ),
       );
     },
-    transitionBuilder: (context, animation, _, child) {
-      final curved = CurvedAnimation(parent: animation, curve: Curves.easeOutCubic);
-      // Slide + scale, never fade: the menu is a GlassPanel, and an opacity
-      // layer over its BackdropFilter blurs an empty layer (the glass trap).
-      return SlideTransition(
-        position: Tween(begin: const Offset(0, -0.02), end: Offset.zero).animate(curved),
-        child: ScaleTransition(
-          scale: Tween(begin: 0.96, end: 1.0).animate(curved),
-          alignment: Alignment.topRight,
-          child: child,
-        ),
-      );
-    },
   );
+  return handle;
 }
 
 class _OverflowMenuPanel extends StatefulWidget {
   const _OverflowMenuPanel({
+    required this.handle,
     required this.data,
     required this.onCopyInvite,
     required this.onLeave,
@@ -188,6 +176,7 @@ class _OverflowMenuPanel extends StatefulWidget {
     this.playbackActions = const [],
   });
 
+  final PTPopoverHandle handle;
   final ValueListenable<RoomMenuData?> data;
   final List<RoomMenuAction> playbackActions;
   final VoidCallback onCopyInvite;
@@ -231,18 +220,13 @@ class _OverflowMenuPanelState extends State<_OverflowMenuPanel> {
     setState(() => _data = next);
   }
 
-  /// Eviction path. Not `Navigator.pop` - that pops whatever is topmost, and
-  /// another dialog (the source chooser after inheriting host) may have opened
-  /// above us in the meantime.
-  void _forceClose() {
-    final route = ModalRoute.of(context);
-    if (route != null && route.isActive) route.navigator?.removeRoute(route);
-  }
+  /// Eviction path: gone on this frame, no exit to watch.
+  void _forceClose() => widget.handle.close(animate: false);
 
-  /// User taps: the menu is topmost by definition here, so pop normally and
-  /// keep the exit transition.
+  /// User taps: start the exit, then act - a dialog the action opens lands
+  /// over a menu that is already leaving.
   void _dismiss(VoidCallback action) {
-    Navigator.of(context).pop();
+    widget.handle.close();
     action();
   }
 

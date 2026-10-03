@@ -23,6 +23,20 @@ bool get isAppleStoreBuild =>
     (defaultTargetPlatform == TargetPlatform.iOS ||
         (isStoreBuild && defaultTargetPlatform == TargetPlatform.macOS));
 
+/// True for the Google Play build (`--dart-define=STORE_BUILD=true` on
+/// Android). Play's Payments policy requires Play Billing for digital
+/// subscriptions and forbids steering - no link, button or copy that leads to
+/// another way to pay. We do not sell through Play Billing, so this build is
+/// consumption-only: Premium bought elsewhere unlocks as usual (the policy
+/// permits that), but nothing offers, prices or points at it.
+bool get isGooglePlayBuild =>
+    !kIsWeb && isStoreBuild && defaultTargetPlatform == TargetPlatform.android;
+
+/// Whether this build may show any Premium upsell. Apple builds sell through
+/// StoreKit and every other build through Paddle, except Google Play. Signing
+/// a guest in is not a sale, so guest sign-in prompts never check this.
+bool get canSellPremium => !isGooglePlayBuild;
+
 /// Whether WebViews should be served content via a loopback [HttpServer].
 ///
 /// False only on macOS Store builds: the App Sandbox requires

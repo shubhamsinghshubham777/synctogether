@@ -3,7 +3,6 @@ import '../../ui/booth_icons.g.dart';
 
 import 'package:flutter/material.dart';
 import 'package:synctogether/auth/auth_service.dart';
-import 'package:synctogether/platform.dart';
 import 'package:synctogether/ui/buttons.dart';
 import 'package:synctogether/ui/pt_motion.dart';
 import 'package:synctogether/ui/glass.dart';
@@ -218,7 +217,6 @@ class PremiumTeaseDialog extends StatelessWidget {
     this.onUpgrade,
     this.onSignIn,
     this.onSignInApple,
-    this.desktopOverride,
   });
 
   final String headline;
@@ -228,9 +226,6 @@ class PremiumTeaseDialog extends StatelessWidget {
   final VoidCallback? onUpgrade;
   final VoidCallback? onSignIn;
   final VoidCallback? onSignInApple;
-  final bool? desktopOverride;
-
-  bool get _isDesktop => desktopOverride ?? isDesktop;
 
   @override
   Widget build(BuildContext context) {
@@ -309,43 +304,24 @@ class PremiumTeaseDialog extends StatelessWidget {
   }
 
   Widget _teaseActions(BuildContext context) {
-    if (_isDesktop) {
-      // The label says what the button does: a real upgrade where one is
-      // wired, the waitlist only where that is all there is.
-      return Row(
-        spacing: 16,
-        children: [
-          DialogTextButton(label: 'Maybe later', onPressed: () => Navigator.of(context).pop()),
-          Expanded(
-            child: PTButton(
-              maxLines: 2,
-              label: onUpgrade != null ? 'Get a Patron seat' : 'Keep me posted',
-              height: 48,
-              onPressed: () {
-                Navigator.of(context).pop();
-                (onUpgrade ?? onNotify)?.call();
-              },
-            ),
-          ),
-        ],
-      );
-    }
-
-    return Column(
-      mainAxisSize: .min,
-      crossAxisAlignment: .stretch,
-      spacing: 11,
+    // The label says what the button does: a real upgrade where one is
+    // wired, the waitlist only where that is all there is. The upgrade lands
+    // on the subscription screen, which sells through StoreKit on Apple
+    // builds and Paddle everywhere else - so every platform gets the button.
+    return Row(
+      spacing: 16,
       children: [
-        const DialogNote(
-          icon: BoothIcons.info,
-          child: Text('Subscriptions are managed on our website.'),
-        ),
-        PTButton(
-          maxLines: 2,
-          label: 'Close',
-          variant: .secondary,
-          height: 48,
-          onPressed: () => Navigator.of(context).pop(),
+        DialogTextButton(label: 'Maybe later', onPressed: () => Navigator.of(context).pop()),
+        Expanded(
+          child: PTButton(
+            maxLines: 2,
+            label: onUpgrade != null ? 'Get a Patron seat' : 'Keep me posted',
+            height: 48,
+            onPressed: () {
+              Navigator.of(context).pop();
+              (onUpgrade ?? onNotify)?.call();
+            },
+          ),
         ),
       ],
     );

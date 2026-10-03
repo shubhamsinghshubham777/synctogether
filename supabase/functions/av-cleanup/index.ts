@@ -3,9 +3,15 @@
 // moved between endpoints during its life. Invoked by invoke_av_cleanup
 // (pg_cron, every minute). Mirrors cleanup-r2: a row that keeps failing is
 // dropped for good at attempts >= 5.
+//
+// Two kinds of job: `remove` (a departed member, or with no user the whole
+// room) and `revoke_camera`, queued by close_video_trials when a free room's
+// video trial runs out. Narrowing the publish sources stops a camera coming
+// back, but LiveKit only guarantees unpublishing when CanPublish itself is
+// revoked - so any camera track still live is muted server-side as well.
 
 import { createClient } from "npm:@supabase/supabase-js@2.58.0";
-import { RoomServiceClient } from "npm:livekit-server-sdk@2.17.0";
+import { RoomServiceClient, TrackSource } from "npm:livekit-server-sdk@2.17.0";
 import { httpHost, parseEndpoints } from "../_shared/av_endpoints.ts";
 
 const MAX_ATTEMPTS = 5;
@@ -29,7 +35,7 @@ Deno.serve(async (_req) => {
 
   const { data: queue, error } = await admin
     .from("pending_av_cleanups")
-    .select("id, room_id, user_id, attempts")
+    .select("id, room_id, user_id, kind, attempts")
     .order("id", { ascending: true })
     .limit(100);
   if (error) {
@@ -43,7 +49,9 @@ Deno.serve(async (_req) => {
     const failures: string[] = [];
     for (const { id, rs } of clients) {
       try {
-        if (item.user_id) {
+        if (item.kind === "revoke_camera") {
+          await revokeCamera(rs, item.room_id);
+        } else if (item.user_id) {
           await rs.removeParticipant(item.room_id, item.user_id);
         } else {
           await rs.deleteRoom(item.room_id);
@@ -73,3 +81,21 @@ Deno.serve(async (_req) => {
     headers: { "Content-Type": "application/json" },
   });
 });
+
+async function revokeCamera(rs: RoomServiceClient, roomId: string): Promise<void> {
+  for (const p of await rs.listParticipants(roomId)) {
+    await rs.updateParticipant(roomId, p.identity, {
+      permission: {
+        canSubscribe: true,
+        canPublish: true,
+        canPublishData: true,
+        canPublishSources: [TrackSource.MICROPHONE],
+      },
+    });
+    for (const t of p.tracks) {
+      if (t.source === TrackSource.CAMERA && !t.muted) {
+        await rs.mutePublishedTrack(roomId, p.identity, t.sid, true);
+      }
+    }
+  }
+}

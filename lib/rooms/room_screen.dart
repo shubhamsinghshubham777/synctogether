@@ -458,6 +458,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
         unawaited(_startVideoTrial());
         return;
       }
+      if (_startingVideoTrial) return;
       _snack('Cameras are a premium thing. This room is voice only.', kind: .info);
       return;
     }
@@ -4498,7 +4499,10 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     onMicToggle: (v) => _toggleFacecam('mic', v),
     onCamToggle: (v) => _toggleFacecam('cam', v),
     onCamLocked:
-        (canSellPremium && _av?.canPublishCamera == false && !EntitlementService.instance.isPremium)
+        (canSellPremium &&
+            _av?.canPublishCamera == false &&
+            !_startingVideoTrial &&
+            !EntitlementService.instance.isPremium)
         ? () => context.push('/lobby/subscribe?source=camera_lock')
         : null,
     onVoiceLocked: _voiceLocked ? _explainVoiceLock : null,
@@ -5617,7 +5621,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
       micOn: _av?.micEnabled ?? false,
       camOn: _av?.camEnabled ?? false,
       avAvailable: _av != null,
-      camAvailable: (_av?.canPublishCamera ?? false) || _videoTrialOnOffer,
+      camAvailable: (_av?.canPublishCamera ?? false) || _videoTrialOnOffer || _startingVideoTrial,
       camTrialMinutes: _videoTrialOnOffer ? kVideoTrialOfferMinutes : null,
       actions: _controlActionsFor(
         secondary: !_narrowControlBar(compact),

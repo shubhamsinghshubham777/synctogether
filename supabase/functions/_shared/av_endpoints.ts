@@ -47,7 +47,9 @@ export function parseEndpoints(env: Record<string, string | undefined>): AvEndpo
   const key = env["LIVEKIT_API_KEY"];
   const secret = env["LIVEKIT_API_SECRET"];
   if (!url || !key || !secret) return [];
-  return [{ id: "default", url, key, secret, trial: defaultTrial(url) }];
+  const trialEnv = env["LIVEKIT_TRIAL"];
+  const trial = trialEnv !== undefined ? trialEnv === "true" : defaultTrial(url);
+  return [{ id: "default", url, key, secret, trial }];
 }
 
 /// RoomServiceClient speaks HTTP; endpoints are configured as the ws(s) URL

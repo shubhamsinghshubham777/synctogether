@@ -8,6 +8,27 @@ Deno.test("legacy single endpoint becomes 'default'", () => {
   );
 });
 
+Deno.test("legacy single endpoint respects LIVEKIT_TRIAL override", () => {
+  assertEquals(
+    parseEndpoints({
+      LIVEKIT_URL: "wss://a.livekit.cloud",
+      LIVEKIT_API_KEY: "k",
+      LIVEKIT_API_SECRET: "s",
+      LIVEKIT_TRIAL: "true",
+    }),
+    [{ id: "default", url: "wss://a.livekit.cloud", key: "k", secret: "s", trial: true }],
+  );
+  assertEquals(
+    parseEndpoints({
+      LIVEKIT_URL: "wss://a.example.com",
+      LIVEKIT_API_KEY: "k",
+      LIVEKIT_API_SECRET: "s",
+      LIVEKIT_TRIAL: "false",
+    }),
+    [{ id: "default", url: "wss://a.example.com", key: "k", secret: "s", trial: false }],
+  );
+});
+
 Deno.test("nothing configured is an empty list", () => {
   assertEquals(parseEndpoints({}), []);
 });

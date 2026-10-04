@@ -433,22 +433,22 @@ export default function PrivacyPage() {
             We partner with industry-standard, privacy-compliant infrastructure providers to securely operate SyncTogether. All subprocessors are bound by data protection agreements:
           </p>
           <div className="overflow-x-auto rounded-xl border border-white/10 bg-white/[0.01]">
-            <table className="w-full text-left text-xs sm:text-sm text-gray-300">
+            <table className="w-full min-w-[680px] text-left text-xs sm:text-sm text-gray-300">
               <thead className="bg-white/5 text-white font-mono uppercase text-xs border-b border-white/10">
                 <tr>
-                  <th className="p-3.5">Subprocessor</th>
-                  <th className="p-3.5">Purpose &amp; Service</th>
-                  <th className="p-3.5">Location</th>
-                  <th className="p-3.5 [overflow-wrap:normal]">Privacy Link</th>
+                  <th scope="col" className="p-3.5 w-[24%] min-w-[150px] whitespace-nowrap">Subprocessor</th>
+                  <th scope="col" className="p-3.5 w-[44%] min-w-[260px] whitespace-nowrap">Purpose &amp; Service</th>
+                  <th scope="col" className="p-3.5 w-[20%] min-w-[130px] whitespace-nowrap">Location</th>
+                  <th scope="col" className="p-3.5 w-[12%] min-w-[90px] whitespace-nowrap">Privacy Link</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/5 text-gray-400">
                 {subprocessors.map((p) => (
                   <tr key={p.name} className="hover:bg-white/[0.02] transition-colors">
-                    <td className="p-3.5 font-semibold text-white whitespace-nowrap">{p.name}</td>
-                    <td className="p-3.5 leading-normal">{p.purpose}</td>
-                    <td className="p-3.5 whitespace-nowrap">{p.location}</td>
-                    <td className="p-3.5 whitespace-nowrap">
+                    <td className="p-3.5 font-semibold text-white align-top">{p.name}</td>
+                    <td className="p-3.5 leading-relaxed text-gray-300 align-top">{p.purpose}</td>
+                    <td className="p-3.5 text-gray-400 align-top">{p.location}</td>
+                    <td className="p-3.5 whitespace-nowrap align-top">
                       <a
                         href={p.privacyUrl}
                         target="_blank"

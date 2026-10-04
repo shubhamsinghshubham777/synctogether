@@ -76,3 +76,6 @@ secrets.txt
 
 # Local MCP server config (references env vars, but machine-specific)
 .mcp.json
+
+# asc CLI cache and reports
+.asc/

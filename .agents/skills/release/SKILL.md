@@ -207,6 +207,43 @@ stable later means cutting a new, higher version, not re-tagging.
      `asc validate --platform IOS`, then submit. Never submit without the
      user's go-ahead: review cannot be undone cleanly.
 
+   **Desktop Stores Review & Listing Lifecycle (`publish_stores.yaml`):**
+
+   - **Mac App Store (`asc`)**:
+     `publish_stores.yaml` uploads the macOS `.pkg` build to App Store Connect, but Apple requires attaching the build to a version and submitting for review:
+     1. **Version Record**: Ensure the macOS version exists on App Store Connect:
+        ```bash
+        asc versions create --app 6809185202 --platform MAC_OS --version X.Y.Z --copy-metadata-from <prev>
+        ```
+     2. **Metadata & What's New**: Maintain canonical metadata under `metadata/version/X.Y.Z/en-US.json` and push to App Store Connect:
+        ```bash
+        asc metadata push --app 6809185202 --version "X.Y.Z" --platform MAC_OS --dir "./metadata"
+        ```
+     3. **Screenshots**: When new UI screenshots exist (2880 x 1800 in `assets/store/mac/*.jpg`), upload to the `APP_DESKTOP` display set:
+        ```bash
+        asc screenshots upload --app 6809185202 --version "X.Y.Z" --locale en-US --platform MAC_OS --display-type APP_DESKTOP --files assets/store/mac/*.jpg
+        ```
+     4. **Attach Build**: Once the uploaded `.pkg` finishes Apple processing (`asc builds list --app 6809185202` shows `VALID`):
+        ```bash
+        asc versions attach-build --version-id "<VERSION_ID>" --build-id "<BUILD_ID>"
+        ```
+     5. **Validate & Submit for Review**:
+        ```bash
+        asc validate --app 6809185202 --version "X.Y.Z" --platform MAC_OS
+        asc review submit --app 6809185202 --version "X.Y.Z" --platform MAC_OS --build-id "<BUILD_ID>" --confirm
+        asc review status --app 6809185202 --platform MAC_OS  # Confirms WAITING_FOR_REVIEW
+        ```
+
+   - **Microsoft Store (`msstore`)**:
+     1. **Automated Publishing**: CI automatically runs `msstore reconfigure` with GitHub Actions secrets and `msstore publish` with the built `.msix`.
+     2. **State Machine Invariant**: A committed package submission progresses through `CommitStarted` -> `PreProcessing` -> `Certification` -> `Published`. During `PreProcessing` and `Certification`, Microsoft Partner Center locks the submission against metadata edits (`InvalidState`).
+     3. **Listing Metadata Updates**: Canonical listing text and release notes are maintained in `metadata/msstore_listing_en-US.json`. Once the package submission finishes certification and publishes (or on a draft submission before commit), push updated listing metadata via:
+        ```bash
+        msstore submission updateMetadata 9P1BZTSXHDFS -p metadata/msstore_updated_submission.json
+        msstore submission publish 9P1BZTSXHDFS
+        ```
+     4. **Store Assets**: 16:9 desktop screenshots reside in `assets/store/*.jpg` (1920 x 1080) and store logos (`store_logo_300x300.png`, `store_logo_150x150.png`).
+
    Pre-release only applies to the direct target; the stores have their own
    review queues.
 

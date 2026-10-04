@@ -1,5 +1,5 @@
 ---
-description: Violet glass design system tokens, PTLoader, LiveKit AV rails, diagnostics vs. analytics doctrines, and generated asset tools.
+description: Projection booth cinema design system tokens, PTLoader, LiveKit AV rails, diagnostics vs. analytics doctrines, and generated asset tools.
 trigger: model_decision
 ---
 
@@ -10,8 +10,8 @@ Guidance for UI components (`lib/ui/`), audio/video facecams (`lib/av/`), diagno
 
 ## 1. Design System & UI Components (`lib/ui/`)
 
-- **Dark Mode Only**: Aesthetic is violet glass. All colors and typography must use tokens from `lib/ui/pt_theme.dart` (`PTColors`, `PTText`). **Never hardcode hex color values.**
-- **Bundled Fonts**: Space Grotesk, Outfit, and JetBrains Mono (in `assets/fonts/`). Icons from `material_symbols_icons`.
+- **Dark Mode Only**: Aesthetic is warm cinema projection booth (dark mode only, no blur, warm neutrals). All colors and typography must use tokens from `lib/ui/pt_theme.dart` (`PTColors`, `PTText`). **Never hardcode hex color values.**
+- **Bundled Fonts**: Bricolage Grotesque, Hanken Grotesk, and JetBrains Mono (in `assets/fonts/`). Icons from `material_symbols_icons`.
 - **Loading Indicators**: Always use **`PTLoader`** (`lib/ui/loader.dart`), which is a tinted `CupertinoActivityIndicator`. Never use `CircularProgressIndicator` (except the determinate countdown ring in `PTBanner`).
 - **Glass Rendering Rules**:
   - **Never wrap `GlassPanel` in `Opacity`**: `Opacity` causes `BackdropFilter` to blur an empty intermediate layer. Animate glass surfaces using slide or clip transitions (`Align(heightFactor:)`, slide transforms).

@@ -51,7 +51,7 @@ npm --prefix website test               # Run webhook idempotency & signature te
 1. **Exact Dependency Pins**: Dependencies in `pubspec.yaml` are exact pins (no `^` ranges). Keep them exact when adding or updating packages.
 2. **Dot-Shorthand Syntax**: Use Dart dot-shorthand syntax for enum and static access (e.g. `mainAxisSize: .min`, `_mode = .local`).
 3. **Design System & Tokens**:
-   - Dark mode only (violet glass aesthetic).
+   - Dark mode only (cinema projection booth aesthetic).
    - Use tokens from `lib/ui/pt_theme.dart` (`PTColors`, `PTText`). Never hardcode raw hex values.
    - Use `PTLoader` (`lib/ui/loader.dart`), never `CircularProgressIndicator`.
 4. **Error Handling vs. Analytics**:

@@ -5,7 +5,7 @@ The official web application for [SyncTogether](https://synctogether.app) - feat
 ## Tech Stack
 
 - **Framework**: [Next.js 16](https://nextjs.org/) (App Router) + React 19
-- **Styling**: [Tailwind CSS v4](https://tailwindcss.com/) with dark violet glassmorphism tokens matching the Flutter app design system
+- **Styling**: [Tailwind CSS v4](https://tailwindcss.com/) with dark projection booth cinema tokens matching the Flutter app design system
 - **Auth & Database**: [Supabase](https://supabase.com/) (`@supabase/ssr`) with PostgreSQL row-level security and Realtime subscriptions
 - **Billing**: [Paddle Billing](https://developer.paddle.com/) Merchant of Record (`@paddle/paddle-js`, Node native `crypto.createHmac`)
 - **Testing**: Node.js built-in test runner (`node --test`) with TypeScript

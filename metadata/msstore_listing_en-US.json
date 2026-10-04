@@ -1,0 +1,69 @@
+{
+  "Keywords": [
+    "watch party",
+    "video sync",
+    "media player",
+    "sync video",
+    "watch together",
+    "video chat",
+    "youtube sync"
+  ],
+  "Description": "SyncTogether is the premier desktop watch party application designed for friends, families, and communities to watch movies, shows, and videos in perfect, sub-millisecond synchronization.\n\nWhether you're watching a local 4K movie file or streaming the latest YouTube video, SyncTogether keeps play, pause, seek, and audio tracks frame-locked across every participant's screen. Enjoy seamless shared playback combined with low-latency facecam video rails, crystal-clear voice chat, and lively animated emoji reactions.\n\nKEY FEATURES\n\n\u2022 FRAME-PERFECT MEDIA SYNCHRONIZATION\nState-of-the-art clock synchronization continuously aligns playback down to the millisecond. When anyone pauses, skips forward, or seeks to a new chapter, everyone\u2019s screen reacts in lockstep with zero drift.\n\n\u2022 WATCH LOCAL FILES OR YOUTUBE\nOpen and synchronize local video containers (MP4, MKV, WebM, AVI, MOV) directly from your hard drive with hardware-accelerated decoding. Or simply paste a YouTube URL to stream synchronized online videos without third-party browser extensions.\n\n\u2022 REAL-TIME FACECAM RAILS & VOICE CHAT\nSee your friends' live reactions right beside the theater screen. Integrated low-latency video and spatial voice chat let you laugh, comment, and react together just like you're sitting in the same living room.\n\n\u2022 INTERACTIVE CHAT & ANIMATED REACTIONS\nSend real-time chat messages and burst vibrant animated Lottie emoji reactions across the screen during peak movie moments.\n\n\u2022 PRIVATE, ZERO-HASSLE ROOM CODES\nCreate rooms with unique 6-character room codes (e.g., X7K9P2) or one-click invite deep links (synctogether://join/CODE). No messy network configuration, port forwarding, or complicated setups required.\n\n\u2022 CLOUD MEDIA SHARING (OPTIONAL)\nIf friends don't have the video file downloaded locally, hosts can upload and stream their file directly into the room with built-in cloud media streaming.\n\n\u2022 GUEST MODE (ZERO SIGN-UP REQUIRED)\nYour friends can join any watch party instantly as a Guest with a single click. No account creation, passwords, or credit cards needed to start watching.\n\n\u2022 SLEEK VIOLET GLASS DESIGN\nCrafted with a modern, dark-mode violet glass aesthetic. Enjoy a theater experience that stays out of your way while watching full-screen content.\n\nSyncTogether makes movie nights across distances feel truly together.\n\n----------------------------------------------------------------------\nTIERS, SESSION LIMITS & OPTIONAL IN-APP PURCHASES\n----------------------------------------------------------------------\nSyncTogether is free to download and use. We offer a Free Plan and Guest Mode with defined session limits, as well as an optional Premium subscription for extended functionality.\n\n1. GUEST MODE ($0 / No Account Required):\n\u2022 Room Session Limit: Up to 60 minutes per session.\n\u2022 Participant Limit: Up to 4 participants per room.\n\u2022 Features: Text chat and basic emoji reactions. (Voice and video facecams are disabled in Guest Mode).\n\u2022 Room Lifetime: Temporary rooms that close immediately when empty or when the 60-minute session concludes.\n\n2. FREE PLAN ($0/month - With Free Account):\n\u2022 Room Session Limit: Up to 4 hours per room session (includes one free 60-minute extension per session).\n\u2022 Participant Limit: Up to 8 participants per room.\n\u2022 Active Rooms: Up to 4 active rooms hosted simultaneously.\n\u2022 Audio & Chat: Real-time low-latency Voice chat, text chat, and animated reactions. (Live camera video feeds require a room hosted by a Premium member).\n\u2022 Media Sharing Quota: 2.5 GB rolling 7-day upload quota (up to 2.0 GB per individual file). Uploaded quota recharges automatically 7 days after completion.\n\u2022 Room Lifetime: Rooms hibernate for 24 hours after a session ends, allowing you to rejoin and resume playback where you left off.\n\n3. OPTIONAL PREMIUM PLAN (Subscription):\nUsers who require extended watch party sessions and high-capacity rooms can optionally upgrade to SyncTogether Premium:\n\u2022 Subscription Options: Available as an optional auto-renewing subscription with Monthly and Annual billing options (with discounted annual pricing). Current pricing in your local currency is always clearly presented in-app and at checkout before any transaction is initiated.\n\u2022 Extended 24-Hour Sessions: Continuous room duration up to 24 hours per session (extended from the 4-hour free limit).\n\u2022 Ultra-Low Latency Video Facecams: Full camera video rails with speaking indicators for all participants.\n\u2022 Expanded Capacity: Up to 16 participants per room (expanded from the 8-member free limit).\n\u2022 Unlimited Media Sharing: Unlimited weekly upload quota (up to 10.0 GB per individual file).\n\u2022 20 Persistent Vanity Rooms: Permanent, custom room codes that never expire or delete.\n\u2022 Shared Host Perks: When a Premium member hosts a room, all joining members (including Free and Guest users) enjoy the host's 24-hour duration, expanded capacity, and video facecam perks for that session.\n\n----------------------------------------------------------------------\nBILLING, PRIVACY & TERMS DISCLOSURE\n----------------------------------------------------------------------\n\u2022 Billing: Subscriptions are optional and processed securely via our merchant of record (Paddle) in your web browser. Subscriptions renew automatically at the end of each billing period unless cancelled at least 24 hours before renewal. You can manage or cancel your subscription at any time via your account settings at https://synctogether.app/account.\n\u2022 Privacy Policy: https://synctogether.app/privacy\n\u2022 Terms of Service: https://synctogether.app/terms",
+  "Features": [
+    "Perfect millisecond video synchronization across Windows and macOS",
+    "Watch local video files (MP4, MKV, WebM, AVI, MOV) or YouTube together",
+    "Ultra-low latency voice chat and live video facecam rails",
+    "Free 10-minute video facecam trial in all free watch parties",
+    "Interactive animated Lottie emoji reactions with quick-reaction bar",
+    "Instant 6-character private room codes with deep link invitations",
+    "Optional Cloud Media Sharing: stream videos to friends without pre-sharing files",
+    "Zero-signup Guest Mode: join any watch party in seconds",
+    "Persistent room memory: resume playback right where you left off",
+    "Hardware-accelerated media decoding powered by libmpv",
+    "Customizable subtitle rendering with picture-track and font style controls",
+    "Free plan includes 4-hour watch parties with voice chat for up to 8 friends",
+    "Optional Premium upgrade for 24-hour sessions, permanent video facecams & 16 members"
+  ],
+  "ReleaseNotes": "What's New in SyncTogether v1.9.0:\n\n\u2022 FREE-ROOM VIDEO TRIALS: Free rooms can now enjoy a 10-minute video facecam trial so everyone in the room can turn their camera on and experience facecams together.\n\u2022 BOOTH LIGHT REDESIGN: A clean, elegant light interface with polished typography, refined room board composition, and responsive controls across all window sizes.\n\u2022 CUSTOMIZABLE SUBTITLES: Sharper rendering with full libass subtitle controls, customizable font styling, and picture-track support.\n\u2022 CHAT EMOJI PICKER & QUICK BAR: Express yourself faster with an expanded emoji picker and customizable quick-emoji bar integrated directly into the room composer.\n\u2022 KEYBOARD SHORTCUTS: Quick desktop keyboard shortcuts: press D for microphone, E for camera, and R for emoji reactions.\n\u2022 RELIABILITY & SYNC IMPROVEMENTS: Seamless voice/video server failover and improved network stall catch-up for smoother playback.",
+  "Images": [
+    {
+      "FileName": "1_violet_glass_lobby.png",
+      "FileStatus": "Uploaded",
+      "Id": "1152922700027287016",
+      "ImageType": "Screenshot"
+    },
+    {
+      "FileName": "2_theater_room.png",
+      "FileStatus": "Uploaded",
+      "Id": "1152922700027287017",
+      "ImageType": "Screenshot"
+    },
+    {
+      "FileName": "3_room_chat.png",
+      "FileStatus": "Uploaded",
+      "Id": "1152922700027287018",
+      "ImageType": "Screenshot"
+    },
+    {
+      "FileName": "4_media_chooser.png",
+      "FileStatus": "Uploaded",
+      "Id": "1152922700027286828",
+      "ImageType": "Screenshot"
+    },
+    {
+      "FileName": "store_logo_300x300.png",
+      "FileStatus": "Uploaded",
+      "Id": "1152922700027286829",
+      "ImageType": "Icon"
+    }
+  ],
+  "RecommendedHardware": [],
+  "MinimumHardware": [],
+  "Title": "SyncTogether",
+  "LicenseTerms": "Licensed under PolyForm Noncommercial License 1.0.0. Free for personal, noncommercial use.",
+  "CopyrightAndTrademarkInfo": "Copyright (C) 2026 Singh Software Services. All rights reserved.",
+  "ShortDescription": "Watch local video files and YouTube in perfect millisecond sync with friends. Features ultra-low latency facecams, crystal-clear voice chat, live text, and animated emoji reactions in private watch party rooms.",
+  "ShortTitle": "SyncTogether",
+  "VoiceTitle": null,
+  "DevStudio": "Singh Software Services"
+}

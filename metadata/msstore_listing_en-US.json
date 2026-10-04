@@ -27,33 +27,37 @@
   "ReleaseNotes": "What's New in SyncTogether v1.9.0:\n\n\u2022 FREE-ROOM VIDEO TRIALS: Free rooms can now enjoy a 10-minute video facecam trial so everyone in the room can turn their camera on and experience facecams together.\n\u2022 REFINED CINEMA BOOTH DESIGN: A streamlined, modern theater interface with polished typography, ticket-style room cards, refined layout composition, and responsive controls across all window sizes.\n\u2022 CUSTOMIZABLE SUBTITLES: Sharper rendering with full libass subtitle controls, customizable font styling, and picture-track support.\n\u2022 CHAT EMOJI PICKER & QUICK BAR: Express yourself faster with an expanded emoji picker and customizable quick-emoji bar integrated directly into the room composer.\n\u2022 KEYBOARD SHORTCUTS: Quick desktop keyboard shortcuts: press D for microphone, E for camera, and R for emoji reactions.\n\u2022 RELIABILITY & SYNC IMPROVEMENTS: Seamless voice/video server failover and improved network stall catch-up for smoother playback.",
   "Images": [
     {
-      "FileName": "1_violet_glass_lobby.png",
+      "FileName": "1_lobby.png",
       "FileStatus": "Uploaded",
-      "Id": "1152922700027287016",
-      "ImageType": "Screenshot"
+      "Id": "400473568",
+      "ImageType": "Screenshot",
+      "Description": "Lobby"
     },
     {
       "FileName": "2_theater_room.png",
       "FileStatus": "Uploaded",
-      "Id": "1152922700027287017",
-      "ImageType": "Screenshot"
+      "Id": "400473488",
+      "ImageType": "Screenshot",
+      "Description": "Theater Room"
     },
     {
       "FileName": "3_room_chat.png",
       "FileStatus": "Uploaded",
-      "Id": "1152922700027287018",
-      "ImageType": "Screenshot"
+      "Id": "400473592",
+      "ImageType": "Screenshot",
+      "Description": "Room Chat"
     },
     {
       "FileName": "4_media_chooser.png",
       "FileStatus": "Uploaded",
-      "Id": "1152922700027286828",
-      "ImageType": "Screenshot"
+      "Id": "400473422",
+      "ImageType": "Screenshot",
+      "Description": "Media Chooser"
     },
     {
       "FileName": "store_logo_300x300.png",
       "FileStatus": "Uploaded",
-      "Id": "1152922700027286829",
+      "Id": "400473541",
       "ImageType": "Icon"
     }
   ],

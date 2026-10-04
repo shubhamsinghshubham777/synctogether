@@ -83,7 +83,7 @@ export default async function HomePage() {
 
   return (
     <div className="relative overflow-x-clip">
-      {/* 1. HERO - the Booth Light canvas's split composition */}
+      {/* 1. HERO - the projection booth canvas's split composition */}
       <section className="relative px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto pt-6 pb-10 lg:pt-10 lg:pb-8">
         <div className="grid lg:grid-cols-[1.05fr_1fr] gap-12 lg:gap-14 items-start">
           <div className="flex flex-col gap-[26px]">

@@ -5,7 +5,7 @@ import { Ticket } from "@/components/Ticket";
 const SHOT = "/shots/room-theater.jpg";
 
 /**
- * The hero's right side, from the Booth Light canvas: the app itself on a
+ * The hero's right side, from the projection booth canvas: the app itself on a
  * screen tilted on the booth wall, an invite ticket tucked against it and a
  * "no ads" stamp pressed onto the corner. The screenshot already carries the
  * room's own transport, so nothing is drawn under it and nothing animates

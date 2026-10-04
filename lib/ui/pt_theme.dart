@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-/// Design tokens for "Booth Light" - the projection booth.
+/// Design tokens for the projection booth cinema aesthetic.
 ///
 /// Dark mode only, and deliberately so: the room is dark and the video is the
 /// brightest thing on screen. ~90% of any surface is warm booth neutral; the
@@ -11,9 +11,8 @@ import 'package:flutter/material.dart';
 /// - **Cue** (teal, [online]) is ready / loaded in the readiness gate.
 /// - **Brass** ([premium]) is Patron only - engraved, never a gold gradient.
 ///
-/// The token *names* predate this palette (the violet glass system); they are
-/// kept so screens follow the new look without edits. New code should prefer
-/// the Booth names ([canvas], [glassBase] = Seat, [aisle], [rail], [fg]).
+/// Legacy token aliases are maintained for backwards compatibility.
+/// Code should prefer the projection booth tokens ([canvas], [glassBase] = Seat, [aisle], [rail], [fg]).
 abstract final class PTColors {
   // Booth neutrals. Warm, never pure black or white.
   static const canvas = Color(0xFF121010); // Booth
@@ -88,12 +87,6 @@ abstract final class PTColors {
   static const veilMid = Color(0x5E121010);
   static const veilLow = Color(0x26121010);
   static const veilClear = Color(0x00121010);
-
-  // Ambient glows - retired with the glass look. Transparent rather than
-  // removed so nothing still referencing them paints a violet haze.
-  static const glowDeep = Color(0x00000000);
-  static const glowEnd = Color(0x00000000);
-  static const glowIndigo = Color(0x00000000);
 
   // Banner / pill fills per kind. Opaque: nothing blurs behind them now.
   static const bannerSuccess = Color(0xFF15221F);

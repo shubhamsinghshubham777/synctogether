@@ -191,7 +191,7 @@ class _PTButtonState extends State<PTButton> {
   }
 }
 
-/// 44px round glass icon button. Smaller sizes keep a 44px hit area on touch
+/// 44px round icon button. Smaller sizes keep a 44px hit area on touch
 /// input (see [_touchTarget]).
 class PTIconButton extends StatefulWidget {
   const PTIconButton({
@@ -707,7 +707,7 @@ class _AppleMarkPainter extends CustomPainter {
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
-/// Small glass action pill with label + optional icon ("Hide cams", "+1 …").
+/// Small action pill with label + optional icon ("Hide cams", "+1 …").
 class PTActionPill extends StatelessWidget {
   const PTActionPill({super.key, required this.label, this.icon, this.onTap});
 

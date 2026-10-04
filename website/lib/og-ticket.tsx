@@ -1,7 +1,7 @@
 import React from "react";
 
 /**
- * Link-preview cards in the Booth Light language: one paper ticket on the
+ * Link-preview cards in the projection booth language: one paper ticket on the
  * booth. Satori (next/og) has no CSS masks, so the notches are booth-coloured
  * discs laid over the edge - which is exactly what a punched hole looks like
  * on a flat background.

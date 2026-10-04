@@ -76,7 +76,7 @@ class RoomChatPanel extends StatefulWidget {
   final Set<String> premiumMembers;
   final Map<String, AvatarFrame> memberFrames;
 
-  /// Embedded (mobile portrait) skips its own glass shell + close button.
+  /// Embedded (mobile portrait) skips its own panel shell + close button.
   final bool embedded;
 
   /// Docked into the theatre layout's right column: a flat Seat column with a
@@ -812,7 +812,7 @@ class _RoomChatPanelState extends State<RoomChatPanel> {
     },
   );
 
-  /// Pointer: a glass popover above the composer's leading edge, sized to and
+  /// Pointer: a popover above the composer's leading edge, sized to and
   /// kept inside the window rather than the panel (a floating panel can be
   /// shorter than the picker is useful at, and the overlay is not clipped by it).
   Widget _popover(BuildContext context, OverlayChildLayoutInfo info) {
@@ -848,8 +848,7 @@ class _RoomChatPanelState extends State<RoomChatPanel> {
               canRequestFocus: false,
               skipTraversal: true,
               onKeyEvent: _onComposerKey,
-              // Glass rule: scale in, never fade - an Opacity over the
-              // BackdropFilter would blur an empty layer.
+              // Popover entrance: scale in cleanly.
               // Animates 0 -> 1 when [_pickerOpen] flips, not at mount, since
               // a warmed picker mounts before it is revealed.
               child: TweenAnimationBuilder<double>(
@@ -866,8 +865,6 @@ class _RoomChatPanelState extends State<RoomChatPanel> {
                 ),
                 child: GlassPanel(
                   radius: 18,
-                  opacity: 0.85,
-                  blur: 32,
                   baseColor: PTColors.surfaceBase,
                   // Its own layer: the entrance transform then moves a cached
                   // picture instead of repainting every glyph each frame.

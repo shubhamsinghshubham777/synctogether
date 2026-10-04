@@ -240,7 +240,7 @@ class _RoomControlBarState extends State<RoomControlBar> with SingleTickerProvid
   double? _dragValue;
 
   /// Normalized 0–1 position under a hovering cursor (desktop only); drives the
-  /// seek-preview chip. The chip escapes the glass panel's clip via [_sliderLink].
+  /// seek-preview chip. The chip escapes the control panel's clip via [_sliderLink].
   double? _hoverValue;
   final _sliderLink = LayerLink();
 

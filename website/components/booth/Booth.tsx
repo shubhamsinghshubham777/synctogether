@@ -3,7 +3,7 @@ import Link from "next/link";
 import "./booth.css";
 
 /**
- * Small Booth Light building blocks for the editorial pages (account, auth,
+ * Small projection booth building blocks for the editorial pages (account, auth,
  * rewards, comparisons, legal). The home page and header have their own; these
  * mirror the same moves: a mono eyebrow, a Bricolage 800 headline with tight
  * tracking, ink stamps, and paper only for what is shared.

@@ -6,7 +6,7 @@ interface MicrosoftStoreBadgeProps {
 }
 
 /**
- * Microsoft Store link, set as a Booth Light outline button so it sits beside
+ * Microsoft Store link, set as a projection booth outline button so it sits beside
  * the `.exe` download without competing with the one lit button on the page.
  * The brand mark keeps its own colours - it is never recoloured.
  */

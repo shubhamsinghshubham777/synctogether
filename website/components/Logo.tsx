@@ -12,7 +12,7 @@ const wordSize = { sm: "text-lg", md: "text-[19px] sm:text-2xl", lg: "text-3xl",
 const markSize = { sm: "w-8 h-8 text-sm", md: "w-10 h-10 text-base", lg: "w-14 h-14 text-2xl", xl: "w-20 h-20 text-3xl" };
 
 /**
- * The Booth Light brand: a lowercase wordmark whose middle dot is the Beam -
+ * The projection booth brand: a lowercase wordmark whose middle dot is the Beam -
  * the one light in the room. No tile, no gradient. The square mark (for the
  * app icon, favicons, auth screens) is the same idea compressed to "s·t".
  *

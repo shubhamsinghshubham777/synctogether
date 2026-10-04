@@ -15,7 +15,7 @@ interface TicketProps {
 }
 
 /**
- * The Booth Light signature object, mirroring the app's `PTTicket`
+ * The projection booth signature object, mirroring the app's `PTTicket`
  * (lib/ui/booth.dart): a body and a stub split by a perforation, with a notch
  * bitten out of each short edge at mid-height. The notches are a CSS mask, so the ticket
  * sits on any background without painting fake holes.

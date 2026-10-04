@@ -63,7 +63,7 @@ final _ring = _beat(300, 880, PTMotion.exit);
 final _word = _beat(210, 910, _spring);
 final _wordFade = _beat(210, 490, PTMotion.enter);
 
-/// The app is built here, still hidden, so its first frame - glass blurs,
+/// The app is built here, still hidden, so its first frame -
 /// shader warm-up, the lobby's whole tree - is paid for during the hold
 /// instead of on the first frame of the fade, where it stalls the raster
 /// thread and turns the cross-fade into a cut.

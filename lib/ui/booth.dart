@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'pt_motion.dart';
 import 'pt_theme.dart';
 
-// Booth Light signature components: the ticket, the sync dot, the ready ring
+// Projection booth signature components: the ticket, the sync dot, the ready ring
 // and the stamp. Every animation here is one-shot or runs only while the
 // thing it describes is changing - nothing in this file keeps a ticker alive
 // on an idle screen, because most of these sit beside playing video.

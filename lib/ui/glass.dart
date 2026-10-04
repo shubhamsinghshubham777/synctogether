@@ -8,13 +8,11 @@ import 'buttons.dart';
 import 'pt_motion.dart';
 import 'pt_theme.dart';
 
-/// A Booth Light panel: an opaque Seat surface with a hairline Rail border.
+/// A projection booth panel: an opaque Seat surface with a hairline Rail border.
 ///
-/// The name survives from the glass system so every call site keeps working,
-/// but nothing blurs any more - elevation is lightness (Seat -> Aisle), not a
-/// BackdropFilter. That also retires the old trap where fading a panel made
-/// its blur sample an empty layer, and the per-frame cost of blurring over
-/// playing video.
+/// The name survives as an alias so call sites keep working without churn,
+/// but surfaces are fully opaque - elevation is lightness (Seat -> Aisle), not a
+/// BackdropFilter. There is no blur over playing video.
 ///
 /// [opacity] and [blur] are accepted for compatibility and ignored: a
 /// translucent panel with no blur would let the video bleed through the text.
@@ -102,7 +100,7 @@ class GlassPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Named for its old shape. Booth Light keeps full pills for people and
+    // Named for its old shape. The projection booth design keeps full pills for people and
     // presence only, so chrome chips take the panel corner.
     final pill = GlassPanel(radius: PTRadius.panel, padding: padding, child: child);
     if (onTap == null) return pill;
@@ -130,7 +128,7 @@ class AmbientBackground extends StatelessWidget {
   }
 }
 
-/// Shows a dialog with the standard dark scrim + blur, glass shell provided by
+/// Shows a dialog with the standard dark scrim and panel shell provided by
 /// [GlassPanel.dialog]. All redesigned dialogs go through this.
 ///
 /// The shell owns fitting the dialog to the screen, so call sites only pick a
@@ -145,7 +143,7 @@ class AmbientBackground extends StatelessWidget {
 ///   to 20 below 400 logical pixels of screen width;
 /// - `sheetOnCompact: true` presents it as a bottom sheet under 480 width, for
 ///   long forms that read better thumb-side on a phone.
-/// - `dimBackground: false` drops the scrim and the backdrop blur, for a
+/// - `dimBackground: false` drops the scrim, for a
 ///   dialog whose point is what is behind it (the subtitle style sheet previews
 ///   on the live video); [alignment] then docks it beside that content.
 Future<T?> showGlassDialog<T>({
@@ -402,7 +400,7 @@ class GlassDialogHeader extends StatelessWidget {
 
   final String title;
 
-  /// A mono uppercase kicker above the title (`// EYEBROW`), the Booth Light
+  /// A mono uppercase kicker above the title (`// EYEBROW`), the projection booth
   /// replacement for the old tinted icon tile. Pass it in any case; it is
   /// uppercased here.
   final String? eyebrow;
@@ -502,7 +500,7 @@ enum DialogNoteTone { neutral, premium, danger, live }
 
 /// A note inside a dialog: a Rail-outlined box (Brass for Patron, Signal for
 /// a warning) instead of the old tinted Beam fill. Tinted boxes read as
-/// buttons in Booth Light, where fill is spent on the one lit control.
+/// buttons in the projection booth theme, where fill is spent on the one lit control.
 class DialogNote extends StatelessWidget {
   const DialogNote({
     super.key,

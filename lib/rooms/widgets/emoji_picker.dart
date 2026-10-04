@@ -39,7 +39,7 @@ const _toneSwatches = ['✋', '✋🏻', '✋🏼', '✋🏽', '✋🏾', '✋�
 /// A surface only - it knows nothing about the chat field. [onPick] receives
 /// the final string (tone applied); where it goes is the caller's business.
 /// Presentation (popover, inline under the composer, inside the quick-bar
-/// editor) is the caller's too, which is why this has no glass shell of its own.
+/// editor) is the caller's too, which is why this has no outer panel of its own.
 class EmojiPicker extends StatefulWidget {
   EmojiPicker({
     super.key,

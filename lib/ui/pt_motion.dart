@@ -7,11 +7,7 @@ import 'package:flutter/material.dart';
 /// [PTColors]/[PTText]: screens pick a token, never an inline `Duration`.
 ///
 /// Two rules the rest of the kit depends on:
-/// * **Glass glides, it doesn't fade.** Anything wrapping a `GlassPanel` (i.e.
-///   a `BackdropFilter`) in `Opacity`/`FadeTransition` makes the blur sample an
-///   empty layer and the glass goes flat mid-animation. Slide, scale or clip
-///   glass - or animate `GlassPanel`'s own `opacity`/`blur` arguments, which is
-///   a real fade without an opacity layer.
+/// * **Panels glide, scale, or slide cleanly** without unnecessary opacity churn.
 /// * **Decorative motion checks [reducedMotion] and renders the end state;
 ///   functional motion shortens instead of disappearing.**
 abstract final class PTMotion {
@@ -46,7 +42,7 @@ abstract final class PTMotion {
 
   /// The one overshoot curve, for "arrival" moments only (unread badge,
   /// everyone's-ready toast, code completion). Never bounce/elastic - it
-  /// fights the glass aesthetic.
+  /// fights the cinema booth aesthetic.
   static const arrive = Curves.easeOutBack;
 
   /// Functional motion under reduce-motion: shorter, never removed.
@@ -60,9 +56,7 @@ bool reducedMotion(BuildContext context) => MediaQuery.disableAnimationsOf(conte
 
 /// Fade + rise (+ optional scale) on mount, with a [delay] for staggering.
 ///
-/// [fade] must be **false** when the child is a `GlassPanel` - see the class
-/// note on [PTMotion]. Children *inside* a panel sit above its `BackdropFilter`
-/// and may fade freely.
+/// [fade] controls whether an opacity fade is applied alongside translation.
 class PTEntrance extends StatefulWidget {
   const PTEntrance({
     super.key,
@@ -85,7 +79,7 @@ class PTEntrance extends StatefulWidget {
   /// 1.0 disables the scale leg.
   final double scaleFrom;
 
-  /// Whether to fade - never for glass surfaces.
+  /// Whether to fade alongside translation.
   final bool fade;
 
   /// False renders the end state immediately (e.g. a stagger that has already
@@ -215,7 +209,7 @@ class _PTPressableState extends State<PTPressable> {
 }
 
 /// Looping opacity breath. Decorative - renders its end state under
-/// reduce-motion, and fades, so never wrap glass in it.
+/// reduce-motion.
 class PTPulse extends StatefulWidget {
   const PTPulse({
     super.key,

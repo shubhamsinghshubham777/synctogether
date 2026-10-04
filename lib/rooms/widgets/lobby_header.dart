@@ -137,8 +137,7 @@ class LobbyMenuItem {
 /// (streak, quota, premium) above a divider, then profile and log out.
 ///
 /// Anchored under [anchor] (global rect of the avatar) and right-aligned to
-/// it. Motion follows the glass rule - slide and scale, never fade - since a
-/// faded `GlassPanel` blurs an empty layer.
+/// it. Motion uses slide and scale transitions.
 Future<void> showLobbyAccountMenu({
   required BuildContext context,
   required Rect anchor,
@@ -209,8 +208,6 @@ class _AccountMenuPanel extends StatelessWidget {
     );
     return GlassPanel(
       radius: 20,
-      opacity: 0.72,
-      blur: 32,
       baseColor: PTColors.surfaceBase,
       borderColor: PTColors.white(0.14),
       child: SingleChildScrollView(

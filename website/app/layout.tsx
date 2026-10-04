@@ -7,7 +7,7 @@ import { Footer } from "@/components/Footer";
 import { AnalyticsBeacon } from "@/components/AnalyticsBeacon";
 import { SITE_CONFIG } from "@/lib/constants";
 
-// Booth Light faces. globals.css maps the older --font-space-grotesk /
+// Projection booth typography. globals.css maps the older --font-space-grotesk /
 // --font-outfit slots onto these, so existing classes pick them up.
 // The opsz axis is what the boards render with: at display sizes Bricolage
 // narrows, and without it every headline sets wider and wraps early.

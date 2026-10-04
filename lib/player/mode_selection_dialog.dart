@@ -56,7 +56,7 @@ class ModeSelectionDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // The glass shell lands first, then its contents settle into it.
+    // The panel lands first, then its contents settle into it.
     return CallbackShortcuts(
       bindings: {const SingleActivator(LogicalKeyboardKey.escape): () => _handleClose(context)},
       child: Focus(

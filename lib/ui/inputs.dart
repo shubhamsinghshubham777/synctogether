@@ -637,7 +637,7 @@ class _PTSwitch extends StatelessWidget {
   }
 }
 
-/// A glass checkbox row: the whole tile toggles.
+/// A checkbox row: the whole tile toggles.
 class PTCheckTile extends StatelessWidget {
   const PTCheckTile({super.key, required this.label, required this.value, required this.onChanged});
 

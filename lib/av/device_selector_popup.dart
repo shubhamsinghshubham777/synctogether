@@ -162,8 +162,6 @@ class _DeviceSelectorPanelState extends State<_DeviceSelectorPanel> {
   Widget build(BuildContext context) {
     return GlassPanel(
       radius: 20,
-      opacity: 0.78,
-      blur: 32,
       baseColor: PTColors.surfaceBase,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       child: Column(

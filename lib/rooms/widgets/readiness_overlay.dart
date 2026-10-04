@@ -42,11 +42,8 @@ class ReadinessChipStyle {
 /// video only, on purpose (D2): chat, facecams and the member list stay
 /// usable while the room waits.
 ///
-/// [reveal] drives the whole in/out animation, 0 → 1. The glass is faded by
-/// tweening `GlassPanel`'s own `opacity`/`blur` arguments rather than by any
-/// enclosing `Opacity`: an opacity layer around a `BackdropFilter` leaves it
-/// sampling an empty layer, so the panel would go flat exactly while it is
-/// most visible. The scrim is a plain colour and animates freely.
+/// [reveal] drives the whole in/out animation, 0 → 1. The panel animates
+/// cleanly; the scrim is a plain colour and animates freely.
 class ReadinessOverlay extends StatelessWidget {
   const ReadinessOverlay({
     super.key,
@@ -152,15 +149,10 @@ class ReadinessOverlay extends StatelessWidget {
             scale: 0.96 + 0.04 * t,
             child: GlassPanel(
               radius: compact ? 20 : 24,
-              opacity: 0.72 * t,
-              // Never exactly zero: a zero-sigma ImageFilter.blur is degenerate.
-              blur: 6 + 28 * t,
               baseColor: PTColors.surfaceBase,
               borderColor: PTColors.white(0.14 * t),
               shadow: false,
               padding: EdgeInsets.all(compact ? 18 : 24),
-              // Safe to fade: this sits *inside* the panel, above its
-              // BackdropFilter, so no blur is sampling through it.
               child: Opacity(
                 opacity: t,
                 child: Column(

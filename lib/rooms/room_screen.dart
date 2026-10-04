@@ -3483,8 +3483,6 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
         ignoring: _controlsVisible,
         child: GlassPanel(
           radius: 20,
-          opacity: 0.7,
-          blur: 24,
           baseColor: PTColors.surfaceBase,
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
           child: PTIconButton(
@@ -4932,10 +4930,9 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
           right: 0,
           child: IgnorePointer(
             child: Center(
-              // Drops in from above and rises on the way out. The pill is glass,
-              // so fading it does flatten the blur for the duration - accepted
-              // here because `Opacity` skips painting entirely at zero, which
-              // keeps a dormant BackdropFilter off the playing video.
+              // Drops in from above and rises on the way out. The pill is an
+              // opaque panel, and AnimatedSlide + AnimatedOpacity provide a
+              // clean entrance and exit.
               child: AnimatedSlide(
                 offset: _actionToastVisible ? Offset.zero : const Offset(0, -0.4),
                 duration: PTMotion.functional(context, PTMotion.state),
@@ -5435,9 +5432,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
 
   /// The chat panel itself: slides in from off the right edge (the Stack clips
   /// it on the way past) and unmounts at rest, so the panel and its input only
-  /// exist while it's on screen. Deliberately *not* faded - the
-  /// panel is a GlassPanel, and an Opacity layer around a BackdropFilter leaves
-  /// it sampling an empty layer, i.e. the glass goes flat mid-animation.
+  /// exist while it's on screen.
   Widget _chatRevealed({required double offscreen, required Widget panel}) {
     return AnimatedBuilder(
       animation: _chatCurve,

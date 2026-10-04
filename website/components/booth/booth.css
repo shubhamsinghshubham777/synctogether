@@ -1,5 +1,5 @@
 /*
- * Booth Light pieces shared by the account, auth, rewards, comparison and
+ * Projection booth cinema pieces shared by the account, auth, rewards, comparison and
  * legal pages (components/booth). Kept out of app/globals.css so those pages
  * can evolve without touching the site-wide sheet. Unlayered on purpose: the
  * `.legal-prose` rules must win over the utility classes the long-form legal

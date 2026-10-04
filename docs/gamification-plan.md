@@ -145,8 +145,8 @@ people already in the ecosystem.
 
 ### 0.3 OG image infrastructure
 
-Stand up `next/og` `ImageResponse` once, with the violet-glass look, Space Grotesk and
-Outfit loaded from the same font files the app bundles. Every later phase - recap cards,
+Stand up `next/og` `ImageResponse` once, with the cinema booth look, Bricolage Grotesque and
+Hanken Grotesk loaded from the same font files the app bundles. Every later phase - recap cards,
 public profiles, leaderboard rows, Wrapped - reuses this renderer. Doing it once here is
 what keeps phases 1-4 cheap.
 
@@ -772,7 +772,7 @@ Learned the hard way, and all four matter:
    that does not touch the rest (`night_owl` lost its second star that way), so ask
    for one connected shape.
 
-The Booth Light set is **flat rubber-stamp ink**, one colour per badge, slightly
+The projection booth set is **flat rubber-stamp ink**, one colour per badge, slightly
 rotated: the "stamps" of the Components board. Colours are Cue teal #6FD6C4 for the
 sync badges (`first_sync`, `perfect_sync`), Brass #E8C877 for the gold ones
 (`unbroken`, `century`, `devoted`, `season_1`), Screen #F4ECDF for `season_2`,

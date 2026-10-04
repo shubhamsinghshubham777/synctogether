@@ -16,29 +16,25 @@ export default async function ChangelogPage() {
   const fallbackReleases = [
     {
       id: 1,
-      tag_name: "v0.11.0",
-      name: "SyncTogether 0.11.0: Facecams & Persistent Rooms",
-      published_at: "2026-08-11T12:00:00Z",
-      body: `### New Features
-- **Video & Voice Facecams**: Real-time Video and low-latency Voice facecams integrated directly into rooms.
-- **Persistent Rooms**: Premium hosts can now create named, permanent rooms that never expire.
-- **Animated Lottie Reactions**: 24 expressive Google Noto animated emoji reactions floating dynamically over video.
-- **Extended Sessions**: Free rooms support continuous 4-hour watch sessions, resuming local file timestamps seamlessly.
-
-### Performance & Engine
-- Upgraded video playback engine with improved hardware decoding on macOS & Windows.
-- Clock-skew resistant server time synchronization for synchronized, drift-corrected play/pause events.`,
+      tag_name: "v1.9.0",
+      name: "SyncTogether 1.9.0: Projection Booth Cinema Experience",
+      published_at: "2026-10-04T12:00:00Z",
+      body: `### New Features & Improvements
+- **Projection Booth Aesthetic**: Immersive cinema dark interface designed to keep the picture front and center with warm matte neutrals, high-contrast typography, and Beam amber accents.
+- **Enhanced Media Sharing**: High-speed peer transfer with instant local file playback fallback.
+- **Real-Time Synchronisation**: Low-latency lockstep playback and state synchronization across macOS and Windows.
+- **Facecams & Multi-Track Audio**: High-fidelity LiveKit facecam rails and real-time room communication.`,
       html_url: "https://github.com/shubhamsinghshubham777/synctogether/releases",
     },
     {
       id: 2,
-      tag_name: "v0.10.0",
-      name: "SyncTogether 0.10.0: Redesigned Violet Glass Interface",
-      published_at: "2026-08-04T10:00:00Z",
+      tag_name: "v1.8.0",
+      name: "SyncTogether 1.8.0: Audio/Video & Performance Enhancements",
+      published_at: "2026-09-20T10:00:00Z",
       body: `### Highlights
-- Complete design overhaul featuring violet glassmorphism aesthetics and custom typography (Space Grotesk, Outfit, JetBrains Mono).
-- YouTube playback integration with shared seekbar synchronization.
-- Real-time room chat with typing presence and per-user avatar styling.`,
+- Seamless hardware-accelerated video decoding on macOS and Windows.
+- Dynamic animated emoji reactions and real-time room chat.
+- Advanced subtitle rendering and track selection.`,
       html_url: "https://github.com/shubhamsinghshubham777/synctogether/releases",
     },
   ];

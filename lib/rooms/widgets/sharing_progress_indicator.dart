@@ -1,4 +1,3 @@
-import 'dart:ui';
 import '../../ui/booth_icons.g.dart';
 import 'package:flutter/material.dart';
 import '../../ui/pt_theme.dart';
@@ -55,112 +54,104 @@ class SharingProgressIndicator extends StatelessWidget {
       if (etaText.isNotEmpty) 'ETA $etaText',
     ].join(' • ');
 
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(PTRadius.control),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-          decoration: BoxDecoration(
-            color: theme.colorScheme.surface.withValues(alpha: 0.85),
-            borderRadius: BorderRadius.circular(PTRadius.control),
-            border: Border.all(
-              color: isFailed
-                  ? theme.colorScheme.error.withValues(alpha: 0.5)
-                  : theme.colorScheme.primary.withValues(alpha: 0.2),
-            ),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: PTColors.surfaceBase,
+        borderRadius: BorderRadius.circular(PTRadius.control),
+        border: Border.all(
+          color: isFailed ? theme.colorScheme.error.withValues(alpha: 0.5) : PTColors.rail,
+        ),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
             children: [
-              Row(
-                children: [
-                  Icon(
-                    isDone
-                        ? Icons.check_circle_outline
-                        : isFailed
-                        ? Icons.error_outline
-                        : BoothIcons.cloudUpload,
-                    size: 18,
-                    color: isDone
-                        ? PTColors.online
-                        : isFailed
-                        ? theme.colorScheme.error
-                        : theme.colorScheme.primary,
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      label,
-                      style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    '$percentage%',
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: isDone
-                          ? PTColors.online
-                          : isFailed
-                          ? theme.colorScheme.error
-                          : theme.colorScheme.primary,
-                    ),
-                  ),
-                  if (onCancel != null && !isDone) ...[
-                    const SizedBox(width: 4),
-                    IconButton(
-                      icon: const Icon(BoothIcons.close, size: 16),
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
-                      splashRadius: 16,
-                      onPressed: onCancel,
-                    ),
-                  ],
-                  if (onRetry != null && isFailed) ...[
-                    const SizedBox(width: 4),
-                    IconButton(
-                      icon: const Icon(BoothIcons.restore, size: 16),
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
-                      splashRadius: 16,
-                      onPressed: onRetry,
-                    ),
-                  ],
-                ],
+              Icon(
+                isDone
+                    ? Icons.check_circle_outline
+                    : isFailed
+                    ? Icons.error_outline
+                    : BoothIcons.cloudUpload,
+                size: 18,
+                color: isDone
+                    ? PTColors.online
+                    : isFailed
+                    ? theme.colorScheme.error
+                    : theme.colorScheme.primary,
               ),
-              const SizedBox(height: 8),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(4),
-                child: LinearProgressIndicator(
-                  value: isDone ? 1.0 : (isFailed ? 0.0 : fraction),
-                  minHeight: 6,
-                  backgroundColor: theme.colorScheme.onSurface.withValues(alpha: 0.1),
-                  valueColor: AlwaysStoppedAnimation<Color>(
-                    isDone
-                        ? PTColors.online
-                        : isFailed
-                        ? theme.colorScheme.error
-                        : theme.colorScheme.primary,
-                  ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  label,
+                  style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
-              if (stats.isNotEmpty && !isDone && !isFailed) ...[
-                const SizedBox(height: 6),
-                Text(
-                  stats,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-                    fontSize: 11,
-                  ),
+              const SizedBox(width: 8),
+              Text(
+                '$percentage%',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: isDone
+                      ? PTColors.online
+                      : isFailed
+                      ? theme.colorScheme.error
+                      : theme.colorScheme.primary,
+                ),
+              ),
+              if (onCancel != null && !isDone) ...[
+                const SizedBox(width: 4),
+                IconButton(
+                  icon: const Icon(BoothIcons.close, size: 16),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
+                  splashRadius: 16,
+                  onPressed: onCancel,
+                ),
+              ],
+              if (onRetry != null && isFailed) ...[
+                const SizedBox(width: 4),
+                IconButton(
+                  icon: const Icon(BoothIcons.restore, size: 16),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
+                  splashRadius: 16,
+                  onPressed: onRetry,
                 ),
               ],
             ],
           ),
-        ),
+          const SizedBox(height: 8),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: isDone ? 1.0 : (isFailed ? 0.0 : fraction),
+              minHeight: 6,
+              backgroundColor: theme.colorScheme.onSurface.withValues(alpha: 0.1),
+              valueColor: AlwaysStoppedAnimation<Color>(
+                isDone
+                    ? PTColors.online
+                    : isFailed
+                    ? theme.colorScheme.error
+                    : theme.colorScheme.primary,
+              ),
+            ),
+          ),
+          if (stats.isNotEmpty && !isDone && !isFailed) ...[
+            const SizedBox(height: 6),
+            Text(
+              stats,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                fontSize: 11,
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }

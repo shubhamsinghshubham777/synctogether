@@ -4,7 +4,7 @@ import 'package:synctogether/rooms/widgets/room_control_bar.dart';
 import 'package:synctogether/ui/booth.dart';
 import 'package:synctogether/ui/pt_theme.dart';
 
-// Booth Light components must animate on the edges they describe and then go
+// Projection booth components must animate on the edges they describe and then go
 // quiet: every test here ends by asserting no frame is scheduled, because an
 // idle ticker beside playing video is the cost this design refuses to pay.
 

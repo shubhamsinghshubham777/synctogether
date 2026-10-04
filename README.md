@@ -37,7 +37,7 @@ SyncTogether is a modern cross-platform application for synchronized media playb
 - **Flexible Authentication** - Instant anonymous guest accounts (protected by Cloudflare Turnstile), Sign in with Apple, Google Sign-In, or Passwordless Email OTP with seamless in-place identity upgrades.
 - **Resumable & Persistent Rooms** - Dormant rooms can be resumed by the host with playback position preserved, or extended/ended on demand.
 - **Self-Hosting Ready** - Deploy the complete stack (Postgres database, Realtime engine, Edge Functions, LiveKit server, Web portal) on your own infrastructure or cloud free tiers.
-- **Booth Light design** - A warm, matte "projection booth" look where the video is always the brightest thing on screen, consistent across desktop, tablet and mobile.
+- **Projection Booth cinema design** - A warm, matte cinema projection booth dark aesthetic where the video is always the brightest thing on screen, consistent across desktop, tablet and mobile.
 
 ---
 
@@ -114,7 +114,7 @@ Release builds and installer artifacts are built via GitHub Actions (`.github/wo
 
 | Directory | Description |
 |---|---|
-| `lib/ui/` | Booth Light design system: tokens (`PTColors`, `PTText`), buttons, inputs, loaders (`PTLoader`), dialogs |
+| `lib/ui/` | Projection Booth design system: tokens (`PTColors`, `PTText`), buttons, inputs, loaders (`PTLoader`), dialogs |
 | `lib/auth/`, `lib/profile/` | Authentication flows, Turnstile captcha bridge, user profiles, entitlement management |
 | `lib/rooms/` | Lobby, room screen, participant grid, room lifecycle & service |
 | `lib/sync/` | Lockstep synchronization engine (`SyncService`, `SyncBackend`, `SyncLogic`) |

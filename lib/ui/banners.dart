@@ -13,9 +13,8 @@ enum PTBannerKind { warning, info, error }
 
 enum PTSnackKind { info, success, error }
 
-/// Transient toast. Same tinted-surface recipe as [PTBanner] and deliberately
-/// **not** glass: `ScaffoldMessenger` wraps floating snack bars in a
-/// `FadeTransition`, and a `BackdropFilter` inside one samples an empty layer.
+/// Transient toast. Same tinted-surface recipe as [PTBanner]: opaque tinted
+/// booth surface for clean rendering over video.
 ///
 /// Newest wins - the queue is cleared before every show. Without that, holding
 /// a blocked key (Space against a shut readiness gate) stacked one four-second
@@ -132,7 +131,7 @@ void showPTSnackVia(
     );
 }
 
-/// Tinted glass banner (T-5 warning / reconnecting / file mismatch).
+/// Tinted booth banner (T-5 warning / reconnecting / file mismatch).
 class PTBanner extends StatefulWidget {
   const PTBanner({
     super.key,

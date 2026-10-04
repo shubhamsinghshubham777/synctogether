@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:synctogether/ui/pt_motion.dart';
 import 'package:synctogether/ui/pt_theme.dart';
 
-/// The Booth Light brand: a lowercase wordmark whose middle dot is the Beam -
+/// The projection booth brand: a lowercase wordmark whose middle dot is the Beam -
 /// the one light in the room. No tile, no gradient.
 ///
 /// On pointer hover the dot warms up (grows and spills light), like a

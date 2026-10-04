@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 /*
- * Booth Light - the SyncTogether design language, shared with the app
+ * Projection Booth - the SyncTogether design language, shared with the app
  * (lib/ui/pt_theme.dart). Dark only: the room is dark and the picture is the
  * brightest thing in it. ~90% warm booth neutral; Beam amber is spent only on
  * what is live (the one primary action per view); Signal coral is on-air and
@@ -154,7 +154,7 @@
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
 }
 
-/* Formerly gradient text. Booth Light has no gradients: brand text is Screen,
+/* Formerly gradient text. The projection booth theme has no gradients: brand text is Screen,
    accent text is Beam, gold is Brass. */
 .text-gradient-brand {
   color: var(--pt-fg);
@@ -410,7 +410,7 @@
 }
 
 /* Microsoft Store badge - Fluent-style dark surface. Its hover glow is
-   Microsoft blue rather than the site's violet, so the badge reads as a store
+   Microsoft blue rather than Beam amber, so the badge reads as a store
    badge sitting on the card instead of another brand button. */
 .ms-store-badge {
   background: var(--color-seat);

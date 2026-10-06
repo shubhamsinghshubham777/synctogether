@@ -133,7 +133,7 @@ export function formatPromptForAgent(report: {
   reason: string;
   createdAt: string;
   reporter?: { displayName?: string; email?: string } | null;
-  reported?: { id?: string; displayName?: string; email?: string; strikesCount?: number; status?: string } | null;
+  reported?: { id?: string; displayName?: string; email?: string; strikesCount?: number; moderationStatus?: string } | null;
   room?: { code?: string; isBanned?: boolean } | null;
   media?: { kind?: string | null; title?: string | null; url?: string | null } | null;
   messageExcerpt?: string | null;
@@ -148,7 +148,7 @@ export function formatPromptForAgent(report: {
 #### Reported User
 - **Name**: ${report.reported?.displayName || "Unknown"}
 - **User ID**: \`${report.reported?.id || "N/A"}\`
-- **Prior Strikes**: ${report.reported?.strikesCount ?? 0} / 2 (Status: ${report.reported?.status || "clean"})
+- **Prior Strikes**: ${report.reported?.strikesCount ?? 0} / 2 (Status: ${report.reported?.moderationStatus || "clean"})
 
 #### Media & Room Context
 - **Room Code**: ${report.room?.code || "N/A"}

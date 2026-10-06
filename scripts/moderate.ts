@@ -78,6 +78,12 @@ function parseArgs(args: string[]): { cmd: string; pos: string[]; flags: Record<
   return { cmd, pos, flags };
 }
 
+/** Moderation state lives in `profile_moderation`; the embed is absent for a clean user. */
+function moderationOf(profile: any): any {
+  const m = profile?.profile_moderation;
+  return (Array.isArray(m) ? m[0] : m) ?? {};
+}
+
 async function listReports(statusFilter = "open") {
   console.log(`\n🔍 Fetching reports from ${url}...`);
   let query = supabase
@@ -98,7 +104,7 @@ async function listReports(statusFilter = "open") {
       reported_user_id,
       ai_risk_score,
       ai_recommended_action,
-      reported_profile:profiles!content_reports_reported_user_id_fkey(id, display_name, email, strikes_count, moderation_status)
+      reported_profile:profiles!content_reports_reported_user_id_fkey(id, display_name, email, profile_moderation(strikes_count, moderation_status))
     `)
     .order("created_at", { ascending: false });
 
@@ -120,7 +126,8 @@ async function listReports(statusFilter = "open") {
   console.log(`\n📋 Found ${data.length} report(s) [Filter: ${statusFilter}]:\n`);
   for (const r of data) {
     const reported = r.reported_profile as any;
-    const strikeInfo = reported ? `[Strikes: ${reported.strikes_count}/2, Status: ${reported.moderation_status}]` : "[No profile]";
+    const mod = moderationOf(reported);
+    const strikeInfo = reported ? `[Strikes: ${mod.strikes_count ?? 0}/2, Status: ${mod.moderation_status ?? "clean"}]` : "[No profile]";
     console.log(`────────────────────────────────────────────────────────────`);
     console.log(`ID:        \x1b[36m${r.id}\x1b[0m`);
     console.log(`Status:    \x1b[33m${r.status.toUpperCase()}\x1b[0m | Reason: \x1b[31m${r.reason}\x1b[0m`);
@@ -152,7 +159,7 @@ async function inspectReport(reportId: string) {
     .select(`
       *,
       reporter:profiles!content_reports_reporter_id_fkey(id, display_name, email),
-      reported:profiles!content_reports_reported_user_id_fkey(id, display_name, email, strikes_count, moderation_status, warning_reason, ban_reason)
+      reported:profiles!content_reports_reported_user_id_fkey(id, display_name, email, profile_moderation(strikes_count, moderation_status, warning_reason, ban_reason))
     `)
     .eq("id", reportId)
     .maybeSingle();
@@ -185,10 +192,11 @@ async function inspectReport(reportId: string) {
   console.log(`ID:          ${report.reported?.id}`);
   console.log(`Name:        ${report.reported?.display_name}`);
   console.log(`Email:       ${report.reported?.email || "N/A"}`);
-  console.log(`Strikes:     ${report.reported?.strikes_count}/2`);
-  console.log(`Status:      ${report.reported?.moderation_status}`);
-  if (report.reported?.warning_reason) console.log(`Last Warn:   ${report.reported?.warning_reason}`);
-  if (report.reported?.ban_reason) console.log(`Ban Reason:  ${report.reported?.ban_reason}`);
+  const mod = moderationOf(report.reported);
+  console.log(`Strikes:     ${mod.strikes_count ?? 0}/2`);
+  console.log(`Status:      ${mod.moderation_status ?? "clean"}`);
+  if (mod.warning_reason) console.log(`Last Warn:   ${mod.warning_reason}`);
+  if (mod.ban_reason) console.log(`Ban Reason:  ${mod.ban_reason}`);
 
   console.log(`\n--- MEDIA & ROOM EVIDENCE ---`);
   console.log(`Room Code:   ${report.room_code || roomData?.code || "N/A"}`);

@@ -10,6 +10,13 @@ class Profile {
     this.r2UploadBytes7d = 0,
     this.r2UploadWindowStart,
     this.r2CooldownUntil,
+    this.strikesCount = 0,
+    this.moderationStatus = 'clean',
+    this.warningReason,
+    this.warningAcknowledged = true,
+    this.lastWarnedAt,
+    this.bannedAt,
+    this.banReason,
   });
 
   final String id;
@@ -23,6 +30,18 @@ class Profile {
   final int r2UploadBytes7d;
   final DateTime? r2UploadWindowStart;
   final DateTime? r2CooldownUntil;
+
+  final int strikesCount;
+  final String moderationStatus;
+  final String? warningReason;
+  final bool warningAcknowledged;
+  final DateTime? lastWarnedAt;
+  final DateTime? bannedAt;
+  final String? banReason;
+
+  bool get isBanned => moderationStatus == 'banned';
+  bool get isWarned => moderationStatus == 'warned';
+  bool get needsWarningAcknowledgment => isWarned && !warningAcknowledged;
 
   int remainingWeeklyBytes(int weeklyLimit) {
     if (weeklyLimit <= 0) return -1;
@@ -72,6 +91,15 @@ class Profile {
       r2CooldownUntil: json['r2_cooldown_until'] != null
           ? DateTime.tryParse(json['r2_cooldown_until'] as String)
           : null,
+      strikesCount: (json['strikes_count'] as num?)?.toInt() ?? 0,
+      moderationStatus: (json['moderation_status'] as String?) ?? 'clean',
+      warningReason: json['warning_reason'] as String?,
+      warningAcknowledged: json['warning_acknowledged'] as bool? ?? true,
+      lastWarnedAt: json['last_warned_at'] != null
+          ? DateTime.tryParse(json['last_warned_at'] as String)
+          : null,
+      bannedAt: json['banned_at'] != null ? DateTime.tryParse(json['banned_at'] as String) : null,
+      banReason: json['ban_reason'] as String?,
     );
   }
 
@@ -82,6 +110,13 @@ class Profile {
     int? r2UploadBytes7d,
     DateTime? r2UploadWindowStart,
     DateTime? r2CooldownUntil,
+    int? strikesCount,
+    String? moderationStatus,
+    String? warningReason,
+    bool? warningAcknowledged,
+    DateTime? lastWarnedAt,
+    DateTime? bannedAt,
+    String? banReason,
   }) {
     return Profile(
       id: id,
@@ -94,6 +129,13 @@ class Profile {
       r2UploadBytes7d: r2UploadBytes7d ?? this.r2UploadBytes7d,
       r2UploadWindowStart: r2UploadWindowStart ?? this.r2UploadWindowStart,
       r2CooldownUntil: r2CooldownUntil ?? this.r2CooldownUntil,
+      strikesCount: strikesCount ?? this.strikesCount,
+      moderationStatus: moderationStatus ?? this.moderationStatus,
+      warningReason: warningReason ?? this.warningReason,
+      warningAcknowledged: warningAcknowledged ?? this.warningAcknowledged,
+      lastWarnedAt: lastWarnedAt ?? this.lastWarnedAt,
+      bannedAt: bannedAt ?? this.bannedAt,
+      banReason: banReason ?? this.banReason,
     );
   }
 }

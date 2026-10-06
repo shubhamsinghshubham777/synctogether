@@ -146,4 +146,35 @@ void main() {
       expect(boxed.outlineSize, 0);
     });
   });
+
+  group('liftedSubPosition', () {
+    test('raises bottom-half lines by the lift', () {
+      expect(liftedSubPosition(100, 12), 88);
+      expect(liftedSubPosition(90, 12), 78);
+    });
+
+    test('no lift leaves the position alone', () {
+      expect(liftedSubPosition(100, 0), 100);
+      expect(liftedSubPosition(100, -5), 100);
+    });
+
+    test('top-aligned subtitles have nothing to clear', () {
+      expect(liftedSubPosition(10, 12), 10);
+      expect(liftedSubPosition(49, 12), 49);
+    });
+
+    test('never rises above the middle of the picture', () {
+      expect(liftedSubPosition(100, 80), 50);
+      expect(liftedSubPosition(60, 30), 50);
+    });
+
+    test('toMpvProperties writes the lifted sub-pos and nothing else changes', () {
+      final style = SubtitleStyle.defaults();
+      final plain = toMpvProperties(style, font: 'f', bold: false, italic: false);
+      final lifted = toMpvProperties(style, font: 'f', bold: false, italic: false, lift: 13);
+      expect(plain['sub-pos'], '100');
+      expect(lifted['sub-pos'], '87');
+      expect({...lifted}..remove('sub-pos'), {...plain}..remove('sub-pos'));
+    });
+  });
 }

@@ -208,6 +208,7 @@ class PTIconButton extends StatefulWidget {
     this.color,
     this.borderRadius,
     this.spinOnPress = 0,
+    this.offset,
   });
 
   final IconData icon;
@@ -215,6 +216,7 @@ class PTIconButton extends StatefulWidget {
   final double size;
   final double iconSize;
   final String? tooltip;
+  final Offset? offset;
 
   /// Active = the Beam wash with a Beam hairline and a Beam glyph (chat open,
   /// reactions open).
@@ -330,7 +332,13 @@ class _PTIconButtonState extends State<PTIconButton> with SingleTickerProviderSt
             width: widget.size,
             height: widget.size,
             decoration: decoration,
-            child: glyph,
+            alignment: .center,
+            child: Transform.translate(
+              offset:
+                  widget.offset ??
+                  (widget.icon.fontFamily == 'BoothIcons' ? const Offset(0, 1.0) : Offset.zero),
+              child: glyph,
+            ),
           ),
         ),
       ),

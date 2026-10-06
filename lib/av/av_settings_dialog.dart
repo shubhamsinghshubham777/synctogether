@@ -15,6 +15,9 @@ import 'package:synctogether/ui/glass.dart';
 import 'package:synctogether/ui/loader.dart';
 import 'package:synctogether/ui/pt_theme.dart';
 
+/// Factory for creating local video tracks. Injectable for testing without real camera hardware.
+typedef CameraTrackFactory = Future<lk.LocalVideoTrack?> Function(String? deviceId);
+
 Future<void> showAvSettingsDialog(
   BuildContext context, {
   Future<List<lk.MediaDevice>> Function()? enumerateAudioInputs,
@@ -23,6 +26,7 @@ Future<void> showAvSettingsDialog(
   Player? testPlayer,
   Future<void> Function(lk.MediaDevice? selectedOutput)? onTestSound,
   MicLevels? micLevels,
+  CameraTrackFactory? cameraTrackFactory,
 }) {
   return showGlassDialog(
     context: context,
@@ -39,6 +43,7 @@ Future<void> showAvSettingsDialog(
       testPlayer: testPlayer,
       onTestSound: onTestSound,
       micLevels: micLevels ?? liveMicLevels,
+      cameraTrackFactory: cameraTrackFactory,
     ),
   );
 }
@@ -56,26 +61,114 @@ Stream<List<double>> liveMicLevels(String? deviceId) {
   lk.LocalAudioTrack? track;
   lk.AudioVisualizer? visualizer;
   lk.EventsListener<lk.AudioVisualizerEvent>? listener;
+  lk.CancelListenFunc? removeRenderer;
   late final StreamController<List<double>> out;
   out = StreamController<List<double>>(
     onListen: () async {
       try {
-        track = await lk.LocalAudioTrack.create(lk.AudioCaptureOptions(deviceId: deviceId));
-        if (out.isClosed) return;
+        debugPrint('[BoothCheck/Mic] Starting mic test. Input requested deviceId: "$deviceId"');
+        String? webrtcDeviceId = deviceId;
+        try {
+          final webrtcDevices = await lk.Hardware.instance.audioInputs();
+          debugPrint(
+            '[BoothCheck/Mic] Hardware.audioInputs returned ${webrtcDevices.length} devices: '
+            '${webrtcDevices.map((d) => "[id: ${d.deviceId}, label: ${d.label}]").join(", ")}',
+          );
+          final match = webrtcDevices
+              .where(
+                (d) =>
+                    d.deviceId == deviceId ||
+                    (deviceId != null &&
+                        d.label.trim().toLowerCase() == deviceId.trim().toLowerCase()),
+              )
+              .firstOrNull;
+          if (match != null) {
+            webrtcDeviceId = match.deviceId;
+            debugPrint(
+              '[BoothCheck/Mic] Matched WebRTC device: id=${match.deviceId}, label=${match.label}',
+            );
+            await lk.Hardware.instance.selectAudioInput(match);
+          } else {
+            debugPrint(
+              '[BoothCheck/Mic] No exact Hardware.audioInputs match for "$deviceId", using as-is',
+            );
+          }
+        } catch (e, st) {
+          debugPrint('[BoothCheck/Mic] Error querying Hardware.audioInputs: $e\n$st');
+        }
+
+        debugPrint('[BoothCheck/Mic] Creating LocalAudioTrack with deviceId: "$webrtcDeviceId"');
+        track = await lk.LocalAudioTrack.create(lk.AudioCaptureOptions(deviceId: webrtcDeviceId));
+        debugPrint(
+          '[BoothCheck/Mic] Track created successfully: id=${track?.mediaStreamTrack.id}, '
+          'enabled=${track?.mediaStreamTrack.enabled}, muted=${track?.muted}',
+        );
+
+        if (out.isClosed) {
+          debugPrint('[BoothCheck/Mic] Stream already closed before start, stopping track');
+          await track?.stop();
+          await track?.dispose();
+          return;
+        }
+
+        debugPrint('[BoothCheck/Mic] Calling track.start()...');
+        await track!.start();
+        debugPrint('[BoothCheck/Mic] track.start() completed. Track active: ${track?.isActive}');
+
+        // Diagnostic raw PCM renderer probe to see if audio frames arrive from WebRTC
+        var rawFrameCount = 0;
+        try {
+          removeRenderer = track!.addAudioRenderer(
+            onFrame: (frame) {
+              rawFrameCount++;
+              if (rawFrameCount == 1 || rawFrameCount % 100 == 0) {
+                // Compute peak level across the PCM buffer
+                var maxSample = 0;
+                final bytes = frame.data;
+                for (var i = 0; i + 1 < bytes.length; i += 2) {
+                  final sample = (bytes[i] | (bytes[i + 1] << 8)).toSigned(16).abs();
+                  if (sample > maxSample) maxSample = sample;
+                }
+                debugPrint(
+                  '[BoothCheck/Mic] Raw PCM frame #$rawFrameCount received: '
+                  'sampleRate=${frame.sampleRate}, channels=${frame.channels}, '
+                  'bytes=${bytes.length}, peak16=$maxSample / 32767 (${(maxSample / 32767 * 100).toStringAsFixed(1)}%)',
+                );
+              }
+            },
+          );
+          debugPrint('[BoothCheck/Mic] Raw PCM renderer attached successfully');
+        } catch (e) {
+          debugPrint('[BoothCheck/Mic] Could not attach raw PCM renderer: $e');
+        }
+
+        debugPrint('[BoothCheck/Mic] Initializing LiveKit AudioVisualizer...');
         visualizer = lk.createVisualizer(
           track!,
           options: const lk.AudioVisualizerOptions(barCount: _kMeterBars, centeredBands: false),
         );
+        var visualizerEvents = 0;
         listener = visualizer!.createListener()
           ..on<lk.AudioVisualizerEvent>((e) {
-            if (out.isClosed) return;
-            out.add([
+            visualizerEvents++;
+            final rawLevels = [
               for (final v in e.event) ((v as num?)?.toDouble() ?? 0).clamp(0, 1).toDouble(),
-            ]);
+            ];
+            final maxLevel = rawLevels.fold<double>(0.0, (m, v) => v > m ? v : m);
+            if (visualizerEvents == 1 || visualizerEvents % 50 == 0 || maxLevel > 0.05) {
+              debugPrint(
+                '[BoothCheck/Mic] Visualizer event #$visualizerEvents: '
+                'maxLevel=${maxLevel.toStringAsFixed(3)}, levels=[${rawLevels.map((l) => l.toStringAsFixed(2)).join(", ")}]',
+              );
+            }
+            if (out.isClosed) return;
+            out.add(rawLevels);
           });
         await visualizer!.start();
+        debugPrint('[BoothCheck/Mic] Visualizer started successfully');
         trace('mic level test started', category: 'av');
       } catch (e, st) {
+        debugPrint('[BoothCheck/Mic] Exception during mic level test: $e\n$st');
         // A refused permission is the user's answer, not a bug.
         final refused = '$e'.contains('NotAllowed') || '$e'.toLowerCase().contains('permission');
         if (refused) {
@@ -87,11 +180,16 @@ Stream<List<double>> liveMicLevels(String? deviceId) {
       }
     },
     onCancel: () async {
+      debugPrint('[BoothCheck/Mic] Cleaning up mic level test...');
+      try {
+        if (removeRenderer != null) await removeRenderer!();
+      } catch (_) {}
       await listener?.dispose();
       await visualizer?.stop();
       await visualizer?.dispose();
       await track?.stop();
       await track?.dispose();
+      debugPrint('[BoothCheck/Mic] Cleanup completed');
     },
   );
   return out.stream;
@@ -105,6 +203,7 @@ class _AvSettingsDialogContent extends StatefulWidget {
     this.testPlayer,
     this.onTestSound,
     required this.micLevels,
+    this.cameraTrackFactory,
   });
 
   final MicLevels micLevels;
@@ -113,6 +212,7 @@ class _AvSettingsDialogContent extends StatefulWidget {
   final Future<List<lk.MediaDevice>> Function()? enumerateAudioOutputs;
   final Player? testPlayer;
   final Future<void> Function(lk.MediaDevice? selectedOutput)? onTestSound;
+  final CameraTrackFactory? cameraTrackFactory;
 
   @override
   State<_AvSettingsDialogContent> createState() => _AvSettingsDialogContentState();
@@ -136,6 +236,15 @@ class _AvSettingsDialogContentState extends State<_AvSettingsDialogContent> {
   Player? _testPlayer;
   bool _isPlayingTestSound = false;
 
+  // Output test audio levels animation.
+  Timer? _outputAnimTimer;
+  final _outputBars = ValueNotifier<List<double>>(const []);
+
+  // Video preview track & testing state.
+  lk.LocalVideoTrack? _camTrack;
+  bool _camTesting = true;
+  bool _camFailed = false;
+
   // The mic test: levels land in a notifier that only the meter's painter
   // listens to, so a 60 Hz stream never rebuilds the dialog.
   StreamSubscription<List<double>>? _micSub;
@@ -157,6 +266,10 @@ class _AvSettingsDialogContentState extends State<_AvSettingsDialogContent> {
     _deviceSub?.cancel();
     _micSub?.cancel();
     _micBars.dispose();
+    _outputAnimTimer?.cancel();
+    _outputBars.dispose();
+    _camTrack?.stop();
+    _camTrack?.dispose();
     _testPlayer?.dispose();
     super.dispose();
   }
@@ -271,6 +384,9 @@ class _AvSettingsDialogContentState extends State<_AvSettingsDialogContent> {
           _selectedCam = _prefService.resolveDevice(videos, _prefService.preferredCam);
           _selectedOutput = _prefService.resolveDevice(outputs, _prefService.preferredOutput);
           _initializedSelections = true;
+          if (_selectedCam != null && _camTesting) {
+            _startCamPreview();
+          }
         } else {
           _selectedMic = _prefService.resolveDevice(
             inputs,
@@ -347,12 +463,54 @@ class _AvSettingsDialogContentState extends State<_AvSettingsDialogContent> {
     return null;
   }
 
+  void _startOutputAnimation() {
+    _outputAnimTimer?.cancel();
+    final startTime = DateTime.now();
+    const duration = Duration(milliseconds: 1400);
+
+    _outputAnimTimer = Timer.periodic(const Duration(milliseconds: 33), (timer) {
+      final elapsed = DateTime.now().difference(startTime);
+      if (elapsed >= duration || !_isPlayingTestSound) {
+        timer.cancel();
+        _outputBars.value = const [];
+        if (mounted && _isPlayingTestSound) {
+          setState(() => _isPlayingTestSound = false);
+        }
+        return;
+      }
+
+      final progress = elapsed.inMilliseconds / duration.inMilliseconds;
+      // Resonant splash chime envelope: attack peak around 15%, decaying with rhythmic bounce.
+      final envelope = (progress < 0.15) ? (progress / 0.15) : (1.0 - progress).clamp(0.0, 1.0);
+      final bounce = (0.55 + 0.45 * (1 + (timer.tick % 4)) / 4.0);
+      final peak = (envelope * bounce).clamp(0.0, 1.0);
+
+      _outputBars.value = List.generate(_kMeterBars, (i) {
+        final factor = (1.0 - (i / _kMeterBars) * 0.4);
+        return (peak * factor).clamp(0.0, 1.0);
+      });
+    });
+  }
+
+  Future<void> _stopTestSound() async {
+    _outputAnimTimer?.cancel();
+    _outputBars.value = const [];
+    try {
+      await _testPlayer?.stop();
+    } catch (_) {}
+    if (mounted) {
+      setState(() => _isPlayingTestSound = false);
+    }
+  }
+
   Future<void> _playTestSound() async {
     if (_isPlayingTestSound) return;
     setState(() => _isPlayingTestSound = true);
+    _startOutputAnimation();
+
     if (LiveKitService.isMockMode) {
       await Future.delayed(const Duration(milliseconds: 600));
-      if (mounted) setState(() => _isPlayingTestSound = false);
+      _stopTestSound();
       return;
     }
     try {
@@ -399,12 +557,12 @@ class _AvSettingsDialogContentState extends State<_AvSettingsDialogContent> {
 
       if (player != null) {
         await player.open(Media('asset:///assets/sfx/splash.wav'), play: true);
-        await Future.delayed(const Duration(seconds: 1));
+        await Future.delayed(const Duration(milliseconds: 1400));
       }
     } catch (_) {
       // Fallback or silent catch for environments without audio hardware
     } finally {
-      if (mounted) setState(() => _isPlayingTestSound = false);
+      _stopTestSound();
     }
   }
 
@@ -426,18 +584,28 @@ class _AvSettingsDialogContentState extends State<_AvSettingsDialogContent> {
 
   bool get _micTesting => _micSub != null;
 
-  void _toggleMicTest() {
+  Future<void> _toggleMicTest() async {
     if (_micTesting) {
+      debugPrint('[BoothCheck/UI] Stopping mic test');
       _stopMicTest();
       return;
     }
+    debugPrint(
+      '[BoothCheck/UI] Toggling mic test ON. Selected mic: id="${_selectedMic?.deviceId}", label="${_selectedMic?.label}"',
+    );
     setState(() {
       _micFailed = false;
+    });
+
+    setState(() {
       _micSub = widget
           .micLevels(_selectedMic?.deviceId)
           .listen(
-            (bars) => _micBars.value = bars,
-            onError: (Object _) {
+            (bars) {
+              _micBars.value = bars;
+            },
+            onError: (Object err) {
+              debugPrint('[BoothCheck/UI] micLevels stream emitted error: $err');
               if (!mounted) return;
               _stopMicTest();
               setState(() => _micFailed = true);
@@ -450,6 +618,89 @@ class _AvSettingsDialogContentState extends State<_AvSettingsDialogContent> {
     _micSub?.cancel();
     _micBars.value = const [];
     if (mounted) setState(() => _micSub = null);
+  }
+
+  Future<void> _startCamPreview() async {
+    if (_selectedCam == null) return;
+    await _stopCamPreview();
+    if (!mounted) return;
+    setState(() {
+      _camTesting = true;
+      _camFailed = false;
+    });
+
+    if (LiveKitService.isMockMode) {
+      return;
+    }
+
+    try {
+      lk.LocalVideoTrack? track;
+      if (widget.cameraTrackFactory != null) {
+        track = await widget.cameraTrackFactory!(_selectedCam?.deviceId);
+      } else {
+        String? targetCamId = _selectedCam?.deviceId;
+        try {
+          final webrtcCams = await lk.Hardware.instance.videoInputs();
+          final match = webrtcCams
+              .where(
+                (d) =>
+                    (targetCamId != null && d.deviceId == targetCamId) ||
+                    (_selectedCam != null &&
+                        d.label.trim().toLowerCase() == _selectedCam!.label.trim().toLowerCase()),
+              )
+              .firstOrNull;
+          if (match != null) {
+            targetCamId = match.deviceId;
+            lk.Hardware.instance.selectedVideoInput = match;
+          }
+        } catch (_) {}
+
+        track = await lk.LocalVideoTrack.createCameraTrack(
+          lk.CameraCaptureOptions(deviceId: targetCamId),
+        );
+      }
+
+      if (track != null) {
+        await track.start();
+      }
+
+      if (!mounted) {
+        await track?.stop();
+        await track?.dispose();
+        return;
+      }
+
+      setState(() {
+        _camTrack = track;
+        _camFailed = false;
+      });
+    } catch (e, st) {
+      reportNonFatal(e, st, during: 'cam preview test');
+      if (mounted) {
+        setState(() {
+          _camFailed = true;
+          _camTrack = null;
+        });
+      }
+    }
+  }
+
+  Future<void> _stopCamPreview() async {
+    final track = _camTrack;
+    _camTrack = null;
+    await track?.stop();
+    await track?.dispose();
+    if (mounted) {
+      setState(() => _camTesting = false);
+    }
+  }
+
+  void _toggleCamPreview() {
+    if (_camTesting) {
+      _stopCamPreview();
+    } else {
+      _startCamPreview();
+    }
   }
 
   Widget _micMeter() {
@@ -474,6 +725,69 @@ class _AvSettingsDialogContentState extends State<_AvSettingsDialogContent> {
               ),
             ),
         ],
+      ),
+    );
+  }
+
+  Widget _outputMeter() {
+    return Padding(
+      padding: const EdgeInsets.only(top: 10),
+      child: Row(
+        spacing: 10,
+        children: [
+          Expanded(
+            child: SizedBox(
+              height: 22,
+              child: RepaintBoundary(
+                child: CustomPaint(
+                  painter: _MeterPainter(_outputBars, active: _isPlayingTestSound),
+                ),
+              ),
+            ),
+          ),
+          if (_isPlayingTestSound)
+            Text('Playing sound', style: PTText.finePrint.copyWith(color: PTColors.white(0.5))),
+        ],
+      ),
+    );
+  }
+
+  Widget _cameraPreview() {
+    return Padding(
+      padding: const EdgeInsets.only(top: 10),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(PTRadius.panel),
+        child: AspectRatio(
+          aspectRatio: 16 / 9,
+          child: Container(
+            decoration: BoxDecoration(
+              color: PTColors.aisle,
+              borderRadius: BorderRadius.circular(PTRadius.panel),
+              border: Border.all(color: PTColors.rail),
+            ),
+            child: _camTesting && _camTrack != null
+                ? lk.VideoTrackRenderer(_camTrack!, fit: .cover, mirrorMode: .mirror)
+                : Center(
+                    child: Column(
+                      mainAxisSize: .min,
+                      children: [
+                        Icon(BoothIcons.videocam, size: 28, color: PTColors.white(0.2)),
+                        const SizedBox(height: 6),
+                        Text(
+                          _camFailed
+                              ? "Couldn't open camera"
+                              : (_videoInputs.isEmpty
+                                    ? 'No camera found'
+                                    : 'Camera preview paused'),
+                          style: PTText.finePrint.copyWith(
+                            color: _camFailed ? PTColors.danger : PTColors.white(0.4),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+          ),
+        ),
       ),
     );
   }
@@ -537,13 +851,16 @@ class _AvSettingsDialogContentState extends State<_AvSettingsDialogContent> {
                         _selectedOutput = dev;
                       });
                     },
-                    trailingAction: PTIconButton(
-                      icon: BoothIcons.volume,
-                      tooltip: _isPlayingTestSound ? 'Playing test audio...' : 'Test output',
-                      size: 32,
-                      iconSize: 18,
-                      onPressed: _isPlayingTestSound ? null : _playTestSound,
+                    trailingAction: Tooltip(
+                      message: _isPlayingTestSound ? 'Playing test audio...' : 'Test output',
+                      child: DialogTextButton(
+                        label: _isPlayingTestSound ? 'Stop' : 'Test sound',
+                        onPressed: _audioOutputs.isEmpty
+                            ? null
+                            : (_isPlayingTestSound ? _stopTestSound : _playTestSound),
+                      ),
                     ),
+                    footer: _outputMeter(),
                   ),
                   _deviceSection(
                     icon: BoothIcons.videocam,
@@ -551,10 +868,19 @@ class _AvSettingsDialogContentState extends State<_AvSettingsDialogContent> {
                     devices: _videoInputs,
                     selectedDevice: _selectedCam,
                     onSelected: (dev) {
+                      final wasTesting = _camTesting;
                       setState(() {
                         _selectedCam = dev;
                       });
+                      if (wasTesting) {
+                        _startCamPreview();
+                      }
                     },
+                    trailingAction: DialogTextButton(
+                      label: _camTesting ? 'Stop camera' : 'Test camera',
+                      onPressed: _videoInputs.isEmpty ? null : _toggleCamPreview,
+                    ),
+                    footer: _cameraPreview(),
                   ),
                 ],
               ),
@@ -599,7 +925,7 @@ class _AvSettingsDialogContentState extends State<_AvSettingsDialogContent> {
       ? child
       : Flexible(
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxHeight: 400),
+            constraints: const BoxConstraints(maxHeight: 480),
             child: SingleChildScrollView(child: child),
           ),
         );

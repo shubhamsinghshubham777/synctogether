@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
+import 'package:window_manager/window_manager.dart';
 import 'package:synctogether/analytics.dart';
 import 'package:synctogether/diagnostics.dart';
 import 'package:synctogether/platform.dart';
@@ -13,6 +14,7 @@ import 'package:synctogether/profile/entitlement_service.dart';
 import 'package:synctogether/profile/profile_service.dart';
 import 'package:synctogether/ui/banners.dart';
 import 'package:synctogether/ui/buttons.dart';
+import 'package:synctogether/ui/cinema_marquee_bar.dart';
 import 'package:synctogether/ui/glass.dart';
 import 'package:synctogether/ui/booth.dart';
 import 'package:synctogether/ui/loader.dart';
@@ -53,10 +55,12 @@ class SubscriptionScreen extends StatefulWidget {
   State<SubscriptionScreen> createState() => _SubscriptionScreenState();
 }
 
-class _SubscriptionScreenState extends State<SubscriptionScreen> with WidgetsBindingObserver {
+class _SubscriptionScreenState extends State<SubscriptionScreen>
+    with WidgetsBindingObserver, WindowListener {
   bool _awaitingCheckout = false;
   bool _verifying = false;
   bool _celebrating = false;
+  bool _fullscreen = false;
   StreamSubscription<AppleIapNotice>? _iapNotices;
 
   bool get _isAppleStore => widget.appleStoreBuildOverride ?? isAppleStoreBuild;
@@ -73,6 +77,12 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> with WidgetsBin
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    if (isDesktop) {
+      windowManager.addListener(this);
+      windowManager.isFullScreen().then((value) {
+        if (mounted && value != _fullscreen) setState(() => _fullscreen = value);
+      });
+    }
     Analytics.instance.track('subscription_screen_viewed', {'source': widget.source ?? 'direct'});
     _verifying = widget.demoState == 'verifying';
     _celebrating = widget.demoState == 'activated';
@@ -86,8 +96,15 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> with WidgetsBin
   void dispose() {
     _iapNotices?.cancel();
     WidgetsBinding.instance.removeObserver(this);
+    if (isDesktop) windowManager.removeListener(this);
     super.dispose();
   }
+
+  @override
+  void onWindowEnterFullScreen() => setState(() => _fullscreen = true);
+
+  @override
+  void onWindowLeaveFullScreen() => setState(() => _fullscreen = false);
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
@@ -240,14 +257,25 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> with WidgetsBin
     // Edge-to-edge: the page scrolls under the home indicator / nav bar, and
     // the bottom inset pads the content so its last item still clears it.
     return SafeArea(
+      top: !isDesktop,
       bottom: false,
       child: Column(
         crossAxisAlignment: .stretch,
         children: [
-          Padding(
-            padding: EdgeInsets.fromLTRB(gutter, compact ? 10 : 24, gutter, 0),
-            child: _backHeader(compact: compact),
-          ),
+          if (isDesktop)
+            CinemaMarqueeBar(
+              height: 52,
+              fullscreen: _fullscreen,
+              leading: Padding(
+                padding: const EdgeInsets.only(left: 12.0),
+                child: _backHeader(compact: false),
+              ),
+            )
+          else
+            Padding(
+              padding: EdgeInsets.fromLTRB(gutter, compact ? 10 : 24, gutter, 0),
+              child: _backHeader(compact: compact),
+            ),
           Expanded(
             child: LayoutBuilder(
               builder: (context, constraints) {
@@ -311,21 +339,23 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> with WidgetsBin
 
   Widget _backHeader({required bool compact}) {
     return Row(
+      mainAxisSize: .min,
       spacing: 14,
       children: [
-        PTIconButton(
-          icon: BoothIcons.arrowBack,
-          iconSize: compact ? 18 : 20,
-          size: compact ? 38 : 42,
-          onPressed: () => context.canPop() ? context.pop() : context.go('/lobby'),
-        ),
-        Flexible(
-          child: Text(
-            'Patron seats',
-            maxLines: 1,
-            overflow: .ellipsis,
-            style: PTText.panelHeading.copyWith(fontSize: compact ? 15 : 16),
+        Padding(
+          padding: const EdgeInsets.only(right: 8.0),
+          child: PTIconButton(
+            icon: BoothIcons.arrowBack,
+            iconSize: compact ? 18 : 20,
+            size: compact ? 38 : 42,
+            onPressed: () => context.canPop() ? context.pop() : context.go('/lobby'),
           ),
+        ),
+        Text(
+          'Patron seats',
+          maxLines: 1,
+          overflow: .ellipsis,
+          style: PTText.panelHeading.copyWith(fontSize: compact ? 15 : 16),
         ),
       ],
     );

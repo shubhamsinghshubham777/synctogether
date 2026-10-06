@@ -67,6 +67,7 @@ Future<void> _bootstrap() async {
   if (isDesktop) {
     await windowManager.ensureInitialized();
     await windowManager.setMinimumSize(kDesktopMinWindowSize);
+    await windowManager.setTitleBarStyle(TitleBarStyle.hidden, windowButtonVisibility: true);
   } else if (!kIsWeb) {
     // Draw behind the status and navigation bars on every Android version, not
     // only where targetSdk 35 forces it on Android 15: one layout contract,

@@ -85,6 +85,19 @@ class ProfileService extends ChangeNotifier {
     _profile = _profile?.copyWith(avatarUrl: busted);
     notifyListeners();
   }
+
+  Future<void> acknowledgeWarning() async {
+    final uid = _client.auth.currentUser?.id;
+    if (uid == null) return;
+    try {
+      await _client.rpc('acknowledge_warning');
+      _profile = _profile?.copyWith(warningAcknowledged: true);
+      notifyListeners();
+    } catch (e, s) {
+      reportNonFatal(e, s, during: 'acknowledging moderation warning');
+      rethrow;
+    }
+  }
 }
 
 Uint8List processAvatar(Uint8List bytes) {

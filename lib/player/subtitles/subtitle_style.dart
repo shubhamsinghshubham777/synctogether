@@ -251,6 +251,7 @@ Map<String, String> toMpvProperties(
   required String font,
   required bool bold,
   required bool italic,
+  double lift = 0,
 }) => {
   'sub-font': font,
   'sub-bold': bold ? 'yes' : 'no',
@@ -265,8 +266,20 @@ Map<String, String> toMpvProperties(
   // In 0.36 a non-transparent back colour switches libass to its opaque box
   // (BorderStyle 4); fully transparent draws nothing.
   'sub-back-color': mpvColor(style.backgroundColor),
-  'sub-pos': style.position.round().toString(),
+  'sub-pos': liftedSubPosition(style.position, lift).round().toString(),
   'sub-align-x': style.align.name,
   'sub-spacing': _n(style.letterSpacing),
   'sub-ass-override': style.overrideEmbedded ? 'force' : 'scale',
 };
+
+/// [position] (mpv `sub-pos`: 0 top, 100 bottom, % of the picture's height)
+/// raised by [lift] percent so lines clear a control bar floating over the
+/// bottom of the picture.
+///
+/// Only lines in the lower half move: someone who put their subtitles at the
+/// top has nothing to clear, and lifting them would push them off the frame.
+/// Never rises above the middle of the picture, however tall the bar.
+double liftedSubPosition(double position, double lift) {
+  if (lift <= 0 || position < 50) return position;
+  return (position - lift).clamp(50.0, position);
+}

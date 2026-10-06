@@ -223,6 +223,7 @@ void main() {
       enumerateVideoInputs: () async => _devices('videoinput', 'Camera'),
       enumerateAudioOutputs: () async => _devices('audiooutput', 'Speakers'),
       onTestSound: (_) async {},
+      cameraTrackFactory: (_) async => null,
     ),
   );
   opener('shared-recaps', (ctx) => showSharedRecapsDialog(ctx));

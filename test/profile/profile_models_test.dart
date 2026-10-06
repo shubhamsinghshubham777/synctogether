@@ -73,5 +73,64 @@ void main() {
       expect(updated.r2UploadBytes7d, 800000);
       expect(updated.displayName, 'Alice');
     });
+
+    test('moderation status and warning flags', () {
+      final unmoderated = Profile(id: 'u1', displayName: 'Alice', isGuest: false);
+      expect(unmoderated.isBanned, isFalse);
+      expect(unmoderated.isWarned, isFalse);
+      expect(unmoderated.needsWarningAcknowledgment, isFalse);
+      expect(unmoderated.strikesCount, 0);
+
+      final warnedUnacknowledged = Profile(
+        id: 'u2',
+        displayName: 'Bob',
+        isGuest: false,
+        strikesCount: 1,
+        moderationStatus: 'warned',
+        warningReason: 'Shared copyrighted video',
+        warningAcknowledged: false,
+      );
+      expect(warnedUnacknowledged.isWarned, isTrue);
+      expect(warnedUnacknowledged.needsWarningAcknowledgment, isTrue);
+      expect(warnedUnacknowledged.isBanned, isFalse);
+
+      final warnedAcknowledged = warnedUnacknowledged.copyWith(warningAcknowledged: true);
+      expect(warnedAcknowledged.isWarned, isTrue);
+      expect(warnedAcknowledged.needsWarningAcknowledgment, isFalse);
+
+      final banned = Profile(
+        id: 'u3',
+        displayName: 'Charlie',
+        isGuest: false,
+        strikesCount: 2,
+        moderationStatus: 'banned',
+        banReason: 'Repeated copyright violations',
+      );
+      expect(banned.isBanned, isTrue);
+      expect(banned.isWarned, isFalse);
+      expect(banned.needsWarningAcknowledgment, isFalse);
+    });
+
+    test('fromJson parses moderation fields correctly', () {
+      final json = {
+        'id': 'u4',
+        'display_name': 'Dave',
+        'is_guest': false,
+        'strikes_count': 1,
+        'moderation_status': 'warned',
+        'warning_reason': 'DMCA infringement notice',
+        'warning_acknowledged': false,
+        'ban_reason': null,
+      };
+
+      final profile = Profile.fromJson(json);
+      expect(profile.strikesCount, 1);
+      expect(profile.moderationStatus, 'warned');
+      expect(profile.warningReason, 'DMCA infringement notice');
+      expect(profile.warningAcknowledged, isFalse);
+      expect(profile.isWarned, isTrue);
+      expect(profile.needsWarningAcknowledgment, isTrue);
+      expect(profile.isBanned, isFalse);
+    });
   });
 }

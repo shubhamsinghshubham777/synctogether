@@ -7,6 +7,7 @@ import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:window_manager/window_manager.dart';
 import 'package:synctogether/app_version.dart';
 import 'package:synctogether/analytics.dart';
 import 'package:synctogether/analytics_consent.dart';
@@ -30,6 +31,7 @@ import 'package:synctogether/profile/profile_service.dart';
 import 'package:synctogether/rooms/moderation_service.dart';
 import 'package:synctogether/ui/banners.dart';
 import 'package:synctogether/ui/buttons.dart';
+import 'package:synctogether/ui/cinema_marquee_bar.dart';
 import 'package:synctogether/ui/glass.dart';
 import 'package:synctogether/ui/identity.dart';
 import 'package:synctogether/ui/inputs.dart';
@@ -47,13 +49,20 @@ class ProfileScreen extends StatefulWidget {
   State<ProfileScreen> createState() => _ProfileScreenState();
 }
 
-class _ProfileScreenState extends State<ProfileScreen> {
+class _ProfileScreenState extends State<ProfileScreen> with WindowListener {
   bool _uploadingAvatar = false;
   bool? _mediaSharingRememberedChoice;
+  bool _fullscreen = false;
 
   @override
   void initState() {
     super.initState();
+    if (isDesktop) {
+      windowManager.addListener(this);
+      windowManager.isFullScreen().then((value) {
+        if (mounted && value != _fullscreen) setState(() => _fullscreen = value);
+      });
+    }
     if (ProfileService.instance.profile == null) {
       ProfileService.instance.load();
     }
@@ -64,6 +73,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
     unawaited(RewardsService.instance.load().then((_) => _trackHandleUpsellShown()));
     unawaited(RewardsService.instance.loadReferrals());
   }
+
+  @override
+  void dispose() {
+    if (isDesktop) windowManager.removeListener(this);
+    super.dispose();
+  }
+
+  @override
+  void onWindowEnterFullScreen() => setState(() => _fullscreen = true);
+
+  @override
+  void onWindowLeaveFullScreen() => setState(() => _fullscreen = false);
 
   /// Once per visit, and never from `build`: the handle field is inline, so
   /// rendering it is not an event and a `build` call site would fire on every
@@ -336,18 +357,39 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Widget _desktop(Profile profile) {
     return SafeArea(
+      top: !isDesktop,
       child: LayoutBuilder(
         builder: (context, box) {
           final split = box.maxWidth >= _splitWidth;
           final gutter = box.maxWidth >= 720 ? 48.0 : 24.0;
           if (split) return _wideSplit(profile);
           _cards = false;
+          final version = AppVersion.current;
           return Column(
             children: [
-              Padding(
-                padding: EdgeInsets.fromLTRB(gutter, 24, gutter, 0),
-                child: _centred(640, _backHeader(size: 42)),
-              ),
+              if (isDesktop)
+                CinemaMarqueeBar(
+                  height: 52,
+                  fullscreen: _fullscreen,
+                  leading: Padding(
+                    padding: const EdgeInsets.only(left: 12.0),
+                    child: _backHeader(size: 36, iconSize: 18),
+                  ),
+                  trailing: version != null
+                      ? Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                          child: Text(
+                            version,
+                            style: PTText.mono.copyWith(fontSize: 11, color: PTColors.away),
+                          ),
+                        )
+                      : null,
+                )
+              else
+                Padding(
+                  padding: EdgeInsets.fromLTRB(gutter, 24, gutter, 0),
+                  child: _centred(640, _backHeader(size: 42)),
+                ),
               Expanded(
                 child: SingleChildScrollView(
                   padding: EdgeInsets.fromLTRB(gutter, 32, gutter, 56),
@@ -369,19 +411,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final version = AppVersion.current;
     return Column(
       children: [
-        Container(
-          padding: const EdgeInsets.fromLTRB(40, 16, 40, 16),
-          decoration: const BoxDecoration(
-            border: Border(bottom: BorderSide(color: PTColors.aisle)),
-          ),
-          child: Row(
-            children: [
-              Expanded(child: _backHeader(size: 40)),
-              if (version != null)
-                Text(version, style: PTText.mono.copyWith(fontSize: 11, color: PTColors.away)),
-            ],
-          ),
-        ),
+        if (isDesktop)
+          CinemaMarqueeBar(
+            height: 52,
+            fullscreen: _fullscreen,
+            leading: Padding(
+              padding: const EdgeInsets.only(left: 12.0),
+              child: _backHeader(size: 36, iconSize: 18),
+            ),
+            trailing: version != null
+                ? Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                    child: Text(
+                      version,
+                      style: PTText.mono.copyWith(fontSize: 11, color: PTColors.away),
+                    ),
+                  )
+                : null,
+          )
+        else
+          Padding(padding: const EdgeInsets.fromLTRB(40, 20, 40, 20), child: _backHeader()),
         Expanded(
           child: Row(
             crossAxisAlignment: .stretch,
@@ -1671,23 +1720,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Widget _backHeader({double iconSize = 20, double size = 44, double? titleSize}) {
     return Row(
+      mainAxisSize: .min,
       spacing: 14,
       children: [
-        PTIconButton(
-          icon: BoothIcons.arrowBack,
-          iconSize: iconSize,
-          size: size,
-          onPressed: () => context.go('/lobby'),
-        ),
-        Flexible(
-          child: Text(
-            'Profile',
-            maxLines: 1,
-            overflow: .ellipsis,
-            style: titleSize == null
-                ? PTText.cardHeading
-                : PTText.cardHeading.copyWith(fontSize: titleSize),
+        Padding(
+          padding: const EdgeInsets.only(right: 8.0),
+          child: PTIconButton(
+            icon: BoothIcons.arrowBack,
+            iconSize: iconSize,
+            size: size,
+            onPressed: () => context.go('/lobby'),
           ),
+        ),
+        Text(
+          'Profile',
+          maxLines: 1,
+          overflow: .ellipsis,
+          style: titleSize == null
+              ? PTText.cardHeading
+              : PTText.cardHeading.copyWith(fontSize: titleSize),
         ),
       ],
     );

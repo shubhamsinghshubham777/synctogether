@@ -1,5 +1,5 @@
 begin;
-select plan(19);
+select plan(27);
 
 create function pg_temp.mk_user() returns uuid
 language plpgsql as $$
@@ -69,12 +69,12 @@ select is(
 
 -- 2. Initial pirate state is clean
 select is(
-  (select moderation_status from public.profiles where id = (select v from t where k = 'pirate')),
+  (select coalesce(max(moderation_status), 'clean') from public.profile_moderation where user_id = (select v from t where k = 'pirate')),
   'clean',
   'user starts in clean moderation status');
 
 select is(
-  (select strikes_count from public.profiles where id = (select v from t where k = 'pirate')),
+  (select coalesce(max(strikes_count), 0) from public.profile_moderation where user_id = (select v from t where k = 'pirate')),
   0,
   'user starts with 0 strikes');
 
@@ -106,17 +106,17 @@ begin
 end $$;
 
 select is(
-  (select strikes_count from public.profiles where id = (select v from t where k = 'pirate')),
+  (select strikes_count from public.profile_moderation where user_id = (select v from t where k = 'pirate')),
   1,
   'Strike 1 increments strike count to 1');
 
 select is(
-  (select moderation_status from public.profiles where id = (select v from t where k = 'pirate')),
+  (select moderation_status from public.profile_moderation where user_id = (select v from t where k = 'pirate')),
   'warned',
   'moderation_status becomes warned');
 
 select is(
-  (select warning_acknowledged from public.profiles where id = (select v from t where k = 'pirate')),
+  (select warning_acknowledged from public.profile_moderation where user_id = (select v from t where k = 'pirate')),
   false,
   'warning_acknowledged is false on warning');
 
@@ -127,7 +127,7 @@ select lives_ok(
   'warned user can acknowledge warning');
 
 select is(
-  (select warning_acknowledged from public.profiles where id = (select v from t where k = 'pirate')),
+  (select warning_acknowledged from public.profile_moderation where user_id = (select v from t where k = 'pirate')),
   true,
   'warning_acknowledged is set to true');
 
@@ -136,13 +136,13 @@ select pg_temp.act_as((select v from t where k = 'pirate'));
 set local role authenticated;
 
 select throws_ok(
-  $$ update public.profiles set strikes_count = 0 where id = (select v from t where k = 'pirate') $$,
+  $$ update public.profile_moderation set strikes_count = 0 where user_id = (select v from t where k = 'pirate') $$,
   '42501',
   null,
   'user cannot clear strikes');
 
 select throws_ok(
-  $$ update public.profiles set moderation_status = 'clean' where id = (select v from t where k = 'pirate') $$,
+  $$ update public.profile_moderation set moderation_status = 'clean' where user_id = (select v from t where k = 'pirate') $$,
   '42501',
   null,
   'user cannot reset moderation status');
@@ -159,12 +159,12 @@ begin
 end $$;
 
 select is(
-  (select strikes_count from public.profiles where id = (select v from t where k = 'pirate')),
+  (select strikes_count from public.profile_moderation where user_id = (select v from t where k = 'pirate')),
   2,
   'Strike 2 results in 2 strikes');
 
 select is(
-  (select moderation_status from public.profiles where id = (select v from t where k = 'pirate')),
+  (select moderation_status from public.profile_moderation where user_id = (select v from t where k = 'pirate')),
   'banned',
   'Strike 2 sets moderation_status to banned');
 
@@ -200,6 +200,55 @@ select throws_ok(
   $$ select public.join_room((select code from public.rooms where id = (select v from t where k = 'room'))) $$,
   'room_closed_by_admin',
   'joining a banned room raises room_closed_by_admin');
+
+-- 8b. Banning a room that holds shared media queues its R2 object
+do $$
+declare v_room uuid; v_host uuid;
+begin
+  select v into v_host from t where k = 'host';
+  perform pg_temp.act_as(v_host);
+  v_room := (public.create_room('Media Room', 60)).id;
+  insert into t values ('media_room', v_room);
+  update public.rooms
+     set media_kind = 'local', media_name = 'film.mkv', media_r2_key = 'users/x/film.mkv',
+         media_file_size = 1000, media_upload_state = 'ready'
+   where id = v_room;
+  insert into public.messages (room_id, sender_id, content) values (v_room, v_host, 'hello');
+  perform public.admin_ban_room(v_room, 'Piracy');
+end $$;
+
+select is(
+  (select count(*)::int from public.messages where room_id = (select v from t where k = 'media_room')),
+  0, 'banned room chat is wiped');
+select is(
+  (select count(*)::int from public.room_members where room_id = (select v from t where k = 'media_room')),
+  0, 'banned room memberships are removed');
+select ok(
+  not has_function_privilege('authenticated', 'public.notify_moderation_changed(uuid)', 'EXECUTE'),
+  'notify_moderation_changed is not callable by clients');
+
+select is(
+  (select is_banned from public.rooms where id = (select v from t where k = 'media_room')),
+  true, 'banning a room with shared media succeeds');
+select is(
+  (select count(*)::int from public.pending_r2_deletions where r2_key = 'users/x/film.mkv'),
+  1, 'banned room media is queued for R2 deletion');
+select is(
+  (select media_r2_key from public.rooms where id = (select v from t where k = 'media_room')),
+  null, 'banned room no longer references the R2 object');
+
+-- 8c. Another user cannot read someone's moderation state
+select pg_temp.act_as((select v from t where k = 'reporter'));
+set local role authenticated;
+select is(
+  (select count(*)::int from public.profile_moderation where user_id = (select v from t where k = 'pirate')),
+  0, 'other users cannot read a profile''s moderation state');
+reset role;
+select ok(
+  not exists (select 1 from information_schema.columns
+               where table_schema = 'public' and table_name = 'profiles'
+                 and column_name in ('strikes_count', 'moderation_status', 'ban_reason', 'warning_reason')),
+  'profiles no longer carries moderation columns');
 
 -- 9. Moderation Actions table is protected
 select ok(

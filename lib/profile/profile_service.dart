@@ -18,19 +18,63 @@ class ProfileService extends ChangeNotifier {
   Profile? _profile;
   Profile? get profile => _profile;
 
+  RealtimeChannel? _moderationChannel;
+
+  /// A warn or ban is pushed over a private channel only this user can read,
+  /// so it lands at once rather than at the next token refresh. `profiles` is
+  /// readable by every signed-in user, so it is deliberately not published to
+  /// Realtime for this.
+  void _ensureModerationSubscribed(String uid) {
+    if (_moderationChannel != null) return;
+    try {
+      _moderationChannel =
+          _client
+              .channel('user:$uid', opts: const RealtimeChannelConfig(private: true))
+              .onBroadcast(
+                event: 'moderation_changed',
+                callback: (_) {
+                  trace('moderation status changed', category: 'moderation');
+                  unawaited(load());
+                },
+              )
+            ..subscribe();
+    } catch (e, s) {
+      reportNonFatal(e, s, during: 'subscribing to the moderation channel');
+    }
+  }
+
+  void _teardownModeration() {
+    final channel = _moderationChannel;
+    _moderationChannel = null;
+    if (channel == null) return;
+    try {
+      _client.removeChannel(channel);
+    } catch (e, s) {
+      reportNonFatal(e, s, during: 'closing the moderation channel');
+    }
+  }
+
   Future<Profile?> load() async {
     final uid = _client.auth.currentUser?.id;
     if (uid == null) {
+      _teardownModeration();
       _profile = null;
       notifyListeners();
       return null;
     }
+    _ensureModerationSubscribed(uid);
     // The signup trigger creates the row; retry briefly for a brand-new user
     // whose trigger hasn't committed yet.
     for (var attempt = 0; attempt < 3; attempt++) {
       final row = await _client.from('profiles').select().eq('id', uid).maybeSingle();
       if (row != null) {
-        _profile = Profile.fromJson(row);
+        // Moderation state is owner-only in its own table; absent means clean.
+        final moderation = await _client
+            .from('profile_moderation')
+            .select()
+            .eq('user_id', uid)
+            .maybeSingle();
+        _profile = Profile.fromJson({...row, ...?moderation});
         notifyListeners();
         return _profile;
       }
@@ -48,6 +92,7 @@ class ProfileService extends ChangeNotifier {
   }
 
   void clear() {
+    _teardownModeration();
     _profile = null;
     notifyListeners();
   }

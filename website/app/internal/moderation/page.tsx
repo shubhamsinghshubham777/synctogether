@@ -44,7 +44,7 @@ export default async function ModerationPage() {
       reporter_id,
       reported_user_id,
       reporter:profiles!content_reports_reporter_id_fkey(id, display_name, email),
-      reported:profiles!content_reports_reported_user_id_fkey(id, display_name, email, strikes_count, moderation_status, warning_reason, ban_reason)
+      reported:profiles!content_reports_reported_user_id_fkey(id, display_name, email, profile_moderation(strikes_count, moderation_status, warning_reason, ban_reason))
     `)
     .order("created_at", { ascending: false })
     .limit(100);
@@ -69,7 +69,7 @@ export default async function ModerationPage() {
     .eq("reason", "copyright");
 
   const { count: bannedUsersCount } = await supabase
-    .from("profiles")
+    .from("profile_moderation")
     .select("*", { count: "exact", head: true })
     .eq("moderation_status", "banned");
 
@@ -82,6 +82,10 @@ export default async function ModerationPage() {
   const reports: ModerationReportItem[] = (rawReports || []).map((r) => {
     const room = r.room_id ? roomsById.get(r.room_id) : null;
     const reported = r.reported as any;
+    const reportedMod = (Array.isArray(reported?.profile_moderation)
+      ? reported.profile_moderation[0]
+      : reported?.profile_moderation) as any;
+    const reporter = r.reporter as any;
 
     const heuristics = evaluateReportHeuristics({
       reason: r.reason,
@@ -90,8 +94,8 @@ export default async function ModerationPage() {
       mediaKind: r.media_kind,
       messageExcerpt: r.message_excerpt,
       details: r.details,
-      userStrikes: reported?.strikes_count || 0,
-      userModerationStatus: reported?.moderation_status || "clean",
+      userStrikes: reportedMod?.strikes_count || 0,
+      userModerationStatus: reportedMod?.moderation_status || "clean",
     });
 
     return {
@@ -106,8 +110,21 @@ export default async function ModerationPage() {
         isBanned: room?.is_banned ?? false,
         endedAt: room?.ended_at,
       },
-      reporter: r.reporter as any,
-      reported: reported,
+      // The client component reads camelCase; the query returns snake_case.
+      reporter: reporter
+        ? { id: reporter.id, displayName: reporter.display_name, email: reporter.email }
+        : null,
+      reported: reported
+        ? {
+            id: reported.id,
+            displayName: reported.display_name,
+            email: reported.email,
+            strikesCount: reportedMod?.strikes_count ?? 0,
+            moderationStatus: reportedMod?.moderation_status ?? "clean",
+            warningReason: reportedMod?.warning_reason ?? null,
+            banReason: reportedMod?.ban_reason ?? null,
+          }
+        : null,
       media: {
         kind: r.media_kind,
         title: r.media_title,

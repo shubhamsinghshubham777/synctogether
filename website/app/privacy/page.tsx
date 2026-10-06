@@ -61,7 +61,7 @@ export default function PrivacyPage() {
     {
       name: "Oracle Cloud Infrastructure (self-operated LiveKit server)",
       purpose: "Hosts a LiveKit media relay that we run ourselves, used alongside LiveKit Cloud for the same voice and video facecams. A room uses one relay at a time and may move between the two while it is open.",
-      location: "Region set by our deployment",
+      location: "India (Mumbai)",
       privacyUrl: "https://www.oracle.com/legal/privacy/",
     },
     {

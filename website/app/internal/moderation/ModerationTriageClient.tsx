@@ -248,7 +248,9 @@ export function ModerationTriageClient({ reports }: Props) {
                   </div>
 
                   <div className="text-xs font-mono text-gray-400">
-                    {new Date(report.createdAt).toLocaleString()}
+                    <time dateTime={report.createdAt} suppressHydrationWarning>
+                      {new Date(report.createdAt).toLocaleString()}
+                    </time>
                   </div>
                 </div>
 

@@ -109,8 +109,11 @@ class MediaSharingException implements Exception {
       return const MediaSharingException(code: 'cancelled', message: 'Upload was cancelled.');
     }
 
+    // Keep what the server said: a bare 'unknown' made every refusal look
+    // alike in Sentry, and lets callers tell "already gone" from a real failure.
+    final serverCode = RegExp(r'^[a-z][a-z0-9_]{2,40}$').hasMatch(code) ? code : null;
     return MediaSharingException(
-      code: 'unknown',
+      code: serverCode ?? 'unknown',
       message: error is FunctionException && error.reasonPhrase != null
           ? 'Upload failed: ${error.reasonPhrase}'
           : (error is HttpException ? error.message : 'Upload failed. Please try again.'),
@@ -502,7 +505,11 @@ class MediaSharingService {
         'bytesUploaded': bytesUploaded,
       });
     } catch (e, s) {
-      reportNonFatal(e, s, during: 'aborting upload for room $roomId');
+      if (_isAlreadyGone(e)) {
+        trace('abort found nothing to abort', category: 'media', data: {'room_id': roomId});
+      } else {
+        reportNonFatal(e, s, during: 'aborting upload for room $roomId');
+      }
     } finally {
       await _mediaStore.clearUploadSession(roomId);
       try {
@@ -675,6 +682,18 @@ class MediaSharingService {
     }
   }
 
+  /// An abort that is refused because the slot no longer exists - the staged
+  /// row was already claimed by `create_room`, expired, or replaced; the room
+  /// ended - has achieved what it was for.
+  static bool _isAlreadyGone(Object e) =>
+      e is MediaSharingException &&
+      const {
+        'unauthorized',
+        'unauthorized_or_invalid_staged_upload',
+        'not_host',
+        'room_ended',
+      }.contains(e.code);
+
   Future<void> abortStagedUpload({
     required String stagedId,
     required String uploadId,
@@ -689,7 +708,15 @@ class MediaSharingService {
         'bytesUploaded': bytesUploaded,
       });
     } catch (e, s) {
-      reportNonFatal(e, s, during: 'aborting staged upload $stagedId');
+      if (_isAlreadyGone(e)) {
+        trace(
+          'staged abort found nothing to abort',
+          category: 'media',
+          data: {'staged_id': stagedId},
+        );
+      } else {
+        reportNonFatal(e, s, during: 'aborting staged upload $stagedId');
+      }
     } finally {
       try {
         await WakelockPlus.disable();

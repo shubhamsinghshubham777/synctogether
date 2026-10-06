@@ -21,6 +21,19 @@ abstract final class PTWebView {
   /// *create* leaves this false - see [init].
   static bool runtimeMissing = false;
 
+  /// Clears every webview cookie, against the same environment the webviews
+  /// use. On Windows the cookie store belongs to an environment, so a
+  /// [CookieManager] built without one fails with "Cannot obtain the
+  /// WebViewEnvironment!" - and with no environment at all there is no store
+  /// to clear, so it is skipped rather than reported every launch.
+  static Future<void> clearCookies() async {
+    if (Platform.isWindows && environment == null) {
+      trace('no webview environment, cookie clear skipped', category: 'webview');
+      return;
+    }
+    await CookieManager.instance(webViewEnvironment: environment).deleteAllCookies();
+  }
+
   /// Official Microsoft download URL for the WebView2 Evergreen Runtime bootstrapper.
   static final Uri downloadUri = Uri.parse('https://go.microsoft.com/fwlink/p/?LinkId=2124703');
 
@@ -106,7 +119,7 @@ Future<void> purgeLegacyYouTubeCookies() async {
   try {
     final prefs = await SharedPreferences.getInstance();
     if (prefs.getBool(flag) ?? false) return;
-    await CookieManager.instance().deleteAllCookies();
+    await PTWebView.clearCookies();
     await prefs.setBool(flag, true);
     trace('cleared legacy YouTube sign-in cookies', category: 'webview');
   } catch (e, s) {

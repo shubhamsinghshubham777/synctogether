@@ -3,7 +3,7 @@ import 'dart:convert';
 
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter_inappwebview/flutter_inappwebview.dart';
+import 'package:synctogether/auth/webview_runtime.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -106,6 +106,18 @@ class AuthService {
     // that window gets promoted past a breadcrumb.
     if (!_awaitingOAuthCallback) {
       trace('auth stream error outside a sign-in', category: 'auth', data: {'error': '$error'});
+      return;
+    }
+    // The same callback can arrive twice (a cold-start link replayed beside
+    // the stream, a double click in the browser). The first exchange signs in
+    // and consumes the verifier, so the second can only fail - but we are
+    // signed in, and telling the person their sign-in broke would be a lie.
+    if (error is AuthException &&
+        (error.message.contains('Code verifier could not be found') ||
+            error.message.contains('code challenge does not match')) &&
+        _client.auth.currentSession != null) {
+      _endOAuthWindow();
+      trace('duplicate OAuth callback after sign-in', category: 'auth');
       return;
     }
     _endOAuthWindow();
@@ -334,7 +346,7 @@ class AuthService {
       unawaited(SubtitlePrefs.instance.clear());
       Analytics.instance.reset();
       try {
-        await CookieManager.instance().deleteAllCookies();
+        await PTWebView.clearCookies();
       } catch (e, s) {
         reportNonFatal(e, s, during: 'clearing webview cookies on sign-out');
       }
@@ -357,7 +369,7 @@ class AuthService {
       unawaited(SubtitlePrefs.instance.clear());
       Analytics.instance.reset();
       try {
-        await CookieManager.instance().deleteAllCookies();
+        await PTWebView.clearCookies();
       } catch (e, s) {
         reportNonFatal(e, s, during: 'clearing webview cookies on delete account');
       }

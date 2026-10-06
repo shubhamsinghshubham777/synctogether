@@ -91,7 +91,8 @@ class _TurnstileBodyState extends State<_TurnstileBody> {
         StateError(
           'Turnstile produced neither a token nor an error in '
           '${_kChallengeTimeout.inSeconds}s '
-          '(webview created: $_webViewCreated, page requested: $_pageRequested)',
+          '(webview created: $_webViewCreated, page requested: $_pageRequested, '
+          'page loaded: $_pageLoaded)',
         ),
         StackTrace.current,
         during: 'running the Turnstile challenge',
@@ -175,7 +176,8 @@ class _TurnstileBodyState extends State<_TurnstileBody> {
 <html>
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<script src="https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onloadTurnstile" async defer></script>
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onloadTurnstile" async defer
+  onerror="window.flutter_inappwebview.callHandler('turnstileError', 'script-blocked')"></script>
 <style>
   html, body {
     margin: 0;
@@ -224,6 +226,10 @@ function onloadTurnstile() {
           ? 'Your PC is missing or needs a repair of the Microsoft Edge WebView2 Runtime, which this verification needs.'
           : 'Your PC is missing a Windows component this check needs. '
                 'Reinstalling SyncTogether will add it, or download the runtime below.';
+    }
+    if (_errorCode == 'script-blocked') {
+      return "Hmm, we couldn't reach Cloudflare for the check. Something on this network or PC "
+          "may be blocking it - try another network, or pause your VPN or antivirus, then try again.";
     }
     return "Hmm, the check didn't load. Close this and try again.";
   }
@@ -372,11 +378,17 @@ function onloadTurnstile() {
             // reading the dashboard.
             final code = args.isNotEmpty ? '${args.first}' : 'unknown';
             _timeout?.cancel();
-            reportNonFatal(
-              StateError('Turnstile error-callback: $code'),
-              StackTrace.current,
-              during: 'running the Turnstile challenge',
-            );
+            // challenges.cloudflare.com unreachable - antivirus, a firewall,
+            // DNS, a captive portal. Ours to explain on screen, not to fix.
+            if (code == 'script-blocked') {
+              trace('turnstile script blocked', category: 'turnstile');
+            } else {
+              reportNonFatal(
+                StateError('Turnstile error-callback: $code'),
+                StackTrace.current,
+                during: 'running the Turnstile challenge',
+              );
+            }
             if (mounted) {
               setState(() {
                 _failed = true;

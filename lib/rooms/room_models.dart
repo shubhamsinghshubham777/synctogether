@@ -443,6 +443,10 @@ enum RoomErrorCode {
     'upload_cooldown_active',
     'Uploads are temporarily cooling down. Please try again in a few minutes.',
   ),
+  stagedMediaInvalid(
+    'staged_media_invalid',
+    "Your upload expired before the room opened, so it's opening without it. Share the file again from inside.",
+  ),
   mediaSharingDisabled(
     'media_sharing_disabled',
     'Media sharing is temporarily undergoing maintenance.',

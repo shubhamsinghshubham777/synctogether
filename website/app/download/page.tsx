@@ -22,7 +22,6 @@ export default async function DownloadPage({
   searchParams: Promise<{ code?: string }>;
 }) {
   const [release, { code }] = await Promise.all([getLatestRelease(), searchParams]);
-  const displayTag = release.name || `v${release.version || "0.11.0"}`;
   // Carried over from /join/<code> when the invite found nothing installed.
   // Desktop has no install-referrer, so the code cannot survive the installer -
   // showing it here is what lets somebody write it down before they leave.
@@ -33,7 +32,7 @@ export default async function DownloadPage({
       <PageHead
         titleClassName="text-[clamp(2.75rem,7vw,5.5rem)]"
         gridClassName="lg:grid-cols-[1fr_480px] items-center"
-        eyebrow={<>Take your seat · v{release.version}</>}
+        eyebrow={<>Take your seat{release.version && ` · v${release.version}`}</>}
         title={
           <>
             One install.
@@ -75,20 +74,20 @@ export default async function DownloadPage({
               </div>
               <DownloadInviteActions code={inviteCode} />
             </div>
-          ) : (
+          ) : release.version ? (
             <Link
               href="/changelog"
               className="group block border-l-2 border-beam-500 pl-5 py-1 space-y-1.5"
             >
               <span className={`${mono} block text-[11px] tracking-[0.16em] uppercase text-gray-500`}>Now showing</span>
               <span className={`${display} block text-xl font-extrabold tracking-[-0.02em] text-white`}>
-                {displayTag.replace(/^SyncTogether\s+/, "")}
+                {(release.name || `v${release.version}`).replace(/^SyncTogether\s+/, "")}
               </span>
               <span className="block text-sm text-gray-400 group-hover:text-white transition-colors">
                 What&apos;s new in this release →
               </span>
             </Link>
-          )
+          ) : undefined
         }
       />
 

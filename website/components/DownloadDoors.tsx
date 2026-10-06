@@ -53,8 +53,8 @@ export function DownloadDoors({ version, macSizeMb, winSizeMb }: DownloadDoorsPr
         <h2 className={`${display} text-5xl sm:text-[64px] font-extrabold tracking-[-0.04em] leading-[0.92] text-white`}>macOS</h2>
         {specs([
           ["Build", "Universal · Apple Silicon & Intel"],
-          ["Version", version],
-          ["Size", `~${macSizeMb} MB`],
+          ...(version ? [["Version", version] as [string, string]] : []),
+          ...(macSizeMb ? [["Size", `~${macSizeMb} MB`] as [string, string]] : []),
           ["Needs", "macOS 12 Monterey or later"],
         ])}
         <div className="mt-auto">
@@ -79,8 +79,8 @@ export function DownloadDoors({ version, macSizeMb, winSizeMb }: DownloadDoorsPr
         <h2 className={`${display} text-5xl sm:text-[64px] font-extrabold tracking-[-0.04em] leading-[0.92] text-white`}>Windows</h2>
         {specs([
           ["Build", "64-bit installer"],
-          ["Version", version],
-          ["Size", `~${winSizeMb} MB`],
+          ...(version ? [["Version", version] as [string, string]] : []),
+          ...(winSizeMb ? [["Size", `~${winSizeMb} MB`] as [string, string]] : []),
           ["Needs", "Windows 10 / 11 · WebView2"],
         ])}
         <div className="mt-auto grid grid-cols-1 sm:grid-cols-2 gap-3">

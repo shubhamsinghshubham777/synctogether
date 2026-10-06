@@ -32,18 +32,21 @@ export interface ReleaseAssetInfo {
   htmlUrl: string;
 }
 
-const FALLBACK_VERSION = "0.11.0";
+// Only for download links when GitHub is unreachable: it points at the releases
+// page rather than naming a version, so it can never go stale or lie. UI that
+// shows a version must use fetchLatestRelease() and hide itself on null.
+const RELEASES_PAGE = "https://github.com/shubhamsinghshubham777/synctogether/releases/latest";
 const FALLBACK_RELEASE: ReleaseAssetInfo = {
-  version: FALLBACK_VERSION,
-  tagName: `v${FALLBACK_VERSION}`,
-  name: `v${FALLBACK_VERSION}`,
-  publishedAt: "2026-08-11T12:00:00Z",
-  macDownloadUrl: `https://github.com/shubhamsinghshubham777/synctogether/releases/download/v${FALLBACK_VERSION}/SyncTogether-${FALLBACK_VERSION}-macOS.dmg`,
-  macSizeMb: 42.5,
-  winDownloadUrl: `https://github.com/shubhamsinghshubham777/synctogether/releases/download/v${FALLBACK_VERSION}/SyncTogether-${FALLBACK_VERSION}-Windows.exe`,
-  winSizeMb: 38.2,
-  body: "### What's New\n- Synchronized local media & YouTube player enhancements\n- Real-time Voice & Video facecams\n- Persistent room memory and tier entitlements\n- Desktop fullscreen & keyboard shortcuts (F, Esc, Space)",
-  htmlUrl: `https://github.com/shubhamsinghshubham777/synctogether/releases/tag/v${FALLBACK_VERSION}`,
+  version: "",
+  tagName: "",
+  name: "",
+  publishedAt: "",
+  macDownloadUrl: RELEASES_PAGE,
+  macSizeMb: 0,
+  winDownloadUrl: RELEASES_PAGE,
+  winSizeMb: 0,
+  body: "",
+  htmlUrl: RELEASES_PAGE,
 };
 
 /**
@@ -60,21 +63,36 @@ export function sanitizeReleaseBody(body: string): string {
     .trim();
 }
 
+/**
+ * Unauthenticated GitHub calls share a 60/hour limit per IP, which serverless
+ * hosts exhaust easily. A failed call used to bake the stale fallback into the
+ * cached page for an hour, so authenticate when a token is configured.
+ */
+function githubHeaders(): Record<string, string> {
+  const token = process.env.GITHUB_TOKEN;
+  return {
+    Accept: "application/vnd.github.v3+json",
+    "User-Agent": "SyncTogether-Website",
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
+}
+
 export async function getLatestRelease(): Promise<ReleaseAssetInfo> {
+  return (await fetchLatestRelease()) ?? FALLBACK_RELEASE;
+}
+
+/** The latest stable release, or null when GitHub did not give a real answer. */
+export async function fetchLatestRelease(): Promise<ReleaseAssetInfo | null> {
   try {
     const res = await fetch(
       "https://api.github.com/repos/shubhamsinghshubham777/synctogether/releases/latest",
-      {
-        next: { revalidate: 3600 },
-        headers: {
-          Accept: "application/vnd.github.v3+json",
-          "User-Agent": "SyncTogether-Website",
-        },
-      }
+      { next: { revalidate: 3600 }, headers: githubHeaders() }
     );
 
     if (!res.ok) {
-      return FALLBACK_RELEASE;
+      // Throw so a revalidating page keeps its last good render instead of
+      // caching the fallback; the catch below still covers cold starts.
+      throw new Error(`GitHub releases/latest answered ${res.status}`);
     }
 
     const data: GitHubRelease = await res.json();
@@ -107,7 +125,7 @@ export async function getLatestRelease(): Promise<ReleaseAssetInfo> {
     };
   } catch (error) {
     console.error("Error fetching latest GitHub release:", error);
-    return FALLBACK_RELEASE;
+    return null;
   }
 }
 
@@ -115,13 +133,7 @@ export async function getAllReleases(): Promise<GitHubRelease[]> {
   try {
     const res = await fetch(
       "https://api.github.com/repos/shubhamsinghshubham777/synctogether/releases?per_page=30",
-      {
-        next: { revalidate: 3600 },
-        headers: {
-          Accept: "application/vnd.github.v3+json",
-          "User-Agent": "SyncTogether-Website",
-        },
-      }
+      { next: { revalidate: 3600 }, headers: githubHeaders() }
     );
 
     if (!res.ok) {

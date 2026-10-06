@@ -36,6 +36,19 @@ class SubtitleStyleApplier {
   String? _androidFontsDir;
   String? _androidFontFile;
 
+  double _lift = 0;
+
+  /// Raises the subtitles by [percent] of the picture's height while something
+  /// (the control bar) floats over its bottom edge; 0 puts them back. Layered
+  /// over the viewer's own position rather than written into their prefs, so
+  /// it is never persisted and never fights the position slider.
+  void setLift(double percent) {
+    final clamped = percent.clamp(0.0, 30.0);
+    if ((clamped - _lift).abs() < 0.5) return;
+    _lift = clamped;
+    _schedule();
+  }
+
   void _schedule() {
     if (!_disposed) unawaited(_apply());
   }
@@ -60,7 +73,7 @@ class SubtitleStyleApplier {
     final native = player.platform;
     if (_disposed || native is! NativePlayer) return;
     final (:font, :bold, :italic, :fontsChanged) = await _resolveFont(style);
-    final wanted = toMpvProperties(style, font: font, bold: bold, italic: italic);
+    final wanted = toMpvProperties(style, font: font, bold: bold, italic: italic, lift: _lift);
     final changed = {
       for (final e in wanted.entries)
         if (_applied[e.key] != e.value) e.key: e.value,

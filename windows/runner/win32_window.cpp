@@ -1,11 +1,15 @@
 #include "win32_window.h"
 
+#include <algorithm>
 #include <dwmapi.h>
 #include <flutter_windows.h>
 
 #include "resource.h"
 
 namespace {
+
+constexpr const wchar_t kWindowPlacementRegKey[] = L"Software\\SyncTogether";
+constexpr const wchar_t kWindowPlacementRegValue[] = L"WindowPlacement";
 
 /// Window attribute that enables dark mode window decorations.
 ///
@@ -134,10 +138,22 @@ bool Win32Window::Create(const std::wstring& title,
   UINT dpi = FlutterDesktopGetDpiForMonitor(monitor);
   double scale_factor = dpi / 96.0;
 
+  int window_width = Scale(size.width, scale_factor);
+  int window_height = Scale(size.height, scale_factor);
+  int window_x = Scale(origin.x, scale_factor);
+  int window_y = Scale(origin.y, scale_factor);
+
+  MONITORINFO mi = { sizeof(MONITORINFO) };
+  if (GetMonitorInfo(monitor, &mi)) {
+    int work_width = mi.rcWork.right - mi.rcWork.left;
+    int work_height = mi.rcWork.bottom - mi.rcWork.top;
+    window_x = mi.rcWork.left + std::max<int>(0, (work_width - window_width) / 2);
+    window_y = mi.rcWork.top + std::max<int>(0, (work_height - window_height) / 2);
+  }
+
   HWND window = CreateWindow(
       window_class, title.c_str(), WS_OVERLAPPEDWINDOW,
-      Scale(origin.x, scale_factor), Scale(origin.y, scale_factor),
-      Scale(size.width, scale_factor), Scale(size.height, scale_factor),
+      window_x, window_y, window_width, window_height,
       nullptr, nullptr, GetModuleHandle(nullptr), this);
 
   if (!window) {
@@ -146,11 +162,13 @@ bool Win32Window::Create(const std::wstring& title,
 
   UpdateTheme(window);
 
+  RestoreWindowPlacement();
+
   return OnCreate();
 }
 
 bool Win32Window::Show() {
-  return ShowWindow(window_handle_, SW_SHOWNORMAL);
+  return ShowWindow(window_handle_, show_command_);
 }
 
 // static
@@ -179,13 +197,28 @@ Win32Window::MessageHandler(HWND hwnd,
                             WPARAM const wparam,
                             LPARAM const lparam) noexcept {
   switch (message) {
+    case WM_CLOSE:
+      SaveWindowPlacement();
+      break;
+
     case WM_DESTROY:
+      SaveWindowPlacement();
       window_handle_ = nullptr;
       Destroy();
       if (quit_on_close_) {
         PostQuitMessage(0);
       }
       return 0;
+
+    case WM_GETMINMAXINFO: {
+      auto info = reinterpret_cast<MINMAXINFO*>(lparam);
+      HMONITOR monitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
+      UINT dpi = FlutterDesktopGetDpiForMonitor(monitor);
+      double scale = dpi / 96.0;
+      info->ptMinTrackSize.x = Scale(900, scale);
+      info->ptMinTrackSize.y = Scale(600, scale);
+      return 0;
+    }
 
     case WM_DPICHANGED: {
       auto newRectSize = reinterpret_cast<RECT*>(lparam);
@@ -225,12 +258,62 @@ void Win32Window::Destroy() {
   OnDestroy();
 
   if (window_handle_) {
+    SaveWindowPlacement();
     DestroyWindow(window_handle_);
     window_handle_ = nullptr;
   }
   if (g_active_window_count == 0) {
     WindowClassRegistrar::GetInstance()->UnregisterWindowClass();
   }
+}
+
+void Win32Window::SaveWindowPlacement() {
+  if (!window_handle_) return;
+  WINDOWPLACEMENT wp = { sizeof(WINDOWPLACEMENT) };
+  if (!GetWindowPlacement(window_handle_, &wp)) {
+    return;
+  }
+
+  HKEY key = nullptr;
+  if (RegCreateKeyExW(HKEY_CURRENT_USER, kWindowPlacementRegKey, 0, nullptr, 0,
+                      KEY_WRITE, nullptr, &key, nullptr) == ERROR_SUCCESS) {
+    RegSetValueExW(key, kWindowPlacementRegValue, 0, REG_BINARY,
+                   reinterpret_cast<const BYTE*>(&wp), sizeof(wp));
+    RegCloseKey(key);
+  }
+}
+
+bool Win32Window::RestoreWindowPlacement() {
+  if (!window_handle_) return false;
+  HKEY key = nullptr;
+  if (RegOpenKeyExW(HKEY_CURRENT_USER, kWindowPlacementRegKey, 0, KEY_READ, &key) != ERROR_SUCCESS) {
+    return false;
+  }
+
+  WINDOWPLACEMENT wp = { sizeof(WINDOWPLACEMENT) };
+  DWORD type = REG_BINARY;
+  DWORD size = sizeof(wp);
+  LONG status = RegQueryValueExW(key, kWindowPlacementRegValue, nullptr, &type,
+                                reinterpret_cast<BYTE*>(&wp), &size);
+  RegCloseKey(key);
+
+  if (status != ERROR_SUCCESS || size != sizeof(WINDOWPLACEMENT)) {
+    return false;
+  }
+
+  // Ensure placement coordinates fall within an active monitor
+  HMONITOR monitor = MonitorFromRect(&wp.rcNormalPosition, MONITOR_DEFAULTTONULL);
+  if (!monitor) {
+    return false;
+  }
+
+  // Never launch minimized or hidden
+  if (wp.showCmd == SW_SHOWMINIMIZED || wp.showCmd == SW_MINIMIZE || wp.showCmd == SW_HIDE) {
+    wp.showCmd = SW_SHOWNORMAL;
+  }
+
+  show_command_ = wp.showCmd;
+  return SetWindowPlacement(window_handle_, &wp) != FALSE;
 }
 
 Win32Window* Win32Window::GetThisFromHandle(HWND const window) noexcept {

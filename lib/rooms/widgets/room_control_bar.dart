@@ -693,27 +693,33 @@ class _RoomControlBarState extends State<RoomControlBar> with SingleTickerProvid
               ),
               Row(mainAxisSize: .min, spacing: 8, children: av),
             ],
-            const Spacer(),
-            Flexible(
-              flex: 0,
-              child: FittedBox(
-                fit: .scaleDown,
-                child: Row(
-                  mainAxisSize: .min,
-                  spacing: 8,
-                  children: [
-                    if (actions.onSubtitles != null)
-                      _trackKey('SUBS', widget.subtitleTag, actions.onSubtitles!, height: 40),
-                    if (actions.onAudioTracks != null)
-                      _trackKey('AUDIO', widget.audioTag, actions.onAudioTracks!, height: 40),
-                    Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: slider
-                          ? _volume(sliderWidth: 80, thumb: PTSliderThumb.none)
-                          : _volume(sliderWidth: 0, thumb: PTSliderThumb.none),
-                    ),
-                    ?_fullscreenKey(40),
-                  ],
+            // Takes whatever the transport leaves and scales the track keys,
+            // volume and fullscreen down into it. (A `Flexible(flex: 0)` here
+            // is laid out unbounded, so its FittedBox never scaled and the
+            // row overflowed once the theatre was used below ~1100 px.)
+            Expanded(
+              child: Align(
+                alignment: Alignment.centerRight,
+                child: FittedBox(
+                  fit: .scaleDown,
+                  alignment: Alignment.centerRight,
+                  child: Row(
+                    mainAxisSize: .min,
+                    spacing: 8,
+                    children: [
+                      if (actions.onSubtitles != null)
+                        _trackKey('SUBS', widget.subtitleTag, actions.onSubtitles!, height: 40),
+                      if (actions.onAudioTracks != null)
+                        _trackKey('AUDIO', widget.audioTag, actions.onAudioTracks!, height: 40),
+                      Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: slider
+                            ? _volume(sliderWidth: 80, thumb: PTSliderThumb.none)
+                            : _volume(sliderWidth: 0, thumb: PTSliderThumb.none),
+                      ),
+                      ?_fullscreenKey(40),
+                    ],
+                  ),
                 ),
               ),
             ),

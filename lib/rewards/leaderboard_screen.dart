@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:window_manager/window_manager.dart';
 
 import '../analytics.dart';
 import '../analytics_consent.dart';
@@ -14,6 +15,7 @@ import '../platform.dart';
 import '../ui/banners.dart';
 import '../ui/booth.dart';
 import '../ui/buttons.dart';
+import '../ui/cinema_marquee_bar.dart';
 import '../ui/glass.dart';
 import '../ui/identity.dart';
 import '../ui/loader.dart';
@@ -40,20 +42,39 @@ class LeaderboardScreen extends StatefulWidget {
   State<LeaderboardScreen> createState() => _LeaderboardScreenState();
 }
 
-class _LeaderboardScreenState extends State<LeaderboardScreen> {
+class _LeaderboardScreenState extends State<LeaderboardScreen> with WindowListener {
   LeaderboardScope _scope = .circle;
   LeaderboardPeriod _period = .week;
 
   List<LeaderboardRow> _rows = const [];
   bool _loading = true;
+  bool _fullscreen = false;
 
   @override
   void initState() {
     super.initState();
+    if (isDesktop) {
+      windowManager.addListener(this);
+      windowManager.isFullScreen().then((value) {
+        if (mounted && value != _fullscreen) setState(() => _fullscreen = value);
+      });
+    }
     Analytics.instance.track('leaderboard_viewed', {'scope': _scope.wire});
     unawaited(RewardsService.instance.load().then((_) => _trackUpsellShown()));
     unawaited(_reload());
   }
+
+  @override
+  void dispose() {
+    if (isDesktop) windowManager.removeListener(this);
+    super.dispose();
+  }
+
+  @override
+  void onWindowEnterFullScreen() => setState(() => _fullscreen = true);
+
+  @override
+  void onWindowLeaveFullScreen() => setState(() => _fullscreen = false);
 
   /// Fired once per visit, and deliberately *not* from `build`.
   ///
@@ -152,37 +173,79 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
     // Edge-to-edge: the page scrolls under the home indicator / nav bar, and
     // the bottom inset pads the content so its last item still clears it.
     return SafeArea(
+      top: !isDesktop,
       bottom: false,
       child: Column(
         children: [
-          Padding(
-            padding: compact
-                ? const EdgeInsets.fromLTRB(20, 10, 20, 0)
-                : const EdgeInsets.fromLTRB(48, 28, 48, 0),
-            child: Row(
-              spacing: 14,
-              children: [
-                PTIconButton(
-                  icon: BoothIcons.arrowBack,
-                  iconSize: 20,
-                  size: compact ? 44 : 42,
-                  onPressed: () => context.go('/lobby'),
+          if (isDesktop)
+            CinemaMarqueeBar(
+              height: 52,
+              fullscreen: _fullscreen,
+              leading: Padding(
+                padding: const EdgeInsets.only(left: 12.0),
+                child: Row(
+                  mainAxisSize: .min,
+                  spacing: 14,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.only(right: 8.0),
+                      child: PTIconButton(
+                        icon: BoothIcons.arrowBack,
+                        iconSize: 20,
+                        size: 38,
+                        onPressed: () => context.go('/lobby'),
+                      ),
+                    ),
+                    Text('LEADERBOARD', maxLines: 1, overflow: .ellipsis, style: PTText.label),
+                  ],
                 ),
-                Expanded(
-                  child: Text('LEADERBOARD', maxLines: 1, overflow: .ellipsis, style: PTText.label),
-                ),
-                // Consent, handle and frame all live in the profile.
-                TextButton(
+              ),
+              trailing: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20.0),
+                child: TextButton(
                   onPressed: () => context.go('/lobby/profile'),
                   style: TextButton.styleFrom(
                     foregroundColor: PTColors.white(0.7),
                     textStyle: PTText.caption.copyWith(decoration: TextDecoration.underline),
                   ),
-                  child: Text(compact ? 'Settings' : 'Leaderboard settings'),
+                  child: const Text('Leaderboard settings'),
                 ),
-              ],
+              ),
+            )
+          else
+            Padding(
+              padding: compact
+                  ? const EdgeInsets.fromLTRB(20, 10, 20, 0)
+                  : const EdgeInsets.fromLTRB(48, 28, 48, 0),
+              child: Row(
+                spacing: 14,
+                children: [
+                  PTIconButton(
+                    icon: BoothIcons.arrowBack,
+                    iconSize: 20,
+                    size: compact ? 44 : 42,
+                    onPressed: () => context.go('/lobby'),
+                  ),
+                  Expanded(
+                    child: Text(
+                      'LEADERBOARD',
+                      maxLines: 1,
+                      overflow: .ellipsis,
+                      style: PTText.label,
+                    ),
+                  ),
+                  // Consent, handle and frame all live in the profile.
+                  TextButton(
+                    onPressed: () => context.go('/lobby/profile'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: PTColors.white(0.7),
+                      textStyle: PTText.caption.copyWith(decoration: TextDecoration.underline),
+                    ),
+                    child: Text(compact ? 'Settings' : 'Leaderboard settings'),
+                  ),
+                ],
+              ),
             ),
-          ),
           Expanded(
             child: ScrollFadeEdge(
               child: SingleChildScrollView(

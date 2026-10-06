@@ -9,6 +9,7 @@ import 'package:supabase_flutter/supabase_flutter.dart' show AuthChangeEvent;
 
 import 'auth/auth_service.dart';
 import 'auth/login_screen.dart';
+import 'profile/banned_screen.dart';
 import 'profile/entitlement_service.dart';
 import 'profile/profile_screen.dart';
 import 'profile/profile_service.dart';
@@ -44,7 +45,15 @@ GoRouter buildRouter([Player? player]) {
     redirect: (context, state) {
       final signedIn = AuthService.instance.isSignedIn;
       final atLogin = state.matchedLocation == '/login';
+      final atBanned = state.matchedLocation == '/banned';
       if (!signedIn) return atLogin ? null : '/login';
+
+      final profile = ProfileService.instance.profile;
+      if (profile != null && profile.isBanned) {
+        return atBanned ? null : '/banned';
+      }
+      if (atBanned) return '/lobby';
+
       if (atLogin) return '/lobby';
       return null;
     },
@@ -52,6 +61,10 @@ GoRouter buildRouter([Player? player]) {
       GoRoute(
         path: '/login',
         pageBuilder: (context, state) => _fadeThrough(state, const LoginScreen()),
+      ),
+      GoRoute(
+        path: '/banned',
+        pageBuilder: (context, state) => _fadeThrough(state, const BannedScreen()),
       ),
       GoRoute(
         path: '/lobby',
@@ -199,6 +212,7 @@ CustomTransitionPage<void> _sharedAxis(GoRouterState state, Widget child) {
 /// profile in step with the session (signedOut wipes it).
 class _AuthRefresh extends ChangeNotifier {
   _AuthRefresh() {
+    ProfileService.instance.addListener(notifyListeners);
     _sub = AuthService.instance.onAuthStateChange.listen((state) {
       switch (state.event) {
         case AuthChangeEvent.signedIn:
@@ -227,6 +241,7 @@ class _AuthRefresh extends ChangeNotifier {
 
   @override
   void dispose() {
+    ProfileService.instance.removeListener(notifyListeners);
     _sub.cancel();
     super.dispose();
   }

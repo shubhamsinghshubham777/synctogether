@@ -168,6 +168,10 @@ class ModerationService extends ChangeNotifier {
     String? details,
     String? messageId,
     String? messageExcerpt,
+    String? mediaKind,
+    String? mediaTitle,
+    String? mediaSourceUrl,
+    String? roomCode,
   }) async {
     try {
       await _client.rpc(
@@ -179,6 +183,10 @@ class ModerationService extends ChangeNotifier {
           'p_details': details,
           'p_message_id': messageId,
           'p_message_excerpt': messageExcerpt,
+          'p_media_kind': mediaKind,
+          'p_media_title': mediaTitle,
+          'p_media_source_url': mediaSourceUrl,
+          'p_room_code': roomCode,
         },
       );
       trace(

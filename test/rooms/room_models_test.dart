@@ -45,6 +45,7 @@ void main() {
         'media_url': null,
         'media_updated_at': '2026-07-31T10:30:00.000Z',
         'transport_lock': true,
+        'is_banned': true,
       });
 
       expect(room.id, 'r1');
@@ -54,6 +55,7 @@ void main() {
       expect(room.durationMinutes, 120);
       expect(room.expiresAt, DateTime.utc(2026, 7, 31, 12));
       expect(room.endedAt, DateTime.utc(2026, 7, 31, 11));
+      expect(room.isBanned, isTrue);
       expect(room.mediaKind, RoomMediaKind.local);
       expect(room.mediaName, 'movie.mkv');
       expect(room.mediaDuration, const Duration(milliseconds: 7200000));
@@ -67,6 +69,7 @@ void main() {
       final room = Room.fromJson(_minimalRow());
 
       expect(room.endedAt, isNull);
+      expect(room.isBanned, isFalse);
       expect(room.mediaKind, RoomMediaKind.none);
       expect(room.mediaName, isNull);
       expect(room.mediaDuration, isNull);

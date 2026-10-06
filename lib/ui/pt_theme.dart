@@ -55,6 +55,7 @@ abstract final class PTColors {
   static const warningBorder = Color(0xFFFFB23F);
   static const danger = Color(0xFFFF8A70);
   static const dangerBorder = Color(0xFFFF6A4D);
+  static const windowsCloseHover = Color(0xFFC42B1C);
   static const premium = Color(0xFFE8C877); // Brass
   static const premiumBorder = Color(0xFFA8893E);
 

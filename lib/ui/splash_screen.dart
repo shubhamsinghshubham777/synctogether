@@ -16,10 +16,10 @@ const _kTotal = Duration(milliseconds: 1800);
 /// tool/generate_splash_sound.py). Move one, move the other.
 const _kImpact = Duration(milliseconds: 300);
 
-/// The audio player gets this long to open the file before the animation
-/// starts without it. Sound and motion are one gesture, so a late start would
-/// read as a bug; silence just reads as a quiet app.
-const _kPreloadBudget = Duration(milliseconds: 450);
+/// Maximum time allowed for audio initialization, asset buffering, and active
+/// playback confirmation before falling back to silent animation.
+/// Keeps app startup responsive even if audio hardware is slow or unavailable.
+const _kAudioBudget = Duration(milliseconds: 3000);
 
 const _kSfx = 'asset:///assets/sfx/splash.wav';
 
@@ -78,9 +78,22 @@ final _exit = _beat(1240, _kTotal.inMilliseconds, PTMotion.emphasized);
 /// redirects and the deep-link handler in main.dart all keep running
 /// underneath, so an invite link that arrives during the splash still lands.
 class PTSplash extends StatefulWidget {
-  const PTSplash({super.key, required this.child});
+  const PTSplash({
+    super.key,
+    required this.child,
+    @visibleForTesting this.playerFactory,
+    @visibleForTesting this.mediaOverride,
+  });
 
   final Widget child;
+
+  /// Optional factory for testing to inject a custom or mock [Player].
+  @visibleForTesting
+  final Player Function()? playerFactory;
+
+  /// Optional playable to override the default splash sound asset (e.g. in tests).
+  @visibleForTesting
+  final Playable? mediaOverride;
 
   @override
   State<PTSplash> createState() => _PTSplashState();
@@ -93,7 +106,10 @@ class _PTSplashState extends State<PTSplash> with SingleTickerProviderStateMixin
     });
 
   Player? _sound;
+  Player? _loadingPlayer;
   bool _finished = false;
+  bool _disposed = false;
+  Timer? _reducedMotionTimer;
 
   @override
   void initState() {
@@ -102,20 +118,23 @@ class _PTSplashState extends State<PTSplash> with SingleTickerProviderStateMixin
   }
 
   Future<void> _run() async {
-    // Opening the file first is what buys the sync: media_kit's own start
-    // latency lands before t=0 instead of inside the animation.
-    final player = await _preload().timeout(_kPreloadBudget, onTimeout: () => null);
-    if (!mounted) {
+    // Wait until the audio asset is verified loaded and active playback has
+    // started so sound and visual animation begin in lockstep.
+    final player = await _prepareAudio();
+    if (!mounted || _disposed) {
       unawaited(player?.dispose());
       return;
     }
     _sound = player;
-    unawaited(player?.play());
+    _startAnimation();
+  }
+
+  void _startAnimation() {
     if (reducedMotion(context)) {
       // Decorative motion renders its end state; the sting still plays, and
       // the hold gives it somewhere to land before the hand-off.
       _controller.value = _exit.begin;
-      Timer(_kImpact, () {
+      _reducedMotionTimer = Timer(_kImpact, () {
         if (mounted) _controller.forward();
       });
     } else {
@@ -123,23 +142,78 @@ class _PTSplashState extends State<PTSplash> with SingleTickerProviderStateMixin
     }
   }
 
-  Future<Player?> _preload() async {
-    final player = Player();
+  Future<Player?> _prepareAudio() async {
+    Player? player;
     try {
-      await player.setVolume(75);
-      await player.open(Media(_kSfx), play: false);
-      return player;
+      final p = widget.playerFactory?.call() ?? Player();
+      _loadingPlayer = p;
+      player = p;
+      final ready = await _startPlayback(p).timeout(_kAudioBudget);
+      _loadingPlayer = null;
+      return ready;
     } catch (e, s) {
-      reportNonFatal(e, s, during: 'loading the splash sound');
-      unawaited(player.dispose());
+      _loadingPlayer = null;
+      unawaited(player?.dispose());
+      if (e is! TimeoutException) {
+        reportNonFatal(e, s, during: 'loading the splash sound');
+      }
       return null;
     }
   }
 
+  Future<Player?> _startPlayback(Player player) async {
+    if (_disposed) {
+      unawaited(player.dispose());
+      return null;
+    }
+
+    await player.setVolume(75);
+    if (_disposed) {
+      unawaited(player.dispose());
+      return null;
+    }
+
+    final media = widget.mediaOverride ?? Media(_kSfx);
+    await player.open(media, play: false);
+    if (_disposed) {
+      unawaited(player.dispose());
+      return null;
+    }
+
+    // Wait until media_kit demuxes and buffers the asset.
+    if (player.state.duration <= Duration.zero) {
+      final d = await player.stream.duration.firstWhere(
+        (d) => d > Duration.zero,
+        orElse: () => Duration.zero,
+      );
+      if (_disposed || d <= Duration.zero) {
+        unawaited(player.dispose());
+        return null;
+      }
+    }
+
+    // Trigger playback and wait for confirmation that the audio engine
+    // has actively started playing before releasing the visual animation.
+    await player.play();
+    if (!player.state.playing) {
+      final playing = await player.stream.playing.firstWhere((p) => p, orElse: () => false);
+      if (_disposed || !playing) {
+        unawaited(player.dispose());
+        return null;
+      }
+    }
+
+    return player;
+  }
+
   @override
   void dispose() {
+    _disposed = true;
+    _reducedMotionTimer?.cancel();
     // The splash outlives the 1.30 s sting, so this never clips a tail.
     unawaited(_sound?.dispose());
+    unawaited(_loadingPlayer?.dispose());
+    _loadingPlayer = null;
     _controller.dispose();
     super.dispose();
   }

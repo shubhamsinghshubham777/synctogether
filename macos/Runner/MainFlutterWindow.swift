@@ -2,16 +2,96 @@ import Cocoa
 import FlutterMacOS
 
 class MainFlutterWindow: NSWindow {
+  /// The Flutter header (`CinemaMarqueeBar`, 52 logical px) the traffic lights
+  /// live in. They are placed against it explicitly: AppKit centres them in
+  /// its own title bar, which is a different height, so left alone they sit
+  /// off the header's centre line.
+  private static let barHeight: CGFloat = 52
+  /// Matches `CinemaMarqueeBar.macOsTrafficLightInset` on the Dart side, which
+  /// reserves the room these occupy.
+  private static let lightsLeading: CGFloat = 20
+
   override func awakeFromNib() {
     let flutterViewController = FlutterViewController()
-    let windowFrame = self.frame
     self.contentViewController = flutterViewController
-    self.setFrame(windowFrame, display: true)
+
+    self.minSize = NSSize(width: 900, height: 600)
+
+    self.titleVisibility = .hidden
+    self.titlebarAppearsTransparent = true
+    self.styleMask.insert(.fullSizeContentView)
+    self.backgroundColor = NSColor(red: 0x12 / 255.0, green: 0x10 / 255.0, blue: 0x10 / 255.0, alpha: 1.0)
+    self.isMovableByWindowBackground = false
+
+    // AppKit re-lays the title bar out on resize, focus and fullscreen exit,
+    // and window_manager restyles it after launch: re-place the lights each time.
+    for name in [
+      NSWindow.didResizeNotification, NSWindow.didEndLiveResizeNotification,
+      NSWindow.didBecomeKeyNotification, NSWindow.didBecomeMainNotification,
+      NSWindow.didExitFullScreenNotification, NSWindow.didDeminiaturizeNotification,
+    ] {
+      NotificationCenter.default.addObserver(
+        self, selector: #selector(placeTrafficLights), name: name, object: self)
+    }
+
+    let autosaveName = "SyncTogetherMainWindow"
+    if !self.setFrameUsingName(autosaveName) {
+      let defaultSize = NSSize(width: 1280, height: 800)
+      if let screen = NSScreen.main {
+        let visible = screen.visibleFrame
+        let x = visible.origin.x + (visible.width - defaultSize.width) / 2.0
+        let y = visible.origin.y + (visible.height - defaultSize.height) / 2.0
+        self.setFrame(NSRect(x: x, y: y, width: defaultSize.width, height: defaultSize.height), display: true)
+      }
+      self.saveFrame(usingName: autosaveName)
+    } else {
+      if let screen = self.screen ?? NSScreen.main {
+        let visible = screen.visibleFrame
+        var frame = self.frame
+        if frame.maxX < visible.minX + 100 || frame.minX > visible.maxX - 100 ||
+           frame.maxY < visible.minY + 100 || frame.minY > visible.maxY - 100 {
+          let x = visible.origin.x + (visible.width - frame.width) / 2.0
+          let y = visible.origin.y + (visible.height - frame.height) / 2.0
+          frame.origin = CGPoint(x: max(visible.minX, x), y: max(visible.minY, y))
+          self.setFrame(frame, display: true)
+          self.saveFrame(usingName: autosaveName)
+        }
+      }
+    }
+    self.setFrameAutosaveName(autosaveName)
 
     RegisterGeneratedPlugins(registry: flutterViewController)
     SystemFontsChannel.register(with: flutterViewController.engine.binaryMessenger)
 
     super.awakeFromNib()
+    DispatchQueue.main.async { [weak self] in self?.placeTrafficLights() }
+    // window_manager applies its hidden title bar style from Dart a moment later.
+    DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { [weak self] in self?.placeTrafficLights() }
+  }
+
+  @objc private func placeTrafficLights() {
+    // In fullscreen the system draws its own bar and there is nothing to place.
+    guard !styleMask.contains(.fullScreen),
+      let close = standardWindowButton(.closeButton),
+      let mini = standardWindowButton(.miniaturizeButton),
+      let zoom = standardWindowButton(.zoomButton),
+      let titlebar = close.superview,
+      let container = titlebar.superview
+    else { return }
+
+    let height = MainFlutterWindow.barHeight
+    var frame = container.frame
+    frame.size.height = height
+    frame.origin.y = (container.superview?.frame.height ?? self.frame.height) - height
+    container.frame = frame
+
+    let step = mini.frame.minX - close.frame.minX
+    for (index, button) in [close, mini, zoom].enumerated() {
+      button.setFrameOrigin(
+        NSPoint(
+          x: MainFlutterWindow.lightsLeading + CGFloat(index) * step,
+          y: (height - button.frame.height) / 2))
+    }
   }
 }
 

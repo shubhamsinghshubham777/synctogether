@@ -62,6 +62,7 @@ class RoomChatPanel extends StatefulWidget {
     this.roster,
     this.premiumMembers = const {},
     this.memberFrames = const {},
+    this.draftController,
   });
 
   final SyncService sync;
@@ -75,6 +76,12 @@ class RoomChatPanel extends StatefulWidget {
   final ValueChanged<ChatMessage>? onReportMessage;
   final Set<String> premiumMembers;
   final Map<String, AvatarFrame> memberFrames;
+
+  /// The half-typed message, owned by the room so it survives the panel
+  /// remounting when a layout change (fullscreen, Split View, a resize across
+  /// the theatre breakpoint) rebuilds the tree around it. Null: the panel owns
+  /// its own and the draft dies with it.
+  final TextEditingController? draftController;
 
   /// Embedded (mobile portrait) skips its own panel shell + close button.
   final bool embedded;
@@ -111,7 +118,8 @@ class ChatRosterSeat {
 }
 
 class _RoomChatPanelState extends State<RoomChatPanel> {
-  final _controller = TextEditingController();
+  late final _controller = widget.draftController ?? TextEditingController();
+  late final _ownsController = widget.draftController == null;
   final _scrollController = ScrollController();
   final _inputFocus = FocusNode();
   Timer? _typingDebounce;
@@ -223,7 +231,7 @@ class _RoomChatPanelState extends State<RoomChatPanel> {
     _typingDebounce?.cancel();
     _hoverOpen?.cancel();
     _hoverClose?.cancel();
-    _controller.dispose();
+    if (_ownsController) _controller.dispose();
     _scrollController.dispose();
     _inputFocus.dispose();
     super.dispose();

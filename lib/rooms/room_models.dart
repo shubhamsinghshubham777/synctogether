@@ -76,6 +76,7 @@ class Room {
     this.mediaUploadState = 'none',
     this.mediaSharingLevel = 'none',
     this.videoTrialEndsAt,
+    this.isBanned = false,
   });
 
   final String id;
@@ -86,6 +87,7 @@ class Room {
   final int durationMinutes;
   final DateTime expiresAt;
   final DateTime? endedAt;
+  final bool isBanned;
 
   /// Canonical media - set by the host only, via `set_room_media`.
   final RoomMediaKind mediaKind;
@@ -157,6 +159,7 @@ class Room {
     String? mediaUploadState,
     String? mediaSharingLevel,
     DateTime? videoTrialEndsAt,
+    bool? isBanned,
   }) {
     return Room(
       id: id ?? this.id,
@@ -167,6 +170,7 @@ class Room {
       durationMinutes: durationMinutes ?? this.durationMinutes,
       expiresAt: expiresAt ?? this.expiresAt,
       endedAt: endedAt ?? this.endedAt,
+      isBanned: isBanned ?? this.isBanned,
       mediaKind: mediaKind ?? this.mediaKind,
       mediaName: mediaName ?? this.mediaName,
       mediaDuration: mediaDuration ?? this.mediaDuration,
@@ -199,6 +203,7 @@ class Room {
       durationMinutes: json['duration_minutes'] as int,
       expiresAt: DateTime.parse(json['expires_at'] as String),
       endedAt: json['ended_at'] != null ? DateTime.parse(json['ended_at'] as String) : null,
+      isBanned: json['is_banned'] as bool? ?? false,
       mediaKind: RoomMediaKind.fromWire(json['media_kind'] as String?),
       mediaName: json['media_name'] as String?,
       mediaDuration: json['media_duration_ms'] != null
@@ -400,6 +405,11 @@ enum RoomErrorCode {
   roomEnded('room_ended', 'That room has already ended.'),
   roomFull('room_full', "This room is full. There's no space for one more."),
   roomBanned('room_banned', "The host removed you from this room, so you can't rejoin."),
+  roomBannedByAdmin(
+    'room_closed_by_admin',
+    'This room was closed due to a copyright or community guidelines violation.',
+  ),
+  accountBanned('account_banned', 'Your account has been suspended from using rooms.'),
   guestRoomLimit('guest_room_limit', 'Guests can host one live room at a time.'),
   roomLimitReached(
     'room_limit_reached',
@@ -461,3 +471,6 @@ enum RoomErrorCode {
     return unknown;
   }
 }
+
+/// The active player mechanism driving playback in a room.
+enum PlaybackMode { local, youtube }

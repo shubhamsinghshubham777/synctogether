@@ -41,6 +41,7 @@ void main() {
     Widget buildTestApp({
       Future<void> Function(lk.MediaDevice? selectedOutput)? onTestSound,
       MicLevels? micLevels,
+      CameraTrackFactory? cameraTrackFactory,
     }) {
       return MaterialApp(
         home: Scaffold(
@@ -53,6 +54,7 @@ void main() {
                 enumerateAudioOutputs: () async => mockOutputs,
                 onTestSound: onTestSound,
                 micLevels: micLevels,
+                cameraTrackFactory: cameraTrackFactory ?? (_) async => null,
               ),
               child: const Text('Open Settings'),
             ),
@@ -169,6 +171,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // Select External Webcam
+      await tester.scrollUntilVisible(find.text('FaceTime HD'), 50.0);
       await tester.tap(find.text('FaceTime HD'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('External Webcam').last);
@@ -281,6 +284,75 @@ void main() {
       await tester.pump();
       expect(find.text("Couldn't open that mic"), findsOneWidget);
       expect(find.text('Test mic'), findsOneWidget);
+    });
+
+    testWidgets('Test sound animates the output meter and shows Playing sound indicator', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        buildTestApp(
+          onTestSound: (_) async {
+            await Future.delayed(const Duration(milliseconds: 300));
+          },
+        ),
+      );
+
+      await tester.tap(find.text('Open Settings'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 450));
+
+      // Output meter starts idle (no "Playing sound" label)
+      expect(find.text('Playing sound'), findsNothing);
+
+      // Tap "Test sound" button
+      final testSoundButton = find.text('Test sound');
+      expect(testSoundButton, findsOneWidget);
+      await tester.tap(testSoundButton);
+      await tester.pump();
+
+      // Shows "Playing sound" indicator
+      expect(find.text('Playing sound'), findsOneWidget);
+
+      // Advance through animation
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(find.text('Playing sound'), findsOneWidget);
+
+      // Advance past duration to let it finish
+      await tester.pump(const Duration(milliseconds: 1500));
+      expect(find.text('Playing sound'), findsNothing);
+      expect(find.text('Test sound'), findsOneWidget);
+    });
+
+    testWidgets('Camera preview toggles between active and paused', (tester) async {
+      var cameraStarted = false;
+
+      await tester.pumpWidget(
+        buildTestApp(
+          cameraTrackFactory: (deviceId) async {
+            cameraStarted = true;
+            return null;
+          },
+        ),
+      );
+
+      await tester.tap(find.text('Open Settings'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 450));
+
+      // Camera auto-starts on opening
+      expect(cameraStarted, isTrue);
+      expect(find.text('Stop camera'), findsOneWidget);
+
+      // Tap "Stop camera" to pause preview
+      await tester.tap(find.text('Stop camera'));
+      await tester.pump();
+      expect(find.text('Test camera'), findsOneWidget);
+      expect(find.text('Camera preview paused'), findsOneWidget);
+
+      // Tap "Test camera" to resume
+      await tester.tap(find.text('Test camera'));
+      await tester.pump();
+      expect(find.text('Stop camera'), findsOneWidget);
     });
   });
 }

@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:path/path.dart' as p;
+import 'package:window_manager/window_manager.dart';
 import 'package:synctogether/platform.dart';
 import 'package:synctogether/analytics.dart';
 import 'package:synctogether/app_router.dart';
@@ -19,6 +20,7 @@ import 'package:synctogether/profile/entitlement_service.dart';
 import 'package:synctogether/profile/media_quota_dialog.dart';
 import 'package:synctogether/profile/profile_models.dart';
 import 'package:synctogether/profile/profile_service.dart';
+import 'package:synctogether/profile/widgets/warning_dialog.dart';
 import 'package:synctogether/rooms/local_media_store.dart';
 import 'package:synctogether/rooms/media_sharing_service.dart';
 import 'package:synctogether/rooms/room_models.dart';
@@ -33,6 +35,7 @@ import 'package:synctogether/rooms/widgets/my_rooms_section.dart';
 import 'package:synctogether/updates/update_service.dart';
 import 'package:synctogether/ui/banners.dart';
 import 'package:synctogether/ui/booth.dart';
+import 'package:synctogether/ui/cinema_marquee_bar.dart';
 import 'package:synctogether/ui/loader.dart';
 import 'package:synctogether/ui/buttons.dart';
 import 'package:synctogether/ui/glass.dart';
@@ -54,7 +57,7 @@ class LobbyScreen extends StatefulWidget {
   State<LobbyScreen> createState() => _LobbyScreenState();
 }
 
-class _LobbyScreenState extends State<LobbyScreen> {
+class _LobbyScreenState extends State<LobbyScreen> with WindowListener {
   final _nameController = TextEditingController();
   final _codeKey = GlobalKey<PTCodeInputState>();
   int _durationMinutes = 150;
@@ -66,6 +69,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
   String? _busyRoomId;
   bool _clearingEndedRooms = false;
   Timer? _myRoomsPollTimer;
+  bool _fullscreen = false;
 
   File? _stagedFile;
   StagedUploadSession? _stagedSession;
@@ -84,6 +88,12 @@ class _LobbyScreenState extends State<LobbyScreen> {
   @override
   void initState() {
     super.initState();
+    if (isDesktop) {
+      windowManager.addListener(this);
+      windowManager.isFullScreen().then((value) {
+        if (mounted && value != _fullscreen) setState(() => _fullscreen = value);
+      });
+    }
     _introPlayed = true;
     unawaited(
       EntitlementService.instance.load().then((_) {
@@ -99,6 +109,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
       }
     });
     RoomService.instance.addListener(_onRoomServiceChanged);
+    ProfileService.instance.addListener(_onProfileChanged);
     if (ProfileService.instance.profile == null) {
       // Consume the parked invite even if the profile fetch fails - the join
       // itself doesn't need the profile.
@@ -108,9 +119,15 @@ class _LobbyScreenState extends State<LobbyScreen> {
             reportNonFatal(e, s, during: 'loading the profile for the lobby');
             return null;
           })
-          .whenComplete(_consumePendingJoin);
+          .whenComplete(() {
+            _checkModerationWarning();
+            _consumePendingJoin();
+          });
     } else {
-      WidgetsBinding.instance.addPostFrameCallback((_) => _consumePendingJoin());
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _checkModerationWarning();
+        _consumePendingJoin();
+      });
     }
   }
 
@@ -129,13 +146,43 @@ class _LobbyScreenState extends State<LobbyScreen> {
     }
   }
 
+  bool _warningDialogShowing = false;
+
+  void _onProfileChanged() {
+    _checkModerationWarning();
+  }
+
+  void _checkModerationWarning() {
+    if (!mounted || _warningDialogShowing) return;
+    final profile = ProfileService.instance.profile;
+    if (profile != null && profile.needsWarningAcknowledgment) {
+      _warningDialogShowing = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        if (!mounted) return;
+        try {
+          await showWarningDialog(context);
+        } finally {
+          _warningDialogShowing = false;
+        }
+      });
+    }
+  }
+
   @override
   void dispose() {
     _myRoomsPollTimer?.cancel();
     RoomService.instance.removeListener(_onRoomServiceChanged);
+    ProfileService.instance.removeListener(_onProfileChanged);
     _nameController.dispose();
+    if (isDesktop) windowManager.removeListener(this);
     super.dispose();
   }
+
+  @override
+  void onWindowEnterFullScreen() => setState(() => _fullscreen = true);
+
+  @override
+  void onWindowLeaveFullScreen() => setState(() => _fullscreen = false);
 
   /// Invite deep link received before sign-in lands here after login.
   Future<void> _consumePendingJoin() async {
@@ -371,6 +418,9 @@ class _LobbyScreenState extends State<LobbyScreen> {
       } else if (code == .notAuthenticated) {
         _snack(code.message);
         await AuthService.instance.signOut();
+      } else if (code == .accountBanned) {
+        _snack(code.message);
+        unawaited(ProfileService.instance.load());
       } else {
         _snack(code.message);
       }
@@ -408,6 +458,8 @@ class _LobbyScreenState extends State<LobbyScreen> {
       }
       if (failure == .notAuthenticated) {
         await AuthService.instance.signOut();
+      } else if (failure == .accountBanned) {
+        unawaited(ProfileService.instance.load());
       }
     } finally {
       if (mounted) setState(() => _joining = false);
@@ -843,13 +895,25 @@ class _LobbyScreenState extends State<LobbyScreen> {
     if (width < kLobbySplitWidth) return _stacked();
     final left = (width * 0.42).clamp(420.0, 560.0);
     return SafeArea(
+      top: !isDesktop,
       child: Column(
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(40, 20, 40, 20),
-            child: _header(compact: false),
-          ),
-          const Divider(height: 1, color: PTColors.aisle),
+          if (isDesktop)
+            CinemaMarqueeBar(
+              height: 52,
+              fullscreen: _fullscreen,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20.0),
+                child: _header(compact: false),
+              ),
+            )
+          else ...[
+            Padding(
+              padding: const EdgeInsets.fromLTRB(40, 20, 40, 20),
+              child: _header(compact: false),
+            ),
+            const Divider(height: 1, color: PTColors.aisle),
+          ],
           Expanded(
             child: Row(
               crossAxisAlignment: .stretch,
@@ -883,13 +947,25 @@ class _LobbyScreenState extends State<LobbyScreen> {
   /// One centred column: narrow desktop windows and portrait tablets.
   Widget _stacked() {
     return SafeArea(
+      top: !isDesktop,
       child: Column(
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(28, 18, 28, 18),
-            child: _header(compact: false),
-          ),
-          const Divider(height: 1, color: PTColors.aisle),
+          if (isDesktop)
+            CinemaMarqueeBar(
+              height: 52,
+              fullscreen: _fullscreen,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                child: _header(compact: false),
+              ),
+            )
+          else ...[
+            Padding(
+              padding: const EdgeInsets.fromLTRB(28, 18, 28, 18),
+              child: _header(compact: false),
+            ),
+            const Divider(height: 1, color: PTColors.aisle),
+          ],
           Expanded(
             child: ScrollFadeEdge(
               child: SingleChildScrollView(

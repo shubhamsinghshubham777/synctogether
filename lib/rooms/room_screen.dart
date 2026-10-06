@@ -3611,7 +3611,10 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     IconData? icon,
   }) async {
     if (_ended) return;
-    await _persistPosition();
+    // Fired, not awaited: a best-effort last write, and the room is on its
+    // way out either way. Chaining it ahead of the dialog is what used to
+    // make "End room for everyone" visibly freeze for the round trip.
+    unawaited(_persistPosition());
     _ended = true;
     _evictionReason = reason;
     _trackWatchSessionEnded();
@@ -3649,8 +3652,11 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
       _uploadState = 'none';
       unawaited(_mediaSharingService.abortUpload(roomId: widget.roomId));
     }
-    await _sync?.disconnect();
-    await _player.stop();
+    // Same reason: the dialog doesn't need the channel gone or playback
+    // stopped, it needs this widget's own UI gone. Run both concurrently in
+    // the background instead of making the user wait on two more round
+    // trips they can't see.
+    unawaited(Future.wait([?_sync?.disconnect(), _player.stop()]));
     if (mounted) _showEndedDialog(title: title, body: body, icon: icon);
   }
 
@@ -3727,7 +3733,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     trace('leaving the room', category: 'room', data: {'room_id': widget.roomId});
     _setImmersive(false);
     _trackWatchSessionEnded();
-    await _persistPosition();
+    unawaited(_persistPosition());
     try {
       await RoomService.instance.leaveRoom(widget.roomId);
     } catch (e, s) {
@@ -3736,10 +3742,11 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
       // against the 8-member cap and stays eligible for host succession.
       reportNonFatal(e, s, during: 'leaving room ${widget.roomId}');
     }
-    await _sync?.disconnect();
+    // Concurrent, not chained - the lobby route doesn't need the channel gone
+    // or playback stopped first, and chaining them is what made this freeze.
     // Safe here (unlike dispose): this path always lands on the lobby, never
     // straight into another room.
-    await _player.stop();
+    unawaited(Future.wait([?_sync?.disconnect(), _player.stop()]));
     if (AuthService.instance.isSignedIn) {
       unawaited(ProfileService.instance.load());
       unawaited(EntitlementService.instance.refresh());

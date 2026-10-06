@@ -4,6 +4,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:synctogether/app_version.dart';
@@ -114,6 +115,23 @@ class _LoginScreenState extends State<LoginScreen> with WindowListener {
       await action();
       onSuccess?.call();
       // Navigation happens via the router's auth redirect.
+    } on SignInWithAppleAuthorizationException catch (e) {
+      // Dismissing Apple's sheet is a choice, not a failure. Error 1000 is
+      // Apple saying this device has no Apple ID it can authorise with (signed
+      // out of iCloud, or a restricted account) - nothing we can retry our way
+      // out of, so say what to check instead of a vague "try again".
+      trace(
+        'apple sign-in did not complete',
+        category: 'auth',
+        data: {'code': e.code.name, 'message': e.message},
+      );
+      if (mounted && e.code != AuthorizationErrorCode.canceled) {
+        showPTSnack(
+          context,
+          'Apple sign-in is not available right now. Check that this device is signed in to an Apple ID, or use another way to sign in.',
+          kind: .error,
+        );
+      }
     } catch (e, s) {
       reportNonFatal(e, s, during: during);
       if (mounted) {

@@ -24,7 +24,14 @@ bool isTransientAvError(Object error) => switch (error) {
   HttpException() ||
   TimeoutException() ||
   lk.MediaConnectException() ||
-  lk.TimeoutException() => true,
+  lk.TimeoutException() ||
+  // Negotiation and publish failures are a peer connection that did not come
+  // up - bad ICE, a network change mid-offer. The engine renegotiates and we
+  // reconnect; they say nothing about our code.
+  lk.NegotiationError() ||
+  lk.TrackPublishException() => true,
+  // flutter_webrtc throws bare strings for native peer-connection failures.
+  String(:final length) when length > 0 => error.startsWith('Unable to RTCPeerConnection::'),
   // NotAllowed is the SFU refusing our token - a real answer, like a 4xx.
   lk.ConnectException(:final reason) => reason != lk.ConnectionErrorReason.NotAllowed,
   _ => false,
@@ -472,7 +479,12 @@ class LiveKitService extends ChangeNotifier {
       data: {'room_id': roomId, 'attempt': _reconnectAttempts, 'error': '$e'},
     );
     if (_reconnectAttempts == kAvReportAfterAttempts) {
-      reportNonFatal(e, s, during: '$during (still unreachable after $_reconnectAttempts tries)');
+      reportNonFatal(
+        e,
+        s,
+        during: '$during (still unreachable after $_reconnectAttempts tries)',
+        persistent: true,
+      );
     }
   }
 
@@ -680,7 +692,20 @@ class LiveKitService extends ChangeNotifier {
                 d.label.trim().toLowerCase() == device.label.trim().toLowerCase(),
           )
           .firstOrNull;
-      if (match != null) target = match;
+      // An unplugged mic (or a remembered preference for one) is not among
+      // the inputs WebRTC can see, and selecting it anyway fails with
+      // `deviceId not found`. Keep whatever is capturing now instead.
+      if (match == null) {
+        trace(
+          'audio input not present, keeping current',
+          category: 'av',
+          data: {'room_id': roomId, 'label': device.label, 'inputs': webrtcDevices.length},
+        );
+        _selectedAudioInput = null;
+        notifyListeners();
+        return;
+      }
+      target = match;
     } catch (_) {}
 
     try {

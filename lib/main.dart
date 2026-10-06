@@ -27,6 +27,7 @@ import 'package:synctogether/tls.dart';
 import 'package:synctogether/updates/update_service.dart';
 import 'package:synctogether/ui/banners.dart';
 import 'package:synctogether/ui/pt_theme.dart';
+import 'package:synctogether/av/livekit_service.dart' show isTransientAvError;
 import 'package:synctogether/ui/responsive.dart';
 import 'package:synctogether/ui/splash_screen.dart';
 import 'package:synctogether/ui/system_ui.dart';
@@ -54,6 +55,18 @@ Future<void> main() async {
     // here, and the free tier is the budget.
     options.tracesSampleRate = 0;
     options.debug = kDebugMode;
+    // Not every network failure passes through reportNonFatal: LiveKit and
+    // flutter_webrtc raise some from un-awaited futures inside the SDK, which
+    // arrive here as unhandled. Whatever the classifiers call transient is
+    // dropped to a breadcrumb at the one place everything funnels through.
+    options.beforeSend = (event, hint) {
+      final error = event.throwable;
+      if (error != null && (isTransientNetworkError(error) || isTransientAvError(error))) {
+        trace('dropped transient error', category: 'network', data: {'error': '$error'});
+        return null;
+      }
+      return event;
+    };
   }, appRunner: _bootstrap);
 }
 

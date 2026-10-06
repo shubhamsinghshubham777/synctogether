@@ -654,6 +654,17 @@ class SyncService {
       try {
         await backend.insertChatMessage(roomId: room.id, senderId: userId, content: content);
       } catch (e, s) {
+        // RLS refusing the row means we are no longer a member - kicked, or
+        // the room just ended or retired. The policy doing its job, and the
+        // eviction broadcast is already on its way to say so.
+        if ('$e'.contains('42501')) {
+          trace(
+            'chat row refused, no longer a member',
+            category: 'sync',
+            data: {'room_id': room.id},
+          );
+          return;
+        }
         // Worse than a failed broadcast: the message showed up live for
         // everyone present and then silently ceases to exist, so it is gone
         // from history after any reconnect and for every later joiner.

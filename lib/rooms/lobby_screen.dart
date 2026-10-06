@@ -390,6 +390,7 @@ class _LobbyScreenState extends State<LobbyScreen> with WindowListener {
       _clearStagedUploadState();
     });
     var roomEndedForRetry = false;
+    var retryWithoutUpload = false;
     try {
       final room = await RoomService.instance.createRoom(
         name: _nameController.text,
@@ -418,13 +419,17 @@ class _LobbyScreenState extends State<LobbyScreen> with WindowListener {
       } else if (code == .notAuthenticated) {
         _snack(code.message);
         await AuthService.instance.signOut();
+      } else if (code == .stagedMediaInvalid && !isRetry) {
+        // A staged upload only lives an hour; the room is what was asked for.
+        _snack(code.message);
+        retryWithoutUpload = true;
       } else if (code == .accountBanned) {
         _snack(code.message);
         unawaited(ProfileService.instance.load());
       } else {
         _snack(code.message);
       }
-      if (!roomEndedForRetry && mounted) {
+      if (!roomEndedForRetry && !retryWithoutUpload && mounted) {
         setState(() {
           _stagedSession = session;
           _stagedFile = file;
@@ -435,6 +440,8 @@ class _LobbyScreenState extends State<LobbyScreen> with WindowListener {
     }
     if (roomEndedForRetry && mounted) {
       await _create(isRetry: true, retrySession: session, retryFile: file);
+    } else if (retryWithoutUpload && mounted) {
+      await _create(isRetry: true, retryFile: file);
     }
   }
 

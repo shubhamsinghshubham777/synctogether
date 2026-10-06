@@ -17,6 +17,10 @@ blocked meanwhile.
 
 ## WebKit display-link crash with the YouTube embed (macOS) - Sentry FLUTTER-4H
 
+**Status (2026-10-06): closed as an OS bug.** FLUTTER-4H was resolved in Sentry
+on the assessment below. If it comes back more than once, reopen this and work
+from "If it recurs" - until then there is nothing in our code to change.
+
 **Symptom:** `EXC_BAD_ACCESS` / `KERN_INVALID_ADDRESS at 0x10` on a
 `CVDisplayLink` IO thread, entirely inside WebKit:
 `CVDisplayLink::performIO -> WebKit::DisplayLink::displayLinkCallback ->

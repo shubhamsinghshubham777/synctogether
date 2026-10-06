@@ -332,6 +332,14 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
   final _mediaSharingService = MediaSharingService();
   bool _isStreamingRemoteSharedMedia = false;
   bool _isUploadingSharedMedia = false;
+
+  /// File/codec pairs already explained, so one file does not snack twice.
+  final _unsupportedCodecNoted = <String>{};
+
+  /// Bumped by every upload start. A newer start makes the server abort the
+  /// older multipart as orphaned, so the older pipeline's parts 404 - that
+  /// failure is the supersession working, not an upload that failed.
+  int _uploadGeneration = 0;
   double _uploadFraction = 0.0;
   double _uploadSpeedBps = 0.0;
   int _uploadEtaSeconds = 0;
@@ -1802,6 +1810,12 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     if (errorCode != null && errorCode != _ytErrorShownFor) {
       _ytErrorShownFor = errorCode;
       _snack(_ytErrorMessage(errorCode));
+      // 100 (removed/private) and 101/150 (embedding disabled by the owner)
+      // are answers about the video, already explained in the snack.
+      if (const {100, 101, 150}.contains(errorCode)) {
+        trace('youtube video unavailable', category: 'youtube', data: {'code': errorCode});
+        return;
+      }
       reportNonFatal(
         StateError('YouTube IFrame error $errorCode'),
         StackTrace.current,
@@ -2027,6 +2041,13 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
   }
 
   Future<void> _startMediaSharingUpload(File file, String name) async {
+    // The same file twice (a re-pick with a remembered choice, a double Retry)
+    // would only abort the upload already in flight.
+    if (_isUploadingSharedMedia && _currentLocalHostFile?.path == file.path) {
+      trace('upload already running for this file', category: 'media', data: {'file': name});
+      return;
+    }
+    final generation = ++_uploadGeneration;
     final fileSize = await file.length();
     final limits = EntitlementService.instance.limitsOrFallback;
     final maxFileBytes = limits.mediaSharingMaxSizeBytes;
@@ -2103,7 +2124,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
         },
         syncService: _sync,
       );
-      if (!mounted) return;
+      if (!mounted || generation != _uploadGeneration) return;
       _isUploadingSharedMedia = false;
       _uploadState = 'ready';
       _sync?.setMediaUploadState('ready');
@@ -2116,6 +2137,10 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
       unawaited(ProfileService.instance.load());
       setState(() {});
     } catch (e, s) {
+      if (generation != _uploadGeneration) {
+        trace('superseded upload ended', category: 'media', data: {'error': '$e'});
+        return;
+      }
       reportNonFatal(e, s, during: 'uploading shared media for room ${widget.roomId}');
       if (!mounted) return;
       _isUploadingSharedMedia = false;
@@ -2494,6 +2519,20 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     if (_isStreamingRemoteSharedMedia &&
         (error.contains('403') || error.toLowerCase().contains('forbidden'))) {
       unawaited(_recoverFromStream403());
+      return;
+    }
+    // The bundled mpv lacks some codecs (TrueHD, notably). That is a property
+    // of the file, not a bug: the rest of it still plays, so say which track
+    // is silent instead of reporting it.
+    final codec = RegExp(r"Failed to initialize a decoder for codec '([^']+)'").firstMatch(error);
+    if (codec != null) {
+      final name = codec.group(1)!;
+      trace('unsupported codec', category: 'media', data: {'codec': name});
+      if (_unsupportedCodecNoted.add('$_localFileName/$name')) {
+        _snack(
+          "This file's ${name.toUpperCase()} track can't play here - try another audio track.",
+        );
+      }
       return;
     }
     reportNonFatal(

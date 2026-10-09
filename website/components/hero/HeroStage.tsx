@@ -283,9 +283,9 @@ export function HeroStage({ header }: { header?: React.ReactNode } = {}) {
         ref={containerRef}
         className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-5 lg:gap-6"
       >
-        {/* Frame B - secondary, flanks left on tablet+, stacks below on mobile */}
+        {/* Frame B - secondary, flanks left on tablet+, stacks below the host on mobile so the flip has someone to desync */}
         <div
-          className="hidden sm:block order-2 sm:order-1 sm:w-[38%] lg:w-[27%] shrink-0"
+          className="order-2 sm:order-1 w-full sm:w-[38%] lg:w-[27%] shrink-0"
           style={{ zIndex: 0 }}
         >
           <ScreenLabel who="Guest · Windows" state={secState} tone={secTone} />

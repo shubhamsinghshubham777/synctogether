@@ -75,7 +75,7 @@ function Credits({ year }: { year: number }) {
         </a>
       </span>
       <span>
-        <a href={SITE_CONFIG.githubRepo} target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">
+        <a href={SITE_CONFIG.githubRepo} target="_blank" rel="noopener noreferrer" className="hover:text-white underline underline-offset-4 decoration-rail hover:decoration-beam-500 transition-colors">
           Source available
         </a>{" "}
         · PolyForm Noncommercial

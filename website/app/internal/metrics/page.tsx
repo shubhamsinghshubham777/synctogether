@@ -187,15 +187,15 @@ export default async function InternalMetricsPage() {
           <Stat label="Signups 24h / 7d / 30d" value={db ? `${num(db.signups.last_24h)} / ${num(db.signups.last_7d)} / ${num(db.signups.last_30d)}` : UNAVAILABLE}
             def="Profiles created in each window, guests included." />
           <Stat label="Paying, of active users" value={pct(derived.payingOfActivePercent)} def="Premium accounts / MAU." />
-          <Stat label="Paddle MRR (USD equiv.)" value={mrr?.usdEquivalent != null ? money(mrr.usdEquivalent, "USD") : UNAVAILABLE} tone="text-brass"
-            def={`Active Paddle rows, not past_due, charge normalised per month (annual / 12). INR at a fixed ${derived.inrPerUsd}/USD.`} />
+          <Stat label="Web MRR (USD equiv.)" value={mrr?.usdEquivalent != null ? money(mrr.usdEquivalent, "USD") : UNAVAILABLE} tone="text-brass"
+            def={`Active web-provider rows, not past_due, charge normalised per month (annual / 12). INR at a fixed ${derived.inrPerUsd}/USD.`} />
           <Stat label="App Store subscribers" value={num(subs?.apple_production)}
             def={`Unrevoked, unexpired Production rows. Revenue lives in App Store Connect and is not computed. Sandbox: ${num(subs?.apple_sandbox)}.`} />
         </Grid>
         <div className="text-xs font-mono text-gray-400 space-y-1">
           <div>
-            Paddle active {num(subs?.paddle_active)} · past_due {num(subs?.paddle_past_due)} (grace, excluded from MRR) · canceling at period end{" "}
-            {num(subs?.paddle_canceling)} · no recorded price {num(subs?.paddle_unpriced)} (excluded until their next webhook) · manual/debug grants{" "}
+            Web active {num(subs?.web_active)}{subs?.web_by_provider && Object.keys(subs.web_by_provider).length > 0 ? ` (${Object.entries(subs.web_by_provider).map(([k, n]) => `${k} ${n}`).join(", ")})` : ""} · past_due {num(subs?.web_past_due)} (grace, excluded from MRR) · canceling at period end{" "}
+            {num(subs?.web_canceling)} · no recorded price {num(subs?.web_unpriced)} (excluded until their next webhook) · manual/debug grants{" "}
             {num(subs?.manual_or_debug)} (no revenue)
           </div>
           {mrr && mrr.byCurrency.length > 0 && (

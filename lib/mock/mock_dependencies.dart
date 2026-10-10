@@ -308,11 +308,11 @@ class MockEntitlementService extends EntitlementService {
   @override
   bool get isPremium => kDemoTier == kPremiumTier;
 
-  /// A Paddle seat paid through a month from launch, so the Patron ticket
+  /// A web seat paid through a month from launch, so the Patron ticket
   /// carries a real-looking date in captures.
   @override
   PremiumTerm? get premiumTerm => kDemoTier == kPremiumTier
-      ? PremiumTerm(until: DateTime.now().add(const Duration(days: 30)), source: 'paddle')
+      ? PremiumTerm(until: DateTime.now().add(const Duration(days: 30)), source: 'web')
       : null;
 
   @override

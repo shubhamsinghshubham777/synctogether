@@ -60,7 +60,7 @@ enum AppleIapNotice {
 /// Entitlement is never decided here. Every purchased or restored transaction
 /// goes to `apple-iap/verify`, which checks Apple's signature and binds it to
 /// the account; this class only relays what the server decided, and
-/// `EntitlementService` reads the result the same way it reads a Paddle one.
+/// `EntitlementService` reads the result the same way it reads a web one.
 class AppleIapService extends ChangeNotifier {
   AppleIapService._();
   static final instance = AppleIapService._();

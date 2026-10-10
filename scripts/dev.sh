@@ -15,7 +15,7 @@
 #   --flutter, -f                   Launch primary Flutter client (Instance A)
 #   --instance-b, -b                Launch secondary isolated Flutter client (Instance B)
 #   --ios, -i                       Launch Flutter client on connected iOS device
-#   --hookdeck, -w                  Start Hookdeck / Paddle webhook tunnel
+#   --hookdeck, -w                  Start the Creem CLI webhook forwarder
 # ==============================================================================
 
 set -eo pipefail
@@ -62,7 +62,7 @@ banner() { echo -e "\n${BOLD}${CYAN}=== $1 ===${NC}\n"; }
 spin_down() {
   banner "Spinning Down SyncTogether Ecosystem"
 
-  # 1. Kill Webhook & Auth Tunnels (Hookdeck / Paddle CLI / ngrok)
+  # 1. Kill Webhook & Auth Tunnels (Creem CLI / ngrok)
   info "Stopping webhook & auth tunnels..."
   if [ -f "$TUNNEL_PID_FILE" ]; then
     PID=$(cat "$TUNNEL_PID_FILE")
@@ -70,7 +70,7 @@ spin_down() {
     rm -f "$TUNNEL_PID_FILE"
   fi
   pkill -f "hookdeck listen" 2>/dev/null || true
-  pkill -f "paddle webhook:listen" 2>/dev/null || true
+  pkill -f "creem.*listen" 2>/dev/null || true
 
   if [ -f "$NGROK_PID_FILE" ]; then
     PID=$(cat "$NGROK_PID_FILE")
@@ -387,24 +387,22 @@ spin_up() {
   done
   success "Next.js Website running on http://localhost:3000 (Log: $WEBSITE_LOG)"
 
-  # 4. Optional Webhook Tunnel (Hookdeck or Paddle CLI)
+  # 4. Optional Webhook Tunnel (Hookdeck -> Creem test-mode webhooks)
   local tunnel_name="None"
   if [ "$launch_tunnel" = true ]; then
-    if command -v hookdeck &>/dev/null; then
-      info "Starting Hookdeck webhook tunnel for Paddle -> http://localhost:3000/api/paddle/webhook..."
-      nohup hookdeck listen 3000 synctogether-webhooks --path /api/paddle/webhook > "$TUNNEL_LOG" 2>&1 &
-      echo $! > "$TUNNEL_PID_FILE"
-      tunnel_name="Hookdeck"
-      success "Hookdeck tunnel running (Log: $TUNNEL_LOG)"
-    elif command -v paddle &>/dev/null; then
-      info "Starting Paddle CLI webhook tunnel -> http://localhost:3000/api/paddle/webhook..."
-      nohup paddle webhook:listen --url http://localhost:3000/api/paddle/webhook > "$TUNNEL_LOG" 2>&1 &
-      echo $! > "$TUNNEL_PID_FILE"
-      tunnel_name="Paddle CLI"
-      success "Paddle CLI tunnel running (Log: $TUNNEL_LOG)"
-    else
-      warn "Neither Hookdeck nor Paddle CLI found. Install via 'brew install hookdeck/hookdeck/hookdeck' to tunnel webhooks."
-    fi
+    # The Creem CLI forwards test-mode webhooks to localhost with no tunnel.
+    # CREEM_API_KEY must be a creem_test_ key; --webhook reuses the persistent
+    # CLI-mode endpoint whose secret is CREEM_WEBHOOK_SECRET.
+    info "Starting Creem CLI webhook forwarder -> http://localhost:3000/api/billing/webhook/creem..."
+    local creem_key creem_hook
+    creem_key="$(grep -E '^CREEM_API_KEY=' website/.env.local | cut -d '=' -f2- | tr -d ' "')"
+    creem_hook="$(grep -E '^CREEM_CLI_WEBHOOK_ID=' website/.env.local | cut -d '=' -f2- | tr -d ' "')"
+    CREEM_API_KEY="$creem_key" nohup npx -y @creem_io/cli listen \
+      ${creem_hook:+--webhook "$creem_hook"} \
+      --forward-to http://localhost:3000/api/billing/webhook/creem > "$TUNNEL_LOG" 2>&1 &
+    echo $! > "$TUNNEL_PID_FILE"
+    tunnel_name="Creem CLI"
+    success "Creem CLI forwarder running (Log: $TUNNEL_LOG)"
   fi
 
   # 5. Dashboard Summary
@@ -515,7 +513,7 @@ run_tests() {
   info "2/3 Running Supabase Database & Security Policy tests (pgTAP)..."
   supabase test db
 
-  info "3/3 Running Website & Paddle Webhook tests..."
+  info "3/3 Running Website & billing webhook tests..."
   npm --prefix website test
 
   success "All test suites passed successfully!"
@@ -592,13 +590,13 @@ case "$COMMAND" in
     echo -e "  status                  Show running status of Supabase, Functions, Web app, Tunnel"
     echo -e "  test                    Run all test suites (Flutter Dart, Supabase pgTAP, Webhook)"
     echo -e "  reset                   Reset local database (re-applies all migrations and seed.sql)"
-    echo -e "  clean                   Clean-slate wipe all local users, sessions, and Paddle Sandbox state"
+    echo -e "  clean                   Clean-slate wipe all local users, and sessions"
     echo -e "  logs [web|func|tunnel]  Tail real-time logs of background services"
     echo -e "  help                    Show this help message\n"
     echo -e "Flags (can be used with 'up' or standalone):"
     echo -e "  --flutter, -f           Launch primary Flutter desktop client"
     echo -e "  --instance-b, -b        Launch secondary isolated Flutter desktop client"
-    echo -e "  --hookdeck, -w          Start Paddle webhook tunnel (Hookdeck or Paddle CLI)\n"
+    echo -e "  --hookdeck, -w          Start the Creem CLI webhook forwarder\n"
     ;;
   *)
     error "Unknown command: $1"

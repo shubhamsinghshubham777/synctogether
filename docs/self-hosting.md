@@ -295,7 +295,7 @@ The web portal (`website/`) provides marketing pages, app download links, and we
    cp .env.example .env.local
    npm install
    ```
-2. Set `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SERVICE_ROLE_KEY` and `NEXT_PUBLIC_SITE_URL` in `website/.env.local`. Paddle, PostHog and the `PROD_*` admin-dashboard variables are optional for self-hosted instances; see `website/.env.example` for the full list.
+2. Set `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SERVICE_ROLE_KEY` and `NEXT_PUBLIC_SITE_URL` in `website/.env.local`. Creem (web billing), PostHog and the `PROD_*` admin-dashboard variables are optional for self-hosted instances; see `website/.env.example` for the full list.
 3. Run or deploy:
    ```bash
    # Development

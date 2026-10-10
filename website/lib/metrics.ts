@@ -5,7 +5,7 @@ import {
   percent,
   summariseReleaseFetches,
   type MrrSummary,
-  type PaddleRevenueRow,
+  type WebRevenueRow,
   type ReleaseAssetCounts,
 } from "@/lib/metrics_logic";
 
@@ -25,14 +25,15 @@ export interface InternalMetricsRpc {
   signups: { last_24h: number; last_7d: number; last_30d: number };
   activity: { dau: number; wau: number; mau: number; dau_by_tier: { premium: number; free: number; guest: number } };
   subscriptions: {
-    paddle_active: number;
-    paddle_past_due: number;
-    paddle_canceling: number;
-    paddle_unpriced: number;
+    web_active: number;
+    web_past_due: number;
+    web_canceling: number;
+    web_unpriced: number;
+    web_by_provider: Record<string, number>;
     manual_or_debug: number;
     apple_production: number;
     apple_sandbox: number;
-    paddle_revenue: PaddleRevenueRow[];
+    web_revenue: WebRevenueRow[];
   };
   rooms: {
     total: number;
@@ -185,7 +186,7 @@ export async function getDashboardMetrics(): Promise<DashboardMetrics> {
     db,
     github,
     derived: {
-      mrr: db ? computeMrr(db.subscriptions.paddle_revenue, inrPerUsd) : null,
+      mrr: db ? computeMrr(db.subscriptions.web_revenue, inrPerUsd) : null,
       inrPerUsd,
       payingOfActivePercent: db ? percent(db.accounts.premium, db.activity.mau) : null,
       visitorToDownloadPercent: db ? percent(db.website.visitors_who_downloaded, db.website.visitors_total) : null,

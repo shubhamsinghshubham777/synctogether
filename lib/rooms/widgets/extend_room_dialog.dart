@@ -307,7 +307,7 @@ class PremiumTeaseDialog extends StatelessWidget {
     // The label says what the button does: a real upgrade where one is
     // wired, the waitlist only where that is all there is. The upgrade lands
     // on the subscription screen, which sells through StoreKit on Apple
-    // builds and Paddle everywhere else - so every platform gets the button.
+    // builds and the web checkout everywhere else - so every platform gets the button.
     return Row(
       spacing: 16,
       children: [

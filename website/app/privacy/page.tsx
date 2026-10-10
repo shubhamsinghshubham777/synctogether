@@ -65,10 +65,10 @@ export default function PrivacyPage() {
       privacyUrl: "https://www.oracle.com/legal/privacy/",
     },
     {
-      name: "Paddle Payments Ltd / Paddle.com",
+      name: "Creem (Armitage Labs OÜ)",
       purpose: "Authorized Merchant of Record (MoR) handling payment processing, billing subscriptions, invoices, and sales tax / VAT compliance.",
-      location: "United Kingdom / United States",
-      privacyUrl: "https://www.paddle.com/legal/privacy",
+      location: "Estonia / European Union",
+      privacyUrl: "https://www.creem.io/privacy-policy",
     },
     {
       name: "Functional Software, Inc. (Sentry)",
@@ -197,10 +197,10 @@ export default function PrivacyPage() {
             <div className="p-5 rounded-xl bg-white/[0.02] border border-white/5 space-y-2.5">
               <strong className="text-white text-base block">D. Payment &amp; Subscription Information</strong>
               <p className="text-gray-400">
-                Premium subscription payments are processed directly by our authorized Merchant of Record, <strong>Paddle Payments Ltd / Paddle.com</strong>. Paddle handles all credit card, debit card, PayPal, Apple Pay, Google Pay, and UPI transactions.
+                Premium subscription payments are processed directly by our authorized Merchant of Record, <strong>Creem (Armitage Labs OÜ)</strong>. Creem handles all card and wallet transactions.
               </p>
               <p className="text-gray-400">
-                <strong>SyncTogether never sees, processes, or stores your credit card numbers, CVVs, or bank account details.</strong> We receive only billing status confirmations, subscription tier flags, transaction IDs, and renewal timestamps from Paddle via verified webhooks.
+                <strong>SyncTogether never sees, processes, or stores your credit card numbers, CVVs, or bank account details.</strong> We receive only billing status confirmations, subscription tier flags, transaction IDs, and renewal timestamps from Creem via verified webhooks.
               </p>
             </div>
 
@@ -498,7 +498,7 @@ export default function PrivacyPage() {
               <div className="p-4 sm:p-5 rounded-xl bg-white/[0.02] border border-white/5 space-y-1.5">
                 <strong className="text-white block font-semibold text-base">Billing &amp; Tax Records</strong>
                 <p className="text-gray-400">
-                  Retained by Paddle Payments Ltd in accordance with statutory financial, tax, and accounting compliance requirements (typically 5 to 7 years).
+                  Retained by our Merchant of Record (Creem) in accordance with statutory financial, tax, and accounting compliance requirements (typically 5 to 7 years).
                 </p>
               </div>
             </div>

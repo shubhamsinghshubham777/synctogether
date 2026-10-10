@@ -78,7 +78,7 @@ values ('otx-b', (select v from t where k = 'b'), 'annual', 'Sandbox', 'txb',
   now() + interval '1 year', now());
 
 select pg_temp.act_as((select v from t where k = 'b'));
-select is(public.my_premium_sources(), array['paddle', 'apple'],
+select is(public.my_premium_sources(), array['web', 'apple'],
   'both rails are reported when both entitle the caller');
 
 select pg_temp.act_as((select v from t where k = 'a'));

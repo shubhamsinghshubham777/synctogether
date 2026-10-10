@@ -6,21 +6,21 @@ void main() {
   final now = DateTime.utc(2026, 9, 26);
 
   group('premiumTermFrom', () {
-    test('a live Paddle row is paid through its period end', () {
+    test('a live web row is paid through its period end', () {
       final term = premiumTermFrom(
         subscription: {
           'tier': 'premium',
-          'source': 'paddle',
+          'source': 'creem',
           'current_period_end': '2026-10-20T00:00:00Z',
         },
         now: now,
       );
-      expect(term?.source, 'paddle');
+      expect(term?.source, 'web');
       expect(term?.until, DateTime.utc(2026, 10, 20));
       expect(term?.renews, isNull);
     });
 
-    test('a non-Paddle row is a manual grant', () {
+    test('a manual or debug row is a manual grant', () {
       final term = premiumTermFrom(
         subscription: {
           'tier': 'premium',
@@ -32,12 +32,27 @@ void main() {
       expect(term?.source, 'manual');
     });
 
+    test('any seller of record is the web rail, not just one provider', () {
+      for (final source in ['creem', 'acme']) {
+        final term = premiumTermFrom(
+          subscription: {
+            'tier': 'premium',
+            'source': source,
+            'current_period_end': '2026-10-20T00:00:00Z',
+          },
+          now: now,
+        );
+        expect(term?.source, 'web', reason: source);
+        expect(premiumTermLabel(term), startsWith('PAID THROUGH'));
+      }
+    });
+
     test('expired, revoked and free rows are ignored', () {
       expect(
         premiumTermFrom(
           subscription: {
             'tier': 'free',
-            'source': 'paddle',
+            'source': 'creem',
             'current_period_end': '2026-10-20T00:00:00Z',
           },
           apple: [
@@ -58,7 +73,7 @@ void main() {
       final term = premiumTermFrom(
         subscription: {
           'tier': 'premium',
-          'source': 'paddle',
+          'source': 'creem',
           'current_period_end': '2026-10-20T00:00:00Z',
         },
         apple: [
@@ -84,7 +99,7 @@ void main() {
         'ENDS 20 OCT 2026',
       );
       expect(
-        premiumTermLabel(PremiumTerm(until: until, source: 'paddle')),
+        premiumTermLabel(PremiumTerm(until: until, source: 'web')),
         'PAID THROUGH 20 OCT 2026',
       );
       expect(

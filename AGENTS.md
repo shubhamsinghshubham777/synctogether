@@ -10,7 +10,7 @@ SyncTogether is a cross-platform Flutter application for synchronized, low-laten
 - **Client**: Flutter (macOS, Windows, iOS, Android) using `media_kit` (local video) and an internal loopback IFrame bridge (YouTube).
 - **Backend**: Supabase (PostgreSQL, Private Realtime channels, Row-Level Security, Edge Functions).
 - **Audio/Video**: LiveKit for multi-participant voice & video facecam rails.
-- **Billing & Web**: Next.js 16 marketing site and Paddle Merchant of Record billing portal in `website/`.
+- **Billing & Web**: Next.js 16 marketing site and Merchant-of-Record (Creem) billing portal in `website/`.
 
 ---
 
@@ -24,7 +24,7 @@ SyncTogether is a cross-platform Flutter application for synchronized, low-laten
 ./scripts/dev.sh                        # Spin up local stack
 ./scripts/dev.sh down                   # Cleanly spin down all services & free ports
 ./scripts/dev.sh status                 # Inspect status of all components
-./scripts/dev.sh clean                  # Clean-slate wipe local users, sessions & Paddle sandbox
+./scripts/dev.sh clean                  # Clean-slate wipe local users, sessions & Creem test mode
 
 # Flutter Application
 fvm flutter pub get                     # Install dependencies
@@ -80,7 +80,7 @@ npm --prefix website test               # Run webhook idempotency & signature te
 Detailed domain-specific architecture and guidelines are split into progressive disclosure rules:
 
 * **[Realtime & Sync Protocol](.agents/rules/sync-and-realtime.md)**: Realtime channel contracts, presence rate limits (5 calls / 30s), authority election, readiness gate lockstep, YouTube IFrame intent model.
-* **[Backend, Database & Entitlements](.agents/rules/backend-and-entitlements.md)**: Supabase RLS policies, RPC invariants (`create_room`, `join_room`, `end_room`, `delete_room`), tier limits (`guest`/`free`/`premium`), Paddle webhook processing, and pgTAP testing.
+* **[Backend, Database & Entitlements](.agents/rules/backend-and-entitlements.md)**: Supabase RLS policies, RPC invariants (`create_room`, `join_room`, `end_room`, `delete_room`), tier limits (`guest`/`free`/`premium`), web billing webhook processing, and pgTAP testing.
 * **[Auth, Security & Platform Specifics](.agents/rules/auth-and-platform.md)**: Google OAuth PKCE deep linking, Cloudflare Turnstile loopback bridge, Windows WebView2 runtime, TLS root cert overrides, Sparkle/WinSparkle self-updates.
 * **UI Design System, AV & Telemetry**: no separate rules file - see the Conventions and Architecture sections of `CLAUDE.md` (glass rendering, LiveKit AV rails, diagnostics vs. analytics, generated asset tools).
 

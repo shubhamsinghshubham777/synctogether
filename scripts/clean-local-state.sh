@@ -5,11 +5,11 @@
 # Deletes all local test users and sessions from:
 #   1. Local desktop macOS clients (Instance A & B session tokens & preferences)
 #   2. Local Supabase Postgres stack (auth.users, profiles, subscriptions, rooms)
-#   3. Paddle Sandbox (cancels all active/trialing subscriptions & archives customers)
 #   4. Local log files and temporary build artifacts
 #
 # SAFETY GUARANTEE:
-#   Strictly restricted to local stack and Paddle Sandbox.
+#   Strictly restricted to the local stack. Creem test-mode subscriptions are
+#   NOT cleaned: cancel them from the Creem test dashboard.
 #   NEVER touches production Supabase or production users.
 # ==============================================================================
 
@@ -39,17 +39,10 @@ banner "SyncTogether Local Clean Slate Reset"
 info "Running safety guard checks..."
 
 if [ -f "$REPO_ROOT/website/.env.local" ]; then
-  PADDLE_ENV=$(grep -E '^NEXT_PUBLIC_PADDLE_ENVIRONMENT=' "$REPO_ROOT/website/.env.local" | cut -d '=' -f2- | tr -d ' "')
-  if [ "$PADDLE_ENV" = "production" ]; then
-    error "ABORT: website/.env.local has NEXT_PUBLIC_PADDLE_ENVIRONMENT=production! Will not proceed."
-    exit 1
-  fi
-fi
-
-if [ -f "$REPO_ROOT/website/.env.local" ]; then
-  PADDLE_KEY=$(grep -E '^PADDLE_API_KEY=' "$REPO_ROOT/website/.env.local" | cut -d '=' -f2- | tr -d ' "')
-  if [[ -n "$PADDLE_KEY" && ! "$PADDLE_KEY" =~ ^pdl_sdbx_ ]]; then
-    error "ABORT: PADDLE_API_KEY does not start with 'pdl_sdbx_'! Refusing to run against non-sandbox environment."
+  CREEM_ENV=$(grep -E '^CREEM_ENVIRONMENT=' "$REPO_ROOT/website/.env.local" | cut -d '=' -f2- | tr -d ' "')
+  CREEM_KEY=$(grep -E '^CREEM_API_KEY=' "$REPO_ROOT/website/.env.local" | cut -d '=' -f2- | tr -d ' "')
+  if [ "$CREEM_ENV" = "live" ] || [[ -n "$CREEM_KEY" && ! "$CREEM_KEY" =~ ^creem_test_ ]]; then
+    error "ABORT: website/.env.local points at Creem LIVE (CREEM_ENVIRONMENT / CREEM_API_KEY). Will not proceed."
     exit 1
   fi
 fi
@@ -96,46 +89,9 @@ else
 fi
 
 # ------------------------------------------------------------------------------
-# 4. Paddle Sandbox Cleanup
+# 4. Creem test mode: not cleaned. Cancel leftover test subscriptions from the
+#    Creem test dashboard; no list/cancel sweep is implemented.
 # ------------------------------------------------------------------------------
-if [ -n "${PADDLE_KEY:-}" ] && [[ "$PADDLE_KEY" =~ ^pdl_sdbx_ ]]; then
-  info "Checking for active subscriptions in Paddle Sandbox..."
-
-  ACTIVE_SUBS=$(curl -s "https://sandbox-api.paddle.com/subscriptions?status=active,trialing,paused" \
-    -H "Authorization: Bearer $PADDLE_KEY" | grep -o '"id":"sub_[^"]*"' | cut -d '"' -f4 | sort -u || true)
-
-  if [ -n "$ACTIVE_SUBS" ]; then
-    for SUB_ID in $ACTIVE_SUBS; do
-      info "Canceling sandbox subscription $SUB_ID..."
-      curl -s -X POST "https://sandbox-api.paddle.com/subscriptions/$SUB_ID/cancel" \
-        -H "Authorization: Bearer $PADDLE_KEY" \
-        -H "Content-Type: application/json" \
-        -d '{"effective_from":"immediately"}' > /dev/null || true
-    done
-    success "Canceled all active Paddle Sandbox subscriptions."
-  else
-    success "Paddle Sandbox has 0 active subscriptions."
-  fi
-
-  info "Checking for active customers in Paddle Sandbox..."
-  ACTIVE_CUSTOMERS=$(curl -s "https://sandbox-api.paddle.com/customers?status=active" \
-    -H "Authorization: Bearer $PADDLE_KEY" | grep -o '"id":"ctm_[^"]*"' | cut -d '"' -f4 | sort -u || true)
-
-  if [ -n "$ACTIVE_CUSTOMERS" ]; then
-    for CUST_ID in $ACTIVE_CUSTOMERS; do
-      info "Archiving sandbox customer $CUST_ID..."
-      curl -s -X PATCH "https://sandbox-api.paddle.com/customers/$CUST_ID" \
-        -H "Authorization: Bearer $PADDLE_KEY" \
-        -H "Content-Type: application/json" \
-        -d '{"status":"archived"}' > /dev/null || true
-    done
-    success "Archived all active Paddle Sandbox customers."
-  else
-    success "Paddle Sandbox has 0 active customers."
-  fi
-else
-  info "No Paddle sandbox API key found in website/.env.local. Skipping Paddle sandbox cleanup."
-fi
 
 # ------------------------------------------------------------------------------
 # 5. Temporary Logs & Files Cleanup
@@ -146,5 +102,5 @@ rm -rf /tmp/synctogether-logs/*.log 2>/dev/null || true
 success "Local logs and temporary artifacts cleaned."
 
 banner "Clean Slate Ready"
-echo -e "${GREEN}All local users, sessions, database state, and sandbox subscriptions have been reset.${NC}"
+echo -e "${GREEN}All local users, sessions and database state have been reset.${NC}"
 echo -e "You can now launch the app or website with a completely clean slate!\n"

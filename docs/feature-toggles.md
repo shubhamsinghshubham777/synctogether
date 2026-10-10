@@ -1,6 +1,6 @@
 # What you can turn on and off, and how
 
-Every switch in SyncTogether lives in one of four places. This lists all of them,
+Every switch in SyncTogether lives in one of five places. This lists all of them,
 what they do, and the exact command to change one.
 
 | Where | Changes take effect | Needs |
@@ -9,6 +9,7 @@ what they do, and the exact command to change one.
 | **`tier_limits`** table | Immediately, no deploy | SQL |
 | **`app_settings`** table | Immediately, no deploy | SQL |
 | **Dart defines** (`--dart-define`) | Next build | A release |
+| **Website env** (`website/.env.local`, Vercel) | Next deploy | A deploy |
 
 Run SQL from the Supabase dashboard (SQL editor), or locally with:
 
@@ -188,6 +189,17 @@ Server-side captcha is separate, in `supabase/config.toml` under `[auth.captcha]
 and ships with `supabase config push` (**not** `db push`).
 
 ---
+
+## 4b. Website env — web billing (Creem)
+
+| Variable | What it does |
+|---|---|
+| `CREEM_ENVIRONMENT` | `test` uses `test-api.creem.io`; anything else is production. |
+| `CREEM_API_KEY`, `CREEM_WEBHOOK_SECRET` | Server-only. A missing webhook secret answers 500 (fails closed). |
+| `CREEM_PRODUCT_MONTHLY`, `CREEM_PRODUCT_ANNUAL` | The two products checkouts are created for. One USD price for everyone: Creem bills only USD/EUR and has no per-country overrides. |
+
+The webhook is `/api/billing/webhook/creem`. Every `subscriptions` row records its
+provider in `source`; cancel, fulfil and webhooks dispatch on that.
 
 ## 5. Per-user switches (the user's own, not yours)
 

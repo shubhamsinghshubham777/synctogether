@@ -24,13 +24,6 @@ export const COUNTRY_CURRENCY_MAP: Record<string, CountryConfig> = {
   PH: { country: "PH", currency: "PHP", name: "Philippines", flag: "🇵🇭", symbol: "₱" },
 };
 
-export const PADDLE_SUPPORTED_CURRENCIES = new Set([
-  "ARS", "AUD", "BRL", "CAD", "CHF", "CLP", "CNY", "COP", "CZK", "DKK",
-  "EUR", "GBP", "HKD", "HUF", "ILS", "INR", "JPY", "KRW", "MXN", "NOK",
-  "NZD", "PEN", "PLN", "RUB", "SEK", "SGD", "THB", "TRY", "TWD", "UAH",
-  "USD", "VND", "ZAR",
-]);
-
 export const ZERO_DECIMAL_CURRENCIES = new Set(["INR", "JPY", "KRW", "VND", "CLP", "HUF", "TWD"]);
 
 export const DISAMBIGUATED_CURRENCY_SYMBOLS: Record<string, string> = {
@@ -212,4 +205,28 @@ export function calculateSavingsPercentage(monthlyAmount: number, annualAmount: 
   const fullAnnualCost = monthlyAmount * 12;
   const savings = ((fullAnnualCost - annualAmount) / fullAnnualCost) * 100;
   return `${Math.max(1, Math.round(savings))}%`;
+}
+
+/**
+ * The one price. The seller of record (Creem) bills only USD and has no
+ * per-country overrides, so a local-currency or purchasing-power price cannot be
+ * honoured; everyone is quoted the same USD amount. `country` only labels the
+ * response.
+ */
+export function usdPrices(country: string): LocalizedPriceData {
+  const m = 3.99;
+  const a = 29.99;
+  const monthlyEq = Math.round((a / 12) * 100) / 100;
+  return {
+    currencyCode: "USD",
+    currencySymbol: "$",
+    countryCode: country,
+    monthlyFormatted: formatCurrency(m, "USD", "US"),
+    monthlyAmount: m,
+    annualFormatted: formatCurrency(a, "USD", "US"),
+    annualAmount: a,
+    monthlyEquivalentFormatted: `${formatCurrency(monthlyEq, "USD", "US")} / mo`,
+    monthlyEquivalentAmount: monthlyEq,
+    savingsPct: calculateSavingsPercentage(m, a),
+  };
 }

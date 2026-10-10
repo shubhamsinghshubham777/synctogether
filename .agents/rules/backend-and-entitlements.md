@@ -1,12 +1,12 @@
 ---
-description: Supabase RLS policies, RPC invariants (create_room, join_room, end_room, delete_room), tier limits, Paddle webhook processing, and pgTAP testing.
+description: Supabase RLS policies, RPC invariants (create_room, join_room, end_room, delete_room), tier limits, web billing webhook processing, and pgTAP testing.
 trigger: model_decision
 ---
 
 
 # Backend, Database & Entitlements
 
-Guidance for working with Supabase (`supabase/`), database RPCs/RLS, tier entitlements, Paddle billing, and pgTAP testing.
+Guidance for working with Supabase (`supabase/`), database RPCs/RLS, tier entitlements, web billing (Creem), and pgTAP testing.
 
 ## 1. Database & Supabase Architecture (`supabase/`)
 
@@ -47,12 +47,14 @@ Three tiers: `guest` / `free` / `premium`.
 
 ---
 
-## 3. Billing & Subscriptions (Paddle)
+## 3. Billing & Subscriptions (Creem)
 
-- **Paddle Checkout**: Managed via `@paddle/paddle-js` on the web portal (`website/`).
-- **Webhook Processing (`website/app/api/paddle/webhook/route.ts`)**:
-  - HMAC-SHA256 signature verification via Node's built-in `crypto.createHmac`.
-  - **Deduplication**: Checks whether `status`, `current_period_end`, and `tier` are identical before issuing DB updates to avoid redundant writes and Realtime channel spam.
+- **Provider-agnostic**: everything lives in `website/lib/billing/` - one `BillingProvider` interface, one `NormalizedEvent`, one adapter (`providers/creem.ts`), one database writer (`apply.ts`). Creem is the only provider, but `subscriptions.source` names the owner of a row and cancel/fulfil/webhook dispatch on it, so a second provider is one adapter away.
+- **Webhook Processing (`website/app/api/billing/webhook/[provider]/route.ts`)**:
+  - Signature verification fails closed (missing secret → 500, anything else → 401).
+  - **Deduplication**: `isRedundantGrant` skips writes that change nothing, to avoid Realtime channel spam; `shouldApplyEvent` rejects replays and out-of-order events.
+  - `eventTargetsRow`: an event never changes a row that is currently premium from a *different* provider.
+- **Columns** are provider-neutral: `provider_subscription_id`, `provider_customer_id`, `provider_status`; uniqueness is `(source, provider_subscription_id)`. `my_premium_sources()` answers `web` / `apple` / `manual`.
 - **Realtime Subscriptions**: `subscriptions` table is published to Realtime. `EntitlementService` (`lib/profile/entitlement_service.dart`) listens to `public:subscriptions:$userId` Postgres changes and debounces reload (200 ms).
 - **Debug Grants**: In local debug mode, use `debug_grant_premium(p_months)` RPC or `EntitlementService.instance.debugGrantPremium()`.
 

@@ -67,7 +67,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen>
 
   bool get _canSell => widget.canSellOverride ?? canSellPremium;
 
-  /// Every build Apple does not distribute sells through Paddle on the web -
+  /// Every build Apple does not distribute sells through the web seller of record -
   /// direct desktop, the Microsoft Store (whose policy allows a non-game app
   /// its own commerce) and direct Android - except Google Play, which is
   /// consumption-only and neither sells nor links anywhere that does.
@@ -878,7 +878,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen>
     // An App Store subscription is only ever managed by Apple, whichever
     // build is showing it; a web account page cannot cancel it.
     final sources = EntitlementService.instance.premiumSources;
-    if (_isAppleStore || (sources.contains('apple') && !sources.contains('paddle'))) {
+    if (_isAppleStore || (sources.contains('apple') && !sources.contains('web'))) {
       return _appStoreManage(sources);
     }
 
@@ -1119,7 +1119,7 @@ const _kMonths = [
 ];
 
 /// The ticket's date line. Only says "renews" when the data proves it -
-/// a Paddle cancellation never reaches the local row, so Paddle is "paid
+/// a web cancellation never reaches the local row, so a web seat is "paid
 /// through"; a manual grant simply ends.
 @visibleForTesting
 String? premiumTermLabel(PremiumTerm? term) {
@@ -1129,7 +1129,7 @@ String? premiumTermLabel(PremiumTerm? term) {
   final verb = switch (term) {
     PremiumTerm(source: 'apple', renews: true) => 'Renews',
     PremiumTerm(source: 'apple') => 'Ends',
-    PremiumTerm(source: 'paddle') => 'Paid through',
+    PremiumTerm(source: 'web') => 'Paid through',
     _ => 'Patron until',
   };
   return '$verb $date'.toUpperCase();

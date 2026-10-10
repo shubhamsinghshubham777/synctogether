@@ -11,20 +11,27 @@ const kPremiumTier = 'premium';
 
 /// How long this account's Patron seat runs, and whether it is known to
 /// renew. [renews] is only ever true where the data proves it (an App Store
-/// row with `auto_renew`); a Paddle cancellation is scheduled remotely and
-/// leaves the local row untouched, so a Paddle seat reads "paid through".
+/// row with `auto_renew`). A web seat (whichever seller of record sold it)
+/// reads "paid through": a cancellation there is scheduled remotely and the
+/// row stays premium until `current_period_end`, with the scheduled end
+/// recorded in `scheduled_cancel_at` but not read here.
 @immutable
 class PremiumTerm {
   const PremiumTerm({required this.until, required this.source, this.renews});
 
   final DateTime until;
 
-  /// `paddle`, `apple` or `manual` - the rail whose date this is.
+  /// `web`, `apple` or `manual` - the rail whose date this is.
   final String source;
   final bool? renews;
 }
 
-/// The latest-ending entitlement among a Paddle/manual row and App Store
+/// The rail a `subscriptions.source` belongs to. Any seller of record (Creem,
+/// whatever comes next) is `web`; the app never needs to know which.
+String _railOfSource(String? source) =>
+    source == null || source == 'manual' || source == 'debug' ? 'manual' : 'web';
+
+/// The latest-ending entitlement among a web/manual row and App Store
 /// rows, each as its owner reads it back under RLS. Pure, for testing.
 PremiumTerm? premiumTermFrom({
   Map<String, dynamic>? subscription,
@@ -37,9 +44,7 @@ PremiumTerm? premiumTermFrom({
       subscription['tier'] == 'premium' &&
       end != null &&
       end.isAfter(now)) {
-    terms.add(
-      PremiumTerm(until: end, source: subscription['source'] == 'paddle' ? 'paddle' : 'manual'),
-    );
+    terms.add(PremiumTerm(until: end, source: _railOfSource(subscription['source'] as String?)));
   }
   for (final row in apple) {
     final until = DateTime.tryParse('${row['expires_at']}');
@@ -145,7 +150,7 @@ class EntitlementService extends ChangeNotifier {
 
   Set<String> _premiumSources = const {};
 
-  /// Which payment rails entitle this account: `paddle`, `apple`, `manual`.
+  /// Which payment rails entitle this account: `web`, `apple`, `manual`.
   /// Both can be true at once - someone can hold a web and an App Store
   /// subscription - and the subscription screen uses it to say where each is
   /// managed and to stop a second purchase through the other rail.
@@ -224,7 +229,7 @@ class EntitlementService extends ChangeNotifier {
     if (_subscriptionChannel != null) return;
     try {
       final channel = _client.channel('public:subscriptions:$userId');
-      // Both rails: a Paddle webhook writes `subscriptions`, an App Store
+      // Both rails: a web-billing webhook writes `subscriptions`, an App Store
       // purchase or renewal writes `apple_subscriptions`.
       for (final table in const ['subscriptions', 'apple_subscriptions']) {
         channel.onPostgresChanges(

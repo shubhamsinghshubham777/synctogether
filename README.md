@@ -123,7 +123,7 @@ Release builds and installer artifacts are built via GitHub Actions (`.github/wo
 | `docs/` | In-depth technical documentation & [Self-Hosting Guide](docs/self-hosting.md) |
 | `docker/` | Docker Compose and server configuration templates for self-hosting |
 | `supabase/` | Database migrations (schema, RLS, RPCs, pg_cron), edge functions, auth config |
-| `website/` | Next.js 16 marketing site, download portal, changelog, FAQ, and Paddle billing |
+| `website/` | Next.js 16 marketing site, download portal, changelog, FAQ, and web billing (Creem) |
 | `scripts/` | Developer environment orchestrator (`dev.sh`), clean slate reset, secrets tool, macOS signing, Instance B launcher |
 | `tool/` | Asset generation scripts (audio, emoji, certificates, app icons) |
 

@@ -1,7 +1,7 @@
 /**
  * The internal dashboard's arithmetic, as pure functions over plain values so
  * it can be tested without Supabase, GitHub or a clock - the same seam
- * `paddle_webhook.ts` uses. Every function answers `null` rather than a number
+ * `lib/billing/core.ts` uses. Every function answers `null` rather than a number
  * when its inputs cannot support one: the dashboard renders null as
  * "unavailable", and a missing figure is better than a fabricated one.
  */
@@ -28,10 +28,10 @@ export function percent(num: number | null | undefined, den: number | null | und
  */
 export const DEFAULT_INR_PER_USD = 88;
 
-/** Paddle amounts are in the lowest denomination; these have no minor unit. */
+/** Provider amounts are in the lowest denomination; these have no minor unit. */
 const ZERO_DECIMAL = new Set(["JPY", "KRW"]);
 
-export interface PaddleRevenueRow {
+export interface WebRevenueRow {
   currency: string;
   interval: string;
   frequency: number | null;
@@ -66,12 +66,12 @@ export interface MrrSummary {
 }
 
 /**
- * MRR from the RPC's grouped Paddle rows: each group's recurring charge
+ * MRR from the RPC's grouped web-billing rows: each group's recurring charge
  * normalised to a month (annual / 12). Only USD and INR are folded into the
  * USD-equivalent total - those are the currencies the product is priced in;
  * anything else is listed natively and counted as unconverted, never guessed.
  */
-export function computeMrr(rows: PaddleRevenueRow[], inrPerUsd = DEFAULT_INR_PER_USD): MrrSummary {
+export function computeMrr(rows: WebRevenueRow[], inrPerUsd = DEFAULT_INR_PER_USD): MrrSummary {
   const per = new Map<string, { monthly: number; subscribers: number }>();
   for (const r of rows) {
     const months = monthsPerCycle(r.interval, r.frequency);

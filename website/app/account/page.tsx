@@ -7,8 +7,30 @@ import { Ticket } from "@/components/Ticket";
 import { Headline, Stamp, Warming, display, mono } from "@/components/booth/Booth";
 import { AccountPatronOffer } from "./AccountPatronOffer";
 import { createClient } from "@/lib/supabase/client";
+import { PROVIDER_LABELS } from "@/lib/billing/labels";
 import type { User } from "@supabase/supabase-js";
 import confetti from "canvas-confetti";
+
+const CONFETTI_COLORS = ["#FFB23F", "#FFC266", "#FBBF24", "#6FD6C4", "#F1E9DD"];
+
+/**
+ * A page-wide celebration: one big opening burst, then two cannons firing
+ * inward from the bottom corners for ~2.5 s. It is skipped entirely under
+ * reduced motion, and bounded in time and particle count so it stays cheap.
+ */
+function celebrate() {
+  if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
+
+  const base = { colors: CONFETTI_COLORS, zIndex: 100, disableForReducedMotion: true };
+  confetti({ ...base, particleCount: 160, spread: 100, startVelocity: 55, origin: { x: 0.5, y: 0.7 } });
+
+  const end = Date.now() + 2500;
+  (function frame() {
+    confetti({ ...base, particleCount: 4, angle: 60, spread: 60, startVelocity: 65, origin: { x: 0, y: 1 } });
+    confetti({ ...base, particleCount: 4, angle: 120, spread: 60, startVelocity: 65, origin: { x: 1, y: 1 } });
+    if (Date.now() < end) requestAnimationFrame(frame);
+  })();
+}
 import {
   CheckCircle2,
   RefreshCw,
@@ -222,7 +244,13 @@ function AccountDashboard() {
     async function fulfill() {
       setVerifying(true);
       try {
-        const res = await fetch("/api/paddle/fulfill", { method: "POST" });
+        // Creem appends `checkout_id` to the success URL; the fulfil fallback
+        // uses it to find the subscription before the webhook has landed.
+        const checkoutId = new URLSearchParams(window.location.search).get("checkout_id");
+        const res = await fetch(
+          `/api/billing/fulfill${checkoutId ? `?checkout_id=${encodeURIComponent(checkoutId)}` : ""}`,
+          { method: "POST" }
+        );
         let newSub: SubscriptionData | null = null;
         if (res.ok) {
           const data = await res.json();
@@ -245,12 +273,7 @@ function AccountDashboard() {
           if (!celebratedRef.current) {
             celebratedRef.current = true;
             try {
-              confetti({
-                particleCount: 100,
-                spread: 70,
-                origin: { y: 0.6 },
-                colors: ["#FFB23F", "#FFC266", "#FBBF24", "#6FD6C4"],
-              });
+              celebrate();
             } catch {
               // ignore confetti errors
             }
@@ -286,7 +309,7 @@ function AccountDashboard() {
     }
     setIsCancelling(true);
     try {
-      const res = await fetch("/api/paddle/cancel", { method: "POST" });
+      const res = await fetch("/api/billing/cancel", { method: "POST" });
       const body = await res.json().catch(() => null);
       if (res.ok) {
         // Cancellation is scheduled at the next billing period, so the
@@ -369,13 +392,12 @@ function AccountDashboard() {
   const patronUntil = subscription?.current_period_end
     ? formatDate(cancelsAt ?? subscription.current_period_end)
     : null;
-  // Only a Paddle subscription renews; a manual or debug grant simply ends.
-  const billed = subscription?.source === "paddle";
+  // Only a seller-of-record subscription renews; a manual or debug grant simply ends.
+  const billed = Boolean(subscription?.source) && subscription?.source !== "manual" && subscription?.source !== "debug";
   const nextCharge = billed && !cancelsAt && subscription?.current_period_end ? formatDate(subscription.current_period_end) : null;
   const paidWith = subscription?.source
-    ? subscription.source === "paddle"
-      ? "Paddle"
-      : subscription.source.charAt(0).toUpperCase() + subscription.source.slice(1)
+    ? PROVIDER_LABELS[subscription.source] ??
+      subscription.source.charAt(0).toUpperCase() + subscription.source.slice(1)
     : null;
   const memberSince = user?.created_at
     ? new Date(user.created_at).toLocaleDateString(undefined, { month: "short", year: "numeric" })
@@ -418,7 +440,7 @@ function AccountDashboard() {
               Checking your ticket with the box office…
             </p>
             <p className="text-sm text-gray-400">
-              Confirming your upgrade with Paddle and activating your account benefits.
+              Confirming your upgrade and activating your account benefits.
             </p>
           </div>
         </div>

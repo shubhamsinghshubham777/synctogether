@@ -33,7 +33,7 @@ bool get isGooglePlayBuild =>
     !kIsWeb && isStoreBuild && defaultTargetPlatform == TargetPlatform.android;
 
 /// Whether this build may show any Premium upsell. Apple builds sell through
-/// StoreKit and every other build through Paddle, except Google Play. Signing
+/// StoreKit and every other build through the web seller of record, except Google Play. Signing
 /// a guest in is not a sale, so guest sign-in prompts never check this.
 bool get canSellPremium => !isGooglePlayBuild;
 

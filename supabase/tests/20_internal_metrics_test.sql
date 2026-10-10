@@ -1,5 +1,5 @@
 begin;
-select plan(12);
+select plan(14);
 
 create function pg_temp.as_role(p_role text) returns void
 language plpgsql as $$
@@ -51,19 +51,28 @@ values ((select v from t where k = 'g'), 'premium', now() + interval '30 days', 
 select is((pg_temp.m() #>> '{accounts,premium}')::int - (select (j #>> '{accounts,premium}')::int from base),
   0, 'a guest with a subscription row is not premium');
 
--- Paddle MRR inputs: a priced row is summed, a past_due one is not, and an
+-- Web MRR inputs: a priced row is summed, a past_due one is not, and an
 -- unpriced one is counted apart rather than guessed.
-insert into public.subscriptions (user_id, tier, current_period_end, source, unit_amount, currency, billing_interval, billing_frequency, paddle_status)
+insert into public.subscriptions (user_id, tier, current_period_end, source, unit_amount, currency, billing_interval, billing_frequency, provider_status)
 values ((select v from t where k = 'p'), 'premium', now() + interval '30 days', 'paddle', 399, 'USD', 'month', 1, 'active');
 select ok(
-  (pg_temp.m() -> 'subscriptions' -> 'paddle_revenue') @> '[{"currency":"USD","interval":"month","subscribers":1,"unit_amount_sum":399}]'::jsonb,
-  'an active priced Paddle row feeds MRR');
-update public.subscriptions set paddle_status = 'past_due' where user_id = (select v from t where k = 'p');
-select is((pg_temp.m() #>> '{subscriptions,paddle_past_due}')::int - (select (j #>> '{subscriptions,paddle_past_due}')::int from base),
+  (pg_temp.m() -> 'subscriptions' -> 'web_revenue') @> '[{"currency":"USD","interval":"month","subscribers":1,"unit_amount_sum":399}]'::jsonb,
+  'an active priced web row feeds MRR');
+update public.subscriptions set provider_status = 'past_due' where user_id = (select v from t where k = 'p');
+select is((pg_temp.m() #>> '{subscriptions,web_past_due}')::int - (select (j #>> '{subscriptions,web_past_due}')::int from base),
   1, 'past_due is counted separately');
-select is(pg_temp.m() -> 'subscriptions' -> 'paddle_revenue',
-  (select j -> 'subscriptions' -> 'paddle_revenue' from base),
+select is(pg_temp.m() -> 'subscriptions' -> 'web_revenue',
+  (select j -> 'subscriptions' -> 'web_revenue' from base),
   'past_due is excluded from MRR');
+
+-- A second provider's row is a web row too, and is reported by provider.
+insert into public.subscriptions (user_id, tier, current_period_end, source, provider_subscription_id)
+values ((select v from t where k = 'w'), 'premium', now() + interval '30 days', 'creem', 'sub_creem_1');
+select is(coalesce((pg_temp.m() #>> '{subscriptions,web_by_provider,creem}')::int, 0)
+    - coalesce((select (j #>> '{subscriptions,web_by_provider,creem}')::int from base), 0),
+  1, 'a creem row is counted under web_by_provider');
+select is((pg_temp.m() #>> '{subscriptions,web_active}')::int - (select (j #>> '{subscriptions,web_active}')::int from base),
+  2, 'web_active spans providers');
 
 -- DAU comes from the ledger: a user with no room membership at all (left,
 -- kicked, room deleted) who was credited today is still active.

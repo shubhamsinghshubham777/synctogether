@@ -9,7 +9,7 @@ import { usePremiumCheckout } from "@/lib/usePremiumCheckout";
 import { usePricing } from "@/lib/usePricing";
 
 /**
- * The free seat's upsell: the same Paddle branch PricingTable and the Tier
+ * The free seat's upsell: the same checkout branch PricingTable and the Tier
  * Configurator use (`usePremiumCheckout().goPremium`), with a monthly/annual
  * toggle. The one lit button on the account page.
  */
@@ -68,7 +68,7 @@ export function AccountPatronOffer() {
       >
         Become a Patron
       </PTButton>
-      <p className="mt-5 text-[13px] text-gray-500">Secure checkout by Paddle. Cancel any time, 14-day refund.</p>
+      <p className="mt-5 text-[13px] text-gray-500">Secure checkout. Cancel any time, 14-day refund.</p>
     </div>
   );
 }

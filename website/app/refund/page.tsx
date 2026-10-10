@@ -39,11 +39,11 @@ export default function RefundPage() {
             Requesting a Refund
           </h2>
           <p>
-            All subscriptions are processed securely through our authorized Merchant of Record, Paddle Payments Ltd.
+            All subscriptions are processed securely through our authorized Merchant of Record, which handles payment, tax and refunds on our behalf.
           </p>
           <ul className="space-y-2 text-gray-300 list-disc list-inside">
             <li>To request a refund, email <a href={`mailto:${SITE_CONFIG.supportEmail}`} className="text-purple-300 hover:text-white underline">{SITE_CONFIG.supportEmail}</a> with your account email address.</li>
-            <li>Refunds are processed directly back to your original payment method (Credit/Debit Card, PayPal, Apple Pay, Google Pay, UPI, etc.) within 5 to 7 business days.</li>
+            <li>Refunds are processed directly back to your original payment method (card or wallet) within 5 to 7 business days.</li>
           </ul>
         </section>
 

@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { PricingTable } from "@/components/PricingTable";
 import { TierConfigurator } from "@/components/pricing/TierConfigurator";
 import { Reveal } from "@/components/motion/Reveal";
-import { PaddleTransactionCheckout } from "@/components/PaddleTransactionCheckout";
 import { PageHead, display, mono } from "@/components/PageHead";
 
 export const metadata: Metadata = {
@@ -14,9 +13,6 @@ export const metadata: Metadata = {
 export default function PricingPage() {
   return (
     <div className="relative pt-8 pb-12 md:pt-12 md:pb-12 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto space-y-10">
-      {/* Resumes payment when Paddle's default payment link sends a customer
-          here with ?_ptxn=txn_... Renders nothing otherwise. */}
-      <PaddleTransactionCheckout />
 
       <PageHead
         eyebrow="Box office"

@@ -1,15 +1,9 @@
 "use client";
 
 import { useEffect, useState, useCallback, useSyncExternalStore } from "react";
-import { getPaddleInstance } from "@/components/PaddleCheckout";
-import { paddlePriceIds } from "@/lib/paddle_env";
 import {
   COUNTRY_CURRENCY_MAP,
-  PADDLE_SUPPORTED_CURRENCIES,
   detectUserCountry,
-  formatCurrency,
-  resolveCurrencySymbol,
-  calculateSavingsPercentage,
   isLocalEnvironment,
   type LocalizedPriceData,
 } from "./pricing";
@@ -102,83 +96,9 @@ export function usePricing() {
     setIsLoading(true);
 
     try {
-      // Resolved through `paddle_env.ts`, and read here rather than at module
-      // scope. These were `process.env.X || "pri_01m02w..."` literals, and the
-      // literals were the *sandbox* ids - so a deployment missing the variables
-      // previewed sandbox prices against the live catalog instead of failing.
-      // `paddlePriceIds` throws when unconfigured in production, which is the
-      // point of it; at module scope that throw would take the whole pricing
-      // page down at import instead of just failing this fetch.
-      const monthlyPriceId = paddlePriceIds.monthly;
-      const annualPriceId = paddlePriceIds.annual;
-
-      // 1. Try fetching via Paddle.js client SDK PricePreview
-      const paddle = await getPaddleInstance();
-      if (paddle && typeof paddle.PricePreview === "function") {
-        try {
-          const isSupported = PADDLE_SUPPORTED_CURRENCIES.has(targetCurrency);
-          const previewPayload: {
-            items: { priceId: string; quantity: number }[];
-            address: { countryCode: string };
-            currencyCode?: "USD" | "EUR" | "GBP" | "INR" | "CAD" | "AUD" | "JPY";
-          } = {
-            items: [
-              { priceId: monthlyPriceId, quantity: 1 },
-              { priceId: annualPriceId, quantity: 1 },
-            ],
-            address: { countryCode: country },
-          };
-          if (isSupported) {
-            previewPayload.currencyCode = targetCurrency as "USD" | "EUR" | "GBP" | "INR" | "CAD" | "AUD" | "JPY";
-          }
-
-          const preview = await paddle.PricePreview(previewPayload);
-
-          if (preview?.data?.details?.lineItems?.length) {
-            const lineItems = preview.data.details.lineItems;
-            const monthlyItem =
-              lineItems.find((item) => item.price?.id === monthlyPriceId) ||
-              lineItems[0];
-            const annualItem =
-              lineItems.find((item) => item.price?.id === annualPriceId) ||
-              lineItems[1];
-
-            const currencyCode = preview.data.currencyCode || (isSupported ? targetCurrency : "USD");
-            const currencySymbol = resolveCurrencySymbol(currencyCode, country);
-
-            const monthlyTotal =
-              parseFloat(monthlyItem.totals?.total || monthlyItem.unitTotals?.total || "399") / 100;
-            const annualTotal =
-              parseFloat(annualItem.totals?.total || annualItem.unitTotals?.total || "2999") / 100;
-            const monthlyEq = Math.round((annualTotal / 12) * 100) / 100;
-            const savingsPct = calculateSavingsPercentage(monthlyTotal, annualTotal);
-
-            const result: LocalizedPriceData = {
-              monthlyFormatted: formatCurrency(monthlyTotal, currencyCode, country),
-              monthlyAmount: monthlyTotal,
-              annualFormatted: formatCurrency(annualTotal, currencyCode, country),
-              annualAmount: annualTotal,
-              monthlyEquivalentFormatted: `${formatCurrency(monthlyEq, currencyCode, country)} / mo`,
-              monthlyEquivalentAmount: monthlyEq,
-              currencyCode,
-              currencySymbol,
-              countryCode: country,
-              savingsPct,
-              rawResponse: preview,
-            };
-
-            clientPriceCache[country] = result;
-            setData(result);
-            setIsLoading(false);
-            return;
-          }
-        } catch (paddleErr) {
-          console.warn("Paddle.js PricePreview failed, falling back to API:", paddleErr);
-        }
-      }
-
-      // 2. Fetch from /api/paddle/prices proxy
-      const res = await fetch(`/api/paddle/prices?country=${country}&currency=${targetCurrency}`);
+      // The server asks whichever provider is active, then falls back to the
+      // static localised table.
+      const res = await fetch(`/api/billing/prices?country=${country}&currency=${targetCurrency}`);
       if (res.ok) {
         const apiData = await res.json();
         const result: LocalizedPriceData = {

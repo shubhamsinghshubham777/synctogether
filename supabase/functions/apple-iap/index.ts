@@ -1,4 +1,4 @@
-// App Store In-App Purchase: the Apple rail beside the Paddle webhook.
+// App Store In-App Purchase: the Apple rail beside the web-billing webhook.
 //
 //   POST /apple-iap/verify  - the app, right after a purchase or restore.
 //                             Caller's JWT required; body { signed_transaction }.
@@ -123,7 +123,7 @@ async function apply(
   signedAt: number,
 ): Promise<Outcome> {
   // A failed renewal inside Apple's billing grace period keeps premium until
-  // the grace end - the Paddle `past_due` rule: a card problem is not a
+  // the grace end - the web-billing `past_due` rule: a card problem is not a
   // revocation.
   const entitledUntil = Math.max(tx.expiresDate ?? 0, renewal?.gracePeriodExpiresDate ?? 0);
   const { data, error } = await admin().rpc("apply_apple_transaction", {

@@ -1,0 +1,31 @@
+{
+  "id": "evt_co",
+  "eventType": "checkout.completed",
+  "created_at": 1790000400000,
+  "object": {
+    "id": "ch_1",
+    "object": "checkout",
+    "request_id": "user_abc",
+    "status": "completed",
+    "subscription": {
+      "id": "sub_creem_1",
+      "object": "subscription",
+      "status": "active",
+      "product": {
+        "id": "prod_monthly",
+        "name": "Patron",
+        "price": 399,
+        "currency": "USD",
+        "billing_period": "every-month"
+      },
+      "customer": {
+        "id": "cust_1",
+        "email": "a@b.co"
+      },
+      "metadata": {
+        "user_id": "user_abc"
+      },
+      "current_period_end_date": "2026-11-01T00:00:00.000Z"
+    }
+  }
+}

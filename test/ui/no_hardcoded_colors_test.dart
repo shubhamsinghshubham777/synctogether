@@ -13,13 +13,15 @@ void main() {
     const brandConsts = {'_googleRed', '_googleBlue', '_googleYellow', '_googleGreen'};
     final offenders = <String>[];
     for (final f in Directory('lib').listSync(recursive: true).whereType<File>()) {
-      if (!f.path.endsWith('.dart') || f.path.endsWith('ui/pt_theme.dart')) continue;
+      // Normalised, or the pt_theme.dart exemption never matches on Windows (`lib\\ui\\...`).
+      final path = f.path.replaceAll(r'\', '/');
+      if (!path.endsWith('.dart') || path.endsWith('ui/pt_theme.dart')) continue;
       final lines = f.readAsLinesSync();
       for (var i = 0; i < lines.length; i++) {
         final line = lines[i];
         if (!literal.hasMatch(line)) continue;
         if (brandConsts.any((c) => line.contains('const $c ='))) continue;
-        offenders.add('${f.path}:${i + 1}: ${line.trim()}');
+        offenders.add('$path:${i + 1}: ${line.trim()}');
       }
     }
     expect(offenders, isEmpty, reason: 'Add a PTColors token instead:\n${offenders.join('\n')}');

@@ -78,6 +78,7 @@ void main() {
         'sub-font': 'Avenir Next Demi Bold',
         'sub-bold': 'no',
         'sub-italic': 'yes',
+        'sub-font-size': '55',
         'sub-scale': '1.25',
         'sub-color': '#FFFDE047',
         'sub-border-color': '#FF000000',
@@ -86,6 +87,7 @@ void main() {
         'sub-shadow-offset': '0',
         'sub-blur': '0',
         'sub-back-color': '#00000000',
+        'sub-border-style': 'outline-and-shadow',
         'sub-pos': '88',
         'sub-align-x': 'right',
         'sub-spacing': '0',
@@ -103,14 +105,24 @@ void main() {
       expect(props['sub-ass-override'], 'scale');
     });
 
-    test('never uses option names newer than the bundled mpv', () {
+    test('draws the background box on mpv 0.41 as well as 0.36', () {
+      final props = toMpvProperties(
+        SubtitleStyle.defaults().copyWith(backgroundColor: 0xAF000000),
+        font: 'x',
+        bold: false,
+        italic: false,
+      );
+      expect(props['sub-border-style'], 'background-box');
+    });
+
+    test('never uses the sub-outline-* names 0.36 would silently drop', () {
       final keys = toMpvProperties(
         SubtitleStyle.defaults(),
         font: 'x',
         bold: false,
         italic: false,
       ).keys;
-      expect(keys.where((k) => k.contains('outline') || k == 'sub-border-style'), isEmpty);
+      expect(keys.where((k) => k.contains('outline')), isEmpty);
     });
 
     test('mpvColor pads to #AARRGGBB', () {

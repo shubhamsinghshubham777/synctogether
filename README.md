@@ -146,5 +146,5 @@ SyncTogether is licensed under the **[PolyForm Noncommercial License 1.0.0 (Poly
 ## 👏 Credits & Third-Party Assets
 
 - **Animated Reactions**: [Noto Animated Emoji](https://googlefonts.github.io/noto-emoji-animation/) by Google (licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)).
-- **Video Playback**: [media_kit](https://github.com/media-kit/media-kit) (MPV-backed high performance player for Flutter).
+- **Video Playback**: [media_kit](https://github.com/media-kit/media-kit) (MPV-backed high performance player for Flutter), with mpv and FFmpeg (LGPL) full-codec builds on every platform. See [codec support](docs/codec-support.md) and [third-party notices](docs/third-party-notices.md).
 - **WebRTC Mesh**: [LiveKit](https://livekit.io) real-time video and audio platform.

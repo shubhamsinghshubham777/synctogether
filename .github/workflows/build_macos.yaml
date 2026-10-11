@@ -138,12 +138,12 @@ jobs:
             --dart-define=POSTHOG_API_KEY="$POSTHOG_API_KEY" \
             --dart-define=POSTHOG_HOST="$POSTHOG_HOST"
 
-          echo "==> Verifying Avcodec.framework has PGS subtitle decoder enabled..."
-          strings "build/macos/Build/Products/Release/SyncTogether.app/Contents/Frameworks/Avcodec.framework/Versions/A/Avcodec" | grep "pgssub" > /dev/null || {
-            echo "::error::Avcodec.framework is missing the pgssub decoder!"
+          echo "==> Verifying Avcodec.framework is the full-codec build..."
+          strings "build/macos/Build/Products/Release/SyncTogether.app/Contents/Frameworks/Avcodec.framework/Versions/A/Avcodec" | grep -q -e "--enable-decoders" || {
+            echo "::error::Avcodec.framework is the slim build (no --enable-decoders); TrueHD, ProRes and friends would not play. See docs/codec-support.md."
             exit 1
           }
-          echo "    Verified Avcodec includes pgssub."
+          echo "    Verified Avcodec is the full-codec build."
 
       - name: Sign, Package, Notarize, and Staple DMG
         env:

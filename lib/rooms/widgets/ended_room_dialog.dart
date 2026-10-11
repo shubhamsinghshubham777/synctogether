@@ -13,6 +13,7 @@ class EndedRoomDialog extends StatelessWidget {
     required this.onStartFresh,
     this.onUpgrade,
     required this.onDelete,
+    this.onResume,
     this.isOwner = true,
   });
 
@@ -22,6 +23,10 @@ class EndedRoomDialog extends StatelessWidget {
   /// Null where the build may not sell Premium (see `canSellPremium`).
   final VoidCallback? onUpgrade;
   final VoidCallback onDelete;
+
+  /// Set while the room is still inside its resume window and the viewer is a
+  /// host: starts a new session on the same room, code and members.
+  final VoidCallback? onResume;
   final bool isOwner;
 
   @override
@@ -79,15 +84,32 @@ class EndedRoomDialog extends StatelessWidget {
           ],
         ),
         Text(
-          'Free rooms run one session. Open a fresh one for the next film.',
+          onResume != null
+              ? 'This room is still kept, so you can pick up where you left off.'
+              : 'Free rooms run one session. Open a fresh one for the next film.',
           style: PTText.body.copyWith(fontSize: 14, color: PTColors.white(0.65), height: 1.5),
         ),
+        if (onResume case final resume?)
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: PTButton(
+              maxLines: 2,
+              label: 'Resume this room',
+              icon: BoothIcons.play,
+              height: 46,
+              onPressed: () {
+                Navigator.of(context).pop();
+                resume();
+              },
+            ),
+          ),
         Padding(
           padding: const EdgeInsets.only(top: 4),
           child: PTButton(
             maxLines: 2,
             label: 'Open a fresh room',
             icon: BoothIcons.add,
+            variant: onResume != null ? .secondary : .primary,
             height: 46,
             onPressed: () {
               Navigator.of(context).pop();

@@ -504,6 +504,11 @@ class _LobbyScreenState extends State<LobbyScreen> with WindowListener {
         builder: (_) => EndedRoomDialog(
           room: entry.room,
           isOwner: entry.isOwner,
+          onResume:
+              entry.isHost &&
+                  (entry.room.resumableUntil?.isAfter(RoomService.instance.serverNow) ?? false)
+              ? () => _startSession(entry)
+              : null,
           onStartFresh: () {
             _nameController.text = entry.room.name;
             _create();

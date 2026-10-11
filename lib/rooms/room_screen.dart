@@ -4068,6 +4068,13 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
           break;
         }
       }
+    } on FileSystemException catch (e) {
+      // macOS grants only the picked file, not its folder; sidecars are optional.
+      trace(
+        'sidecar subtitle scan not permitted',
+        category: 'media',
+        data: {'errno': e.osError?.errorCode},
+      );
     } catch (e, s) {
       reportNonFatal(e, s, during: 'scanning sidecar subtitles');
     }

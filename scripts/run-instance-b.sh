@@ -27,29 +27,29 @@ while [[ $# -gt 0 ]]; do
       shift
       ;;
     --dart-define-from-file=*)
-      path="${1#*=}"
-      if [[ "$path" != /* ]]; then
-        path="$(pwd)/$path"
+      define_file="${1#*=}"
+      if [[ "$define_file" != /* ]]; then
+        define_file="$(pwd)/$define_file"
       fi
-      if [[ ! -f "$path" ]]; then
-        echo "Error: Define file not found at '$path'" >&2
+      if [[ ! -f "$define_file" ]]; then
+        echo "Error: Define file not found at '$define_file'" >&2
         exit 1
       fi
-      DEFINE_FILES+=("$path")
+      DEFINE_FILES+=("$define_file")
       FORCE_BUILD=true
       shift
       ;;
     --dart-define-from-file)
       if [[ $# -ge 2 ]] && [[ ! "$2" =~ ^-- ]]; then
-        path="$2"
-        if [[ "$path" != /* ]]; then
-          path="$(pwd)/$path"
+        define_file="$2"
+        if [[ "$define_file" != /* ]]; then
+          define_file="$(pwd)/$define_file"
         fi
-        if [[ ! -f "$path" ]]; then
-          echo "Error: Define file not found at '$path'" >&2
+        if [[ ! -f "$define_file" ]]; then
+          echo "Error: Define file not found at '$define_file'" >&2
           exit 1
         fi
-        DEFINE_FILES+=("$path")
+        DEFINE_FILES+=("$define_file")
         shift 2
       else
         if [[ -f "$REPO/.env" ]]; then
@@ -96,15 +96,15 @@ done
 
 # Check DART_DEFINE_FROM_FILE environment variable fallback if not passed explicitly on CLI
 if [[ ${#DEFINE_FILES[@]} -eq 0 ]] && [[ -n "${DART_DEFINE_FROM_FILE:-}" ]]; then
-  path="$DART_DEFINE_FROM_FILE"
-  if [[ "$path" != /* ]]; then
-    path="$(pwd)/$path"
+  define_file="$DART_DEFINE_FROM_FILE"
+  if [[ "$define_file" != /* ]]; then
+    define_file="$(pwd)/$define_file"
   fi
-  if [[ ! -f "$path" ]]; then
-    echo "Error: Define file from DART_DEFINE_FROM_FILE not found at '$path'" >&2
+  if [[ ! -f "$define_file" ]]; then
+    echo "Error: Define file from DART_DEFINE_FROM_FILE not found at '$define_file'" >&2
     exit 1
   fi
-  DEFINE_FILES+=("$path")
+  DEFINE_FILES+=("$define_file")
   FORCE_BUILD=true
 fi
 

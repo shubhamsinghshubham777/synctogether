@@ -72,7 +72,7 @@ Last runs (2026-10-12), every one 19/19 contract clips plus the one known gap:
 | macOS (Apple silicon, 27.0) | mpv 0.36.0, FFmpeg 6.0 | real playback |
 | iOS (iPhone 12, 27.0) | mpv 0.36.0, FFmpeg 6.0 | real device, real playback; VideoToolbox decodes H.264/HEVC |
 | Android (emulator, API 37, arm64) | full jars v1.1.11 | **decode-only** (`PROBE_VO=null`): the emulator's GPU cannot give mpv a GL context, so presentation is untested there |
-| Windows | mpv 0.41, FFmpeg git | **not yet re-run** against the mirrored archive; the experiment's results (`docs/experiments/win-libmpv-full.md`) apply |
+| Windows 11 (Parallels ARM VM, x64 under emulation, no GPU) | mpv 0.41.0-1127, FFmpeg N-127367 | 21/21 clips pass against the mirrored archive (archive MD5/SHA-256 verified; build downloads it fine), **including `known_gap_ffv1.mkv`**, which only Windows can play. Software decode only (`hwdec` is `no`): hardware decode and 4K performance are **untested**. A process-exit crash in `CoreMessaging.dll` also occurs on the pre-swap build (see below) |
 
 Mobile has no free-form filesystem, so the probe reads `<documents>/samples`
 (Android: the app's external files dir). Push the clips in with
@@ -82,6 +82,21 @@ Documents/samples` (iOS; use a **release** build, a debug one cannot launch
 standalone) or `adb push` plus `chmod -R a+rwX` (Android), then read
 `codec_probe.json` back the same way. On an emulator add
 `--dart-define=PROBE_VO=null`.
+
+### Windows exit crash: predates the libmpv swap
+
+On the Parallels ARM VM, closing the real app (and the probe) logs an access
+violation (0xc0000005) in the system `CoreMessaging.dll`, offset `0xfcfbc`. It was
+isolated on 2026-10-12: the pre-swap commit `3efc111` (slim libmpv 0.36)
+crashes identically 3/3, the full-libmpv build 3/3, the probe crashes with and
+without its `exit()` call, and a bare Flutter counter app does **not** crash
+(0/3). So it is not caused by this change; the remaining suspects are media_kit,
+WebView2 and the other plugins, possibly only under x64-on-ARM emulation. Not
+yet checked on real x64 hardware.
+
+Same-machine before/after for the codec work: the slim build failed 9 of 21
+contract clips (TrueHD x2, ProRes, DNxHD, Cinepak, HuffYUV, UtVideo, FFV1 in
+AVI and in Matroska); the full build passes all 21.
 
 ## Bumping a build
 

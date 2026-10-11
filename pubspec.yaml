@@ -141,3 +141,8 @@ flutter_launcher_icons:
   # 16/24/32/48 frames the taskbar and Inno Setup installer actually use.
   windows:
     generate: false
+
+# EXPERIMENT exp/win-libmpv-full: full-codec LGPL libmpv for Windows
+dependency_overrides:
+  media_kit_libs_windows_video:
+    path: third_party/media_kit_libs_windows_video

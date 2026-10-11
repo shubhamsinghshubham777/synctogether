@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:fast_file_picker/fast_file_picker.dart';
 import 'package:file_selector/file_selector.dart';
+import 'package:flutter/foundation.dart' show defaultTargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_symbols_icons/symbols.dart';
@@ -492,6 +493,10 @@ class _LobbyScreenState extends State<LobbyScreen> with WindowListener {
   }
 
   Future<void> _openMyRoom(MyRoom entry) async {
+    if (entry.isIdle) {
+      await _startSession(entry);
+      return;
+    }
     if (!entry.isLive) {
       await showGlassDialog<void>(
         context: context,
@@ -522,6 +527,38 @@ class _LobbyScreenState extends State<LobbyScreen> with WindowListener {
       context.go(roomPath(entry.room.id));
     } else {
       await _join(entry.room.code, via: .code);
+    }
+  }
+
+  /// A saved room between sessions: its host picks a length and starts a new
+  /// one; everyone else is told it is waiting on the host.
+  Future<void> _startSession(MyRoom entry) async {
+    if (!entry.isHost) {
+      _snack(RoomErrorCode.roomIdle.message);
+      return;
+    }
+    final minutes = await showGlassDialog<int>(
+      context: context,
+      width: 440,
+      builder: (_) => StartSessionDialog(roomName: entry.room.name, capMinutes: _durationCap),
+    );
+    if (minutes == null || !mounted) return;
+    setState(() => _busyRoomId = entry.room.id);
+    try {
+      final room = await RoomService.instance.resumeRoom(roomId: entry.room.id, minutes: minutes);
+      trace(
+        'idle room session started',
+        category: 'room',
+        data: {'room_id': room.id, 'minutes': minutes},
+      );
+      if (mounted) context.go(roomPath(room.id));
+    } catch (e, s) {
+      final failure = RoomErrorCode.fromError(e);
+      if (failure == .unknown) reportNonFatal(e, s, during: 'starting a session on an idle room');
+      if (mounted) _snack(failure.message);
+      unawaited(_loadMyRooms());
+    } finally {
+      if (mounted) setState(() => _busyRoomId = null);
     }
   }
 
@@ -697,20 +734,36 @@ class _LobbyScreenState extends State<LobbyScreen> with WindowListener {
     // Anything reading the profile must do so *inside* this builder - the
     // enclosing build() doesn't re-run when the profile lands, so a value
     // captured out here stays stale until an unrelated setState.
-    return Scaffold(
-      body: AmbientBackground(
-        child: ListenableBuilder(
-          listenable: Listenable.merge([
-            ProfileService.instance,
-            UpdateService.instance,
-            RoomService.instance,
-            EntitlementService.instance,
-            RewardsService.instance,
-          ]),
-          builder: (context, _) => PTResponsive(
-            desktop: (_) => _desktop(),
-            portrait: (_) => _portrait(),
-            landscape: (_) => _landscape(),
+    return CallbackShortcuts(
+      // Cmd+, on macOS, Ctrl+, elsewhere - the platform convention for
+      // preferences. Dialogs and the room sit on their own routes, so this
+      // only fires while the lobby itself has focus.
+      bindings: {
+        SingleActivator(
+          .comma,
+          meta: defaultTargetPlatform == TargetPlatform.macOS,
+          control: defaultTargetPlatform != TargetPlatform.macOS,
+        ): () =>
+            context.go('/lobby/profile'),
+      },
+      child: Focus(
+        autofocus: true,
+        child: Scaffold(
+          body: AmbientBackground(
+            child: ListenableBuilder(
+              listenable: Listenable.merge([
+                ProfileService.instance,
+                UpdateService.instance,
+                RoomService.instance,
+                EntitlementService.instance,
+                RewardsService.instance,
+              ]),
+              builder: (context, _) => PTResponsive(
+                desktop: (_) => _desktop(),
+                portrait: (_) => _portrait(),
+                landscape: (_) => _landscape(),
+              ),
+            ),
           ),
         ),
       ),

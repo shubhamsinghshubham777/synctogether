@@ -36,12 +36,18 @@ enum AvLevel {
 }
 
 enum RoomState {
+  /// A session is running.
   live,
+
+  /// A saved (persistent) room between sessions: kept, nobody watching, and its
+  /// host can start a new session. Never joinable until then.
+  idle,
   dormant,
   expired;
 
   static RoomState fromWire(String? value) => switch (value) {
     'live' => .live,
+    'idle' => .idle,
     'dormant' => .expired,
     _ => .expired,
   };
@@ -274,6 +280,7 @@ class MyRoom {
 
   bool get isHost => role == 'host' || isOwner;
   bool get isLive => state == .live;
+  bool get isIdle => state == .idle;
   bool get isExpired => state == .expired;
   bool get isDormant => false;
 
@@ -403,6 +410,7 @@ enum RoomErrorCode {
   roomNotFound('room_not_found', "Hmm, we couldn't find a room with that code."),
   roomDormant('room_dormant', 'That room has already ended.'),
   roomEnded('room_ended', 'That room has already ended.'),
+  roomIdle('room_idle', "That room isn't in session right now. The host can start a new session."),
   roomFull('room_full', "This room is full. There's no space for one more."),
   roomBanned('room_banned', "The host removed you from this room, so you can't rejoin."),
   roomBannedByAdmin(

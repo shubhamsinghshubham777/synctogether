@@ -79,3 +79,10 @@ secrets.txt
 
 # asc CLI cache and reports
 .asc/
+
+# Downloaded by the vendored libmpv packages' Makefile / gradle / CMake
+third_party/*/macos/Frameworks/
+third_party/*/macos/.cache/
+third_party/*/ios/Frameworks/
+third_party/*/ios/.cache/
+third_party/*/pubspec.lock

@@ -51,7 +51,7 @@ jobs:
             build/macos
             macos/Pods
             .dart_tool
-          key: ${{ runner.os }}-flutter-build-store-${{ hashFiles('**/pubspec.lock', 'macos/Podfile.lock') }}
+          key: ${{ runner.os }}-flutter-build-store-${{ hashFiles('**/pubspec.lock', 'macos/Podfile.lock', 'third_party/**') }}
           restore-keys: |
             ${{ runner.os }}-flutter-build-store-
             ${{ runner.os }}-flutter-build-
@@ -197,13 +197,13 @@ jobs:
             fi
           done
 
-          # 3. Assert Avcodec has pgssub decoder enabled
-          echo "==> Verifying Avcodec.framework has PGS subtitle decoder enabled..."
-          if ! strings "$APP_PATH/Contents/Frameworks/Avcodec.framework/Versions/A/Avcodec" | grep "pgssub" > /dev/null; then
-            echo "::error::Avcodec.framework is missing the pgssub decoder!"
+          # 3. Assert Avcodec is the full-codec build (not the slim default)
+          echo "==> Verifying Avcodec.framework is the full-codec build..."
+          if ! strings "$APP_PATH/Contents/Frameworks/Avcodec.framework/Versions/A/Avcodec" | grep -q -e "--enable-decoders"; then
+            echo "::error::Avcodec.framework is the slim build (no --enable-decoders). See docs/codec-support.md."
             exit 1
           fi
-          echo "    Verified Avcodec includes pgssub."
+          echo "    Verified Avcodec is the full-codec build."
 
       - name: Drop debug symbols before cache save
         run: rm -rf build/macos/Build/Products/Release/*.dSYM

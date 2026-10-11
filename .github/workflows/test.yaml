@@ -73,6 +73,7 @@ jobs:
               - 'test/**'
               - 'assets/**'
               - 'pubspec.*'
+              - 'third_party/**'
               - 'analysis_options.yaml'
               - 'windows/**'
               - 'macos/**'

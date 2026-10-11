@@ -141,3 +141,17 @@ flutter_launcher_icons:
   # 16/24/32/48 frames the taskbar and Inno Setup installer actually use.
   windows:
     generate: false
+
+# Full-codec libmpv on every platform. media_kit's own libs packages hardcode
+# the slim "video-default" builds with no switch, so each is vendored with only
+# its download URL and checksum changed. See docs/codec-support.md. These are
+# path overrides, so the exact-pins rule does not apply to them.
+dependency_overrides:
+  media_kit_libs_android_video:
+    path: third_party/media_kit_libs_android_video
+  media_kit_libs_ios_video:
+    path: third_party/media_kit_libs_ios_video
+  media_kit_libs_macos_video:
+    path: third_party/media_kit_libs_macos_video
+  media_kit_libs_windows_video:
+    path: third_party/media_kit_libs_windows_video

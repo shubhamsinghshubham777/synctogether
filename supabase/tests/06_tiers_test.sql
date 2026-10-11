@@ -225,8 +225,8 @@ select is(
 select is(
   (select public.room_state(r) || ':' || r.persistent::text from public.rooms r
    where r.id = (select v from t where k = 'premium_room')),
-  'live:true',
-  'a persistent room stays live');
+  'idle:true',
+  'a persistent room is kept and rests as idle, never deleted or left looking live');
 
 do $$ begin perform pg_temp.act_as((select v from t where k = 'premium')); end $$;
 

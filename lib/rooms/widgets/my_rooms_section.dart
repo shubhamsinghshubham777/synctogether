@@ -295,6 +295,7 @@ class _RoomRowState extends State<_RoomRow> {
   }
 
   static String _eyebrow(MyRoom entry) {
+    if (entry.isIdle) return 'Resting · saved';
     if (!entry.isLive) return 'Ended';
     if (entry.room.persistent) return 'Saved · ${entry.memberCount} in';
     return 'Now showing · ${entry.memberCount} in';
@@ -318,6 +319,9 @@ class _RoomRowState extends State<_RoomRow> {
   static String _subtitle(MyRoom entry, DateTime serverNow) {
     final room = entry.room;
     final people = '${entry.memberCount} ${entry.memberCount == 1 ? 'watcher' : 'watchers'}';
+    if (entry.isIdle) {
+      return entry.isHost ? 'Between sessions · tap to start' : 'Waiting for the host to start';
+    }
     if (room.persistent) return '$people · saved';
     if (entry.isLive) {
       return '$people · ${_left(room.expiresAt.difference(serverNow))} left';

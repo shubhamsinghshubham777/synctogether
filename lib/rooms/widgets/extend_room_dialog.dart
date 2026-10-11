@@ -166,6 +166,85 @@ class _ExtendRoomDialogState extends State<ExtendRoomDialog> {
   }
 }
 
+/// Asks the host how long the next session of an idle (saved) room should run.
+/// Pops the chosen minutes, or null for "Not now".
+class StartSessionDialog extends StatefulWidget {
+  const StartSessionDialog({super.key, required this.roomName, required this.capMinutes});
+
+  final String roomName;
+
+  /// The host tier's `max_session_minutes`; no choice goes past it.
+  final int capMinutes;
+
+  /// 30 min, 1 h, 2 h, 4 h ... clipped to the cap, with the cap itself last.
+  @visibleForTesting
+  static List<int> optionsFor(int capMinutes) {
+    final options = [
+      for (final m in const [30, 60, 120, 240])
+        if (m < capMinutes) m,
+    ];
+    return [...options, capMinutes];
+  }
+
+  @override
+  State<StartSessionDialog> createState() => _StartSessionDialogState();
+}
+
+class _StartSessionDialogState extends State<StartSessionDialog> {
+  late final List<int> _options = StartSessionDialog.optionsFor(widget.capMinutes);
+  late int _selected = _options.contains(120) ? 120 : _options.last;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: .min,
+      crossAxisAlignment: .start,
+      spacing: 14,
+      children: [
+        GlassDialogHeader(
+          eyebrow: 'Saved room',
+          title: 'Start a session',
+          subtitle: '${widget.roomName} is resting. Pick how long this session runs.',
+          onClose: () => Navigator.of(context).pop(),
+        ),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final minutes in _options)
+              _Choice(
+                label: _ExtendRoomDialogState._label(minutes),
+                selected: _selected == minutes,
+                onTap: () => setState(() => _selected = minutes),
+              ),
+          ],
+        ),
+        Padding(
+          padding: const EdgeInsets.only(top: 6),
+          child: PTButtonBar(
+            spacing: 11,
+            buttons: [
+              PTButton(
+                maxLines: 2,
+                label: 'Not now',
+                variant: .secondary,
+                height: 48,
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+              PTButton(
+                maxLines: 2,
+                label: 'Start ${_ExtendRoomDialogState.spelledDuration(_selected)}',
+                height: 48,
+                onPressed: () => Navigator.of(context).pop(_selected),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class _Choice extends StatelessWidget {
   const _Choice({required this.label, required this.selected, required this.onTap});
 

@@ -311,6 +311,7 @@ void main() {
 
     test('an unknown state degrades to expired rather than looking usable', () {
       expect(RoomState.fromWire('live'), RoomState.live);
+      expect(RoomState.fromWire('idle'), RoomState.idle);
       expect(RoomState.fromWire('dormant'), RoomState.expired);
       expect(RoomState.fromWire('who knows'), RoomState.expired);
       expect(RoomState.fromWire(null), RoomState.expired);

@@ -335,6 +335,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
 
   /// File/codec pairs already explained, so one file does not snack twice.
   final _unsupportedCodecNoted = <String>{};
+  bool _audioDeviceNoted = false;
 
   /// Bumped by every upload start. A newer start makes the server abort the
   /// older multipart as orphaned, so the older pipeline's parts 404 - that
@@ -2532,6 +2533,17 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
         _snack(
           "This file's ${name.toUpperCase()} track can't play here - try another audio track.",
         );
+      }
+      return;
+    }
+    // No usable output device (unplugged, exclusive-mode hog, remote session):
+    // mpv carries on silently and the video still plays. A property of the
+    // machine, not a bug - say so once instead of reporting.
+    if (error.toLowerCase().contains('audio device')) {
+      trace('audio output unavailable', category: 'media');
+      if (!_audioDeviceNoted) {
+        _audioDeviceNoted = true;
+        _snack("Couldn't find a sound output on this device - check your speakers or headphones.");
       }
       return;
     }

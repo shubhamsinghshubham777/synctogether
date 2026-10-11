@@ -299,5 +299,5 @@ export const creemProvider: BillingProvider = {
   createCheckout,
   cancelAtPeriodEnd,
   findActiveSubscription,
-  // No previewPrices: the static localised table is used.
+  // No price preview: one USD price everywhere (see `usdPrices`).
 };

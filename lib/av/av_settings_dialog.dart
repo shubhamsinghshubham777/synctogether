@@ -3,6 +3,7 @@ import '../ui/booth_icons.g.dart';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show MissingPluginException;
 import 'package:flutter_webrtc/flutter_webrtc.dart' as rtc;
 import 'package:livekit_client/livekit_client.dart' as lk;
 import 'package:media_kit/media_kit.dart';
@@ -170,6 +171,13 @@ Stream<List<double>> liveMicLevels(String? deviceId) {
       } catch (e, st) {
         debugPrint('[BoothCheck/Mic] Exception during mic level test: $e\n$st');
         // A refused permission is the user's answer, not a bug.
+        if (e is MissingPluginException) {
+          // The native channel is registered after start and gone after stop;
+          // listening in between is a teardown race, not a fault.
+          trace('mic level channel gone', category: 'av');
+          if (!out.isClosed) out.addError(e);
+          return;
+        }
         final refused = '$e'.contains('NotAllowed') || '$e'.toLowerCase().contains('permission');
         if (refused) {
           trace('mic level test refused', category: 'av', data: {'error': '$e'});

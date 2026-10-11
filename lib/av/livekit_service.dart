@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart' show MissingPluginException;
 import 'package:livekit_client/livekit_client.dart' as lk;
 import 'package:synctogether/av/av_failover.dart';
 import 'package:synctogether/av/macos_audio_devices.dart';
@@ -20,6 +21,8 @@ const kAvReportAfterAttempts = 5;
 bool isTransientAvError(Object error) => switch (error) {
   FunctionException(:final status) =>
     status == 0 || status == 408 || status == 429 || status >= 500,
+  // Un-awaited listen on the visualizer's event channel racing its teardown.
+  MissingPluginException(:final message) => '$message'.contains('io.livekit.audio.visualizer'),
   SocketException() ||
   HttpException() ||
   TimeoutException() ||
@@ -469,6 +472,13 @@ class LiveKitService extends ChangeNotifier {
   /// every attempt of an endless backoff made a dev stack without its
   /// functions runtime (or a user offline) look like a flood of bugs.
   void _noteFailure(Object e, StackTrace s, {required String during}) {
+    // Kicked, left or ended: the token function refuses non-members. That is
+    // the room's answer, not a fault, and retrying cannot change it.
+    if (e is FunctionException && e.status == 403 && '${e.details}'.contains('not_a_member')) {
+      _notAMember = true;
+      trace('av refused: not a member', category: 'av', data: {'room_id': roomId});
+      return;
+    }
     if (!isTransientAvError(e)) {
       reportNonFatal(e, s, during: during);
       return;
@@ -488,8 +498,11 @@ class LiveKitService extends ChangeNotifier {
     }
   }
 
+  bool _notAMember = false;
+
   void _scheduleReconnect() {
     if (_disposed ||
+        _notAMember ||
         _reconnectTimer?.isActive == true ||
         _state == .connecting ||
         _state == .connected ||

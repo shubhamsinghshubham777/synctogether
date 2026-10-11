@@ -32,6 +32,31 @@ void main() {
       expect(find.text('Open a fresh room'), findsOneWidget);
       expect(find.text('Patron: 20 saved rooms'), findsOneWidget);
       expect(find.textContaining('That show has closed'), findsOneWidget);
+      expect(find.text('Resume this room'), findsNothing);
+    });
+
+    testWidgets('offers Resume only when the room can still be resumed', (tester) async {
+      var resumed = false;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => EndedRoomDialog(
+                room: testRoom,
+                onStartFresh: () {},
+                onResume: () => resumed = true,
+                onDelete: () {},
+              ),
+            ),
+          ),
+        ),
+      );
+
+      expect(find.text('Resume this room'), findsOneWidget);
+      expect(find.text('Open a fresh room'), findsOneWidget);
+      await tester.tap(find.text('Resume this room'));
+      await tester.pump();
+      expect(resumed, isTrue);
     });
   });
 }

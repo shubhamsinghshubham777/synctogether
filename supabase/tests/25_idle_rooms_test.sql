@@ -1,5 +1,5 @@
 begin;
-select plan(12);
+select plan(14);
 
 -- Persistent premium rooms rest as 'idle' between sessions; a running session
 -- is never resettable through resume_room.
@@ -65,11 +65,26 @@ select throws_ok(
   format($$ select public.resume_room(%L, 60) $$, (select id from made)),
   'P0001', 'not_host', 'only a host or the creator can start a session');
 
--- A lapsed subscription turns the idle room into an ordinary ended one.
+-- A recently idle saved room survives the sweep.
 reset role;
+update public.rooms set ended_at = now() - interval '10 days' where id = (select id from made);
+select public.sweep_rooms();
+select ok(exists (select 1 from public.rooms where id = (select id from made)),
+  'a saved room idle for 10 days is kept');
+
+-- A lapsed subscription turns the idle room into an ordinary ended one.
 delete from public.subscriptions where user_id = '00000000-0000-0000-0000-0000000000c1';
 select is(public.room_state((select r from public.rooms r where id = (select id from made))), 'expired',
   'when premium lapses an idle room is just an ended room');
+
+-- A long-forgotten saved room is swept, freeing its slot.
+insert into public.subscriptions (user_id, tier, current_period_end)
+values ('00000000-0000-0000-0000-0000000000c1', 'premium', now() + interval '30 days');
+update public.rooms set persistent = true, resumable_until = null,
+  ended_at = now() - interval '91 days' where id = (select id from made);
+select public.sweep_rooms();
+select ok(not exists (select 1 from public.rooms where id = (select id from made)),
+  'a saved room idle for 91 days is deleted');
 
 select * from finish();
 rollback;

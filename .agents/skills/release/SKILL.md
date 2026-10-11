@@ -210,29 +210,11 @@ stable later means cutting a new, higher version, not re-tagging.
    **Desktop Stores Review & Listing Lifecycle (`publish_stores.yaml`):**
 
    - **Mac App Store (`asc`)**:
-     `publish_stores.yaml` uploads the macOS `.pkg` build to App Store Connect, but Apple requires attaching the build to a version and submitting for review:
-     1. **Version Record**: Ensure the macOS version exists on App Store Connect:
-        ```bash
-        asc versions create --app 6809185202 --platform MAC_OS --version X.Y.Z --copy-metadata-from <prev>
-        ```
-     2. **Metadata & What's New**: Maintain canonical metadata under `metadata/version/X.Y.Z/en-US.json` and push to App Store Connect:
-        ```bash
-        asc metadata push --app 6809185202 --version "X.Y.Z" --platform MAC_OS --dir "./metadata"
-        ```
-     3. **Screenshots**: When new UI screenshots exist (2880 x 1800 in `assets/store/mac/*.jpg`), upload to the `APP_DESKTOP` display set:
-        ```bash
-        asc screenshots upload --app 6809185202 --version "X.Y.Z" --locale en-US --platform MAC_OS --display-type APP_DESKTOP --files assets/store/mac/*.jpg
-        ```
-     4. **Attach Build**: Once the uploaded `.pkg` finishes Apple processing (`asc builds list --app 6809185202` shows `VALID`):
-        ```bash
-        asc versions attach-build --version-id "<VERSION_ID>" --build-id "<BUILD_ID>"
-        ```
-     5. **Validate & Submit for Review**:
-        ```bash
-        asc validate --app 6809185202 --version "X.Y.Z" --platform MAC_OS
-        asc review submit --app 6809185202 --version "X.Y.Z" --platform MAC_OS --build-id "<BUILD_ID>" --confirm
-        asc review status --app 6809185202 --platform MAC_OS  # Confirms WAITING_FOR_REVIEW
-        ```
+     `publish_mac_app_store.yaml` now does the whole path itself when the App Store Connect API key secrets are set: it uploads the `.pkg`, waits for Apple to finish processing (`asc builds wait`), creates the macOS version record if missing (copying metadata from the live version), pushes `metadata/version/X.Y.Z` (What's New), runs `asc validate`, then attaches the build and submits for review (`asc review submit --confirm`). Without the API key (Apple ID fallback only) it uploads and warns that review submission is manual.
+     - **Before releasing**, add `metadata/version/X.Y.Z/en-US.json`, or the version keeps its copied What's New.
+     - **Opt out** of auto-submission with `-f submit_for_review=false` on a direct `publish_mac_app_store.yaml` dispatch (the `publish_stores.yaml` fan-out always submits).
+     - **Screenshots are still manual** (only needed when the UI changed): `asc screenshots upload --app 6809185202 --version "X.Y.Z" --locale en-US --platform MAC_OS --display-type APP_DESKTOP --files assets/store/mac/*.jpg`, and do it *before* the build is submitted.
+     - If the submit step fails, check `asc review status --app 6809185202 --platform MAC_OS`; the build is already uploaded, so fix the cause and submit by hand with `asc review submit`.
 
    - **Microsoft Store (`msstore`)**:
      1. **Automated Publishing**: CI automatically runs `msstore reconfigure` with GitHub Actions secrets and `msstore publish` with the built `.msix`.

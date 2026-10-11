@@ -7,10 +7,20 @@ on:
         type: boolean
         required: true
         default: true
+      submit_for_review:
+        description: "After upload, wait for processing, attach the build and submit the version for App Review"
+        type: boolean
+        required: true
+        default: true
   workflow_call:
     inputs:
       publish_to_store:
         description: "Submit and upload to App Store Connect after building PKG"
+        type: boolean
+        required: false
+        default: true
+      submit_for_review:
+        description: "After upload, wait for processing, attach the build and submit the version for App Review"
         type: boolean
         required: false
         default: true
@@ -225,12 +235,15 @@ jobs:
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
         run: |
           set -euo pipefail
+          echo "UPLOAD_STARTED_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_ENV"
           if [ -n "${ASC_API_KEY_P8:-}" ] && [ -n "${ASC_KEY_ID:-}" ] && [ -n "${ASC_ISSUER_ID:-}" ]; then
             echo "==> Authenticating to App Store Connect via API Key ($ASC_KEY_ID)..."
             AUTH_KEY_DIR="$HOME/.appstoreconnect/private_keys"
             mkdir -p "$AUTH_KEY_DIR"
             AUTH_KEY_PATH="$AUTH_KEY_DIR/AuthKey_${ASC_KEY_ID}.p8"
             echo "$ASC_API_KEY_P8" > "$AUTH_KEY_PATH"
+            chmod 600 "$AUTH_KEY_PATH"
+            echo "ASC_API_KEY_AVAILABLE=true" >> "$GITHUB_ENV"
 
             echo "==> Uploading $PKG_NAME to App Store Connect..."
             xcrun altool --upload-app \
@@ -252,6 +265,67 @@ jobs:
             echo "Skipping automated App Store Connect upload (the .pkg artifact was built and uploaded successfully above)."
             exit 0
           fi
+
+      - name: Attach build and submit for App Review
+        # The upload only lands the build in App Store Connect; this is the part
+        # that used to be done by hand with `asc`. Needs the API key (the Apple ID
+        # fallback above can upload but cannot drive the review API).
+        if: ${{ inputs.publish_to_store && inputs.submit_for_review }}
+        env:
+          APP_VERSION: ${{ steps.version.outputs.APP_VERSION }}
+          APP_ID: "6809185202"
+          ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          ASC_BYPASS_KEYCHAIN: "1"
+        run: |
+          set -euo pipefail
+          if [ "${ASC_API_KEY_AVAILABLE:-}" != "true" ]; then
+            echo "::warning::No App Store Connect API key configured, so the build was uploaded but NOT submitted for review. Do it by hand (see the release skill)."
+            exit 0
+          fi
+          export ASC_PRIVATE_KEY_PATH="$HOME/.appstoreconnect/private_keys/AuthKey_${ASC_KEY_ID}.p8"
+
+          brew install rudrankriyam/tap/asc
+          asc --version
+
+          echo "==> Waiting for Apple to finish processing the build..."
+          asc builds wait --app "$APP_ID" --latest --version "$APP_VERSION" --platform MAC_OS \
+            --since "$UPLOAD_STARTED_AT" --timeout 45m --poll-interval 30s --fail-on-invalid
+          BUILD_ID=$(asc builds info --app "$APP_ID" --latest --version "$APP_VERSION" --platform MAC_OS --exclude-expired \
+            | jq -r '(.data.id // .data[0].id // .id)')
+          if [ -z "$BUILD_ID" ] || [ "$BUILD_ID" = "null" ]; then
+            echo "::error::Could not resolve the processed build id for $APP_VERSION."
+            exit 1
+          fi
+          echo "Build id: $BUILD_ID"
+
+          VERSION_ID=$(asc versions list --app "$APP_ID" --platform MAC_OS --version "$APP_VERSION" \
+            | jq -r '(.data[0].id // empty)')
+          if [ -z "$VERSION_ID" ]; then
+            echo "==> No macOS $APP_VERSION version record yet - creating it"
+            PREV=$(asc versions list --app "$APP_ID" --platform MAC_OS --state READY_FOR_SALE --latest \
+              | jq -r '(.data[0].attributes.versionString // empty)')
+            if [ -n "$PREV" ]; then
+              asc versions create --app "$APP_ID" --platform MAC_OS --version "$APP_VERSION" --copy-metadata-from "$PREV"
+            else
+              asc versions create --app "$APP_ID" --platform MAC_OS --version "$APP_VERSION"
+            fi
+            VERSION_ID=$(asc versions list --app "$APP_ID" --platform MAC_OS --version "$APP_VERSION" | jq -r '.data[0].id')
+          fi
+
+          if [ -d "metadata/version/$APP_VERSION" ]; then
+            echo "==> Pushing canonical metadata (What's New) for $APP_VERSION"
+            asc metadata push --app "$APP_ID" --version "$APP_VERSION" --platform MAC_OS --dir ./metadata
+          else
+            echo "::warning::metadata/version/$APP_VERSION is missing; the version keeps its copied What's New."
+          fi
+
+          echo "==> Validating"
+          asc validate --app "$APP_ID" --version "$APP_VERSION" --platform MAC_OS
+
+          echo "==> Submitting for review"
+          asc review submit --app "$APP_ID" --version-id "$VERSION_ID" --build-id "$BUILD_ID" --platform MAC_OS --confirm
+          asc review status --app "$APP_ID" --platform MAC_OS
 
       - name: Clean up temporary keychain and API keys
         if: always()

@@ -127,6 +127,19 @@ not here.
 
 ---
 
+## 3a. `app_settings` — idle (saved) rooms
+
+```sql
+select value from public.app_settings where key = 'idle_rooms';
+```
+
+| Field | Ships as | What it does |
+|---|---|---|
+| `enabled` | `true` | Master switch for deleting forgotten saved rooms. |
+| `ttl_days` | `90` | A Premium saved room with no session for this long is deleted by `sweep_rooms`, freeing its `persistent_room_cap` slot. Starting a session resets the clock. |
+
+---
+
 ## 3b. `app_settings` — R2 cleanup
 
 ```sql

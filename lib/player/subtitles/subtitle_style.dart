@@ -244,8 +244,10 @@ String _n(double v) {
 /// platform default - and [bold]/[italic] ask libass to synthesise what the
 /// named face does not already carry.
 ///
-/// Every key here exists in the bundled mpv 0.36: newer spellings
-/// (`sub-outline-*`, `sub-border-style`) would silently no-op on it.
+/// Written to work on both mpv 0.36 (macOS/iOS/Android) and 0.41 (Windows,
+/// full-codec build): the old `sub-border-*` names are still accepted by 0.41,
+/// and the two newer settings below are silently ignored by 0.36. Do not
+/// switch to `sub-outline-*` - 0.36 would no-op it.
 Map<String, String> toMpvProperties(
   SubtitleStyle style, {
   required String font,
@@ -256,6 +258,9 @@ Map<String, String> toMpvProperties(
   'sub-font': font,
   'sub-bold': bold ? 'yes' : 'no',
   'sub-italic': italic ? 'yes' : 'no',
+  // mpv 0.41 lowered the default `sub-font-size` from 55 to 38 (text ~31%
+  // smaller at the same scale); pinning it keeps both versions identical.
+  'sub-font-size': '55',
   'sub-scale': _n(style.scale),
   'sub-color': mpvColor(style.textColor),
   'sub-border-color': mpvColor(style.outlineColor),
@@ -264,8 +269,10 @@ Map<String, String> toMpvProperties(
   'sub-shadow-offset': _n(style.shadowOffset),
   'sub-blur': _n(style.blur),
   // In 0.36 a non-transparent back colour switches libass to its opaque box
-  // (BorderStyle 4); fully transparent draws nothing.
+  // (BorderStyle 4); fully transparent draws nothing. 0.41 needs the style
+  // named as well, or the colour alone draws no box (0.36 ignores the key).
   'sub-back-color': mpvColor(style.backgroundColor),
+  'sub-border-style': style.hasBackground ? 'background-box' : 'outline-and-shadow',
   'sub-pos': liftedSubPosition(style.position, lift).round().toString(),
   'sub-align-x': style.align.name,
   'sub-spacing': _n(style.letterSpacing),

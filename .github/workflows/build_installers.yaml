@@ -76,13 +76,19 @@ jobs:
       - name: Tag the built commit
         env:
           TAG: "v${{ needs.windows.outputs.app_version }}"
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
           if git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null 2>&1; then
             echo "Tag $TAG already exists on origin, leaving it alone."
           else
-            git tag "$TAG" "${{ github.sha }}"
-            git push origin "refs/tags/$TAG"
+            # The REST API, not `git push`: a git push of a ref is refused with
+            # "refusing to allow a GitHub App to create or update workflow ...
+            # without `workflows` permission" whenever the pushed history touches
+            # a workflow file, and GITHUB_TOKEN can never hold that permission.
+            # Creating a ref that points at an existing commit changes no files.
+            gh api -X POST "repos/${{ github.repository }}/git/refs" \
+              -f ref="refs/tags/$TAG" -f sha="${{ github.sha }}" >/dev/null
             echo "Tagged ${{ github.sha }} as $TAG."
           fi
 

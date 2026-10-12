@@ -208,7 +208,9 @@ jobs:
 
           # 3. Assert Avcodec is the full-codec build (not the slim default)
           echo "==> Verifying Avcodec.framework is the full-codec build..."
-          if ! strings "$APP_PATH/Contents/Frameworks/Avcodec.framework/Versions/A/Avcodec" | grep -q -e "--enable-decoders"; then
+          # No `grep -q`: it exits on the first match, strings dies of SIGPIPE, and under
+          # pipefail the pipeline reports failure - a false "slim build" on a good one.
+          if ! strings "$APP_PATH/Contents/Frameworks/Avcodec.framework/Versions/A/Avcodec" | grep -e "--enable-decoders" > /dev/null; then
             echo "::error::Avcodec.framework is the slim build (no --enable-decoders). See docs/codec-support.md."
             exit 1
           fi

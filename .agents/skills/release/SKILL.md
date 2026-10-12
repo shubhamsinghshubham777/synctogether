@@ -12,7 +12,7 @@ workflow's `release` job tags the commit itself as `v<version>_<run_id>` (see
 `tag_name:` in `.github/workflows/build_installers.yaml`); a locally pushed tag
 would be a duplicate that matches nothing.
 
-The `release` job pushes that tag itself, from the built commit, before it calls
+The `release` job creates that tag itself, from the built commit, before it calls
 `softprops/action-gh-release`. That step is what makes a release survive a push
 to `main` while the 15-30 min build is in flight: `GITHUB_TOKEN` is allowed to
 create a release whose target is a branch *tip*, but gets a 403 "Resource not
@@ -20,6 +20,16 @@ accessible by integration" when the target commit has been overtaken - which is
 how the first 0.9.0 attempt failed. Creating the tag first leaves the release
 API nothing to resolve. The step is a no-op if the tag already exists, so
 re-running a failed `release` job is safe.
+
+The tag is created with `gh api POST /git/refs`, **not `git push`**. A pushed ref
+is rejected with "refusing to allow a GitHub App to create or update workflow ...
+without `workflows` permission" whenever the history being pushed touches a
+`.github/workflows` file, and `GITHUB_TOKEN` can never hold that permission (1.11.0
+hit this). The REST call points a ref at an existing commit and changes no files.
+
+**Do not push to `main` between dispatching and the run finishing.** It was the
+trigger for both of the above; if a fix is needed mid-build, let the run finish
+(or cancel it) first, then push and re-dispatch.
 
 ## Release Targets
 
@@ -87,8 +97,12 @@ stable later means cutting a new, higher version, not re-tagging.
    (version + workflow run id, created by CI):
 
    ```bash
-   git tag --sort=-creatordate | head -1
+   git tag --sort=-creatordate | grep -E '^v[0-9]' | head -1
    ```
+
+   The `grep` matters: the repo also carries non-release tags such as
+   `deps-libmpv-win-<date>` (the Windows libmpv mirror), and a bare `head -1`
+   returns that one and makes the whole commit range wrong.
 
    Extract the version from the tag name (strip leading `v` and trailing
    `_<run_id>`). Sanity-check it against `version:` in pubspec.yaml - they
@@ -211,6 +225,7 @@ stable later means cutting a new, higher version, not re-tagging.
 
    - **Mac App Store (`asc`)**:
      `publish_mac_app_store.yaml` now does the whole path itself when the App Store Connect API key secrets are set: it uploads the `.pkg`, waits for Apple to finish processing (`asc builds wait`), creates the macOS version record if missing (copying metadata from the live version), pushes `metadata/version/X.Y.Z` (What's New), runs `asc validate`, then attaches the build and submits for review (`asc review submit --confirm`). Without the API key (Apple ID fallback only) it uploads and warns that review submission is manual.
+     - **Secrets**: `APP_STORE_CONNECT_KEY_ID`, `APP_STORE_CONNECT_ISSUER_ID` and `APP_STORE_CONNECT_API_KEY_P8` (the full `.p8`, BEGIN/END lines included; an App Manager role key). `APPLE_ID` / `APPLE_APP_SPECIFIC_PASSWORD` can only upload, not drive review, so they are the fallback, not a substitute.
      - **Before releasing**, add `metadata/version/X.Y.Z/en-US.json`, or the version keeps its copied What's New.
      - **Opt out** of auto-submission with `-f submit_for_review=false` on a direct `publish_mac_app_store.yaml` dispatch (the `publish_stores.yaml` fan-out always submits).
      - **Screenshots are still manual** (only needed when the UI changed): `asc screenshots upload --app 6809185202 --version "X.Y.Z" --locale en-US --platform MAC_OS --display-type APP_DESKTOP --files assets/store/mac/*.jpg`, and do it *before* the build is submitted.
@@ -237,6 +252,29 @@ stable later means cutting a new, higher version, not re-tagging.
 
    (re-run the list command if the newest run predates the dispatch; it
    usually appears within a few seconds).
+
+   **Re-running after a failure - dispatch only the leg that failed.** `publish_stores.yaml`
+   fans out to Microsoft Store, Mac App Store and (opt-in) iOS, and each leg submits
+   independently. If the Microsoft Store leg already succeeded, dispatching
+   `publish_stores.yaml` again would resubmit the same version to Partner Center. Check
+   first:
+
+   ```bash
+   gh run view <run-id> --json jobs --jq '.jobs[] | .name + " => " + (.conclusion // .status)'
+   ```
+
+   then dispatch just the failed workflow, e.g.
+   `gh workflow run publish_mac_app_store.yaml --ref main -f publish_to_store=true -f submit_for_review=true`.
+   The direct build has no such issue: a failed `release` job has not tagged or published
+   anything, so re-dispatch `build_installers.yaml` with the same notes.
+
+   **Reading a failure.** `gh run view <id> --log-failed` is dominated by checkout cleanup
+   noise. Filter it: `gh run view <id> --log-failed | grep -E '##\[error\]|rejected|denied'`.
+
+   **macOS caches must be exact-key.** `build_macos.yaml` and `publish_mac_app_store.yaml`
+   cache `macos/Pods`; restoring an older one through `restore-keys` skips CocoaPods and
+   embeds a stale, slim `Avcodec`, which the "full-codec" assertion then (rightly) fails.
+   Keep `third_party/**` in the key and do not add a `restore-keys` fallback.
 
 7. **Report and stop** - print the new version and the run URL(s). Do **not**
    watch the build (it takes 15–30 min); the workflow will create the GitHub

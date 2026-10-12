@@ -65,9 +65,11 @@ jobs:
             build/macos
             macos/Pods
             .dart_tool
-          key: ${{ runner.os }}-flutter-build-v3-${{ hashFiles('**/pubspec.lock', 'macos/Podfile.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-flutter-build-
+          # third_party/** is in the key and there is deliberately no restore-keys
+          # fallback: a restored macos/Pods from before a libmpv change satisfies
+          # Manifest.lock, so CocoaPods is skipped and the old slim Avcodec gets
+          # embedded. A cold build is slower; a wrong one is not a build.
+          key: ${{ runner.os }}-flutter-build-v4-${{ hashFiles('**/pubspec.lock', 'macos/Podfile.lock', 'third_party/**') }}
 
       - name: Extract version from pubspec.yaml
         id: version

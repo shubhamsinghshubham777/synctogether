@@ -61,10 +61,9 @@ jobs:
             build/macos
             macos/Pods
             .dart_tool
-          key: ${{ runner.os }}-flutter-build-store-${{ hashFiles('**/pubspec.lock', 'macos/Podfile.lock', 'third_party/**') }}
-          restore-keys: |
-            ${{ runner.os }}-flutter-build-store-
-            ${{ runner.os }}-flutter-build-
+          # Exact key only: restoring an older macos/Pods skips CocoaPods and ships
+          # a stale (slim) Avcodec. See build_macos.yaml.
+          key: ${{ runner.os }}-flutter-build-store-v2-${{ hashFiles('**/pubspec.lock', 'macos/Podfile.lock', 'third_party/**') }}
 
       - name: Extract version from pubspec.yaml
         id: version

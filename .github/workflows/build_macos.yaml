@@ -141,7 +141,7 @@ jobs:
             --dart-define=POSTHOG_HOST="$POSTHOG_HOST"
 
           echo "==> Verifying Avcodec.framework is the full-codec build..."
-          strings "build/macos/Build/Products/Release/SyncTogether.app/Contents/Frameworks/Avcodec.framework/Versions/A/Avcodec" | grep -q -e "--enable-decoders" || {
+          strings "build/macos/Build/Products/Release/SyncTogether.app/Contents/Frameworks/Avcodec.framework/Versions/A/Avcodec" | grep -e "--enable-decoders" > /dev/null || {
             echo "::error::Avcodec.framework is the slim build (no --enable-decoders); TrueHD, ProRes and friends would not play. See docs/codec-support.md."
             exit 1
           }

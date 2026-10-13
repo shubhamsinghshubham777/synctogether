@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+# Rejects commit messages carrying a co-author trailer (any "Co-authored-by:" line).
+# This has to be commit-msg, not pre-commit: git does not write the message until after pre-commit runs.
+if grep -iqE '^[[:space:]]*co-authored-by[[:space:]]*:' "$1"; then
+  echo ""
+  echo "❌ ERROR: Commit message contains a Co-Authored-By trailer."
+  echo "Remove the co-author line(s) and commit again."
+  exit 1
+fi

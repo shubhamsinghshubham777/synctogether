@@ -321,6 +321,11 @@ jobs:
             echo "::warning::metadata/version/$APP_VERSION is missing; the version keeps its copied What's New."
           fi
 
+          # Attach before validating: validate reports "no build attached" as a
+          # blocking error, which is what failed the first run of this step.
+          echo "==> Attaching build $BUILD_ID to version $VERSION_ID"
+          asc versions attach-build --version-id "$VERSION_ID" --build-id "$BUILD_ID"
+
           echo "==> Validating"
           asc validate --app "$APP_ID" --version "$APP_VERSION" --platform MAC_OS
 

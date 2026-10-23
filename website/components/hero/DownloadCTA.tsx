@@ -61,7 +61,7 @@ export function DownloadCTA({ align = "center" }: { align?: "center" | "start" }
         <p className="text-[13px] leading-relaxed text-gray-400" aria-live="polite">
           {copied
             ? "Paste it anywhere you'll open on your computer."
-            : "Open it on your computer, or grab the app straight from your phone's store."}
+            : "SyncTogether runs on Mac and Windows. Open the link on your computer."}
         </p>
       </div>
 

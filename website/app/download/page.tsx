@@ -89,9 +89,8 @@ export default async function DownloadPage({
             body: "The store installs new versions in the background, never mid-film.",
           },
           {
-            label: "In rehearsal",
-            body: "Android is on the way. iPhone and iPad are already on the App Store.",
-            live: true,
+            label: "Desktop only",
+            body: "Mac and Windows today. Phones and tablets are not supported yet.",
           },
         ].map(({ label, body, live }) => (
           <div key={label} className="border-t border-rail pt-[18px] space-y-2.5">

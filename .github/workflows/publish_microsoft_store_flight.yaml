@@ -1,0 +1,97 @@
+name: Publish Microsoft Store package flight
+# Builds the Store MSIX exactly as a release does, then sends it to a private
+# package flight (the Windows analogue of a TestFlight build) instead of the
+# public listing. Used to test Store-only behaviour such as in-app purchase.
+#
+# One-time: create the flight and note its id, e.g.
+#   msstore flights create <productId> "iap-test" --group-ids <flight-group-guid>
+on:
+  workflow_dispatch:
+    inputs:
+      flight_id:
+        description: "Flight id to publish to (from `msstore flights list <productId>`)"
+        type: string
+        required: true
+      wait_for_certification:
+        description: "Keep the job running until certification finishes (can take hours)"
+        type: boolean
+        required: false
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  # publish_to_store is false on purpose: this only builds the MSIX and uploads
+  # it as the `windows-store-msix` artifact. Submitting it is the job below, and
+  # only ever to a flight.
+  build:
+    uses: ./.github/workflows/publish_microsoft_store.yaml
+    with:
+      publish_to_store: false
+    secrets: inherit
+
+  flight:
+    needs: build
+    runs-on: windows-latest
+    timeout-minutes: 360
+    steps:
+      - name: Download MSIX
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.build.outputs.artifact_name }}
+          path: msix
+
+      - name: Setup Microsoft Store Developer CLI
+        uses: microsoft/microsoft-store-apppublisher@3b2ec9136230357ce9abc02b9d056626fb248d3f # v1
+
+      - name: Configure Microsoft Store CLI
+        env:
+          ENTRA_TENANT_ID: ${{ secrets.ENTRA_TENANT_ID || secrets.MICROSOFT_ENTRA_TENANT_ID || secrets.AZURE_AD_TENANT_ID }}
+          MSSTORE_SELLER_ID: ${{ secrets.MSSTORE_SELLER_ID }}
+          ENTRA_CLIENT_ID: ${{ secrets.ENTRA_CLIENT_ID || secrets.MICROSOFT_ENTRA_CLIENT_ID || secrets.AZURE_AD_CLIENT_ID }}
+          ENTRA_CLIENT_SECRET: ${{ secrets.ENTRA_CLIENT_SECRET || secrets.MICROSOFT_ENTRA_CLIENT_SECRET || secrets.AZURE_AD_CLIENT_SECRET }}
+        shell: pwsh
+        run: |
+          if (-not $env:ENTRA_CLIENT_ID -or -not $env:ENTRA_TENANT_ID -or -not $env:MSSTORE_SELLER_ID) {
+            Write-Host "::error::ENTRA_TENANT_ID, ENTRA_CLIENT_ID and MSSTORE_SELLER_ID secrets are required to publish a flight."
+            exit 1
+          }
+          msstore reconfigure `
+            --tenantId "$env:ENTRA_TENANT_ID" `
+            --sellerId "$env:MSSTORE_SELLER_ID" `
+            --clientId "$env:ENTRA_CLIENT_ID" `
+            --clientSecret "$env:ENTRA_CLIENT_SECRET"
+
+      - name: Publish to the package flight
+        env:
+          MSSTORE_PRODUCT_ID: ${{ secrets.MSSTORE_PRODUCT_ID || secrets.MICROSOFT_STORE_PRODUCT_ID || secrets.MSSTORE_APP_ID }}
+          FLIGHT_ID: ${{ inputs.flight_id }}
+        shell: pwsh
+        run: |
+          if (-not $env:MSSTORE_PRODUCT_ID) {
+            Write-Host "::error::MSSTORE_PRODUCT_ID secret is not configured."
+            exit 1
+          }
+          $msix = Get-ChildItem msix -Filter *.msix | Select-Object -First 1
+          if (-not $msix) {
+            Write-Host "::error::No .msix in the downloaded artifact."
+            exit 1
+          }
+          Write-Host "Publishing $($msix.Name) to flight $env:FLIGHT_ID of product $env:MSSTORE_PRODUCT_ID..."
+          # --flightId is what keeps this off the public listing.
+          msstore publish $msix.DirectoryName --inputDirectory $msix.DirectoryName `
+            --appId "$env:MSSTORE_PRODUCT_ID" --flightId "$env:FLIGHT_ID"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Wait for certification
+        if: ${{ inputs.wait_for_certification }}
+        env:
+          MSSTORE_PRODUCT_ID: ${{ secrets.MSSTORE_PRODUCT_ID || secrets.MICROSOFT_STORE_PRODUCT_ID || secrets.MSSTORE_APP_ID }}
+          FLIGHT_ID: ${{ inputs.flight_id }}
+        shell: pwsh
+        run: msstore flights submission poll "$env:MSSTORE_PRODUCT_ID" "$env:FLIGHT_ID"

@@ -143,11 +143,11 @@ export const FAQ_ITEMS = [
     questions: [
       {
         q: "What is SyncTogether?",
-        a: "An app for Mac and Windows (iPhone and iPad too) that keeps a film on the same frame for everyone in a room. Play your own MP4 or MKV, or a YouTube link. Play, pause, seek and audio track stay in lockstep, and a machine that falls behind catches up by itself."
+        a: "An app for Mac and Windows that keeps a film on the same frame for everyone in a room. Play your own MP4 or MKV, or a YouTube link. Play, pause, seek and audio track stay in lockstep, and a machine that falls behind catches up by itself."
       },
       {
         q: "What platforms does SyncTogether support?",
-        a: "SyncTogether runs on macOS (12.0+) and Windows (10 and 11), with iPhone and iPad on the App Store. Install it from the Mac App Store or the Microsoft Store; both stores keep it up to date for you."
+        a: "SyncTogether runs on macOS (12.0+) and Windows (10 and 11). It is not available on phones, tablets or Linux yet. Install it from the Mac App Store or the Microsoft Store; both stores keep it up to date for you."
       },
       {
         q: "Do I need an account?",
@@ -189,7 +189,7 @@ export const FAQ_ITEMS = [
       },
       {
         q: "How do I subscribe?",
-        a: "Open the SyncTogether app on iPhone, iPad, Mac or Windows (Microsoft Store version), go to Premium and pick Monthly or Annual. The store handles payment, tax and renewal. Premium belongs to your account, so it unlocks on every device you sign in on, Windows included."
+        a: "Open the SyncTogether app on Mac or Windows (Microsoft Store version), go to Premium and pick Monthly or Annual. The store handles payment, tax and renewal. Premium belongs to your account, so it unlocks on every device you sign in on, Windows included."
       },
       {
         q: "Can I cancel anytime?",
@@ -200,7 +200,7 @@ export const FAQ_ITEMS = [
         a: "Refunds are handled by the store you bought from, through its own refund process (for Apple, reportaproblem.apple.com). If something went wrong with your Premium access, email support@synctogether.app and we will help."
       },
       {
-        q: "I subscribed on my iPhone but my Windows app still shows Free. What should I do?",
+        q: "I subscribed on my Mac but my Windows app still shows Free. What should I do?",
         a: "Make sure you are signed in with the same SyncTogether account on both devices. Premium updates within seconds. If it does not appear, restart the app or open the Premium screen and tap Refresh status."
       }
     ]

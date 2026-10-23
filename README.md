@@ -11,7 +11,7 @@
 <p align="center">
   <a href="#license"><img src="https://img.shields.io/badge/License-PolyForm_Noncommercial_1.0.0-blue.svg" alt="License: PolyForm Noncommercial 1.0.0"></a>
   <img src="https://img.shields.io/badge/Flutter-3.44.x-02569B?logo=flutter" alt="Flutter">
-  <img src="https://img.shields.io/badge/Platforms-macOS_%7C_Windows_%7C_Android_%7C_iOS-FFB23F" alt="Platforms">
+  <img src="https://img.shields.io/badge/Platforms-macOS_%7C_Windows-FFB23F" alt="Platforms">
 </p>
 
 ---

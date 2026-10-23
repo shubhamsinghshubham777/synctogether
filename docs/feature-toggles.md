@@ -191,7 +191,7 @@ A JSON array of LiveKit-protocol endpoints in priority order. The token function
 To take an endpoint out by hand: `insert into av_endpoint_state values ('cloud', now() + interval '1 day') on conflict (endpoint) do update set exhausted_until = excluded.exhausted_until;`.
 | `TURNSTILE_SITE_KEY` | The client skips the captcha dialog, **but the server still demands a token**, so guest sign-in fails. Set it or disable captcha server-side too. |
 | `SUPABASE_URL` / `SUPABASE_PUBLISHABLE_KEY` | Required. Debug builds fall back to the local stack. |
-| `STORE_BUILD` | Store distribution: disables self-update everywhere. On macOS it is the Mac App Store build (StoreKit); on **Android it is the Google Play build**, which is consumption-only - Premium bought elsewhere unlocks, but no upsell, price or link to the web checkout is shown (`canSellPremium`). Every Play release must set it. iOS is always the App Store build regardless. |
+| `STORE_BUILD` | Store distribution. On macOS it is the Mac App Store build (StoreKit); on Windows it is the Microsoft Store build (Windows.Services.Store); on **Android it is the Google Play build**, which is consumption-only - Premium bought elsewhere unlocks, but no upsell, price or link is shown (`canSellPremium`, which is true on Apple builds and the Microsoft Store build). Every Play release must set it. iOS is always the App Store build regardless. |
 | `DEMO_MODE` / `DEMO_ROOM` | Mock data for screenshots. Off in real builds. |
 | `DEMO_TIER` | With `DEMO_MODE`: `free` (default) or `premium`, so Patron-side states can be shot. |
 | `CAPTURE_STORE` | Store-screenshot capture flow: 1920x1080 into `assets/store/` (Microsoft Store and README). Add `STORE_TARGET=mac` and `STORE_BUILD=true` for the Mac App Store set, 2880x1800 into `assets/store/mac/`. Off in real builds. |
@@ -202,17 +202,6 @@ Server-side captcha is separate, in `supabase/config.toml` under `[auth.captcha]
 and ships with `supabase config push` (**not** `db push`).
 
 ---
-
-## 4b. Website env — web billing (Creem)
-
-| Variable | What it does |
-|---|---|
-| `CREEM_ENVIRONMENT` | `test` uses `test-api.creem.io`; anything else is production. |
-| `CREEM_API_KEY`, `CREEM_WEBHOOK_SECRET` | Server-only. A missing webhook secret answers 500 (fails closed). |
-| `CREEM_PRODUCT_MONTHLY`, `CREEM_PRODUCT_ANNUAL` | The two products checkouts are created for. One USD price for everyone: Creem bills only USD/EUR and has no per-country overrides. |
-
-The webhook is `/api/billing/webhook/creem`. Every `subscriptions` row records its
-provider in `source`; cancel, fulfil and webhooks dispatch on that.
 
 ## 5. Per-user switches (the user's own, not yours)
 

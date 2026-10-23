@@ -22,29 +22,51 @@ async function chain(opts: { leafOid?: string; intermediateOid?: string } = {}) 
   const intKeys = await crypto.subtle.generateKey(alg, true, ["sign", "verify"]);
   const leafKeys = await crypto.subtle.generateKey(alg, true, ["sign", "verify"]);
   const root = await x509.X509CertificateGenerator.createSelfSigned({
-    serialNumber: "01", name: "CN=Test Root", notBefore, notAfter, keys: rootKeys, signingAlgorithm: alg,
+    serialNumber: "01",
+    name: "CN=Test Root",
+    notBefore,
+    notAfter,
+    keys: rootKeys,
+    signingAlgorithm: alg,
   });
   const intermediate = await x509.X509CertificateGenerator.create({
-    serialNumber: "02", subject: "CN=Test WWDR", issuer: root.subject, notBefore, notAfter,
-    publicKey: intKeys.publicKey, signingKey: rootKeys.privateKey, signingAlgorithm: alg,
+    serialNumber: "02",
+    subject: "CN=Test WWDR",
+    issuer: root.subject,
+    notBefore,
+    notAfter,
+    publicKey: intKeys.publicKey,
+    signingKey: rootKeys.privateKey,
+    signingAlgorithm: alg,
     extensions: [appleOid(opts.intermediateOid ?? "1.2.840.113635.100.6.2.1")],
   });
   const leaf = await x509.X509CertificateGenerator.create({
-    serialNumber: "03", subject: "CN=Test Leaf", issuer: intermediate.subject, notBefore, notAfter,
-    publicKey: leafKeys.publicKey, signingKey: intKeys.privateKey, signingAlgorithm: alg,
+    serialNumber: "03",
+    subject: "CN=Test Leaf",
+    issuer: intermediate.subject,
+    notBefore,
+    notAfter,
+    publicKey: leafKeys.publicKey,
+    signingKey: intKeys.privateKey,
+    signingAlgorithm: alg,
     extensions: [appleOid(opts.leafOid ?? "1.2.840.113635.100.6.11.1")],
   });
   return { root, intermediate, leaf, leafKey: leafKeys.privateKey };
 }
 
-const b64url = (b: Uint8Array) => btoa(String.fromCharCode(...b)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+const b64url = (b: Uint8Array) =>
+  btoa(String.fromCharCode(...b)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 const b64 = (buf: ArrayBuffer) => btoa(String.fromCharCode(...new Uint8Array(buf)));
 
 async function sign(c: Awaited<ReturnType<typeof chain>>, payload: object, x5cRoot = c.root) {
   const header = { alg: "ES256", x5c: [c.leaf.rawData, c.intermediate.rawData, x5cRoot.rawData].map(b64) };
   const h = b64url(new TextEncoder().encode(JSON.stringify(header)));
   const p = b64url(new TextEncoder().encode(JSON.stringify(payload)));
-  const sig = await crypto.subtle.sign({ name: "ECDSA", hash: "SHA-256" }, c.leafKey, new TextEncoder().encode(`${h}.${p}`));
+  const sig = await crypto.subtle.sign(
+    { name: "ECDSA", hash: "SHA-256" },
+    c.leafKey,
+    new TextEncoder().encode(`${h}.${p}`),
+  );
   return `${h}.${p}.${b64url(new Uint8Array(sig))}`;
 }
 
@@ -60,7 +82,11 @@ Deno.test("a genuine chain verifies and returns the payload", async () => {
 Deno.test("a chain ending in any other root is refused", async () => {
   const c = await chain();
   const other = await chain();
-  await assertRejects(async () => verifyAppleJws(await sign(c, payload, other.root), rootOf(c)), Error, "untrusted_root");
+  await assertRejects(
+    async () => verifyAppleJws(await sign(c, payload, other.root), rootOf(c)),
+    Error,
+    "untrusted_root",
+  );
   await assertRejects(async () => verifyAppleJws(await sign(c, payload), rootOf(other)), Error, "untrusted_root");
 });
 
@@ -73,9 +99,17 @@ Deno.test("a tampered payload is refused", async () => {
 
 Deno.test("certificates without Apple's OIDs are refused", async () => {
   const noLeafOid = await chain({ leafOid: "1.2.3.4" });
-  await assertRejects(async () => verifyAppleJws(await sign(noLeafOid, payload), rootOf(noLeafOid)), Error, "leaf_not_apple_receipt_signer");
+  await assertRejects(
+    async () => verifyAppleJws(await sign(noLeafOid, payload), rootOf(noLeafOid)),
+    Error,
+    "leaf_not_apple_receipt_signer",
+  );
   const noIntOid = await chain({ intermediateOid: "1.2.3.4" });
-  await assertRejects(async () => verifyAppleJws(await sign(noIntOid, payload), rootOf(noIntOid)), Error, "intermediate_not_apple_wwdr");
+  await assertRejects(
+    async () => verifyAppleJws(await sign(noIntOid, payload), rootOf(noIntOid)),
+    Error,
+    "intermediate_not_apple_wwdr",
+  );
 });
 
 Deno.test("a payload signed outside the certificates' validity is refused", async () => {

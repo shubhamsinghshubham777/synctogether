@@ -140,9 +140,7 @@ Deno.serve(async (req) => {
     room: roomId,
     roomJoin: true,
     canPublish: true,
-    canPublishSources: grant.camera
-      ? [TrackSource.MICROPHONE, TrackSource.CAMERA]
-      : [TrackSource.MICROPHONE],
+    canPublishSources: grant.camera ? [TrackSource.MICROPHONE, TrackSource.CAMERA] : [TrackSource.MICROPHONE],
     canSubscribe: true,
     canPublishData: true,
   });

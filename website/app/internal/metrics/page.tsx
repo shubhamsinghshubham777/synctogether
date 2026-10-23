@@ -134,7 +134,7 @@ export default async function InternalMetricsPage() {
     throw err;
   }
 
-  const { db, github, derived, source, consoleLinks } = metrics;
+  const { db, derived, source, consoleLinks } = metrics;
   const subs = db?.subscriptions;
   const mrr = derived.mrr;
 
@@ -153,9 +153,6 @@ export default async function InternalMetricsPage() {
           <span className={`px-3 py-1.5 rounded-md border ${source.supabaseConnected ? "border-cue/40 text-cue" : "border-signal/40 text-signal"}`}>
             {source.host} ·{" "}
             {source.supabaseConnected ? `RPC ${source.rpcLatencyMs}ms` : `RPC failed${source.rpcError ? `: ${source.rpcError}` : ""}`}
-          </span>
-          <span className="px-3 py-1.5 rounded-md border border-rail text-gray-300">
-            Latest release: {metrics.latestAppVersion ? `v${metrics.latestAppVersion}` : UNAVAILABLE}
           </span>
         </div>
       </div>
@@ -212,7 +209,7 @@ export default async function InternalMetricsPage() {
         <Grid>
           <Stat label="Visitors" value={num(db?.website.visitors_total)}
             def={`First-party cookies, lifetime. Seen 24h ${num(db?.website.visitors_24h)} · 7d ${num(db?.website.visitors_7d)} · 30d ${num(db?.website.visitors_30d)}.`} />
-          <Stat label="Visitors who downloaded" value={num(db?.website.visitors_who_downloaded)} def="Distinct cookies with at least one /api/download." />
+          <Stat label="Visitors who downloaded" value={num(db?.website.visitors_who_downloaded)} def="Distinct cookies that clicked a download button. History only: the site now links to the stores." />
           <Stat label="Visitor to download" value={pct(derived.visitorToDownloadPercent)} tone="text-beam-300" def="Previous two figures; one population, so at most 100%." />
           <Stat label="Single-page visitors (lifetime)" value={pct(derived.singlePageVisitorPercent)}
             def={`Cookies that viewed exactly one page, ever. Not a session bounce rate. Pageviews: ${num(db?.website.pageviews_total)}.`} />
@@ -232,24 +229,10 @@ export default async function InternalMetricsPage() {
       <Section icon={<Download className="w-5 h-5 text-beam-400" />} title="Downloads">
         <Grid>
           <Stat label="Site downloads (acquisition)" value={num(db?.website.downloads_total)} tone="text-beam-300"
-            def={`Clicks logged by /api/download. 24h ${num(db?.website.downloads_24h)} · 7d ${num(db?.website.downloads_7d)} · 30d ${num(db?.website.downloads_30d)}.`} />
+            def={`Clicks logged before the site moved to store links. 24h ${num(db?.website.downloads_24h)} · 7d ${num(db?.website.downloads_7d)} · 30d ${num(db?.website.downloads_30d)}.`} />
           <Stat label="By platform" value={db ? Object.entries(db.website.downloads_by_platform).map(([k, v]) => `${k} ${v}`).join(" · ") || "0" : UNAVAILABLE}
             def="Site downloads by the platform requested." />
-          <Stat label="GitHub binary fetches" value={num(github?.total)}
-            def="Asset download_count across all releases. Includes self-updates and every site redirect, so never add it to site downloads." />
-          <Stat label="GitHub fetches by OS" value={github ? `mac ${github.mac.toLocaleString()} · win ${github.win.toLocaleString()}` : UNAVAILABLE}
-            def="By asset name (.dmg / .exe)." />
         </Grid>
-        {github && github.releases.length > 0 && (
-          <div className="space-y-1.5 font-mono text-xs max-h-40 overflow-y-auto">
-            {github.releases.slice(0, 8).map((r) => (
-              <div key={r.tagName} className="flex justify-between gap-3 p-2 rounded-md bg-aisle/60">
-                <span className="text-screen">{r.tagName}{r.prerelease ? " (pre)" : ""}</span>
-                <span className="text-gray-400">mac {r.mac} · win {r.win} · total {r.total}</span>
-              </div>
-            ))}
-          </div>
-        )}
       </Section>
 
       <Section icon={<Tv className="w-5 h-5 text-cue" />} title="Rooms">

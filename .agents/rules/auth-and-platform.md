@@ -6,7 +6,7 @@ trigger: model_decision
 
 # Authentication, Security & Platform Specifics
 
-Guidance for authentication (`lib/auth/`), TLS overrides, platform runtimes, and desktop self-updates (`lib/updates/`).
+Guidance for authentication (`lib/auth/`), TLS overrides, and platform runtimes.
 
 ## 1. Authentication & Deep Linking
 
@@ -39,16 +39,6 @@ Guidance for authentication (`lib/auth/`), TLS overrides, platform runtimes, and
 
 ---
 
-## 3. Desktop Self-Updates (`lib/updates/`)
+## 3. Distribution & updates
 
-Self-update is implemented entirely in native Dart (`UpdateService`), checking against `releases/latest/download/appcast.xml`.
-
-- **Platform Scope**: `supportsSelfUpdate` (`lib/platform.dart`) gates update logic (macOS and Windows desktop only; excludes Linux and mobile).
-- **Background Downloads**: Downloads update artifacts in the background with tracked byte progress before notifying the user.
-- **Silent Installation**:
-  - **macOS**: Mounts the signed and notarized DMG via `hdiutil attach`, waits for the running app PID to terminate, copies the new bundle via `ditto`, detaches the mount, and relaunches with `open -n`.
-  - **Windows**: Executes the Inno Setup executable installer detached with `/VERYSILENT /SP- /NORESTARTAPPLICATIONS` and terminates the current instance.
-- **Code Signing & Notarization**:
-  - macOS builds are signed with Apple Developer ID Application certificates and notarized via `notarytool` using `scripts/package-macos-direct.sh`.
-  - Windows builds are packaged via Inno Setup (`windows/inno/setup.iss`) or packaged as MSIX for the Microsoft Store (`.github/workflows/publish_microsoft_store.yaml`).
-- **Startup Check**: Pure Dart HTTP request (`UpdateService.checkForUpdate`), unawaited in `_bootstrap`. Does not interrupt active playback or room sessions.
+There is no direct distribution and no in-app updater: every build ships through a store (Mac App Store, iOS App Store, Microsoft Store via `.github/workflows/publish_microsoft_store.yaml`) and the store delivers updates. The Sparkle/WinSparkle updater, Inno Setup installer and Developer ID DMG were removed. `STORE_BUILD` selects the store flavour.

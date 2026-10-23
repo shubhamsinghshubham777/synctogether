@@ -86,7 +86,11 @@ class AuthService {
     final knownUser = _identifiedUserId;
     _wasAnonymous = user.isAnonymous;
     _identifiedUserId = user.id;
-    Analytics.instance.identify(user.id, personProperties: {'is_guest': user.isAnonymous});
+    final person = {'is_guest': user.isAnonymous, 'auth_method': _providerFor(user)};
+    Analytics.instance.identify(user.id, personProperties: person);
+    // identify() stands down for a cold start that already knew the user, and
+    // a guest upgrading to Google keeps its id - both still need the labels.
+    Analytics.instance.setPersonProperties(person);
     switch (state.event) {
       case AuthChangeEvent.signedIn:
         if (knownUser == user.id) return;

@@ -1,10 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState, type CSSProperties } from "react";
 import { PRICING_TIERS, SITE_CONFIG } from "@/lib/constants";
 import { cheapestTierFor, type ResolvableTier } from "@/lib/tier-resolver";
-import { usePremiumCheckout } from "@/lib/usePremiumCheckout";
-import { usePricing } from "@/lib/usePricing";
 import { Crown, Download } from "lucide-react";
 import { PTButton } from "@/components/PTButton";
 import { Eyebrow, display, mono } from "@/components/PageHead";
@@ -29,8 +28,6 @@ function formatTierSession(totalMinutes: number): string {
 export function TierConfigurator() {
   const [people, setPeople] = useState(6);
   const [hours, setHours] = useState(4);
-  const { isLoadingCheckout, goPremium } = usePremiumCheckout();
-  const { monthlyFormatted, currencySymbol, isLoading: isPriceLoading } = usePricing();
 
   const minutes = hours * 60;
   const cheapest = useMemo(() => cheapestTierFor(people, minutes), [people, minutes]);
@@ -40,7 +37,7 @@ export function TierConfigurator() {
 
   const peoplePct = ((people - 2) / (16 - 2)) * 100;
   const hoursPct = ((hours - 1) / (24 - 1)) * 100;
-  const patronPrice = isPriceLoading ? "…" : `${monthlyFormatted}/mo`;
+  const patronPrice = `${PRICING_TIERS.premium.price.usdMonthly}/mo`;
 
   const slider = (
     id: string,
@@ -129,7 +126,7 @@ export function TierConfigurator() {
             const detail = `${mark(holds >= people)}holds ${holds} · ${mark(tier.limits.totalSessionMinutes >= minutes)}runs ${
               isPatron ? "up to " : ""
             }${runs}`;
-            const price = isPatron ? patronPrice : `${currencySymbol}0`;
+            const price = isPatron ? patronPrice : "$0";
 
             return (
               <li key={key} className="border-b border-aisle">
@@ -182,13 +179,12 @@ export function TierConfigurator() {
             </p>
           ) : cheapest === "premium" ? (
             <PTButton
+              href="/download"
               variant="secondary"
               className="!h-[52px] !px-6 !rounded-[4px] !text-brass !border-[#6B5A2E]"
-              isLoading={isLoadingCheckout || isPriceLoading}
-              onClick={() => goPremium("annual")}
               leftIcon={<Crown aria-hidden="true" className="w-[18px] h-[18px]" strokeWidth={1.8} />}
             >
-              Become a Patron
+              Get the app, then become a Patron
             </PTButton>
           ) : (
             <PTButton href="/download" variant="primary" className="!h-[52px] !px-6 !rounded-[4px] !text-base !font-semibold !gap-2.5"
@@ -200,14 +196,12 @@ export function TierConfigurator() {
           {cheapest !== "premium" && cheapest !== null && (
             <span className="text-[15px] text-gray-500">
               Need more?{" "}
-              <button
-                type="button"
-                onClick={() => goPremium("annual")}
-                disabled={isLoadingCheckout || isPriceLoading}
-                className="text-white font-semibold underline underline-offset-[6px] decoration-gray-600 hover:decoration-beam-500 cursor-pointer"
+              <Link
+                href="/pricing"
+                className="text-white font-semibold underline underline-offset-[6px] decoration-gray-600 hover:decoration-beam-500"
               >
                 Patron · {patronPrice}
-              </button>
+              </Link>
             </span>
           )}
         </div>

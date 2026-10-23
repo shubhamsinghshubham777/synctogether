@@ -21,7 +21,16 @@
             "name": "debug (store mode with .env file)",
             "request": "launch",
             "type": "dart",
-            "deviceId": "macos",
+            "args": [
+                "--dart-define-from-file=.env",
+                "--dart-define=STORE_BUILD=true"
+            ]
+        },
+        {
+            "name": "release (store mode with .env file)",
+            "request": "launch",
+            "type": "dart",
+            "flutterMode": "release",
             "args": [
                 "--dart-define-from-file=.env",
                 "--dart-define=STORE_BUILD=true"
@@ -45,12 +54,6 @@
             ]
         },
         {
-            "name": "debug (macOS)",
-            "request": "launch",
-            "type": "dart",
-            "deviceId": "macos"
-        },
-        {
             "name": "debug (iOS Device - LAN Backend)",
             "request": "launch",
             "type": "dart",
@@ -58,33 +61,6 @@
             "args": [
                 "--dart-define-from-file=.env",
                 "--dart-define=SUPABASE_URL_LOCAL=http://Shubhams-Mac-mini.local:54321"
-            ]
-        },
-        {
-            "name": "debug (iOS Simulator)",
-            "request": "launch",
-            "type": "dart",
-            "deviceId": "395225E2-383E-465E-B98F-BA30A06C8890"
-        },
-        {
-            "name": "profile",
-            "request": "launch",
-            "type": "dart",
-            "flutterMode": "profile"
-        },
-        {
-            "name": "release",
-            "request": "launch",
-            "type": "dart",
-            "flutterMode": "release"
-        }
-    ],
-    "compounds": [
-        {
-            "name": "debug (macOS + iOS)",
-            "configurations": [
-                "debug (macOS)",
-                "debug (iOS Simulator)"
             ]
         }
     ]

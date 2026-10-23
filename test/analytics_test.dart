@@ -174,6 +174,23 @@ void main() {
     });
   });
 
+  test('setPersonProperties sends only what changed', () {
+    fakeAsync((async) {
+      final transport = _RecordingTransport();
+      final analytics = _configured(transport);
+
+      analytics.setPersonProperties({'tier': 'free'});
+      analytics.setPersonProperties({'tier': 'free'});
+      analytics.setPersonProperties({'tier': 'premium', 'auth_method': 'apple'});
+      async.elapse(const Duration(seconds: 31));
+
+      final batch = transport.calls.single;
+      expect(batch.map((e) => e['event']), [r'$set', r'$set']);
+      final second = (batch[1]['properties'] as Map)[r'$set'] as Map;
+      expect(second, {'tier': 'premium', 'auth_method': 'apple'});
+    });
+  });
+
   test('identify aliases an anonymous run and switches distinct id', () {
     fakeAsync((async) {
       final transport = _RecordingTransport();
@@ -303,13 +320,13 @@ void main() {
   });
 
   group('subscription funnel events', () {
-    test('tracks subscription_screen_viewed and checkout_opened with sources', () {
+    test('tracks subscription_screen_viewed and store_purchase_started with sources', () {
       fakeAsync((async) {
         final transport = _RecordingTransport();
         final analytics = _configured(transport);
 
         analytics.track('subscription_screen_viewed', {'source': 'profile'});
-        analytics.track('checkout_opened', {'source': 'profile'});
+        analytics.track('store_purchase_started', {'source': 'profile'});
         analytics.track('purchase_confirmed');
         analytics.track('debug_premium_granted');
 
@@ -317,7 +334,7 @@ void main() {
 
         expect(transport.eventNames, [
           'subscription_screen_viewed',
-          'checkout_opened',
+          'store_purchase_started',
           'purchase_confirmed',
           'debug_premium_granted',
         ]);

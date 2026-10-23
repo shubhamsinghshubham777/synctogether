@@ -1,51 +1,18 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { PRICING_TIERS } from "@/lib/constants";
 import { PlanCard } from "./PlanCard";
 import { Eyebrow, display, mono } from "./PageHead";
-import { LocationDebugSwitcher } from "./LocationDebugSwitcher";
-import { usePricing } from "@/lib/usePricing";
-import { usePremiumCheckout } from "@/lib/usePremiumCheckout";
-import { Loader2 } from "lucide-react";
 
 export function PricingTable() {
   const [billingCycle, setBillingCycle] = useState<"monthly" | "annual">("annual");
-  const router = useRouter();
-  const { user, isPremium, isLoadingCheckout, goPremium } = usePremiumCheckout();
-  const {
-    monthlyFormatted,
-    annualFormatted,
-    monthlyEquivalentFormatted,
-    monthlyAmount,
-    annualAmount,
-    currencyCode,
-    currencySymbol,
-    countryCode,
-    isLoading: isPriceLoading,
-  } = usePricing();
+  const { usdMonthly, usdAnnual, usdAnnualMonthlyEquivalent } = PRICING_TIERS.premium.price;
+  const monthlyAmount = Number(usdMonthly.slice(1));
+  const annualAmount = Number(usdAnnual.slice(1));
 
-  const handleSelectPlan = async (tierKey: string) => {
-    if (tierKey === "guest" || tierKey === "free") {
-      router.push("/download");
-      return;
-    }
-    if (tierKey === "premium") {
-      await goPremium(billingCycle);
-    }
-  };
-
-  const premiumPrice = isPriceLoading ? (
-    <span className="inline-flex items-center py-1 text-brass">
-      <Loader2 className="w-8 h-8 animate-spin" />
-    </span>
-  ) : billingCycle === "annual" ? (
-    annualFormatted
-  ) : (
-    monthlyFormatted
-  );
+  const premiumPrice = billingCycle === "annual" ? usdAnnual : usdMonthly;
 
   // The discount is derived from the very two amounts the cards display, never
   // from a separately-carried figure: the live page once read "-58%" (the INR
@@ -57,16 +24,11 @@ export function PricingTable() {
       ? `${Math.max(1, Math.round((1 - annualAmount / (monthlyAmount * 12)) * 100))}%`
       : null;
 
-  const isUsdOutsideUs = currencyCode === "USD" && countryCode !== "US";
-  // Free tiers speak the same currency as the Patron card beside them.
-  const zeroPrice = `${isUsdOutsideUs ? "US$" : currencySymbol}0`;
-  const premiumSubPrice = isPriceLoading
-    ? "Fetching live pricing..."
-    : billingCycle === "annual"
-    ? `${monthlyEquivalentFormatted} billed annually${isUsdOutsideUs ? " in USD" : ""}${savingsPct ? ` · save ${savingsPct}` : ""}`
-    : isUsdOutsideUs
-    ? "Billed monthly in USD. Cancel anytime."
-    : "Billed monthly. Cancel anytime.";
+  const zeroPrice = "$0";
+  const premiumSubPrice =
+    billingCycle === "annual"
+      ? `${usdAnnualMonthlyEquivalent} a month, billed yearly${savingsPct ? ` · save ${savingsPct}` : ""}`
+      : "Billed monthly. Cancel anytime.";
 
   return (
     <section className="space-y-6">
@@ -98,13 +60,11 @@ export function PricingTable() {
               }`}
             >
               <span>Annual</span>
-              {savingsPct && !isPriceLoading && (
+              {savingsPct && (
                 <span className={billingCycle === "annual" ? "text-[#1F6F62]" : "text-cue"}>−{savingsPct}</span>
               )}
             </button>
           </div>
-
-          <LocationDebugSwitcher />
         </div>
       </div>
 
@@ -120,7 +80,7 @@ export function PricingTable() {
             description="Join with a six-letter code in seconds. For a quick one."
             features={CARD_FEATURES.guest}
             ctaText="Download the app"
-            onSelect={() => handleSelectPlan("guest")}
+            href="/download"
           />
           <PlanCard
             className="order-1 md:order-2"
@@ -132,28 +92,27 @@ export function PricingTable() {
             features={CARD_FEATURES.free}
             ctaText={PRICING_TIERS.free.cta}
             isPopular
-            onSelect={() => handleSelectPlan("free")}
+            href="/download"
           />
           <PlanCard
             className="order-2 md:order-3"
             name="Patron"
-            badge={isPremium ? "Your plan" : "The whole theatre"}
+            badge="The whole theatre"
             price={premiumPrice}
             periodText={billingCycle === "annual" ? "/ year" : "/ month"}
             subPrice={premiumSubPrice}
             description="Video facecams, 16 seats, all-day shows and rooms that never close."
             features={CARD_FEATURES.premium}
-            ctaText={isPremium ? "Manage Subscription" : user ? "Become a Patron" : "Sign in to become a Patron"}
+            ctaText="Get the app to subscribe"
             isPremium
-            isLoading={isLoadingCheckout}
-            onSelect={() => handleSelectPlan("premium")}
+            href="/download"
           />
         </div>
         {/* Wording follows app/refund/page.tsx: cancel any time, perks run to
             the end of the paid period, 14-day refund on a first purchase. */}
         <p className="text-sm text-gray-500 leading-relaxed">
-          Cancel any time. You keep Premium until the end of the period you paid for. First purchase?{" "}
-          <Link href="/refund" className="underline underline-offset-2 hover:text-white">14-day refund</Link>, no questions asked.
+          You subscribe inside the app (App Store or Microsoft Store), and the store handles billing, tax and cancellation. Cancel any time and you keep Premium until the end of the period you paid for. Refunds follow the{" "}
+          <Link href="/refund" className="underline underline-offset-2 hover:text-white">store&apos;s refund process</Link>.
         </p>
       </div>
 

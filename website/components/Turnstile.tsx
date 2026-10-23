@@ -1,7 +1,13 @@
 "use client";
 
 import { useEffect, useRef, useImperativeHandle, forwardRef } from "react";
-import { isLocalEnvironment } from "@/lib/pricing";
+
+function isLocalEnvironment(): boolean {
+  if (process.env.NODE_ENV === "development") return true;
+  if (typeof window === "undefined") return false;
+  const host = window.location.hostname;
+  return host === "localhost" || host === "127.0.0.1" || host === "[::1]";
+}
 
 export interface TurnstileHandle {
   execute: () => Promise<string>;

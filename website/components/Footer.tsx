@@ -10,8 +10,8 @@ const COLUMNS: { title: string; links: FooterLink[] }[] = [
   {
     title: "Product",
     links: [
-      { label: "Download for macOS", href: "/download" },
-      { label: "Download for Windows", href: "/download" },
+      { label: "Mac App Store", href: SITE_CONFIG.appStoreUrl },
+      { label: "Microsoft Store", href: SITE_CONFIG.microsoftStoreUrl },
       { label: "Pricing", href: "/pricing" },
       { label: "Changelog", href: "/changelog" },
     ],

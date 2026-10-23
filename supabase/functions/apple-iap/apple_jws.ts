@@ -71,7 +71,9 @@ export async function verifyAppleJws<T extends { signedDate?: number }>(
   if (header.alg !== "ES256") throw new JwsVerificationError("unsupported_alg");
   if (!Array.isArray(header.x5c) || header.x5c.length !== 3) {
     throw new JwsVerificationError(
-      `bad_chain_length (x5c ${Array.isArray(header.x5c) ? header.x5c.length : typeof header.x5c}, header keys ${Object.keys(header).join(",")})`,
+      `bad_chain_length (x5c ${Array.isArray(header.x5c) ? header.x5c.length : typeof header.x5c}, header keys ${
+        Object.keys(header).join(",")
+      })`,
     );
   }
 
@@ -92,8 +94,7 @@ export async function verifyAppleJws<T extends { signedDate?: number }>(
     throw new JwsVerificationError("certificate_not_valid_at_signed_date");
   }
 
-  const chainOk =
-    (await intermediate.verify({ publicKey: root, signatureOnly: true })) &&
+  const chainOk = (await intermediate.verify({ publicKey: root, signatureOnly: true })) &&
     (await leaf.verify({ publicKey: intermediate, signatureOnly: true }));
   if (!chainOk) throw new JwsVerificationError("bad_chain_signature");
 

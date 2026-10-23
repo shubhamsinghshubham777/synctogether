@@ -7,6 +7,7 @@ export const SITE_CONFIG = {
   supportEmail: "support@synctogether.app",
   githubRepo: "https://github.com/shubhamsinghshubham777/synctogether",
   microsoftStoreUrl: "https://apps.microsoft.com/detail/9P1BZTSXHDFS",
+  appStoreUrl: "https://apps.apple.com/in/app/synctogether-watch-party/id6809185202?mt=12",
   creatorName: "Shubham Singh",
   creatorLinkedIn: "https://www.linkedin.com/in/shubhamsinghshubham777/",
 };
@@ -41,8 +42,6 @@ export const PRICING_TIERS = {
     price: {
       usdMonthly: "$0",
       usdAnnual: "$0",
-      inrMonthly: "₹0",
-      inrAnnual: "₹0",
     },
     description: "Instant access for casual watching. Join with a 6-digit room code in seconds.",
     cta: "Download App",
@@ -73,8 +72,6 @@ export const PRICING_TIERS = {
     price: {
       usdMonthly: "$0",
       usdAnnual: "$0",
-      inrMonthly: "₹0",
-      inrAnnual: "₹0",
     },
     description: "Ideal for friend groups and watch parties with voice chat and extended sessions.",
     cta: "Get started free",
@@ -107,13 +104,8 @@ export const PRICING_TIERS = {
       usdMonthly: "$3.99",
       usdAnnual: "$29.99",
       usdAnnualMonthlyEquivalent: "$2.49",
-      inrMonthly: "₹199",
-      inrAnnual: "₹999",
-      inrAnnualMonthlyEquivalent: "₹83",
-      // No savingsPct here on purpose. It read "58%", which is the INR figure
-      // (199x12 = 2388 vs 999). USD saves 37% (3.99x12 = 47.88 vs 29.99), so a
-      // single constant is wrong for every currency but one. PricingTable takes
-      // the per-currency value from `calculateSavingsPercentage` instead.
+      // No savingsPct here on purpose: PricingTable derives it from the two
+      // amounts it displays (USD saves 37%), so it cannot drift from them.
     },
     description: "The complete theater experience. Video facecams, 16 members, 24h rooms, and persistent memory.",
     cta: "Upgrade to Premium",
@@ -151,11 +143,11 @@ export const FAQ_ITEMS = [
     questions: [
       {
         q: "What is SyncTogether?",
-        a: "A desktop app for Mac and Windows that keeps a film on the same frame for everyone in a room. Play your own MP4 or MKV, or a YouTube link. Play, pause, seek and audio track stay in lockstep, and a machine that falls behind catches up by itself."
+        a: "An app for Mac and Windows (iPhone and iPad too) that keeps a film on the same frame for everyone in a room. Play your own MP4 or MKV, or a YouTube link. Play, pause, seek and audio track stay in lockstep, and a machine that falls behind catches up by itself."
       },
       {
         q: "What platforms does SyncTogether support?",
-        a: "SyncTogether currently supports macOS (12.0+) and Windows (10 and 11). Both platforms offer native hardware acceleration and seamless window management."
+        a: "SyncTogether runs on macOS (12.0+) and Windows (10 and 11), with iPhone and iPad on the App Store. Install it from the Mac App Store or the Microsoft Store; both stores keep it up to date for you."
       },
       {
         q: "Do I need an account?",
@@ -197,19 +189,19 @@ export const FAQ_ITEMS = [
       },
       {
         q: "How do I subscribe?",
-        a: "Sign in to your account on our website (/auth), visit the Pricing page (/pricing), and select either Monthly or Annual billing. Payments are processed securely (Credit/Debit Cards, PayPal, Apple Pay, Google Pay, and UPI in India)."
+        a: "Open the SyncTogether app on iPhone, iPad, Mac or Windows (Microsoft Store version), go to Premium and pick Monthly or Annual. The store handles payment, tax and renewal. Premium belongs to your account, so it unlocks on every device you sign in on, Windows included."
       },
       {
         q: "Can I cancel anytime?",
-        a: "Yes! You can cancel your subscription at any time directly from your Account page. Your Premium benefits will remain active until the end of your current billing period."
+        a: "Yes. Cancel in your App Store or Microsoft account subscription settings at any time. Your Premium benefits stay active until the end of the period you already paid for."
       },
       {
         q: "What is your refund policy?",
-        a: "We offer a 14-day, no-questions-asked refund policy for first-time purchases. Simply reach out to support@synctogether.app with your account email."
+        a: "Refunds are handled by the store you bought from, through its own refund process (for Apple, reportaproblem.apple.com). If something went wrong with your Premium access, email support@synctogether.app and we will help."
       },
       {
-        q: "I paid on the website but my desktop app still shows Free. What should I do?",
-        a: "Ensure you are signed in with the same account in both the desktop app and on the website. Subscriptions update automatically within seconds. If it doesn't appear, restart the app or click 'Sync profile' in your app profile screen."
+        q: "I subscribed on my iPhone but my Windows app still shows Free. What should I do?",
+        a: "Make sure you are signed in with the same SyncTogether account on both devices. Premium updates within seconds. If it does not appear, restart the app or open the Premium screen and tap Refresh status."
       }
     ]
   },

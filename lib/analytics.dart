@@ -26,6 +26,7 @@ class Analytics {
   String? _distinctId;
   bool _distinctIdIsAnonymous = false;
   Map<String, Object?> _context = const {};
+  Map<String, Object?> _personProps = const {};
 
   final _queue = <Map<String, Object?>>[];
   Timer? _timer;
@@ -57,6 +58,7 @@ class Analytics {
     _distinctId = const Uuid().v4();
     _distinctIdIsAnonymous = true;
     _context = const {};
+    _personProps = const {};
     _queue.clear();
     _stopTimer();
   }
@@ -99,6 +101,20 @@ class Analytics {
       if (wasAnonymous && previous != null) '\$anon_distinct_id': previous,
       '\$set': {..._context, ...personProperties},
     });
+  }
+
+  /// Sets properties on the person (their row in PostHog) without an event
+  /// of its own. Only changed values are sent, so calling it on every
+  /// entitlement reload costs nothing. Coarse labels only - never free text.
+  void setPersonProperties(Map<String, Object?> props) {
+    if (!isEnabled || props.isEmpty) return;
+    final changed = {
+      for (final e in props.entries)
+        if (_personProps[e.key] != e.value) e.key: e.value,
+    };
+    if (changed.isEmpty) return;
+    _personProps = {..._personProps, ...changed};
+    _enqueue('\$set', {..._context, '\$set': changed});
   }
 
   Future<void> flush() async {

@@ -1,9 +1,10 @@
 import 'dart:async';
 import '../ui/booth_icons.g.dart';
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart' show MissingPluginException;
+import 'package:flutter/services.dart' show MethodChannel, MissingPluginException;
 import 'package:flutter_webrtc/flutter_webrtc.dart' as rtc;
 import 'package:livekit_client/livekit_client.dart' as lk;
 import 'package:media_kit/media_kit.dart';
@@ -43,161 +44,72 @@ Future<void> showAvSettingsDialog(
       enumerateAudioOutputs: enumerateAudioOutputs,
       testPlayer: testPlayer,
       onTestSound: onTestSound,
-      micLevels: micLevels ?? liveMicLevels,
+      micLevels: micLevels ?? nativeMicLevels,
       cameraTrackFactory: cameraTrackFactory,
     ),
   );
 }
 
 /// Bar levels (0..1) for a microphone, for as long as the stream is listened
-/// to. Injectable so tests never open a real device.
-typedef MicLevels = Stream<List<double>> Function(String? deviceId);
+/// to. Takes the device's label. Injectable so tests never open a real device.
+typedef MicLevels = Stream<List<double>> Function(String? deviceLabel);
 
 const _kMeterBars = 16;
 
-/// Opens the mic as a bare local track - no room, nothing published - and
-/// feeds LiveKit's native visualizer (every desktop and mobile target) into
-/// the stream. Cancelling the subscription releases the device.
-Stream<List<double>> liveMicLevels(String? deviceId) {
-  lk.LocalAudioTrack? track;
-  lk.AudioVisualizer? visualizer;
-  lk.EventsListener<lk.AudioVisualizerEvent>? listener;
-  lk.CancelListenFunc? removeRenderer;
+const _micLevelChannel = MethodChannel('app.synctogether/mic_level');
+
+/// The meter on every platform: each runner reads its own input device
+/// (WASAPI, CoreAudio, AVAudioEngine, AudioRecord) and answers `peak`. WebRTC
+/// is out of this path on purpose - it only captures once a track rides a
+/// peer connection, so a bare local track never delivered a frame. Polls the
+/// peak at ~30 Hz and maps it to 0..1 over a 60 dB window, with a fast attack
+/// and a short decay so the segments read as an instrument. The device is
+/// matched by label; phones have one input and ignore it.
+Stream<List<double>> nativeMicLevels(String? deviceLabel) {
+  Timer? poll;
   late final StreamController<List<double>> out;
   out = StreamController<List<double>>(
     onListen: () async {
       try {
-        debugPrint('[BoothCheck/Mic] Starting mic test. Input requested deviceId: "$deviceId"');
-        String? webrtcDeviceId = deviceId;
-        try {
-          final webrtcDevices = await lk.Hardware.instance.audioInputs();
-          debugPrint(
-            '[BoothCheck/Mic] Hardware.audioInputs returned ${webrtcDevices.length} devices: '
-            '${webrtcDevices.map((d) => "[id: ${d.deviceId}, label: ${d.label}]").join(", ")}',
+        final started = await _micLevelChannel.invokeMethod<bool>('start', {'name': deviceLabel});
+        if (started != true) {
+          // Includes a refused permission: the user's answer, not a bug.
+          trace(
+            'mic level test refused',
+            category: 'av',
+            data: {'platform': Platform.operatingSystem},
           );
-          final match = webrtcDevices
-              .where(
-                (d) =>
-                    d.deviceId == deviceId ||
-                    (deviceId != null &&
-                        d.label.trim().toLowerCase() == deviceId.trim().toLowerCase()),
-              )
-              .firstOrNull;
-          if (match != null) {
-            webrtcDeviceId = match.deviceId;
-            debugPrint(
-              '[BoothCheck/Mic] Matched WebRTC device: id=${match.deviceId}, label=${match.label}',
-            );
-            await lk.Hardware.instance.selectAudioInput(match);
-          } else {
-            debugPrint(
-              '[BoothCheck/Mic] No exact Hardware.audioInputs match for "$deviceId", using as-is',
-            );
+          if (!out.isClosed) out.addError(StateError('mic level start failed'));
+          return;
+        }
+        if (out.isClosed) return;
+        var shown = 0.0;
+        poll = Timer.periodic(const Duration(milliseconds: 33), (_) async {
+          try {
+            final peak = await _micLevelChannel.invokeMethod<double>('peak') ?? 0;
+            final db = peak <= 0.000001 ? -60.0 : 20 * math.log(peak) / math.ln10;
+            final target = ((db + 60) / 60).clamp(0.0, 1.0);
+            shown = target > shown ? target : shown * 0.85 + target * 0.15;
+            if (!out.isClosed) out.add([shown]);
+          } on MissingPluginException {
+            // Torn down mid-poll.
           }
-        } catch (e, st) {
-          debugPrint('[BoothCheck/Mic] Error querying Hardware.audioInputs: $e\n$st');
-        }
-
-        debugPrint('[BoothCheck/Mic] Creating LocalAudioTrack with deviceId: "$webrtcDeviceId"');
-        track = await lk.LocalAudioTrack.create(lk.AudioCaptureOptions(deviceId: webrtcDeviceId));
-        debugPrint(
-          '[BoothCheck/Mic] Track created successfully: id=${track?.mediaStreamTrack.id}, '
-          'enabled=${track?.mediaStreamTrack.enabled}, muted=${track?.muted}',
+        });
+        trace(
+          'mic level test started',
+          category: 'av',
+          data: {'platform': Platform.operatingSystem},
         );
-
-        if (out.isClosed) {
-          debugPrint('[BoothCheck/Mic] Stream already closed before start, stopping track');
-          await track?.stop();
-          await track?.dispose();
-          return;
-        }
-
-        debugPrint('[BoothCheck/Mic] Calling track.start()...');
-        await track!.start();
-        debugPrint('[BoothCheck/Mic] track.start() completed. Track active: ${track?.isActive}');
-
-        // Diagnostic raw PCM renderer probe to see if audio frames arrive from WebRTC
-        var rawFrameCount = 0;
-        try {
-          removeRenderer = track!.addAudioRenderer(
-            onFrame: (frame) {
-              rawFrameCount++;
-              if (rawFrameCount == 1 || rawFrameCount % 100 == 0) {
-                // Compute peak level across the PCM buffer
-                var maxSample = 0;
-                final bytes = frame.data;
-                for (var i = 0; i + 1 < bytes.length; i += 2) {
-                  final sample = (bytes[i] | (bytes[i + 1] << 8)).toSigned(16).abs();
-                  if (sample > maxSample) maxSample = sample;
-                }
-                debugPrint(
-                  '[BoothCheck/Mic] Raw PCM frame #$rawFrameCount received: '
-                  'sampleRate=${frame.sampleRate}, channels=${frame.channels}, '
-                  'bytes=${bytes.length}, peak16=$maxSample / 32767 (${(maxSample / 32767 * 100).toStringAsFixed(1)}%)',
-                );
-              }
-            },
-          );
-          debugPrint('[BoothCheck/Mic] Raw PCM renderer attached successfully');
-        } catch (e) {
-          debugPrint('[BoothCheck/Mic] Could not attach raw PCM renderer: $e');
-        }
-
-        debugPrint('[BoothCheck/Mic] Initializing LiveKit AudioVisualizer...');
-        visualizer = lk.createVisualizer(
-          track!,
-          options: const lk.AudioVisualizerOptions(barCount: _kMeterBars, centeredBands: false),
-        );
-        var visualizerEvents = 0;
-        listener = visualizer!.createListener()
-          ..on<lk.AudioVisualizerEvent>((e) {
-            visualizerEvents++;
-            final rawLevels = [
-              for (final v in e.event) ((v as num?)?.toDouble() ?? 0).clamp(0, 1).toDouble(),
-            ];
-            final maxLevel = rawLevels.fold<double>(0.0, (m, v) => v > m ? v : m);
-            if (visualizerEvents == 1 || visualizerEvents % 50 == 0 || maxLevel > 0.05) {
-              debugPrint(
-                '[BoothCheck/Mic] Visualizer event #$visualizerEvents: '
-                'maxLevel=${maxLevel.toStringAsFixed(3)}, levels=[${rawLevels.map((l) => l.toStringAsFixed(2)).join(", ")}]',
-              );
-            }
-            if (out.isClosed) return;
-            out.add(rawLevels);
-          });
-        await visualizer!.start();
-        debugPrint('[BoothCheck/Mic] Visualizer started successfully');
-        trace('mic level test started', category: 'av');
       } catch (e, st) {
-        debugPrint('[BoothCheck/Mic] Exception during mic level test: $e\n$st');
-        // A refused permission is the user's answer, not a bug.
-        if (e is MissingPluginException) {
-          // The native channel is registered after start and gone after stop;
-          // listening in between is a teardown race, not a fault.
-          trace('mic level channel gone', category: 'av');
-          if (!out.isClosed) out.addError(e);
-          return;
-        }
-        final refused = '$e'.contains('NotAllowed') || '$e'.toLowerCase().contains('permission');
-        if (refused) {
-          trace('mic level test refused', category: 'av', data: {'error': '$e'});
-        } else {
-          reportNonFatal(e, st, during: 'mic level test');
-        }
+        reportNonFatal(e, st, during: 'mic level test');
         if (!out.isClosed) out.addError(e);
       }
     },
     onCancel: () async {
-      debugPrint('[BoothCheck/Mic] Cleaning up mic level test...');
+      poll?.cancel();
       try {
-        if (removeRenderer != null) await removeRenderer!();
+        await _micLevelChannel.invokeMethod<void>('stop');
       } catch (_) {}
-      await listener?.dispose();
-      await visualizer?.stop();
-      await visualizer?.dispose();
-      await track?.stop();
-      await track?.dispose();
-      debugPrint('[BoothCheck/Mic] Cleanup completed');
     },
   );
   return out.stream;
@@ -607,7 +519,7 @@ class _AvSettingsDialogContentState extends State<_AvSettingsDialogContent> {
 
     setState(() {
       _micSub = widget
-          .micLevels(_selectedMic?.deviceId)
+          .micLevels(_selectedMic?.label)
           .listen(
             (bars) {
               _micBars.value = bars;
@@ -859,14 +771,11 @@ class _AvSettingsDialogContentState extends State<_AvSettingsDialogContent> {
                         _selectedOutput = dev;
                       });
                     },
-                    trailingAction: Tooltip(
-                      message: _isPlayingTestSound ? 'Playing test audio...' : 'Test output',
-                      child: DialogTextButton(
-                        label: _isPlayingTestSound ? 'Stop' : 'Test sound',
-                        onPressed: _audioOutputs.isEmpty
-                            ? null
-                            : (_isPlayingTestSound ? _stopTestSound : _playTestSound),
-                      ),
+                    trailingAction: DialogTextButton(
+                      label: _isPlayingTestSound ? 'Stop' : 'Test sound',
+                      onPressed: _audioOutputs.isEmpty
+                          ? null
+                          : (_isPlayingTestSound ? _stopTestSound : _playTestSound),
                     ),
                     footer: _outputMeter(),
                   ),

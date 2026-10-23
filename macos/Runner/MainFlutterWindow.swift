@@ -1,5 +1,7 @@
 import Cocoa
 import FlutterMacOS
+import AVFoundation
+import CoreAudio
 
 class MainFlutterWindow: NSWindow {
   /// The Flutter header (`CinemaMarqueeBar`, 52 logical px) the traffic lights
@@ -62,6 +64,7 @@ class MainFlutterWindow: NSWindow {
 
     RegisterGeneratedPlugins(registry: flutterViewController)
     SystemFontsChannel.register(with: flutterViewController.engine.binaryMessenger)
+    MicLevelChannel.register(with: flutterViewController.engine.binaryMessenger)
 
     super.awakeFromNib()
     DispatchQueue.main.async { [weak self] in self?.placeTrafficLights() }
@@ -138,6 +141,112 @@ enum SystemFontsChannel {
         ]
       }
       return faces.isEmpty ? nil : ["family": family, "faces": faces]
+    }
+  }
+}
+
+/// Live input level for the "Test your mic" meter. WebRTC only captures once
+/// a track rides a peer connection, so the bare local track the settings
+/// dialog opens never delivers audio; this reads the input device directly.
+/// Same contract as the Windows runner's `mic_level` channel: `start(name)`,
+/// `peak`, `stop`.
+///
+/// AVCaptureSession rather than AVAudioEngine: the engine drives input and the
+/// default output through one I/O unit, which started cleanly against a USB
+/// codec and then never delivered a buffer. A capture session is input only
+/// and picks its device by name.
+enum MicLevelChannel {
+  private static var session: AVCaptureSession?
+  private static let queue = DispatchQueue(label: "app.synctogether.mic_level")
+  private static let sink = LevelSink()
+  // Written from the capture queue, read from the main thread; a stale float
+  // is harmless for a meter.
+  fileprivate static var latestPeak: Float = 0
+
+  static func register(with messenger: FlutterBinaryMessenger) {
+    let channel = FlutterMethodChannel(name: "app.synctogether/mic_level", binaryMessenger: messenger)
+    channel.setMethodCallHandler { call, result in
+      switch call.method {
+      case "start":
+        let name = (call.arguments as? [String: Any])?["name"] as? String
+        // Ask first (no prompt once the user has answered): a denied mic would
+        // otherwise start and deliver silence.
+        AVCaptureDevice.requestAccess(for: .audio) { granted in
+          DispatchQueue.main.async { result(granted && start(deviceName: name)) }
+        }
+      case "peak":
+        result(Double(latestPeak))
+      case "stop":
+        stop()
+        result(nil)
+      default:
+        result(FlutterMethodNotImplemented)
+      }
+    }
+  }
+
+  private static func stop() {
+    session?.stopRunning()
+    session = nil
+    latestPeak = 0
+  }
+
+  private static func start(deviceName: String?) -> Bool {
+    stop()
+    guard let device = inputDevice(named: deviceName) else { return false }
+    let session = AVCaptureSession()
+    let output = AVCaptureAudioDataOutput()
+    // Fixed format so the sink only ever reads interleaved 16-bit samples.
+    output.audioSettings = [
+      AVFormatIDKey: kAudioFormatLinearPCM,
+      AVLinearPCMBitDepthKey: 16,
+      AVLinearPCMIsFloatKey: false,
+      AVLinearPCMIsBigEndianKey: false,
+      AVLinearPCMIsNonInterleaved: false,
+    ]
+    output.setSampleBufferDelegate(sink, queue: queue)
+    guard let input = try? AVCaptureDeviceInput(device: device),
+      session.canAddInput(input), session.canAddOutput(output)
+    else { return false }
+    session.addInput(input)
+    session.addOutput(output)
+    session.startRunning()
+    self.session = session
+    return true
+  }
+
+  /// WebRTC's device label is the CoreAudio device name, give or take a
+  /// "Default - " style prefix, so match by containment either way. Falls back
+  /// to the system default input.
+  private static func inputDevice(named wanted: String?) -> AVCaptureDevice? {
+    let want = wanted?.trimmingCharacters(in: .whitespaces).lowercased() ?? ""
+    if !want.isEmpty {
+      for device in AVCaptureDevice.devices(for: .audio) {
+        let have = device.localizedName.lowercased()
+        if have == want || want.contains(have) || have.contains(want) { return device }
+      }
+    }
+    return AVCaptureDevice.default(for: .audio)
+  }
+
+  fileprivate final class LevelSink: NSObject, AVCaptureAudioDataOutputSampleBufferDelegate {
+    func captureOutput(
+      _ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer,
+      from connection: AVCaptureConnection
+    ) {
+      guard let block = CMSampleBufferGetDataBuffer(sampleBuffer) else { return }
+      var length = 0
+      var pointer: UnsafeMutablePointer<Int8>?
+      guard
+        CMBlockBufferGetDataPointer(
+          block, atOffset: 0, lengthAtOffsetOut: nil, totalLengthOut: &length,
+          dataPointerOut: &pointer) == kCMBlockBufferNoErr, let pointer
+      else { return }
+      var peak: Int32 = 0
+      pointer.withMemoryRebound(to: Int16.self, capacity: length / 2) { samples in
+        for i in 0..<(length / 2) { peak = max(peak, abs(Int32(samples[i]))) }
+      }
+      MicLevelChannel.latestPeak = Float(peak) / 32768
     }
   }
 }

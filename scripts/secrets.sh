@@ -103,9 +103,6 @@ discover_secret_files() {
     "website/.env.local"
     "website/.env"
     "website/.env.production.local"
-    "dsa_priv.pem"
-    "dsaparam.pem"
-    "sparkle_ed_private_key"
     "android/key.properties"
   )
 

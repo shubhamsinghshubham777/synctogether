@@ -6,10 +6,10 @@ import { getPublicStats } from "@/lib/public-metrics";
 const ITEMS: { icon: typeof GitBranch; label: string; href?: string; wide?: boolean }[] = [
   { icon: GitBranch, label: "Source available", href: SITE_CONFIG.githubRepo },
   { icon: HardDrive, label: "Private by default" },
-  { icon: ShieldCheck, label: "Signed & notarized" },
+  { icon: ShieldCheck, label: "Store-verified" },
   { icon: RefreshCw, label: "Updates itself", wide: true },
   { icon: EyeOff, label: "No ads · analytics opt-out", href: "/privacy", wide: true },
-  { icon: Undo2, label: "14-day refund", href: "/refund" },
+  { icon: Undo2, label: "Store-handled refunds", href: "/refund" },
 ];
 
 export async function TrustStrip() {

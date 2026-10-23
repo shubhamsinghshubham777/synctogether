@@ -101,11 +101,12 @@ fvm flutter analyze
 
 ---
 
-## 📦 Installers & Desktop Self-Updates
+## 📦 Distribution
 
-Release builds and installer artifacts are built via GitHub Actions (`.github/workflows/`):
-- **macOS**: DMG package with Developer ID code signing, notarization, and background auto-update.
-- **Windows**: Inno Setup installer (`dart run inno_bundle`), MSIX package for Microsoft Store distribution (`publish_microsoft_store.yaml`), background auto-update, and `synctogether://` protocol registration.
+Every release ships through a store, built via GitHub Actions (`.github/workflows/publish_stores.yaml`), and the store handles updates:
+- **macOS**: Mac App Store (`publish_mac_app_store.yaml`).
+- **iOS / iPadOS**: App Store (`publish_ios_app_store.yaml`).
+- **Windows**: MSIX for the Microsoft Store (`publish_microsoft_store.yaml`).
 - **Android**: Release APK.
 
 ---
@@ -119,11 +120,10 @@ Release builds and installer artifacts are built via GitHub Actions (`.github/wo
 | `lib/rooms/` | Lobby, room screen, participant grid, room lifecycle & service |
 | `lib/sync/` | Lockstep synchronization engine (`SyncService`, `SyncBackend`, `SyncLogic`) |
 | `lib/av/` | LiveKit SFU audio/video connection & facecam tiles |
-| `lib/updates/` | Desktop self-update service (Sparkle / WinSparkle appcast parser, silent background updater) |
 | `docs/` | In-depth technical documentation & [Self-Hosting Guide](docs/self-hosting.md) |
 | `docker/` | Docker Compose and server configuration templates for self-hosting |
 | `supabase/` | Database migrations (schema, RLS, RPCs, pg_cron), edge functions, auth config |
-| `website/` | Next.js 16 marketing site, download portal, changelog, FAQ, and web billing (Creem) |
+| `website/` | Next.js 16 marketing site, store links, changelog, FAQ, and read-only account page |
 | `scripts/` | Developer environment orchestrator (`dev.sh`), clean slate reset, secrets tool, macOS signing, Instance B launcher |
 | `tool/` | Asset generation scripts (audio, emoji, certificates, app icons) |
 

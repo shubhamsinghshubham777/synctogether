@@ -8,8 +8,7 @@
 #   4. Local log files and temporary build artifacts
 #
 # SAFETY GUARANTEE:
-#   Strictly restricted to the local stack. Creem test-mode subscriptions are
-#   NOT cleaned: cancel them from the Creem test dashboard.
+#   Strictly restricted to the local stack.
 #   NEVER touches production Supabase or production users.
 # ==============================================================================
 
@@ -37,15 +36,6 @@ banner "SyncTogether Local Clean Slate Reset"
 # 1. Safety Checks (Guarantee we NEVER touch production)
 # ------------------------------------------------------------------------------
 info "Running safety guard checks..."
-
-if [ -f "$REPO_ROOT/website/.env.local" ]; then
-  CREEM_ENV=$(grep -E '^CREEM_ENVIRONMENT=' "$REPO_ROOT/website/.env.local" | cut -d '=' -f2- | tr -d ' "')
-  CREEM_KEY=$(grep -E '^CREEM_API_KEY=' "$REPO_ROOT/website/.env.local" | cut -d '=' -f2- | tr -d ' "')
-  if [ "$CREEM_ENV" = "live" ] || [[ -n "$CREEM_KEY" && ! "$CREEM_KEY" =~ ^creem_test_ ]]; then
-    error "ABORT: website/.env.local points at Creem LIVE (CREEM_ENVIRONMENT / CREEM_API_KEY). Will not proceed."
-    exit 1
-  fi
-fi
 
 success "Safety guards passed: targeting local stack and sandbox only."
 
@@ -88,9 +78,6 @@ else
   warn "Local Supabase stack is not currently running. Skipping DB reset (start with ./scripts/dev.sh)."
 fi
 
-# ------------------------------------------------------------------------------
-# 4. Creem test mode: not cleaned. Cancel leftover test subscriptions from the
-#    Creem test dashboard; no list/cancel sweep is implemented.
 # ------------------------------------------------------------------------------
 
 # ------------------------------------------------------------------------------

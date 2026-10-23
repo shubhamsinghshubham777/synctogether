@@ -16,7 +16,7 @@ flowchart TD
         DB[("PostgreSQL Database<br/>(Rooms, Members, Chat, RLS)")]
         Realtime["Supabase Realtime<br/>(Low-Latency Room Lockstep Sync)"]
         Auth["Supabase Auth<br/>(Guest Anonymous & Google OAuth)"]
-        Functions["Supabase Edge Functions<br/>(livekit-token, media-share, cleanup-r2, apple-iap)"]
+        Functions["Supabase Edge Functions<br/>(livekit-token, media-share, cleanup-r2, apple-iap, ms-iap)"]
     end
 
     subgraph AV ["Audio / Video Mesh"]
@@ -206,7 +206,7 @@ supabase functions deploy cleanup-r2
 >  where key = 'r2_cleanup';
 > ```
 
-`apple-iap` is only needed if you sell Premium through the Mac App Store (secrets `APPLE_BUNDLE_ID`, `APPLE_APP_APPLE_ID`); a self-hosted instance can skip it.
+`apple-iap` is only needed if you sell Premium through the Mac App Store (secrets `APPLE_BUNDLE_ID`, `APPLE_APP_APPLE_ID`); a self-hosted instance can skip it. `ms-iap` is the Microsoft Store equivalent (secrets `MS_STORE_TENANT_ID`, `MS_STORE_CLIENT_ID`, `MS_STORE_CLIENT_SECRET`, `MS_STORE_PRODUCT_IDS`), also optional.
 
 ---
 
@@ -233,7 +233,7 @@ Auth config is **not** part of `supabase db push` - a migrated database with un-
 ### Step 5: Configure and Build Client Applications
 
 > [!NOTE]
-> **Platform Support**: Desktop builds officially target **macOS** and **Windows**. Linux desktop is currently unsupported due to upstream WebView and self-update limitations.
+> **Platform Support**: Desktop builds officially target **macOS** and **Windows**. Linux desktop is currently unsupported due to upstream WebView limitations.
 
 SyncTogether uses Flutter compile-time defines (`--dart-define`) to bake configuration directly into the compiled client binary. This ensures no plaintext credentials or `.env` files are bundled into distributed release packages.
 
@@ -295,7 +295,7 @@ The web portal (`website/`) provides marketing pages, app download links, and we
    cp .env.example .env.local
    npm install
    ```
-2. Set `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SERVICE_ROLE_KEY` and `NEXT_PUBLIC_SITE_URL` in `website/.env.local`. Creem (web billing), PostHog and the `PROD_*` admin-dashboard variables are optional for self-hosted instances; see `website/.env.example` for the full list.
+2. Set `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SERVICE_ROLE_KEY` and `NEXT_PUBLIC_SITE_URL` in `website/.env.local`. PostHog and the `PROD_*` admin-dashboard variables are optional for self-hosted instances; see `website/.env.example` for the full list.
 3. Run or deploy:
    ```bash
    # Development
@@ -340,6 +340,7 @@ In debug builds with no local values set, the client falls back to `http://127.0
 | `CF_R2_SECRET_ACCESS_KEY` | *No* | Cloudflare R2 / S3 secret key |
 | `CF_R2_BUCKET_NAME` | *No* | Cloudflare R2 bucket name |
 | `APPLE_BUNDLE_ID` / `APPLE_APP_APPLE_ID` | *No* | Only for the `apple-iap` function (Mac App Store purchases) |
+| `MS_STORE_TENANT_ID` / `MS_STORE_CLIENT_ID` / `MS_STORE_CLIENT_SECRET` / `MS_STORE_PRODUCT_IDS` | *No* | Only for the `ms-iap` function (Microsoft Store purchases) |
 
 `SUPABASE_URL`, `SUPABASE_ANON_KEY` and `SUPABASE_SERVICE_ROLE_KEY` are injected into Edge Functions by Supabase automatically; don't set them yourself.
 

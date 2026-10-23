@@ -7,7 +7,6 @@ import {
   formatBytes,
   monthsPerCycle,
   percent,
-  summariseReleaseFetches,
 } from "../lib/metrics_logic.ts";
 
 const req = (h: Record<string, string>) => ({ headers: new Headers(h) });
@@ -74,21 +73,6 @@ test("MRR never converts a currency it has no rate for, and is null with no rows
   assert.equal(mrr.usdEquivalent, null);
   assert.equal(mrr.unconvertedSubscribers, 4);
   assert.equal(computeMrr([]).usdEquivalent, null);
-});
-
-test("GitHub fetches are summed per OS from asset names", () => {
-  const s = summariseReleaseFetches([
-    {
-      tag_name: "v1.0.0",
-      published_at: "2026-09-01T00:00:00Z",
-      assets: [
-        { name: "SyncTogether-1.0.0-macOS.dmg", download_count: 10 },
-        { name: "SyncTogether-1.0.0-Windows.exe", download_count: 7 },
-        { name: "appcast.xml", download_count: 100 },
-      ],
-    },
-  ]);
-  assert.deepEqual([s.mac, s.win, s.total], [10, 7, 117]);
 });
 
 test("formatBytes", () => {

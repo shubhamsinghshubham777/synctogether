@@ -92,14 +92,11 @@ export default async function DownloadPage({
             label: "Desktop only",
             body: "Mac and Windows today. Phones and tablets are not supported yet.",
           },
-        ].map(({ label, body, live }) => (
+        ].map(({ label, body }) => (
           <div key={label} className="border-t border-rail pt-[18px] space-y-2.5">
             <p
-              className={`${mono} flex items-center gap-2 text-[11px] tracking-[0.14em] uppercase ${
-                live ? "text-signal" : "text-gray-500"
-              }`}
+              className={`${mono} text-[11px] tracking-[0.14em] uppercase text-gray-500`}
             >
-              {live && <span className="w-1.5 h-1.5 rounded-full bg-signal" aria-hidden="true" />}
               {label}
             </p>
             <p className="text-[15px] text-gray-400 leading-[1.55]">{body}</p>

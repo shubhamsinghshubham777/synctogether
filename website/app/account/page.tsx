@@ -510,9 +510,9 @@ function AccountDashboard() {
                 </p>
               </div>
               <div className="border border-dashed border-rail rounded-[6px] p-5">
-                <p className={`${kicker} mb-2`}>Bought in the App Store?</p>
+                <p className={`${kicker} mb-2`}>Bought in a store?</p>
                 <p className="text-sm text-gray-300 leading-relaxed">
-                  Apple manages that one. Cancel it in App Store settings, not here.
+                  The store you bought from manages it. Cancel in App Store settings or your Microsoft account, not here.
                 </p>
               </div>
             </>

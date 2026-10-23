@@ -84,7 +84,9 @@ jobs:
           }
           Write-Host "Publishing $($msix.Name) to flight $env:FLIGHT_ID of product $env:MSSTORE_PRODUCT_ID..."
           # --flightId is what keeps this off the public listing.
-          msstore publish $msix.DirectoryName --inputDirectory $msix.DirectoryName `
+          # The file itself, not its folder: a folder is read as a project and
+          # fails with "could not find a project publisher".
+          msstore publish $msix.FullName `
             --appId "$env:MSSTORE_PRODUCT_ID" --flightId "$env:FLIGHT_ID"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 

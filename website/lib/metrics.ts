@@ -3,10 +3,8 @@ import {
   computeMrr,
   DEFAULT_INR_PER_USD,
   percent,
-  summariseReleaseFetches,
   type MrrSummary,
   type WebRevenueRow,
-  type ReleaseAssetCounts,
 } from "@/lib/metrics_logic";
 
 /**
@@ -68,13 +66,6 @@ export interface InternalMetricsRpc {
   };
 }
 
-export interface GithubFetches {
-  total: number;
-  mac: number;
-  win: number;
-  releases: ReturnType<typeof summariseReleaseFetches>["releases"];
-}
-
 export interface DashboardMetrics {
   timestamp: string;
   source: {
@@ -82,15 +73,12 @@ export interface DashboardMetrics {
     projectRef: string | null;
     /** Whether the `internal_metrics` RPC answered. */
     supabaseConnected: boolean;
-    /** Round trip of the RPC alone, not the GitHub fetch. */
+    /** Round trip of the RPC alone. */
     rpcLatencyMs: number | null;
     rpcError: string | null;
   };
-  latestAppVersion: string | null;
   /** Null when the RPC failed. */
   db: InternalMetricsRpc | null;
-  /** Null when GitHub could not be reached. */
-  github: GithubFetches | null;
   derived: {
     mrr: MrrSummary | null;
     inrPerUsd: number;
@@ -113,34 +101,6 @@ export interface DashboardMetrics {
   };
 }
 
-const GITHUB_RELEASES = "https://api.github.com/repos/shubhamsinghshubham777/synctogether/releases";
-
-/**
- * Every release including pre-releases (their binaries are fetched too), all
- * pages, uncached. Unlike `getAllReleases`, which answers `[]` on failure for
- * the changelog's sake, a failure here is `null` - zero downloads and "GitHub
- * did not answer" must not look the same.
- */
-async function fetchAllReleases(): Promise<ReleaseAssetCounts[] | null> {
-  try {
-    const all: ReleaseAssetCounts[] = [];
-    for (let page = 1; page <= 10; page++) {
-      const res = await fetch(`${GITHUB_RELEASES}?per_page=100&page=${page}`, {
-        cache: "no-store",
-        headers: { Accept: "application/vnd.github.v3+json", "User-Agent": "SyncTogether-Website" },
-      });
-      if (!res.ok) return null;
-      const batch = (await res.json()) as (ReleaseAssetCounts & { draft?: boolean })[];
-      all.push(...batch.filter((r) => !r.draft));
-      if (batch.length < 100) break;
-    }
-    return all;
-  } catch (err) {
-    console.error("GitHub releases fetch failed:", err);
-    return null;
-  }
-}
-
 function positiveEnvNumber(name: string): number | null {
   const n = Number(process.env[name]);
   return Number.isFinite(n) && n > 0 ? n : null;
@@ -154,7 +114,7 @@ export async function getDashboardMetrics(): Promise<DashboardMetrics> {
     (res) => ({ res, ms: Date.now() - rpcStart }),
     (error: unknown) => ({ res: { data: null, error }, ms: Date.now() - rpcStart })
   );
-  const [{ res, ms }, releases] = await Promise.all([rpcPromise, fetchAllReleases()]);
+  const { res, ms } = await rpcPromise;
 
   const rpcError = res.error
     ? res.error instanceof Error
@@ -163,12 +123,6 @@ export async function getDashboardMetrics(): Promise<DashboardMetrics> {
     : null;
   if (rpcError) console.error("internal_metrics RPC failed:", rpcError);
   const db = rpcError ? null : ((res.data as InternalMetricsRpc | null) ?? null);
-
-  const github = releases ? summariseReleaseFetches(releases) : null;
-  const latestStable = releases?.find((r) => !r.prerelease);
-  const latestAppVersion = latestStable
-    ? (latestStable.name || latestStable.tag_name).replace(/^v/, "").replace(/_\d+$/, "")
-    : null;
 
   const inrPerUsd = positiveEnvNumber("METRICS_INR_PER_USD") ?? DEFAULT_INR_PER_USD;
   const projectRef = host.endsWith(".supabase.co") ? host.split(".")[0] : null;
@@ -182,9 +136,7 @@ export async function getDashboardMetrics(): Promise<DashboardMetrics> {
       rpcLatencyMs: db ? ms : null,
       rpcError,
     },
-    latestAppVersion,
     db,
-    github,
     derived: {
       mrr: db ? computeMrr(db.subscriptions.web_revenue, inrPerUsd) : null,
       inrPerUsd,

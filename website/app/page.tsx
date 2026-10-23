@@ -7,9 +7,7 @@ import { TrustStrip } from "@/components/TrustStrip";
 import { WhyNotScreenShare } from "@/components/WhyNotScreenShare";
 import { ReactionPlayground } from "@/components/ReactionPlayground";
 import { TierPreviewSection } from "@/components/TierPreviewSection";
-import { ReleaseChip } from "@/components/ReleaseChip";
 import { Ticket } from "@/components/Ticket";
-import { fetchLatestRelease } from "@/lib/github";
 
 export const revalidate = 3600; // ISR hourly
 
@@ -77,9 +75,7 @@ const FEATURES = [
   },
 ];
 
-export default async function HomePage() {
-  const release = await fetchLatestRelease();
-  const displayTag = release ? release.name || `v${release.version}` : null;
+export default function HomePage() {
 
   return (
     <div className="relative overflow-x-clip">
@@ -91,7 +87,6 @@ export default async function HomePage() {
               <p className={`${mono} text-xs tracking-[0.14em] text-gray-500`}>
                 NOW SHOWING ON MAC · WINDOWS
               </p>
-              {displayTag && <ReleaseChip tag={displayTag} className="hidden sm:inline-flex" />}
             </div>
             <h1
               className={`${display} font-extrabold text-[clamp(50px,6vw,86px)] leading-[0.88] tracking-[-0.045em]`}

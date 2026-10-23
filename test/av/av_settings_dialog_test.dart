@@ -228,7 +228,7 @@ void main() {
       await tester.tap(find.text('External Headphones').last);
       await tester.pumpAndSettle();
 
-      final testButton = find.byTooltip('Test output');
+      final testButton = find.text('Test sound');
       expect(testButton, findsOneWidget);
 
       await tester.tap(testButton);
@@ -243,8 +243,8 @@ void main() {
     ) async {
       final opened = <String?>[];
       final controllers = <StreamController<List<double>>>[];
-      Stream<List<double>> fakeLevels(String? deviceId) {
-        opened.add(deviceId);
+      Stream<List<double>> fakeLevels(String? deviceLabel) {
+        opened.add(deviceLabel);
         final c = StreamController<List<double>>();
         controllers.add(c);
         return c.stream;
@@ -259,7 +259,7 @@ void main() {
       expect(opened, isEmpty);
       await tester.tap(find.text('Test mic'));
       await tester.pump();
-      expect(opened, ['mic-2']);
+      expect(opened, ['Yeti Nano']);
       expect(find.text('Say something'), findsOneWidget);
 
       controllers.last.add(List.filled(16, 0.6));

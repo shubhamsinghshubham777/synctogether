@@ -9,13 +9,12 @@
 #   ./scripts/dev.sh status         # Check health of all ecosystem components
 #   ./scripts/dev.sh test           # Run all 3 test suites (Flutter, pgTAP, Website)
 #   ./scripts/dev.sh reset          # Reset local DB (re-run migrations & seed)
-#   ./scripts/dev.sh logs [target]  # Tail background logs (website/functions/hookdeck)
+#   ./scripts/dev.sh logs [target]  # Tail background logs (website/functions/ngrok)
 #
 # Flags:
 #   --flutter, -f                   Launch primary Flutter client (Instance A)
 #   --instance-b, -b                Launch secondary isolated Flutter client (Instance B)
 #   --ios, -i                       Launch Flutter client on connected iOS device
-#   --hookdeck, -w                  Start the Creem CLI webhook forwarder
 # ==============================================================================
 
 set -eo pipefail
@@ -62,15 +61,13 @@ banner() { echo -e "\n${BOLD}${CYAN}=== $1 ===${NC}\n"; }
 spin_down() {
   banner "Spinning Down SyncTogether Ecosystem"
 
-  # 1. Kill Webhook & Auth Tunnels (Creem CLI / ngrok)
-  info "Stopping webhook & auth tunnels..."
+  # 1. Kill leftover tunnels (ngrok)
+  info "Stopping tunnels..."
   if [ -f "$TUNNEL_PID_FILE" ]; then
     PID=$(cat "$TUNNEL_PID_FILE")
     kill "$PID" 2>/dev/null || true
     rm -f "$TUNNEL_PID_FILE"
   fi
-  pkill -f "hookdeck listen" 2>/dev/null || true
-  pkill -f "creem.*listen" 2>/dev/null || true
 
   if [ -f "$NGROK_PID_FILE" ]; then
     PID=$(cat "$NGROK_PID_FILE")
@@ -269,7 +266,6 @@ spin_up() {
   local launch_flutter=false
   local launch_instance_b=false
   local launch_ios=false
-  local launch_tunnel=false
 
   # Parse all flags
   while [ $# -gt 0 ]; do
@@ -277,7 +273,6 @@ spin_up() {
       --flutter|-f) launch_flutter=true ;;
       --instance-b|-b) launch_instance_b=true ;;
       --ios|-i) launch_ios=true ;;
-      --hookdeck|--tunnel|-w) launch_tunnel=true ;;
     esac
     shift
   done
@@ -371,8 +366,8 @@ spin_up() {
   # 2b. Repair the email template server, which the Edge Functions boot knocks out.
   repair_email_templates
 
-  # 3. Start Next.js Website & Billing Portal
-  info "Starting Next.js Website & Billing Portal..."
+  # 3. Start Next.js Website Portal
+  info "Starting Next.js Website Portal..."
   if [ ! -d "$REPO_ROOT/website/node_modules" ]; then
     info "Installing website dependencies (npm install)..."
     (cd "$REPO_ROOT/website" && npm install --silent)
@@ -387,35 +382,14 @@ spin_up() {
   done
   success "Next.js Website running on http://localhost:3000 (Log: $WEBSITE_LOG)"
 
-  # 4. Optional Webhook Tunnel (Hookdeck -> Creem test-mode webhooks)
-  local tunnel_name="None"
-  if [ "$launch_tunnel" = true ]; then
-    # The Creem CLI forwards test-mode webhooks to localhost with no tunnel.
-    # CREEM_API_KEY must be a creem_test_ key; --webhook reuses the persistent
-    # CLI-mode endpoint whose secret is CREEM_WEBHOOK_SECRET.
-    info "Starting Creem CLI webhook forwarder -> http://localhost:3000/api/billing/webhook/creem..."
-    local creem_key creem_hook
-    creem_key="$(grep -E '^CREEM_API_KEY=' website/.env.local | cut -d '=' -f2- | tr -d ' "')"
-    creem_hook="$(grep -E '^CREEM_CLI_WEBHOOK_ID=' website/.env.local | cut -d '=' -f2- | tr -d ' "')"
-    CREEM_API_KEY="$creem_key" nohup npx -y @creem_io/cli listen \
-      ${creem_hook:+--webhook "$creem_hook"} \
-      --forward-to http://localhost:3000/api/billing/webhook/creem > "$TUNNEL_LOG" 2>&1 &
-    echo $! > "$TUNNEL_PID_FILE"
-    tunnel_name="Creem CLI"
-    success "Creem CLI forwarder running (Log: $TUNNEL_LOG)"
-  fi
-
   # 5. Dashboard Summary
   echo -e "\n${BOLD}${GREEN}✨ SyncTogether Development Ecosystem is LIVE! ✨${NC}\n"
-  echo -e "  🌐 ${BOLD}Website & Billing:${NC}      http://localhost:3000"
+  echo -e "  🌐 ${BOLD}Website:${NC}      http://localhost:3000"
   echo -e "  🗄️ ${BOLD}Supabase Studio:${NC}        $studio_url"
   echo -e "  ⚡ ${BOLD}Supabase API:${NC}           $api_url"
   echo -e "  📧 ${BOLD}Local Inbucket Mail:${NC}    http://127.0.0.1:54324"
   echo -e "  📜 ${BOLD}Edge Functions Log:${NC}     $FUNCTIONS_LOG"
   echo -e "  📜 ${BOLD}Website Dev Log:${NC}        $WEBSITE_LOG"
-  if [ "$launch_tunnel" = true ] && [ "$tunnel_name" != "None" ]; then
-    echo -e "  🪝 ${BOLD}Webhook Tunnel Log:${NC}    $TUNNEL_LOG ($tunnel_name)"
-  fi
   if [ -f "$NGROK_PID_FILE" ] && ps -p "$(cat "$NGROK_PID_FILE")" > /dev/null 2>&1; then
     echo -e "  🍎 ${BOLD}Apple Auth Tunnel:${NC}     https://${tunnel_domain:-localhost} (-> :54321)"
   fi
@@ -475,14 +449,6 @@ status() {
     warn "Next.js Website:      STOPPED"
   fi
 
-  # Webhook Tunnel
-  if [ -f "$TUNNEL_PID_FILE" ] && ps -p "$(cat "$TUNNEL_PID_FILE")" > /dev/null 2>&1; then
-    success "Webhook Tunnel:       RUNNING (PID: $(cat "$TUNNEL_PID_FILE"))"
-  else
-    info "Webhook Tunnel:       INACTIVE (pass --hookdeck on spin up to enable)"
-  fi
-
-  # Apple Auth Tunnel
   local tunnel_domain="${APPLE_AUTH_TUNNEL_DOMAIN:-}"
   if [ -z "$tunnel_domain" ] && [ -f "$REPO_ROOT/supabase/.env" ]; then
     tunnel_domain=$(grep -E "^APPLE_AUTH_TUNNEL_DOMAIN=" "$REPO_ROOT/supabase/.env" | cut -d'=' -f2- | tr -d '"' | tr -d "'" || true)
@@ -538,8 +504,6 @@ view_logs() {
     tail -f "$WEBSITE_LOG"
   elif [[ "$target" == "functions" || "$target" == "func" ]]; then
     tail -f "$FUNCTIONS_LOG"
-  elif [[ "$target" == "tunnel" || "$target" == "hookdeck" || "$target" == "hook" ]]; then
-    tail -f "$TUNNEL_LOG"
   elif [[ "$target" == "ngrok" || "$target" == "apple" || "$target" == "apple-tunnel" ]]; then
     tail -f "$NGROK_LOG"
   else
@@ -577,7 +541,7 @@ case "$COMMAND" in
     shift
     view_logs "$@"
     ;;
-  --flutter|-f|--instance-b|-b|--hookdeck|--tunnel|-w)
+  --flutter|-f|--instance-b|-b)
     spin_up "$@"
     ;;
   help|-h|--help)
@@ -595,8 +559,7 @@ case "$COMMAND" in
     echo -e "  help                    Show this help message\n"
     echo -e "Flags (can be used with 'up' or standalone):"
     echo -e "  --flutter, -f           Launch primary Flutter desktop client"
-    echo -e "  --instance-b, -b        Launch secondary isolated Flutter desktop client"
-    echo -e "  --hookdeck, -w          Start the Creem CLI webhook forwarder\n"
+    echo -e "  --instance-b, -b        Launch secondary isolated Flutter desktop client\n"
     ;;
   *)
     error "Unknown command: $1"

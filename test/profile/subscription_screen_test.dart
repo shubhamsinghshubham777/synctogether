@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:synctogether/ui/booth_icons.g.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:synctogether/profile/subscription_screen.dart';
 import 'package:synctogether/ui/responsive.dart';
@@ -13,27 +13,46 @@ Widget _wrap(Widget child) {
 
 void main() {
   group('SubscriptionScreen', () {
-    testWidgets('every non-Apple build sells through the web checkout', (tester) async {
+    testWidgets('a non-Apple build neither sells nor points anywhere that does', (tester) async {
       await tester.pumpWidget(_wrap(const SubscriptionScreen(appleStoreBuildOverride: false)));
-      await tester.pump(const Duration(milliseconds: 100));
-
-      expect(find.text('Patron seats'), findsOneWidget);
-      expect(find.text('Take a Patron seat'), findsWidgets);
-      expect(find.text('Checkout opens on synctogether.app in your browser.'), findsWidgets);
-      expect(find.text('Subscriptions are managed on our website.'), findsNothing);
-      expect(find.byIcon(BoothIcons.crown), findsWidgets);
-    });
-
-    testWidgets('a Google Play build neither sells nor points anywhere that does', (tester) async {
-      await tester.pumpWidget(
-        _wrap(const SubscriptionScreen(appleStoreBuildOverride: false, canSellOverride: false)),
-      );
       await tester.pump(const Duration(milliseconds: 100));
 
       expect(find.text('Take a Patron seat'), findsNothing);
       expect(find.textContaining('synctogether.app'), findsNothing);
       expect(find.textContaining('website'), findsNothing);
-      expect(find.text("Patron seats aren't available in this version of the app."), findsWidgets);
+      expect(find.textContaining('Patron seats are sold in the App Store apps'), findsWidgets);
+    });
+
+    testWidgets('a Microsoft Store build sells through the Store and never steers to a website', (
+      tester,
+    ) async {
+      // The native Store plugin is absent under flutter test; answer "no products",
+      // which is now reported, so swallow the report here.
+      final previousOnError = FlutterError.onError;
+      FlutterError.onError = (_) {};
+      addTearDown(() => FlutterError.onError = previousOnError);
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(
+        const MethodChannel('app.synctogether/store_purchase'),
+        (call) async => <Object?>[],
+      );
+      await tester.pumpWidget(
+        _wrap(
+          const SubscriptionScreen(
+            appleStoreBuildOverride: false,
+            microsoftStoreBuildOverride: true,
+            canSellOverride: true,
+          ),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 100));
+      await tester.pump(const Duration(milliseconds: 100));
+
+      expect(find.text('Patron seats'), findsOneWidget);
+      expect(find.textContaining('website'), findsNothing);
+      expect(find.text("Couldn't reach the Microsoft Store right now."), findsOneWidget);
+      expect(find.text('Try again'), findsOneWidget);
+      // flutter test is a debug build, so the developer line shows here only.
+      expect(find.text('The Store returned no subscriptions for this app.'), findsOneWidget);
     });
 
     testWidgets('apple store build sells through the App Store and never steers to the website', (

@@ -39,7 +39,6 @@ import 'package:synctogether/ui/loader.dart';
 import 'package:synctogether/ui/pt_motion.dart';
 import 'package:synctogether/ui/pt_theme.dart';
 import 'package:synctogether/ui/responsive.dart';
-import 'package:synctogether/updates/update_service.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -468,7 +467,6 @@ class _ProfileScreenState extends State<ProfileScreen> with WindowListener {
                         _accountSection(profile),
                         _mediaQuotaSection(),
                         _audioVideoSection(),
-                        if (supportsSelfUpdate) _updatesSection(),
                       ];
                       final right = <Widget>[if (!guest) _boardsSection(), _privacySection()];
                       final twoUp = box.maxWidth >= 760;
@@ -1112,7 +1110,6 @@ class _ProfileScreenState extends State<ProfileScreen> with WindowListener {
       if (!guest) _boardsSection(),
       _mediaQuotaSection(),
       _audioVideoSection(),
-      if (supportsSelfUpdate) _updatesSection(),
       _blockedSection(),
       _privacySection(),
       _exitSection(guest),
@@ -1438,26 +1435,6 @@ class _ProfileScreenState extends State<ProfileScreen> with WindowListener {
             height: 38,
             expand: false,
             onPressed: () => showAvSettingsDialog(context),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _updatesSection() {
-    if (!supportsSelfUpdate) return const SizedBox.shrink();
-    return _Section(
-      card: _cards,
-      kicker: 'Updates',
-      children: [
-        ListenableBuilder(
-          listenable: UpdateService.instance,
-          builder: (context, _) => PTToggleRow(
-            title: 'Automatically download updates',
-            subtitle:
-                'Download updates silently in the background so you can restart immediately when ready.',
-            value: UpdateService.instance.autoDownload,
-            onChanged: (enabled) => UpdateService.instance.setAutoDownload(enabled),
           ),
         ),
       ],

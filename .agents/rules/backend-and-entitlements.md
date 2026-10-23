@@ -6,7 +6,7 @@ trigger: model_decision
 
 # Backend, Database & Entitlements
 
-Guidance for working with Supabase (`supabase/`), database RPCs/RLS, tier entitlements, web billing (Creem), and pgTAP testing.
+Guidance for working with Supabase (`supabase/`), database RPCs/RLS, tier entitlements, store billing, and pgTAP testing.
 
 ## 1. Database & Supabase Architecture (`supabase/`)
 
@@ -47,14 +47,10 @@ Three tiers: `guest` / `free` / `premium`.
 
 ---
 
-## 3. Billing & Subscriptions (Creem)
+## 3. Billing & Subscriptions (store-only)
 
-- **Provider-agnostic**: everything lives in `website/lib/billing/` - one `BillingProvider` interface, one `NormalizedEvent`, one adapter (`providers/creem.ts`), one database writer (`apply.ts`). Creem is the only provider, but `subscriptions.source` names the owner of a row and cancel/fulfil/webhook dispatch on it, so a second provider is one adapter away.
-- **Webhook Processing (`website/app/api/billing/webhook/[provider]/route.ts`)**:
-  - Signature verification fails closed (missing secret → 500, anything else → 401).
-  - **Deduplication**: `isRedundantGrant` skips writes that change nothing, to avoid Realtime channel spam; `shouldApplyEvent` rejects replays and out-of-order events.
-  - `eventTargetsRow`: an event never changes a row that is currently premium from a *different* provider.
-- **Columns** are provider-neutral: `provider_subscription_id`, `provider_customer_id`, `provider_status`; uniqueness is `(source, provider_subscription_id)`. `my_premium_sources()` answers `web` / `apple` / `manual`.
+- **No web checkout.** Premium is sold only through the stores (Apple StoreKit and the Microsoft Store). `website/lib/billing/` and `app/api/billing/*` were deleted; the website's `/pricing` and `/account` are informational and read-only.
+- **Rails**: `apple_subscriptions` (StoreKit), `microsoft_subscriptions` (Microsoft Store, via the `ms-iap` function) and `subscriptions` (hand-granted seats, legacy `web` rows). `my_premium_sources()` answers which rail entitles an account.
 - **Realtime Subscriptions**: `subscriptions` table is published to Realtime. `EntitlementService` (`lib/profile/entitlement_service.dart`) listens to `public:subscriptions:$userId` Postgres changes and debounces reload (200 ms).
 - **Debug Grants**: In local debug mode, use `debug_grant_premium(p_months)` RPC or `EntitlementService.instance.debugGrantPremium()`.
 

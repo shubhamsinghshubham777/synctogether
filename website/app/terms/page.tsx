@@ -79,10 +79,10 @@ export default function TermsPage() {
             Premium Subscriptions &amp; Billing
           </h2>
           <p>
-            Paid subscriptions provide enhanced features including persistent rooms, 16-member limits, and video facecams. All subscriptions are processed securely through our authorized Merchant of Record.
+            Paid subscriptions provide enhanced features including persistent rooms, 16-member limits, and video facecams. Subscriptions are bought inside the app through the App Store or the Microsoft Store, which takes payment, handles tax and issues refunds under its own rules. Premium bought on one device unlocks on every device you sign in on.
           </p>
           <p>
-            Subscriptions are billed on a recurring monthly or annual basis. We reserve the right to modify subscription pricing with at least 30 days prior notice.
+            Subscriptions renew monthly or annually until you cancel them in your store&apos;s subscription settings. We reserve the right to modify subscription pricing with at least 30 days prior notice, subject to the store&apos;s price-change rules.
           </p>
         </section>
 

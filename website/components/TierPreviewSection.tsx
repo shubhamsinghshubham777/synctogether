@@ -1,8 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { Loader2 } from "lucide-react";
-import { usePricing } from "@/lib/usePricing";
 import { PRICING_TIERS } from "@/lib/constants";
 
 const mono = "font-[family-name:var(--font-jetbrains-mono)]";
@@ -66,8 +64,7 @@ function SeatCard({ seat }: { seat: Seat }) {
 }
 
 export function TierPreviewSection() {
-  const { monthlyFormatted, currencySymbol, isLoading } = usePricing();
-  const zero = `${currencySymbol || "$"}0`;
+  const zero = "$0";
 
   const seats: Seat[] = [
     { key: "guest", name: "Guest", note: "No account", price: zero, tone: "plain" },
@@ -77,11 +74,7 @@ export function TierPreviewSection() {
       name: "Patron",
       note: "Per month",
       tone: "brass",
-      price: isLoading ? (
-        <Loader2 className="w-6 h-6 my-1.5 animate-spin text-brass" aria-label="Loading price" />
-      ) : (
-        <span id="features-premium-price">{monthlyFormatted}</span>
-      ),
+      price: <span id="features-premium-price">{PRICING_TIERS.premium.price.usdMonthly}</span>,
     },
   ];
 

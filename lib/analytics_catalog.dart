@@ -71,7 +71,10 @@ const kAnalyticsEvents = <AnalyticsEventDoc>[
     group: .install,
     what: 'You signed in.',
     why: 'Shows which sign-in methods are worth keeping and which are broken.',
-    properties: ['method (Google, Apple, email or guest)'],
+    properties: [
+      'method (Google, Apple, email or guest)',
+      'your plan (guest, free or premium), kept on your analytics profile with your platform and app version',
+    ],
   ),
   AnalyticsEventDoc(
     event: 'guest_upgraded',
@@ -318,11 +321,11 @@ const kAnalyticsEvents = <AnalyticsEventDoc>[
     properties: ['where you came from'],
   ),
   AnalyticsEventDoc(
-    event: 'checkout_opened',
+    event: 'store_purchase_started',
     group: .premium,
-    what: 'You opened checkout in your browser.',
-    why: 'Whether the hand-off to the browser loses people.',
-    properties: ['where you came from'],
+    what: 'You started a Microsoft Store purchase of Premium.',
+    why: 'Whether the Microsoft Store sheet loses people.',
+    properties: ['where you came from', 'which store', 'monthly or annual'],
   ),
   AnalyticsEventDoc(
     event: 'app_store_purchase_started',

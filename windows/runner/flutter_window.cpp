@@ -3,6 +3,8 @@
 #include <optional>
 
 #include "flutter/generated_plugin_registrant.h"
+#include "mic_level.h"
+#include "store_purchase.h"
 #include "system_fonts.h"
 
 FlutterWindow::FlutterWindow(const flutter::DartProject& project)
@@ -27,6 +29,9 @@ bool FlutterWindow::OnCreate() {
   }
   RegisterPlugins(flutter_controller_->engine());
   RegisterSystemFontsChannel(flutter_controller_->engine()->messenger());
+  RegisterMicLevelChannel(flutter_controller_->engine()->messenger());
+  RegisterStorePurchaseChannel(flutter_controller_->engine()->messenger(),
+                               GetHandle());
   SetChildContent(flutter_controller_->view()->GetNativeWindow());
 
   flutter_controller_->engine()->SetNextFrameCallback([&]() {
@@ -70,6 +75,9 @@ FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
   }
 
   switch (message) {
+    case kStorePurchaseMessage:
+      RunStorePurchaseCallbacks();
+      return 0;
     case WM_FONTCHANGE:
       flutter_controller_->engine()->ReloadSystemFonts();
       break;

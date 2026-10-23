@@ -1,25 +1,18 @@
 "use client";
 
-import { Download } from "lucide-react";
-import { PTButton } from "@/components/PTButton";
+import { AppStoreBadge } from "@/components/AppStoreBadge";
 import { AppleLogo, WindowsLogo } from "@/components/Icons";
 import { MicrosoftStoreBadge } from "@/components/MicrosoftStoreBadge";
 import { useDesktopOS } from "@/components/hero/useDesktopOS";
 import { display, mono } from "@/components/PageHead";
 
-interface DownloadDoorsProps {
-  version: string;
-  macSizeMb: string | number;
-  winSizeMb: string | number;
-}
-
 /**
- * The two doors. The visitor's own machine (client-detected - the page is ISR,
- * so the user-agent is never read server-side) gets the Seat surface, the
+ * The two store doors. The visitor's own machine (client-detected - the page is
+ * ISR, so the user-agent is never read server-side) gets the Seat surface, the
  * "Your machine" tag and the only lit button; the other door is outline. An
  * undetectable platform falls back to macOS, same as the home hero.
  */
-export function DownloadDoors({ version, macSizeMb, winSizeMb }: DownloadDoorsProps) {
+export function DownloadDoors() {
   const os = useDesktopOS();
   const winLit = os === "windows";
   const macLit = !winLit;
@@ -53,19 +46,11 @@ export function DownloadDoors({ version, macSizeMb, winSizeMb }: DownloadDoorsPr
         <h2 className={`${display} text-5xl sm:text-[64px] font-extrabold tracking-[-0.04em] leading-[0.92] text-white`}>macOS</h2>
         {specs([
           ["Build", "Universal · Apple Silicon & Intel"],
-          ...(version ? [["Version", version] as [string, string]] : []),
-          ...(macSizeMb ? [["Size", `~${macSizeMb} MB`] as [string, string]] : []),
+          ["From", "Mac App Store"],
           ["Needs", "macOS 12 Monterey or later"],
         ])}
         <div className="mt-auto">
-          <PTButton
-            href="/api/download?platform=macos"
-            variant={macLit ? "primary" : "secondary"}
-            className="w-full !h-[54px] !rounded-[4px] !text-base !font-semibold !gap-2.5"
-            leftIcon={<Download strokeWidth={1.8} className="w-[18px] h-[18px]" />}
-          >
-            Download for macOS (.dmg)
-          </PTButton>
+          <AppStoreBadge lit={macLit} className="w-full" />
         </div>
       </section>
 
@@ -78,21 +63,12 @@ export function DownloadDoors({ version, macSizeMb, winSizeMb }: DownloadDoorsPr
         </div>
         <h2 className={`${display} text-5xl sm:text-[64px] font-extrabold tracking-[-0.04em] leading-[0.92] text-white`}>Windows</h2>
         {specs([
-          ["Build", "64-bit installer"],
-          ...(version ? [["Version", version] as [string, string]] : []),
-          ...(winSizeMb ? [["Size", `~${winSizeMb} MB`] as [string, string]] : []),
-          ["Needs", "Windows 10 / 11 · WebView2"],
+          ["Build", "64-bit · MSIX"],
+          ["From", "Microsoft Store"],
+          ["Needs", "Windows 10 / 11"],
         ])}
-        <div className="mt-auto grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <PTButton
-            href="/api/download?platform=windows"
-            variant={winLit ? "primary" : "secondary"}
-            className="w-full !h-[54px] !rounded-[4px] !text-base !font-semibold !gap-2.5"
-            leftIcon={<Download strokeWidth={1.8} className="w-[18px] h-[18px]" />}
-          >
-            Download .exe
-          </PTButton>
-          <MicrosoftStoreBadge className="w-full" />
+        <div className="mt-auto">
+          <MicrosoftStoreBadge lit={winLit} className="w-full" />
         </div>
       </section>
     </div>

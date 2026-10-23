@@ -6,3 +6,6 @@
 .env.keys
 .env.local
 .env.*.local
+
+# Deno writes this when the function tests run; functions deploy without it
+deno.lock

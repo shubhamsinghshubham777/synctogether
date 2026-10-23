@@ -1,10 +1,6 @@
 // Cleanup worker for pending R2 deletions and orphaned multipart uploads
 import { createClient } from "npm:@supabase/supabase-js@2.58.0";
-import {
-  S3Client,
-  DeleteObjectCommand,
-  AbortMultipartUploadCommand,
-} from "npm:@aws-sdk/client-s3";
+import { AbortMultipartUploadCommand, DeleteObjectCommand, S3Client } from "npm:@aws-sdk/client-s3";
 
 const s3 = new S3Client({
   region: "auto",

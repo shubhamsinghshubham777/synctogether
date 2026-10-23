@@ -4,10 +4,14 @@ import 'package:synctogether/profile/entitlement_service.dart';
 import 'package:synctogether/profile/media_quota_dialog.dart';
 import 'package:synctogether/profile/profile_models.dart';
 import 'package:synctogether/profile/profile_service.dart';
+import 'package:synctogether/platform.dart';
 
 void main() {
   group('MediaQuotaDialog', () {
+    setUp(() => canSellPremiumOverride = true);
+
     tearDown(() {
+      canSellPremiumOverride = null;
       ProfileService.instance.setProfileForTesting(null);
       EntitlementService.instance.setLimitsForTesting(null);
     });

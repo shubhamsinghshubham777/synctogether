@@ -520,7 +520,6 @@ class _RoomControlBarState extends State<RoomControlBar> with SingleTickerProvid
   Widget _trackKey(String kind, String? tag, VoidCallback onPressed, {required double height}) {
     return _TextKey(
       label: tag == null ? kind : '$kind · $tag',
-      tooltip: kind == 'SUBS' ? 'Subtitles' : 'Audio track',
       height: height,
       padding: height >= 40 ? 12 : 8,
       fontSize: height >= 40 ? 12 : 11,

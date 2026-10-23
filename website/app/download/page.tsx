@@ -1,6 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
-import { getLatestRelease } from "@/lib/github";
 import { normalizeRoomCode } from "@/lib/rewards";
 import { Ticket } from "@/components/Ticket";
 import { PageHead, display, mono } from "@/components/PageHead";
@@ -9,9 +7,9 @@ import { DownloadDoors } from "@/components/DownloadDoors";
 import { DownloadInviteActions } from "@/components/DownloadInviteActions";
 
 export const metadata: Metadata = {
-  title: "Download SyncTogether for macOS and Windows",
+  title: "Get SyncTogether on the App Store and Microsoft Store",
   description:
-    "Download the latest version of SyncTogether standalone desktop app for macOS (Apple Silicon & Intel) and Windows 10/11.",
+    "Get SyncTogether from the Mac App Store or the Microsoft Store. Both keep it up to date for you.",
 };
 
 export const revalidate = 3600; // ISR hourly
@@ -21,7 +19,7 @@ export default async function DownloadPage({
 }: {
   searchParams: Promise<{ code?: string }>;
 }) {
-  const [release, { code }] = await Promise.all([getLatestRelease(), searchParams]);
+  const { code } = await searchParams;
   // Carried over from /join/<code> when the invite found nothing installed.
   // Desktop has no install-referrer, so the code cannot survive the installer -
   // showing it here is what lets somebody write it down before they leave.
@@ -32,15 +30,15 @@ export default async function DownloadPage({
       <PageHead
         titleClassName="text-[clamp(2.75rem,7vw,5.5rem)]"
         gridClassName="lg:grid-cols-[1fr_480px] items-center"
-        eyebrow={<>Take your seat{release.version && ` · v${release.version}`}</>}
+        eyebrow={"Take your seat"}
         title={
           <>
-            One install.
+            One tap.
             <br />
             Then you&apos;re in.
           </>
         }
-        lede="A native desktop app: hardware-accelerated playback, no bloat, and it updates itself quietly between shows."
+        lede="Straight from the store: hardware-accelerated playback, no bloat, and the store keeps it up to date between shows."
         aside={
           inviteCode ? (
             <div className="space-y-4 pt-12 lg:pt-0">
@@ -59,7 +57,7 @@ export default async function DownloadPage({
                     Install, then join with this code.
                   </p>
                   <p className="mt-3 text-xs sm:text-sm text-[#5A4F44]">
-                    It won&apos;t follow you through the installer.
+                    It won&apos;t follow you through the store.
                   </p>
                 </Ticket>
                 {/* Overhangs the top edge, left of the perforation, clear of the copy. */}
@@ -74,38 +72,25 @@ export default async function DownloadPage({
               </div>
               <DownloadInviteActions code={inviteCode} />
             </div>
-          ) : release.version ? (
-            <Link
-              href="/changelog"
-              className="group block border-l-2 border-beam-500 pl-5 py-1 space-y-1.5"
-            >
-              <span className={`${mono} block text-[11px] tracking-[0.16em] uppercase text-gray-500`}>Now showing</span>
-              <span className={`${display} block text-xl font-extrabold tracking-[-0.02em] text-white`}>
-                {(release.name || `v${release.version}`).replace(/^SyncTogether\s+/, "")}
-              </span>
-              <span className="block text-sm text-gray-400 group-hover:text-white transition-colors">
-                What&apos;s new in this release →
-              </span>
-            </Link>
           ) : undefined
         }
       />
 
-      <DownloadDoors version={release.version} macSizeMb={release.macSizeMb} winSizeMb={release.winSizeMb} />
+      <DownloadDoors />
 
       <section className="grid md:grid-cols-3 gap-8 md:gap-10">
         {[
           {
-            label: "Signed & notarized",
-            body: "Apple Developer ID on the Mac, a signed installer on Windows. No scary warnings.",
+            label: "Store-verified",
+            body: "Reviewed and signed by the store. No scary warnings, no installer to hunt down.",
           },
           {
             label: "Updates itself",
-            body: "New versions download in the background and install from the lobby, never mid-film.",
+            body: "The store installs new versions in the background, never mid-film.",
           },
           {
             label: "In rehearsal",
-            body: "iPhone, iPad and Android are on the way. Big screens first.",
+            body: "Android is on the way. iPhone and iPad are already on the App Store.",
             live: true,
           },
         ].map(({ label, body, live }) => (

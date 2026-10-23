@@ -65,12 +65,6 @@ export default function PrivacyPage() {
       privacyUrl: "https://www.oracle.com/legal/privacy/",
     },
     {
-      name: "Creem (Armitage Labs OÜ)",
-      purpose: "Authorized Merchant of Record (MoR) handling payment processing, billing subscriptions, invoices, and sales tax / VAT compliance.",
-      location: "Estonia / European Union",
-      privacyUrl: "https://www.creem.io/privacy-policy",
-    },
-    {
       name: "Functional Software, Inc. (Sentry)",
       purpose: "Application stability monitoring, crash reporting, and diagnostics telemetry (error stack traces and OS versions).",
       location: "United States",
@@ -197,10 +191,10 @@ export default function PrivacyPage() {
             <div className="p-5 rounded-xl bg-white/[0.02] border border-white/5 space-y-2.5">
               <strong className="text-white text-base block">D. Payment &amp; Subscription Information</strong>
               <p className="text-gray-400">
-                Premium subscription payments are processed directly by our authorized Merchant of Record, <strong>Creem (Armitage Labs OÜ)</strong>. Creem handles all card and wallet transactions.
+                Premium subscription payments are processed by the store you buy from (Apple&apos;s App Store, or the Microsoft Store). The store handles all card and wallet transactions.
               </p>
               <p className="text-gray-400">
-                <strong>SyncTogether never sees, processes, or stores your credit card numbers, CVVs, or bank account details.</strong> We receive only billing status confirmations, subscription tier flags, transaction IDs, and renewal timestamps from Creem via verified webhooks.
+                <strong>SyncTogether never sees, processes, or stores your credit card numbers, CVVs, or bank account details.</strong> We receive only purchase confirmations, subscription tier flags, transaction IDs, and renewal timestamps from the store.
               </p>
             </div>
 
@@ -211,7 +205,7 @@ export default function PrivacyPage() {
                   <strong className="text-gray-200">Crash Reporting (Sentry):</strong> If an unexpected application failure occurs, Sentry captures stack traces, operating system version, app version, and breadcrumb execution context to assist our engineering team in resolving bugs.
                 </li>
                 <li>
-                  <strong className="text-gray-200">Product Analytics (PostHog):</strong> We collect aggregated feature engagement metrics (e.g. room creation, sync latency, upgrade flows). <strong>You can opt out of analytics at any time</strong> with a single toggle in the desktop app under <em>Profile &rarr; &ldquo;Share usage data&rdquo;</em>. Opting out immediately stops all analytics event collection.
+                  <strong className="text-gray-200">Product Analytics (PostHog):</strong> We collect aggregated feature engagement metrics (e.g. room creation, sync latency, upgrade flows). Your analytics profile carries only coarse labels: your plan (guest, free or premium), how you signed in, your platform and the app version. It never carries your name, email or anything you watch. <strong>You can opt out of analytics at any time</strong> with a single toggle in the desktop app under <em>Profile &rarr; &ldquo;Share usage data&rdquo;</em>. Opting out immediately stops all analytics event collection.
                 </li>
                 <li>
                   <strong className="text-gray-200">Web Analytics (Vercel Analytics):</strong> Our marketing website uses privacy-friendly Vercel Analytics to measure page view volume without tracking individual users or using invasive cookies.
@@ -417,7 +411,7 @@ export default function PrivacyPage() {
                 <strong className="text-gray-200">Consent (Art. 6(1)(a) GDPR):</strong> For optional product analytics via PostHog (which can be toggled off at any time).
               </li>
               <li>
-                <strong className="text-gray-200">Legal Obligation (Art. 6(1)(c) GDPR):</strong> To comply with applicable tax, financial, and regulatory requirements via our Merchant of Record.
+                <strong className="text-gray-200">Legal Obligation (Art. 6(1)(c) GDPR):</strong> To comply with applicable tax, financial, and regulatory requirements via the stores that sell Premium.
               </li>
             </ul>
           </div>
@@ -498,7 +492,7 @@ export default function PrivacyPage() {
               <div className="p-4 sm:p-5 rounded-xl bg-white/[0.02] border border-white/5 space-y-1.5">
                 <strong className="text-white block font-semibold text-base">Billing &amp; Tax Records</strong>
                 <p className="text-gray-400">
-                  Retained by our Merchant of Record (Creem) in accordance with statutory financial, tax, and accounting compliance requirements (typically 5 to 7 years).
+                  Retained by the store you bought from (Apple or Microsoft) in accordance with statutory financial, tax, and accounting compliance requirements (typically 5 to 7 years).
                 </p>
               </div>
             </div>

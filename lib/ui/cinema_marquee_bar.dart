@@ -176,7 +176,7 @@ class _WindowsCaptionButtonsState extends State<WindowsCaptionButtons> with Wind
               await windowManager.minimize();
             } catch (_) {}
           },
-          icon: Container(width: 10, height: 1.2, color: PTColors.fgDim),
+          icon: const _CaptionGlyph(''),
         ),
         _CaptionButton(
           tooltip: _isMaximized ? 'Restore' : 'Maximize',
@@ -189,16 +189,7 @@ class _WindowsCaptionButtonsState extends State<WindowsCaptionButtons> with Wind
               }
             } catch (_) {}
           },
-          icon: _isMaximized
-              ? CustomPaint(
-                  size: const Size(10, 10),
-                  painter: const _RestoreIconPainter(color: PTColors.fgDim),
-                )
-              : Container(
-                  width: 10,
-                  height: 10,
-                  decoration: BoxDecoration(border: Border.all(color: PTColors.fgDim, width: 1.2)),
-                ),
+          icon: _CaptionGlyph(_isMaximized ? '' : ''),
         ),
         _CaptionButton(
           tooltip: 'Close',
@@ -208,7 +199,7 @@ class _WindowsCaptionButtonsState extends State<WindowsCaptionButtons> with Wind
               await windowManager.close();
             } catch (_) {}
           },
-          icon: const Icon(Icons.close_rounded, size: 14, color: PTColors.fgDim),
+          icon: const _CaptionGlyph(''),
         ),
       ],
     );
@@ -256,7 +247,7 @@ class _CaptionButtonState extends State<_CaptionButton> {
             color: bg,
             alignment: .center,
             child: widget.isClose && _hovered
-                ? const Icon(Icons.close_rounded, size: 14, color: Colors.white)
+                ? const _CaptionGlyph('', color: Colors.white)
                 : widget.icon,
           ),
         ),
@@ -265,24 +256,25 @@ class _CaptionButtonState extends State<_CaptionButton> {
   }
 }
 
-class _RestoreIconPainter extends CustomPainter {
-  const _RestoreIconPainter({required this.color});
+/// A caption-button glyph from the system icon font, exactly what native
+/// Windows title bars draw (Segoe Fluent Icons on 11, MDL2 Assets on 10).
+class _CaptionGlyph extends StatelessWidget {
+  const _CaptionGlyph(this.glyph, {this.color = PTColors.fgDim});
 
+  final String glyph;
   final Color color;
 
   @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = color
-      ..style = .stroke
-      ..strokeWidth = 1.0;
-
-    // Back square (offset up and right)
-    canvas.drawRect(Rect.fromLTWH(2, 0, size.width - 2, size.height - 2), paint);
-    // Front square (bottom left)
-    canvas.drawRect(Rect.fromLTWH(0, 2, size.width - 2, size.height - 2), paint);
+  Widget build(BuildContext context) {
+    return Text(
+      glyph,
+      style: TextStyle(
+        fontFamily: 'Segoe Fluent Icons',
+        fontFamilyFallback: const ['Segoe MDL2 Assets'],
+        fontSize: 10,
+        color: color,
+        height: 1,
+      ),
+    );
   }
-
-  @override
-  bool shouldRepaint(covariant _RestoreIconPainter oldDelegate) => oldDelegate.color != color;
 }

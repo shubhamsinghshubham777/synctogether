@@ -7,8 +7,8 @@ const _desktopPlatforms = {TargetPlatform.macOS, TargetPlatform.windows, TargetP
 bool get isDesktop => !kIsWeb && _desktopPlatforms.contains(defaultTargetPlatform);
 
 /// True when built with `--dart-define=STORE_BUILD=true` (e.g. for Microsoft Store).
-/// In-app updates must be disabled for store distributions because the store
-/// manages background updates directly.
+/// Every desktop and mobile release now ships through a store, which also
+/// manages updates.
 const isStoreBuild = bool.fromEnvironment('STORE_BUILD', defaultValue: false);
 
 /// True for the Mac App Store build (`--dart-define=STORE_BUILD=true`) and for
@@ -32,10 +32,22 @@ bool get isAppleStoreBuild =>
 bool get isGooglePlayBuild =>
     !kIsWeb && isStoreBuild && defaultTargetPlatform == TargetPlatform.android;
 
+/// True for the Microsoft Store build (`STORE_BUILD=true` on Windows), the only
+/// Windows build that can sell: purchases go through Windows.Services.Store,
+/// which only works in a packaged (MSIX) app.
+bool get isMicrosoftStoreBuild =>
+    !kIsWeb && isStoreBuild && defaultTargetPlatform == TargetPlatform.windows;
+
 /// Whether this build may show any Premium upsell. Apple builds sell through
-/// StoreKit and every other build through the web seller of record, except Google Play. Signing
-/// a guest in is not a sale, so guest sign-in prompts never check this.
-bool get canSellPremium => !isGooglePlayBuild;
+/// StoreKit and the Microsoft Store build through Windows.Services.Store; there
+/// is no web checkout and Google Play stays consumption-only, so every other build shows no
+/// price, offer or link. Premium bought on any rail unlocks everywhere.
+/// Signing a guest in is not a sale, so guest sign-in prompts never check this.
+bool get canSellPremium => canSellPremiumOverride ?? (isAppleStoreBuild || isMicrosoftStoreBuild);
+
+/// Lets a test stand in for an Apple build, which a `flutter test` host never is.
+@visibleForTesting
+bool? canSellPremiumOverride;
 
 /// Whether WebViews should be served content via a loopback [HttpServer].
 ///
@@ -49,8 +61,3 @@ bool get canSellPremium => !isGooglePlayBuild;
 /// origin-sensitive content like Turnstile).
 bool get useLoopbackServer =>
     kIsWeb || !isStoreBuild || defaultTargetPlatform != TargetPlatform.macOS;
-
-const _selfUpdatePlatforms = {TargetPlatform.macOS, TargetPlatform.windows};
-
-bool get supportsSelfUpdate =>
-    !kIsWeb && !isStoreBuild && _selfUpdatePlatforms.contains(defaultTargetPlatform);

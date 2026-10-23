@@ -24,7 +24,7 @@ upstream 1.x; diff against the pub package to see exactly that.
 mpv 0.36, and building one means pinning every 2023 dependency of a
 toolchain that tracks upstream HEAD. The Windows archive is mirrored on our own
 release `deps-libmpv-win-20261011` (a pre-release; it must never be marked
-"latest", because the self-updater reads `releases/latest`), since upstream
+"latest", so it never becomes the repo's latest release), since upstream
 deletes builds after about a month.
 
 ## The contract

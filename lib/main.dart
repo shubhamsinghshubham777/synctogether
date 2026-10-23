@@ -17,6 +17,7 @@ import 'package:synctogether/mock/mock_dependencies.dart';
 import 'package:synctogether/mock/store_capture.dart';
 import 'package:synctogether/platform.dart';
 import 'package:synctogether/profile/apple_iap_service.dart';
+import 'package:synctogether/profile/microsoft_iap_service.dart';
 import 'package:synctogether/rewards/rewards_models.dart';
 import 'package:synctogether/rewards/rewards_service.dart';
 import 'package:synctogether/rewards/unlock_log.dart';
@@ -24,7 +25,6 @@ import 'package:synctogether/rewards/widgets/unlock_toast.dart';
 import 'package:synctogether/rooms/room_models.dart';
 import 'package:synctogether/rooms/room_service.dart';
 import 'package:synctogether/tls.dart';
-import 'package:synctogether/updates/update_service.dart';
 import 'package:synctogether/ui/banners.dart';
 import 'package:synctogether/ui/pt_theme.dart';
 import 'package:synctogether/av/livekit_service.dart' show isTransientAvError;
@@ -118,8 +118,8 @@ Future<void> _bootstrap() async {
   // the auth stream has an error handler before the first deep link can land.
   AuthService.instance.start();
   AppleIapService.instance.start();
+  MicrosoftIapService.instance.start();
   runApp(const MainApp());
-  if (supportsSelfUpdate) unawaited(UpdateService.instance.checkForUpdate());
 }
 
 class MainApp extends StatefulWidget {

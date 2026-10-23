@@ -1,42 +1,14 @@
 "use client";
 
-import { Suspense, useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
+import Link from "next/link";
 import { Ticket } from "@/components/Ticket";
 import { Headline, Stamp, Warming, display, mono } from "@/components/booth/Booth";
-import { AccountPatronOffer } from "./AccountPatronOffer";
 import { createClient } from "@/lib/supabase/client";
-import { PROVIDER_LABELS } from "@/lib/billing/labels";
 import type { User } from "@supabase/supabase-js";
-import confetti from "canvas-confetti";
-
-const CONFETTI_COLORS = ["#FFB23F", "#FFC266", "#FBBF24", "#6FD6C4", "#F1E9DD"];
-
-/**
- * A page-wide celebration: one big opening burst, then two cannons firing
- * inward from the bottom corners for ~2.5 s. It is skipped entirely under
- * reduced motion, and bounded in time and particle count so it stays cheap.
- */
-function celebrate() {
-  if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
-
-  const base = { colors: CONFETTI_COLORS, zIndex: 100, disableForReducedMotion: true };
-  confetti({ ...base, particleCount: 160, spread: 100, startVelocity: 55, origin: { x: 0.5, y: 0.7 } });
-
-  const end = Date.now() + 2500;
-  (function frame() {
-    confetti({ ...base, particleCount: 4, angle: 60, spread: 60, startVelocity: 65, origin: { x: 0, y: 1 } });
-    confetti({ ...base, particleCount: 4, angle: 120, spread: 60, startVelocity: 65, origin: { x: 1, y: 1 } });
-    if (Date.now() < end) requestAnimationFrame(frame);
-  })();
-}
-import {
-  CheckCircle2,
-  RefreshCw,
-  AlertCircle,
-  X,
-} from "lucide-react";
+import { RefreshCw, AlertCircle, X } from "lucide-react";
 
 interface EntitlementData {
   tier: "guest" | "free" | "premium";
@@ -48,6 +20,8 @@ interface EntitlementData {
   persistent_room_cap: number;
   dormant_hours: number;
 }
+
+const SOURCE_LABELS: Record<string, string> = { apple: "App Store", microsoft: "Microsoft Store", manual: "Granted", debug: "Granted" };
 
 interface SubscriptionData {
   tier: string;
@@ -61,16 +35,11 @@ function AccountDashboard() {
   const [entitlement, setEntitlement] = useState<EntitlementData | null>(null);
   const [subscription, setSubscription] = useState<SubscriptionData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [verifying, setVerifying] = useState(false);
-  const [isCancelling, setIsCancelling] = useState(false);
-  const [cancelsAt, setCancelsAt] = useState<string | null>(null);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const celebratedRef = useRef(false);
 
   const router = useRouter();
   const searchParams = useSearchParams();
-  const isSubscribedRedirect = searchParams.get("subscribed") === "true";
   // Pulled out as primitives so the loader below depends on the two params it
   // actually reads, rather than on the whole searchParams object - which would
   // re-run the account fetch and re-open the realtime channel on any query
@@ -237,110 +206,6 @@ function AccountDashboard() {
     };
   }, [router, supabase, errorDescriptionParam, errorParam]);
 
-  useEffect(() => {
-    if (!isSubscribedRedirect) return;
-
-    let ignore = false;
-    async function fulfill() {
-      setVerifying(true);
-      try {
-        // Creem appends `checkout_id` to the success URL; the fulfil fallback
-        // uses it to find the subscription before the webhook has landed.
-        const checkoutId = new URLSearchParams(window.location.search).get("checkout_id");
-        const res = await fetch(
-          `/api/billing/fulfill${checkoutId ? `?checkout_id=${encodeURIComponent(checkoutId)}` : ""}`,
-          { method: "POST" }
-        );
-        let newSub: SubscriptionData | null = null;
-        if (res.ok) {
-          const data = await res.json();
-          if (data.subscription && !ignore) {
-            newSub = data.subscription;
-            setSubscription(data.subscription);
-          }
-        }
-        const { data: entData } = await supabase.rpc("my_entitlement");
-        let activeTier = "free";
-        if (entData && !ignore) {
-          const ent = Array.isArray(entData) ? entData[0] : entData;
-          setEntitlement(ent);
-          activeTier = ent?.tier || "free";
-        }
-
-        const isVerifiedPremium = activeTier === "premium" || newSub?.tier === "premium";
-
-        if (isVerifiedPremium) {
-          if (!celebratedRef.current) {
-            celebratedRef.current = true;
-            try {
-              celebrate();
-            } catch {
-              // ignore confetti errors
-            }
-          }
-        } else {
-          // False-positive or unverified redirect - strip the query param quietly
-          router.replace("/account");
-        }
-      } catch (err) {
-        console.error("Fulfillment check failed:", err);
-        router.replace("/account");
-      } finally {
-        if (!ignore) {
-          setVerifying(false);
-        }
-      }
-    }
-
-    fulfill();
-
-    return () => {
-      ignore = true;
-    };
-  }, [isSubscribedRedirect, router, supabase]);
-
-  const handleCancelSubscription = async () => {
-    if (
-      !window.confirm(
-        "Cancel your Premium subscription? You keep Premium until the end of the period you have already paid for, and you will not be billed again."
-      )
-    ) {
-      return;
-    }
-    setIsCancelling(true);
-    try {
-      const res = await fetch("/api/billing/cancel", { method: "POST" });
-      const body = await res.json().catch(() => null);
-      if (res.ok) {
-        // Cancellation is scheduled at the next billing period, so the
-        // subscription is still live and must keep rendering as such -
-        // clearing it here showed the Free tier immediately and a reload then
-        // contradicted it.
-        if (body?.scheduled) {
-          setCancelsAt(body.cancelsAt ?? subscription?.current_period_end ?? null);
-        } else {
-          setSubscription(null);
-        }
-        const { data: entData } = await supabase.rpc("my_entitlement");
-        if (entData) {
-          const ent = Array.isArray(entData) ? entData[0] : entData;
-          setEntitlement(ent);
-        }
-      } else if (body?.error === "subscription_unlinked") {
-        alert(
-          "We could not find the billing record for this subscription. Please contact support so we can stop the billing for you."
-        );
-      } else {
-        alert("Failed to cancel subscription. Please contact support.");
-      }
-    } catch (err) {
-      console.error("Cancellation error:", err);
-      alert("An error occurred while canceling. Please try again.");
-    } finally {
-      setIsCancelling(false);
-    }
-  };
-
   const handleSignOut = async () => {
     setIsLoggingOut(true);
     await supabase.auth.signOut();
@@ -389,14 +254,12 @@ function AccountDashboard() {
     entitlement?.av_level === "video" ? "Voice + video" : entitlement?.av_level === "voice" ? "Voice" : "None";
   const persistent =
     (entitlement?.persistent_room_cap ?? 0) > 0 ? `${entitlement?.persistent_room_cap}` : "0 (24h to resume)";
-  const patronUntil = subscription?.current_period_end
-    ? formatDate(cancelsAt ?? subscription.current_period_end)
-    : null;
-  // Only a seller-of-record subscription renews; a manual or debug grant simply ends.
+  const patronUntil = subscription?.current_period_end ? formatDate(subscription.current_period_end) : null;
+  // Only a store subscription renews; a manual or debug grant simply ends.
   const billed = Boolean(subscription?.source) && subscription?.source !== "manual" && subscription?.source !== "debug";
-  const nextCharge = billed && !cancelsAt && subscription?.current_period_end ? formatDate(subscription.current_period_end) : null;
+  const nextCharge = billed && subscription?.current_period_end ? formatDate(subscription.current_period_end) : null;
   const paidWith = subscription?.source
-    ? PROVIDER_LABELS[subscription.source] ??
+    ? SOURCE_LABELS[subscription.source] ??
       subscription.source.charAt(0).toUpperCase() + subscription.source.slice(1)
     : null;
   const memberSince = user?.created_at
@@ -407,7 +270,7 @@ function AccountDashboard() {
     provider === "google" ? "Google" : provider === "apple" ? "Apple" : provider === "email" ? "email" : null;
   const seasonYear = new Date().getFullYear();
 
-  const errorBanners = (errorMsg || (isSubscribedRedirect && (verifying || isPremium))) && (
+  const errorBanners = errorMsg && (
     <div className="space-y-3 mb-10">
       {errorMsg && (
         <div
@@ -432,31 +295,6 @@ function AccountDashboard() {
         </div>
       )}
 
-      {isSubscribedRedirect && verifying && !isPremium && (
-        <div role="status" className="booth-rise border-l-2 border-beam-500 bg-seat pl-5 pr-4 py-4 flex items-center gap-3">
-          <RefreshCw className="w-5 h-5 text-beam-500 animate-spin shrink-0" />
-          <div>
-            <p className={`${display} text-lg font-extrabold tracking-[-0.02em] text-white`}>
-              Checking your ticket with the box office…
-            </p>
-            <p className="text-sm text-gray-400">
-              Confirming your upgrade and activating your account benefits.
-            </p>
-          </div>
-        </div>
-      )}
-
-      {isSubscribedRedirect && isPremium && (
-        <div role="status" className="booth-rise border-l-2 border-brass bg-seat pl-5 pr-4 py-4 flex items-center gap-3">
-          <CheckCircle2 className="w-6 h-6 text-brass shrink-0" />
-          <div>
-            <p className={`${display} text-lg font-extrabold tracking-[-0.02em] text-white`}>
-              Welcome to the Patron seats.
-            </p>
-            <p className="text-sm text-gray-400">Your subscription is active. Every Patron perk is on your account.</p>
-          </div>
-        </div>
-      )}
     </div>
   );
 
@@ -556,7 +394,7 @@ function AccountDashboard() {
               <div className="flex items-center justify-between gap-4">
                 <div className="min-w-0">
                   <p className={`${mono} text-[10px] sm:text-[11px] tracking-[0.16em] uppercase text-[#6B5F52]`}>
-                    Your seat{isPremium && cancelsAt ? " · cancelled, still valid" : ""}
+                    Your seat
                   </p>
                   <h2
                     id="plan-heading"
@@ -567,7 +405,7 @@ function AccountDashboard() {
                   <p className="mt-2.5 text-sm text-[#5A4F44]">
                     {isPremium
                       ? patronUntil
-                        ? `${cancelsAt ? "Patron until" : "Renews"} ${patronUntil}`
+                        ? `${billed ? "Renews" : "Patron until"} ${patronUntil}`
                         : "Patron seat"
                       : memberSince
                       ? `Member since ${memberSince}`
@@ -579,7 +417,7 @@ function AccountDashboard() {
                     top="SEASON"
                     main="PATRON"
                     bottom={String(seasonYear)}
-                    tone={cancelsAt ? "ink" : "brass"}
+                    tone="brass"
                     shape="round"
                     tilt={-8}
                     className="!hidden sm:!inline-flex shrink-0 !w-24 !h-24 [&>span:nth-child(2)]:!text-xl !text-[#7A5A1E] !border-[#7A5A1E]"
@@ -643,9 +481,7 @@ function AccountDashboard() {
               <div className="bg-seat border border-rail rounded-[6px] p-6 sm:p-7">
                 <div className="flex items-center justify-between gap-3 mb-3">
                   <p className={kicker}>Subscription</p>
-                  <p className={`${mono} text-[11px] tracking-[0.14em] uppercase ${cancelsAt ? "text-signal" : "text-cue"}`}>
-                    ● {cancelsAt ? "Cancelled" : "Active"}
-                  </p>
+                  <p className={`${mono} text-[11px] tracking-[0.14em] uppercase text-cue`}>● Active</p>
                 </div>
                 <ul>
                   {[
@@ -661,25 +497,9 @@ function AccountDashboard() {
                       </li>
                     ))}
                 </ul>
-                <button
-                  onClick={handleCancelSubscription}
-                  disabled={isCancelling || cancelsAt !== null}
-                  className="mt-6 w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-[4px] text-signal text-[15px] font-semibold border border-signal hover:bg-signal/10 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {isCancelling ? (
-                    <>
-                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                      <span>Cancelling...</span>
-                    </>
-                  ) : (
-                    <span>{cancelsAt ? "Cancellation scheduled" : "Cancel subscription"}</span>
-                  )}
-                </button>
-                <p className="mt-4 text-[13px] text-gray-500 leading-relaxed">
-                  {cancelsAt
-                    ? "Cancelled. You keep Premium until the date above and won't be billed again."
-                    : billed
-                    ? "Renews on the date above. Cancel and you keep Premium until then. Update a card from the link in your receipt email."
+                <p className="mt-6 text-[13px] text-gray-500 leading-relaxed">
+                  {billed
+                    ? "Subscriptions are bought, renewed and cancelled in the store you bought them from: App Store settings on an Apple device, or your Microsoft account. The store also handles refunds."
                     : "Nothing renews. This seat was granted, not bought, and ends on the date above."}{" "}
                   <a
                     href="mailto:support@synctogether.app?subject=Subscription%20Support"
@@ -697,7 +517,18 @@ function AccountDashboard() {
               </div>
             </>
           ) : (
-            <AccountPatronOffer />
+            <div className="bg-seat border border-rail rounded-[6px] p-6 sm:p-7">
+              <p className={`${kicker} mb-3`}>Become a Patron</p>
+              <p className="text-[15px] text-gray-300 leading-relaxed">
+                Premium is bought inside the SyncTogether app from the App Store or the Microsoft Store, and it unlocks on every device you sign in on.
+              </p>
+              <Link
+                href="/download"
+                className="mt-5 inline-flex w-full items-center justify-center rounded-[4px] border border-[#6B5A2E] px-4 py-3 text-[15px] font-semibold text-brass transition-colors hover:bg-white/5"
+              >
+                Get the app
+              </Link>
+            </div>
           )}
         </aside>
       </div>

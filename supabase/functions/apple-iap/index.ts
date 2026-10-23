@@ -96,8 +96,11 @@ function checkEnvironment(env: unknown): string | null {
 }
 
 const decodeTransaction = (jws: string) =>
-  decode<AppleTransaction>(jws, "transaction", (tx) =>
-    tx.bundleId !== bundleId ? `bundle ${tx.bundleId}` : checkEnvironment(tx.environment));
+  decode<AppleTransaction>(
+    jws,
+    "transaction",
+    (tx) => tx.bundleId !== bundleId ? `bundle ${tx.bundleId}` : checkEnvironment(tx.environment),
+  );
 
 const decodeRenewal = (jws: string) => decode<AppleRenewalInfo>(jws, "renewal info", () => null);
 
@@ -111,8 +114,7 @@ const decodeNotification = (jws: string) =>
     return checkEnvironment(n.data?.environment);
   });
 
-const admin = () =>
-  createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+const admin = () => createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
 type Outcome = "applied" | "stale" | "owned_elsewhere" | "unbound";
 

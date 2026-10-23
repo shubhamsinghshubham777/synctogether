@@ -13,9 +13,8 @@ interface PlanCardProps {
   ctaText: string;
   isPopular?: boolean;
   isPremium?: boolean;
-  isLoading?: boolean;
   className?: string;
-  onSelect: () => void;
+  href: string;
 }
 
 const display = "font-[family-name:var(--font-space-grotesk)]";
@@ -38,9 +37,8 @@ export function PlanCard({
   ctaText,
   isPopular = false,
   isPremium = false,
-  isLoading = false,
   className = "",
-  onSelect,
+  href,
 }: PlanCardProps) {
   const tone = isPremium ? "text-brass" : isPopular ? "text-beam-500" : "text-gray-500";
   const rule = isPremium ? "border-t-brass" : isPopular ? "border-t-beam-500" : "border-t-rail";
@@ -86,8 +84,7 @@ export function PlanCard({
         className={`w-full !h-12 !rounded-[4px] !text-[15px] !font-semibold ${
           isPremium ? "!text-brass !border-[#6B5A2E]" : isPopular ? "" : "!border-[#5A4F44]"
         }`}
-        isLoading={isLoading}
-        onClick={onSelect}
+        href={href}
       >
         {ctaText}
       </PTButton>

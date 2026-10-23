@@ -75,6 +75,42 @@ jobs:
       publish_to_store: true
     secrets: inherit
 
+  tag:
+    name: Tag the built commit
+    needs: [ tests, microsoft-store, mac-app-store, ios-app-store ]
+    # At least one store job succeeded and none failed. `needs.*.result` cannot be
+    # used here: `tests` is in it and always succeeds, which tagged runs where
+    # every store was skipped.
+    if: ${{ always() && needs.tests.result == 'success' && (needs.microsoft-store.result == 'success' || needs.mac-app-store.result == 'success' || needs.ios-app-store.result == 'success') && needs.microsoft-store.result != 'failure' && needs.mac-app-store.result != 'failure' && needs.ios-app-store.result != 'failure' && needs.microsoft-store.result != 'cancelled' && needs.mac-app-store.result != 'cancelled' && needs.ios-app-store.result != 'cancelled' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Read the app version
+        id: version
+        run: |
+          VERSION=$(grep '^version:' pubspec.yaml | sed -E 's/version: *([0-9.]+).*/\1/')
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+      - name: Tag the built commit
+        env:
+          TAG: "v${{ steps.version.outputs.version }}"
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          if git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null 2>&1; then
+            echo "Tag $TAG already exists on origin, leaving it alone."
+          else
+            # The REST API, not `git push`: a git push of a ref is refused with
+            # "refusing to allow a GitHub App to create or update workflow ...
+            # without `workflows` permission" whenever the pushed history touches
+            # a workflow file, and GITHUB_TOKEN can never hold that permission.
+            gh api -X POST "repos/${{ github.repository }}/git/refs" \
+              -f ref="refs/tags/$TAG" -f sha="${{ github.sha }}" >/dev/null
+            echo "Tagged ${{ github.sha }} as $TAG."
+          fi
+
   summary:
     name: Store Release Summary
     runs-on: ubuntu-latest
@@ -86,29 +122,29 @@ jobs:
         run: |
           echo "### Desktop App Stores Release Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "| Target Store | Platform | Artifact Format | In-App Updater | Status |" >> $GITHUB_STEP_SUMMARY
-          echo "|---|---|---|---|---|" >> $GITHUB_STEP_SUMMARY
+          echo "| Target Store | Platform | Artifact Format | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|---|---|---|---|" >> $GITHUB_STEP_SUMMARY
 
           MS_STATUS="${{ needs.microsoft-store.result }}"
           MAS_STATUS="${{ needs.mac-app-store.result }}"
 
           if [ "${{ inputs.publish_to_microsoft_store }}" = "true" ]; then
-            echo "| Microsoft Store | Windows (x64) | MSIX | Disabled (STORE_BUILD) | $MS_STATUS |" >> $GITHUB_STEP_SUMMARY
+            echo "| Microsoft Store | Windows (x64) | MSIX | $MS_STATUS |" >> $GITHUB_STEP_SUMMARY
           else
-            echo "| Microsoft Store | Windows (x64) | MSIX | Disabled (STORE_BUILD) | Skipped |" >> $GITHUB_STEP_SUMMARY
+            echo "| Microsoft Store | Windows (x64) | MSIX | Skipped |" >> $GITHUB_STEP_SUMMARY
           fi
 
           if [ "${{ inputs.publish_to_mac_app_store }}" = "true" ]; then
-            echo "| Mac App Store | macOS (Universal/x64/arm64) | PKG (Sandboxed) | Disabled (STORE_BUILD) | $MAS_STATUS |" >> $GITHUB_STEP_SUMMARY
+            echo "| Mac App Store | macOS (Universal/x64/arm64) | PKG (Sandboxed) | $MAS_STATUS |" >> $GITHUB_STEP_SUMMARY
           else
-            echo "| Mac App Store | macOS (Universal/x64/arm64) | PKG (Sandboxed) | Disabled (STORE_BUILD) | Skipped |" >> $GITHUB_STEP_SUMMARY
+            echo "| Mac App Store | macOS (Universal/x64/arm64) | PKG (Sandboxed) | Skipped |" >> $GITHUB_STEP_SUMMARY
           fi
 
           if [ "${{ inputs.publish_to_ios_app_store }}" = "true" ]; then
-            echo "| iOS App Store | iOS / iPadOS | IPA | N/A | ${{ needs.ios-app-store.result }} |" >> $GITHUB_STEP_SUMMARY
+            echo "| iOS App Store | iOS / iPadOS | IPA | ${{ needs.ios-app-store.result }} |" >> $GITHUB_STEP_SUMMARY
           else
-            echo "| iOS App Store | iOS / iPadOS | IPA | N/A | Skipped |" >> $GITHUB_STEP_SUMMARY
+            echo "| iOS App Store | iOS / iPadOS | IPA | Skipped |" >> $GITHUB_STEP_SUMMARY
           fi
 
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "Store-only desktop builds run without the in-app updater and rely solely on platform store update mechanisms." >> $GITHUB_STEP_SUMMARY
+          echo "Every build ships through a store, which also delivers updates." >> $GITHUB_STEP_SUMMARY

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:synctogether/analytics.dart';
 import 'package:synctogether/diagnostics.dart';
 import 'package:synctogether/rooms/room_models.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -21,12 +22,12 @@ class PremiumTerm {
 
   final DateTime until;
 
-  /// `web`, `apple` or `manual` - the rail whose date this is.
+  /// `web`, `apple`, `microsoft` or `manual` - the rail whose date this is.
   final String source;
   final bool? renews;
 }
 
-/// The rail a `subscriptions.source` belongs to. Any seller of record (Creem,
+/// The rail a `subscriptions.source` belongs to. Any legacy seller of record (Creem,
 /// whatever comes next) is `web`; the app never needs to know which.
 String _railOfSource(String? source) =>
     source == null || source == 'manual' || source == 'debug' ? 'manual' : 'web';
@@ -36,6 +37,7 @@ String _railOfSource(String? source) =>
 PremiumTerm? premiumTermFrom({
   Map<String, dynamic>? subscription,
   List<Map<String, dynamic>> apple = const [],
+  List<Map<String, dynamic>> microsoft = const [],
   required DateTime now,
 }) {
   final terms = <PremiumTerm>[];
@@ -50,6 +52,11 @@ PremiumTerm? premiumTermFrom({
     final until = DateTime.tryParse('${row['expires_at']}');
     if (row['revoked_at'] != null || until == null || !until.isAfter(now)) continue;
     terms.add(PremiumTerm(until: until, source: 'apple', renews: row['auto_renew'] as bool?));
+  }
+  for (final row in microsoft) {
+    final until = DateTime.tryParse('${row['expires_at']}');
+    if (row['revoked_at'] != null || until == null || !until.isAfter(now)) continue;
+    terms.add(PremiumTerm(until: until, source: 'microsoft', renews: row['auto_renew'] as bool?));
   }
   if (terms.isEmpty) return null;
   terms.sort((a, b) => b.until.compareTo(a.until));
@@ -181,6 +188,7 @@ class EntitlementService extends ChangeNotifier {
       _limits = TierLimits.fromJson(map);
       _premiumSources = _limits!.isPremium ? await _loadPremiumSources() : const {};
       _premiumTerm = _limits!.isPremium ? await _loadPremiumTerm(user.id) : null;
+      Analytics.instance.setPersonProperties({'tier': _limits!.tier});
       notifyListeners();
       return _limits;
     } catch (e, s) {
@@ -211,11 +219,18 @@ class EntitlementService extends ChangeNotifier {
             .from('apple_subscriptions')
             .select('expires_at, revoked_at, auto_renew')
             .eq('user_id', userId),
+        _client
+            .from('microsoft_subscriptions')
+            .select('expires_at, revoked_at, auto_renew')
+            .eq('user_id', userId),
       ]);
       return premiumTermFrom(
         subscription: (results[0] as Map?)?.cast<String, dynamic>(),
         apple: [
           for (final r in (results[1] as List? ?? const [])) (r as Map).cast<String, dynamic>(),
+        ],
+        microsoft: [
+          for (final r in (results[2] as List? ?? const [])) (r as Map).cast<String, dynamic>(),
         ],
         now: DateTime.now(),
       );
@@ -230,8 +245,13 @@ class EntitlementService extends ChangeNotifier {
     try {
       final channel = _client.channel('public:subscriptions:$userId');
       // Both rails: a web-billing webhook writes `subscriptions`, an App Store
-      // purchase or renewal writes `apple_subscriptions`.
-      for (final table in const ['subscriptions', 'apple_subscriptions']) {
+      // purchase or renewal writes `apple_subscriptions`, a Microsoft Store one
+      // `microsoft_subscriptions`.
+      for (final table in const [
+        'subscriptions',
+        'apple_subscriptions',
+        'microsoft_subscriptions',
+      ]) {
         channel.onPostgresChanges(
           event: PostgresChangeEvent.all,
           schema: 'public',

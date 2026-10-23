@@ -45,7 +45,3 @@ Completely wipes local database state, auth users, room sessions, and local stor
   netsh interface portproxy add v4tov4 listenport=3000 listenaddress=127.0.0.1 connectport=3000 connectaddress=10.211.55.2
   ```
 - The lobby wordmark renders `1.x.x · local` in warning amber when connected to the local stack.
-- To test web billing locally (Creem test mode) with Next.js, run:
-  ```bash
-  hookdeck listen 3000 synctogether-webhooks --path /api/billing/webhook/creem
-  ```

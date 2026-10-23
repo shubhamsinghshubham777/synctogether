@@ -2,23 +2,24 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { SITE_CONFIG } from "@/lib/constants";
 import { Mail, Check } from "lucide-react";
 import { PTButton } from "@/components/PTButton";
 import { useDesktopOS } from "./useDesktopOS";
 
 /**
  * The page's one lit button. `align="start"` for the hero column; centred
- * everywhere else. On phones it becomes "Copy the download link" - the app is
- * desktop-only, so the useful move is getting the link onto your computer.
+ * everywhere else. The lit button goes straight to the visitor's own store. On
+ * phones it becomes "Copy the download link" so the link can reach a computer.
  */
 export function DownloadCTA({ align = "center" }: { align?: "center" | "start" }) {
   const os = useDesktopOS();
   const isWindows = os === "windows";
   const [copied, setCopied] = useState(false);
 
-  const primaryLabel = isWindows ? "Get a free seat · Windows" : "Get a free seat · Mac";
-  const primaryHref = isWindows ? "/api/download?platform=windows" : "/api/download?platform=macos";
-  const secondaryLabel = isWindows ? "Also on macOS" : "Also on Windows";
+  const primaryLabel = isWindows ? "Get a free seat · Microsoft Store" : "Get a free seat · App Store";
+  const primaryHref = isWindows ? SITE_CONFIG.microsoftStoreUrl : SITE_CONFIG.appStoreUrl;
+  const secondaryLabel = isWindows ? "Also on Mac" : "Also on Windows";
 
   async function copyLink() {
     const url = `${window.location.origin}/download`;
@@ -60,7 +61,7 @@ export function DownloadCTA({ align = "center" }: { align?: "center" | "start" }
         <p className="text-[13px] leading-relaxed text-gray-400" aria-live="polite">
           {copied
             ? "Paste it anywhere you'll open on your computer."
-            : "It's a desktop app. Copy the link so it's waiting on your computer."}
+            : "Open it on your computer, or grab the app straight from your phone's store."}
         </p>
       </div>
 

@@ -6,6 +6,7 @@ import 'package:fast_file_picker/fast_file_picker.dart';
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/foundation.dart' show defaultTargetPlatform;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:go_router/go_router.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:path/path.dart' as p;
@@ -24,6 +25,7 @@ import 'package:synctogether/profile/profile_service.dart';
 import 'package:synctogether/profile/widgets/warning_dialog.dart';
 import 'package:synctogether/rooms/local_media_store.dart';
 import 'package:synctogether/rooms/media_sharing_service.dart';
+import 'package:synctogether/rooms/invite_clipboard.dart';
 import 'package:synctogether/rooms/room_models.dart';
 import 'package:synctogether/rewards/rewards_logic.dart';
 import 'package:synctogether/rewards/rewards_service.dart';
@@ -1334,12 +1336,35 @@ class _LobbyScreenState extends State<LobbyScreen> with WindowListener {
           loading: _joining,
           onPressed: _joining ? null : () => _join(_code),
         ),
+        TextButton(
+          onPressed: _joining ? null : _joinFromClipboard,
+          child: const Text('Paste invite'),
+        ),
         Text(
-          'Got an invite link instead? It opens the room by itself.',
+          'Got an invite link instead? It opens the room by itself, or paste it here.',
           style: PTText.caption.copyWith(fontSize: 12, color: PTColors.white(0.45)),
         ),
       ],
     );
+  }
+
+  /// Reads the clipboard only because the user pressed the button - never on
+  /// launch, which would trip the OS clipboard prompt and read as snooping.
+  /// The web invite page copies the link on its Download button, so this is how
+  /// an invite survives the store install.
+  Future<void> _joinFromClipboard() async {
+    final text = (await Clipboard.getData(Clipboard.kTextPlain))?.text;
+    final code = inviteCodeFromClipboard(text);
+    if (code == null) {
+      if (mounted) _snack("Hmm, there's no invite on your clipboard. Copy the link and try again.");
+      return;
+    }
+    trace('joining from a pasted invite', category: 'deeplink');
+    await _join(code, via: .clipboard);
+    // Tidy up only our own invite; never wipe something the user copied since.
+    if ((await Clipboard.getData(Clipboard.kTextPlain))?.text == text) {
+      await Clipboard.setData(const ClipboardData(text: ''));
+    }
   }
 
   // ---------------------------------------------------------------------

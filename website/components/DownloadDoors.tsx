@@ -12,10 +12,21 @@ import { display, mono } from "@/components/PageHead";
  * "Your machine" tag and the only lit button; the other door is outline. An
  * undetectable platform falls back to macOS, same as the home hero.
  */
-export function DownloadDoors() {
+export function DownloadDoors({ code }: { code?: string }) {
   const os = useDesktopOS();
   const winLit = os === "windows";
   const macLit = !winLit;
+
+  // The code does not survive the store install, so the click that leaves for
+  // the store also puts the invite on the clipboard. The app's "Paste invite"
+  // button picks it up. Capture phase: the badge is a link that navigates away.
+  const carryInvite = code
+    ? () => {
+        navigator.clipboard?.writeText(`synctogether://join/${code}`).catch(() => {
+          // Blocked clipboard: the code on the ticket is still the fallback.
+        });
+      }
+    : undefined;
 
   const tag = (
     <span className={`${mono} ml-3 rounded-[2px] bg-beam-500 px-[7px] py-[3px] text-[10px] tracking-[0.14em] text-booth`}>
@@ -49,7 +60,7 @@ export function DownloadDoors() {
           ["From", "Mac App Store"],
           ["Needs", "macOS 12 Monterey or later"],
         ])}
-        <div className="mt-auto">
+        <div className="mt-auto" onClickCapture={carryInvite}>
           <AppStoreBadge lit={macLit} className="w-full" />
         </div>
       </section>
@@ -67,7 +78,7 @@ export function DownloadDoors() {
           ["From", "Microsoft Store"],
           ["Needs", "Windows 10 / 11"],
         ])}
-        <div className="mt-auto">
+        <div className="mt-auto" onClickCapture={carryInvite}>
           <MicrosoftStoreBadge lit={winLit} className="w-full" />
         </div>
       </section>

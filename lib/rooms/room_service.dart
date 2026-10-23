@@ -8,7 +8,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../rewards/rewards_models.dart';
 import 'room_models.dart';
 
-enum RoomJoinSource { code, deeplink }
+enum RoomJoinSource { code, deeplink, clipboard }
 
 class RoomService extends ChangeNotifier {
   RoomService();
@@ -306,8 +306,10 @@ class RoomService extends ChangeNotifier {
   }
 
   void clear() {
+    // pendingJoinCode is deliberately kept: it is the invite somebody clicked,
+    // not account data, and a signedOut event landing between the click and
+    // the login would otherwise lose it.
     _currentRoom = null;
-    pendingJoinCode = null;
     _myRooms = const [];
     notifyListeners();
   }

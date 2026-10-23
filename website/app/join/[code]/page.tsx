@@ -39,8 +39,16 @@ export async function generateMetadata({
       description,
       url: `${SITE_CONFIG.url}/join/${normalized ?? ""}`,
       type: "website",
+      // A page that sets openGraph replaces the layout's, images included, so
+      // without this the invite unfurls as a bare link on X, Discord, WhatsApp.
+      images: [{ url: "/og-image.png", width: 1200, height: 630, alt: "SyncTogether" }],
     },
-    twitter: { card: "summary_large_image", title, description },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      images: ["/og-image.png"],
+    },
   };
 }
 

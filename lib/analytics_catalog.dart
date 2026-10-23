@@ -96,7 +96,7 @@ const kAnalyticsEvents = <AnalyticsEventDoc>[
     group: .rooms,
     what: 'You joined a room.',
     why: 'Tells us whether invites actually work: the link, or the typed code.',
-    properties: ['room ID', 'how you joined (code, link or web page)'],
+    properties: ['room ID', 'how you joined (code, link, pasted invite or web page)'],
   ),
   AnalyticsEventDoc(
     event: 'room_join_failed',

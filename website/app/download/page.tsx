@@ -76,7 +76,7 @@ export default async function DownloadPage({
         }
       />
 
-      <DownloadDoors />
+      <DownloadDoors code={inviteCode ?? undefined} />
 
       <section className="grid md:grid-cols-3 gap-8 md:gap-10">
         {[

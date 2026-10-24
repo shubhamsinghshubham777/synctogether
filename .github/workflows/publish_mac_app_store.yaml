@@ -247,11 +247,22 @@ jobs:
             echo "ASC_API_KEY_AVAILABLE=true" >> "$GITHUB_ENV"
 
             echo "==> Uploading $PKG_NAME to App Store Connect..."
-            xcrun altool --upload-app \
+            # CFBundleVersion is the bare pubspec version, so a re-run for a version
+            # that already uploaded is refused as a duplicate. That build is the one
+            # we want: carry on to the submit step and let it pick up the existing
+            # build (UPLOAD_STARTED_AT back to epoch so `--since` does not hide it).
+            if ! xcrun altool --upload-app \
               --type osx \
               --file "$PKG_NAME" \
               --apiKey "$ASC_KEY_ID" \
-              --apiIssuer "$ASC_ISSUER_ID"
+              --apiIssuer "$ASC_ISSUER_ID" 2>&1 | tee /tmp/altool.log; then
+              if grep -q "ENTITY_ERROR.ATTRIBUTE.INVALID.DUPLICATE" /tmp/altool.log; then
+                echo "::warning::Build $PKG_NAME is already in App Store Connect; reusing it."
+                echo "UPLOAD_STARTED_AT=1970-01-01T00:00:00Z" >> "$GITHUB_ENV"
+              else
+                exit 1
+              fi
+            fi
             echo "Upload to App Store Connect completed successfully!"
           elif [ -n "${APPLE_ID:-}" ] && [ -n "${APPLE_APP_SPECIFIC_PASSWORD:-}" ]; then
             echo "==> Authenticating to App Store Connect via Apple ID ($APPLE_ID)..."

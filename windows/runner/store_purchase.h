@@ -10,8 +10,8 @@
 // associated with the Store; anywhere else every call answers an error code
 // and the Dart side hides the offer.
 //
-//   products                       -> [{storeId, title, price, period}]
-//   purchase {storeId}             -> status string
+//   products                       -> [{storeId, title, price, currency, period}]
+//   purchase {storeId}             -> {status, hresult} (hresult is ExtendedError)
 //   idKey {serviceTicket, userId}  -> Store ID key (a JWT) for the server
 //
 // Store calls block, so they run on a worker thread; results are marshalled

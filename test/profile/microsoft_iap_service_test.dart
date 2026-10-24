@@ -3,8 +3,9 @@ import 'package:synctogether/profile/entitlement_service.dart';
 import 'package:synctogether/profile/microsoft_iap_service.dart';
 
 class _FakeStore implements StorePurchaseChannel {
-  _FakeStore({this.key = 'key.jwt'});
+  _FakeStore({this.key = 'key.jwt', this.result = const StorePurchaseResult('succeeded')});
   final String key;
+  final StorePurchaseResult result;
   final calls = <String>[];
 
   @override
@@ -17,9 +18,9 @@ class _FakeStore implements StorePurchaseChannel {
   Future<List<MicrosoftProduct>> products() async => const [];
 
   @override
-  Future<String> purchase(String storeId) async {
+  Future<StorePurchaseResult> purchase(String storeId) async {
     calls.add('purchase:$storeId');
-    return 'succeeded';
+    return result;
   }
 }
 
@@ -65,8 +66,71 @@ void main() {
       });
       expect(p?.storeId, '0010');
       expect(p?.annual, isFalse);
+      expect(p?.currency, '');
       expect(MicrosoftProduct.tryParse({'title': 'x'}), isNull);
       expect(MicrosoftProduct.tryParse('nope'), isNull);
+    });
+
+    test('carries the currency the Store prices in', () {
+      expect(MicrosoftProduct.tryParse({'storeId': '0010', 'currency': 'PKR'})?.currency, 'PKR');
+    });
+  });
+
+  group('StorePurchaseResult', () {
+    test('reads the native answer, and an unreadable one is a server error', () {
+      final r = StorePurchaseResult.parse({'status': 'notPurchased', 'hresult': -2147023673});
+      expect(r.status, 'notPurchased');
+      expect(r.hresult, -2147023673);
+      expect(r.hresultHex, '0x800704c7');
+      expect(StorePurchaseResult.parse('succeeded').status, 'serverError');
+      expect(StorePurchaseResult.parse(null).status, 'serverError');
+      expect(StorePurchaseResult.parse({'status': 'succeeded'}).hresult, 0);
+    });
+
+    test('only a refusal is reported: a closed dialog stays quiet', () {
+      bool report(String status, [int hresult = 0]) =>
+          storePurchaseNeedsReport(StorePurchaseResult(status, hresult: hresult));
+      expect(report('succeeded'), isFalse);
+      expect(report('alreadyPurchased'), isFalse);
+      expect(report('networkError'), isFalse);
+      expect(report('notPurchased'), isFalse);
+      expect(report('notPurchased', -2147023673), isTrue);
+      expect(report('serverError'), isTrue);
+      expect(report('somethingNew'), isTrue);
+    });
+  });
+
+  group('buy', () {
+    const product = MicrosoftProduct(
+      storeId: '0010',
+      title: 'Monthly',
+      price: 'PKR 1,000',
+      period: 'month',
+      currency: 'PKR',
+    );
+
+    test('a closed dialog makes no verify call and raises no notice', () async {
+      final store = _FakeStore(result: const StorePurchaseResult('notPurchased'));
+      final service = _service(store, const {});
+      final notices = <MicrosoftIapNotice>[];
+      final sub = service.notices.listen(notices.add);
+      await service.buy(product);
+      await Future<void>.delayed(Duration.zero);
+      expect(store.calls, ['purchase:0010']);
+      expect(notices, isEmpty);
+      await sub.cancel();
+    });
+
+    test('a network error tells the person without asking the server', () async {
+      final store = _FakeStore(result: const StorePurchaseResult('networkError'));
+      final service = _service(store, const {});
+      final notices = <MicrosoftIapNotice>[];
+      final sub = service.notices.listen(notices.add);
+      await service.buy(product);
+      await Future<void>.delayed(Duration.zero);
+      expect(store.calls, ['purchase:0010']);
+      expect(notices, [MicrosoftIapNotice.failed]);
+      await sub.cancel();
     });
   });
 

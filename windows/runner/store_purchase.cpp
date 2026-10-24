@@ -9,6 +9,7 @@
 #include <winrt/Windows.Foundation.h>
 #include <winrt/Windows.Services.Store.h>
 
+#include <cstdint>
 #include <cstdio>
 #include <deque>
 #include <functional>
@@ -142,6 +143,8 @@ EncodableValue ListProducts() {
           {EncodableValue("title"), EncodableValue(ToUtf8(sku.Title()))},
           {EncodableValue("price"),
            EncodableValue(ToUtf8(sku.Price().FormattedPrice()))},
+          {EncodableValue("currency"),
+           EncodableValue(ToUtf8(sku.Price().CurrencyCode()))},
           {EncodableValue("period"),
            EncodableValue(std::string(PeriodOf(sku.SubscriptionInfo())))},
       }));
@@ -194,7 +197,14 @@ void RegisterStorePurchaseChannel(flutter::BinaryMessenger* messenger,
           auto id = StringArg(a, "storeId");
           RunAsync(result, [id] {
             auto r = Context().RequestPurchaseAsync(FromUtf8(id)).get();
-            return EncodableValue(std::string(PurchaseStatus(r.Status())));
+            // ExtendedError is the only decline reason the Store gives us, and
+            // the status alone cannot tell a closed dialog from a refusal.
+            return EncodableValue(EncodableMap{
+                {EncodableValue("status"),
+                 EncodableValue(std::string(PurchaseStatus(r.Status())))},
+                {EncodableValue("hresult"),
+                 EncodableValue(static_cast<int32_t>(r.ExtendedError().value))},
+            });
           });
         } else if (method == "idKey") {
           auto ticket = StringArg(a, "serviceTicket");

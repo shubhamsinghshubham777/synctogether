@@ -1,7 +1,8 @@
 "use client";
 
 import { useMemo, useState, type CSSProperties } from "react";
-import { PRICING_TIERS, SITE_CONFIG } from "@/lib/constants";
+import { PATRON_PRICES, PRICING_TIERS, SITE_CONFIG, formatPatronPrice, type PatronPriceTable } from "@/lib/constants";
+import { useRegionCurrency } from "@/lib/useRegionCurrency";
 import { cheapestTierFor, type ResolvableTier } from "@/lib/tier-resolver";
 import { Crown, Download } from "lucide-react";
 import { PTButton } from "@/components/PTButton";
@@ -24,7 +25,8 @@ function formatTierSession(totalMinutes: number): string {
   return `${totalMinutes} min`;
 }
 
-export function TierConfigurator() {
+export function TierConfigurator({ prices = PATRON_PRICES }: { prices?: PatronPriceTable }) {
+  const { currency, detecting } = useRegionCurrency();
   const [people, setPeople] = useState(6);
   const [hours, setHours] = useState(4);
 
@@ -36,7 +38,7 @@ export function TierConfigurator() {
 
   const peoplePct = ((people - 2) / (16 - 2)) * 100;
   const hoursPct = ((hours - 1) / (24 - 1)) * 100;
-  const patronPrice = `${PRICING_TIERS.premium.price.usdMonthly}/mo`;
+  const patronPrice = `${formatPatronPrice(currency, prices[currency].monthly)}/mo`;
 
   // Moves both sliders to a tier's ceiling, so the rows and "Need more?" agree.
   const showTier = (key: ResolvableTier) => {
@@ -132,7 +134,7 @@ export function TierConfigurator() {
             const detail = `${mark(holds >= people)}holds ${holds} · ${mark(tier.limits.totalSessionMinutes >= minutes)}runs ${
               isPatron ? "up to " : ""
             }${runs}`;
-            const price = isPatron ? patronPrice : "$0";
+            const price = isPatron ? (detecting ? "…" : patronPrice) : "$0";
 
             return (
               <li key={key} className="border-b border-aisle">
@@ -204,7 +206,7 @@ export function TierConfigurator() {
                 onClick={() => showTier("premium")}
                 className="text-white font-semibold underline underline-offset-[6px] decoration-gray-600 hover:decoration-beam-500 cursor-pointer"
               >
-                Patron · {patronPrice}
+                Patron · {detecting ? "…" : patronPrice}
               </button>
             </span>
           )}

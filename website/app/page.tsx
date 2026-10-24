@@ -8,6 +8,7 @@ import { WhyNotScreenShare } from "@/components/WhyNotScreenShare";
 import { ReactionPlayground } from "@/components/ReactionPlayground";
 import { TierPreviewSection } from "@/components/TierPreviewSection";
 import { Ticket } from "@/components/Ticket";
+import { getPatronPrices } from "@/lib/store-prices";
 
 export const revalidate = 3600; // ISR hourly
 
@@ -75,7 +76,8 @@ const FEATURES = [
   },
 ];
 
-export default function HomePage() {
+export default async function HomePage() {
+  const { prices } = await getPatronPrices();
 
   return (
     <div className="relative overflow-x-clip">
@@ -192,7 +194,7 @@ export default function HomePage() {
       </section>
 
       <Reveal>
-        <TierPreviewSection />
+        <TierPreviewSection prices={prices} />
       </Reveal>
 
       {/* 5. CLOSING - the ticket, one more time */}

@@ -47,7 +47,7 @@ export type PatronPriceTable = Record<PatronCurrency, { monthly: number; annual:
 export const PATRON_PRICES: PatronPriceTable = {
   USD: { monthly: 3.99, annual: 29.99 },
   INR: { monthly: 199, annual: 999 },
-  PKR: { monthly: 581, annual: 3000 },
+  PKR: { monthly: 580, annual: 2999 },
 };
 
 /// Region -> Patron currency, from an ISO 3166-1 alpha-2 country code. Anything

@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { PRICING_TIERS } from "@/lib/constants";
+import { PATRON_PRICES, PRICING_TIERS, formatPatronPrice, type PatronPriceTable } from "@/lib/constants";
+import { useRegionCurrency } from "@/lib/useRegionCurrency";
 
 const mono = "font-[family-name:var(--font-jetbrains-mono)]";
 const display = "font-[family-name:var(--font-space-grotesk)]";
@@ -63,8 +64,9 @@ function SeatCard({ seat }: { seat: Seat }) {
   );
 }
 
-export function TierPreviewSection() {
+export function TierPreviewSection({ prices = PATRON_PRICES }: { prices?: PatronPriceTable }) {
   const zero = "$0";
+  const { currency, detecting } = useRegionCurrency();
 
   const seats: Seat[] = [
     { key: "guest", name: "Guest", note: "No account", price: zero, tone: "plain" },
@@ -74,7 +76,15 @@ export function TierPreviewSection() {
       name: "Patron",
       note: "Per month",
       tone: "brass",
-      price: <span id="features-premium-price">{PRICING_TIERS.premium.price.usdMonthly}</span>,
+      price: detecting ? (
+        <span
+          role="status"
+          aria-label="Loading price"
+          className="inline-block h-[0.8em] w-[3.2ch] align-middle rounded-[4px] bg-rail motion-safe:animate-pulse"
+        />
+      ) : (
+        <span id="features-premium-price">{formatPatronPrice(currency, prices[currency].monthly)}</span>
+      ),
     },
   ];
 

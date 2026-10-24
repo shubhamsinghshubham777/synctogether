@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { PATRON_PRICES, PRICING_TIERS, formatPatronPrice, type PatronCurrency, type PatronPriceTable } from "@/lib/constants";
+import { useRegionCurrency } from "@/lib/useRegionCurrency";
 import { PlanCard } from "./PlanCard";
 import { Eyebrow, display, mono } from "./PageHead";
 
@@ -13,38 +14,9 @@ function annualPerMonth(currency: PatronCurrency, annual: number): number {
 
 export function PricingTable({ prices = PATRON_PRICES }: { prices?: PatronPriceTable }) {
   const [billingCycle, setBillingCycle] = useState<"monthly" | "annual">("annual");
-  const [currency, setCurrency] = useState<PatronCurrency>("USD");
-  // True until we know the visitor's region, so prices show a placeholder
-  // instead of flashing USD and then swapping. Region is detected, never picked:
-  // a picker invites comparing what each country pays.
-  const [detecting, setDetecting] = useState(true);
-
-  useEffect(() => {
-    const ctrl = new AbortController();
-    let cancelled = false;
-    const timeout = setTimeout(() => ctrl.abort(), 1500);
-    (async () => {
-      let detected: PatronCurrency | undefined;
-      try {
-        const res = await fetch("/api/region", { signal: ctrl.signal, cache: "no-store" });
-        if (res.ok) detected = ((await res.json()) as { currency?: PatronCurrency }).currency;
-      } catch {
-        // Offline, timed out or blocked: fall through to the USD default.
-      }
-      clearTimeout(timeout);
-      if (cancelled) return; // effect re-ran or unmounted: the newer run decides
-      // One synchronous block, so the currency and the end of loading land in
-      // the same render: no frame with the loaded UI still on USD.
-      if (detected && detected in prices) setCurrency(detected);
-      setDetecting(false);
-    })();
-    return () => {
-      cancelled = true;
-      clearTimeout(timeout);
-      ctrl.abort();
-    };
-  }, [prices]);
-
+  // Region is detected, never picked: a picker invites comparing what each
+  // country pays. Prices show a placeholder until it is known.
+  const { currency, detecting } = useRegionCurrency();
   const monthlyAmount = prices[currency].monthly;
   const annualAmount = prices[currency].annual;
   const fmt = (n: number) => formatPatronPrice(currency, n);

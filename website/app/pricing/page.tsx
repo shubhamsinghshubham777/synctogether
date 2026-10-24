@@ -46,7 +46,7 @@ export default async function PricingPage() {
 
       {/* The phone board leads with the tickets; the configurator is a wide-screen tool. */}
       <div className="hidden md:block">
-        <TierConfigurator />
+        <TierConfigurator prices={prices} />
       </div>
 
       <Reveal>

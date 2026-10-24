@@ -50,13 +50,6 @@ export const PATRON_PRICES: PatronPriceTable = {
   PKR: { monthly: 581, annual: 3000 },
 };
 
-/// Local-currency Patron prices shown beside the USD ones (USD stays the
-/// headline). Territory names are display copy.
-export const PATRON_LOCAL_PRICING: { country: string; currency: Exclude<PatronCurrency, "USD"> }[] = [
-  { country: "India", currency: "INR" },
-  { country: "Pakistan", currency: "PKR" },
-];
-
 /// Region -> Patron currency, from an ISO 3166-1 alpha-2 country code. Anything
 /// not listed pays in USD (the store converts to the buyer's local currency).
 export function currencyForCountry(country: string | null | undefined): PatronCurrency {

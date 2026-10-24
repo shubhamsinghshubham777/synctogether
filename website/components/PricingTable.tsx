@@ -28,19 +28,25 @@ export function PricingTable({ prices = PATRON_PRICES }: { prices?: PatronPriceT
 
   useEffect(() => {
     const ctrl = new AbortController();
+    let cancelled = false;
     const timeout = setTimeout(() => ctrl.abort(), 1500);
-    fetch("/api/region", { signal: ctrl.signal, cache: "no-store" })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((body: { currency?: PatronCurrency } | null) => {
-        const detected = body?.currency;
-        if (!picked.current && detected && detected in prices) setCurrency(detected);
-      })
-      .catch(() => {})
-      .finally(() => {
-        clearTimeout(timeout);
-        setDetecting(false);
-      });
+    (async () => {
+      let detected: PatronCurrency | undefined;
+      try {
+        const res = await fetch("/api/region", { signal: ctrl.signal, cache: "no-store" });
+        if (res.ok) detected = ((await res.json()) as { currency?: PatronCurrency }).currency;
+      } catch {
+        // Offline, timed out or blocked: fall through to the USD default.
+      }
+      clearTimeout(timeout);
+      if (cancelled) return; // effect re-ran or unmounted: the newer run decides
+      // One synchronous block, so the currency and the end of loading land in
+      // the same render: no frame with the loaded UI still on USD.
+      if (!picked.current && detected && detected in prices) setCurrency(detected);
+      setDetecting(false);
+    })();
     return () => {
+      cancelled = true;
       clearTimeout(timeout);
       ctrl.abort();
     };
@@ -82,7 +88,13 @@ export function PricingTable({ prices = PATRON_PRICES }: { prices?: PatronPriceT
       ? `${fmt(annualPerMonth(currency, annualAmount))} a month, billed yearly${savingsPct ? ` · save ${savingsPct}` : ""}`
       : "Billed monthly. Cancel anytime.";
 
-  const regionPicker = (
+  const regionPicker = detecting ? (
+    <span
+      role="status"
+      aria-label="Detecting your region"
+      className="inline-block h-[32px] w-[132px] rounded-[4px] bg-rail motion-safe:animate-pulse"
+    />
+  ) : (
     <div role="group" aria-label="Show Patron pricing for" className={`${mono} inline-flex p-[3px] rounded-[4px] border border-rail text-[11px]`}>
       {REGIONS.map((r) => (
         <button

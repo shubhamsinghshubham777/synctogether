@@ -12,9 +12,17 @@ workflow's `tag` job tags the built commit itself as `v<version>` once a store
 job has succeeded; a locally pushed tag would be a duplicate. (Older releases
 carry `v<version>_<run_id>` tags from the retired installer workflow.)
 
-There is **no direct distribution any more**: no GitHub release, no installers,
-no appcast, no in-app updater. The stores deliver updates. If the user asks
-for a direct build, tell them it was removed with the Creem/web-billing pivot.
+There is **no direct distribution any more**: no installers, no appcast, no
+in-app updater. The stores deliver updates. If the user asks for a direct build,
+tell them it was removed with the Creem/web-billing pivot.
+
+**GitHub releases are notes-only and CI creates them - never create one by hand.**
+The `tag` job's "Publish release notes" step builds `## What's Changed` from
+`metadata/version/X.Y.Z/en-US.json` (the Mac notes, so write those well) and
+attaches nothing; the website's `/changelog` reads them. It only runs when a
+full `publish_stores.yaml` run succeeds. After a leg-only re-dispatch (see
+"Re-running after a failure") no tag or release is made, so create both by hand
+then, with `gh api` for the tag and `gh release create --verify-tag` for the notes.
 
 The tag is created with `gh api POST /git/refs`, **not `git push`**. A pushed ref
 is rejected with "refusing to allow a GitHub App to create or update workflow ...

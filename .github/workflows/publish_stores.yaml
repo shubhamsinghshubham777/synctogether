@@ -136,7 +136,7 @@ jobs:
           for block in json.load(open(sys.argv[1], encoding="utf-8"))["whatsNew"].split(nl * 2):
               title, _, rest = block.strip().lstrip(chr(8226)).strip().partition(nl)
               out.append("- **" + title.strip() + "**" + (": " + " ".join(rest.split()) if rest.strip() else ""))
-          print((nl * 2).join(out))
+          print("## What's Changed" + nl + nl.join(out))
           PY
           gh release create "$TAG" --verify-tag --title "$TAG" --notes-file "$RUNNER_TEMP/notes.md"
 

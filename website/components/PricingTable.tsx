@@ -1,17 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { PATRON_LOCAL_PRICING, PATRON_PRICES, PRICING_TIERS, formatPatronPrice, type PatronCurrency, type PatronPriceTable } from "@/lib/constants";
+import { PATRON_PRICES, PRICING_TIERS, formatPatronPrice, type PatronCurrency, type PatronPriceTable } from "@/lib/constants";
 import { PlanCard } from "./PlanCard";
 import { Eyebrow, display, mono } from "./PageHead";
-
-/** Region chips use the currency code, not a flag emoji: Windows browsers draw
- *  flag emoji as two letters in a box. Country names stay in the aria-label. */
-const REGIONS: { currency: PatronCurrency; label: string }[] = [
-  { currency: "USD", label: "Worldwide" },
-  ...PATRON_LOCAL_PRICING.map(({ country, currency }) => ({ currency, label: country })),
-];
 
 /** Per-month equivalent of the annual price: cents for USD, whole units otherwise. */
 function annualPerMonth(currency: PatronCurrency, annual: number): number {
@@ -22,9 +15,9 @@ export function PricingTable({ prices = PATRON_PRICES }: { prices?: PatronPriceT
   const [billingCycle, setBillingCycle] = useState<"monthly" | "annual">("annual");
   const [currency, setCurrency] = useState<PatronCurrency>("USD");
   // True until we know the visitor's region, so prices show a placeholder
-  // instead of flashing USD and then swapping. A manual pick wins over detection.
+  // instead of flashing USD and then swapping. Region is detected, never picked:
+  // a picker invites comparing what each country pays.
   const [detecting, setDetecting] = useState(true);
-  const picked = useRef(false);
 
   useEffect(() => {
     const ctrl = new AbortController();
@@ -42,7 +35,7 @@ export function PricingTable({ prices = PATRON_PRICES }: { prices?: PatronPriceT
       if (cancelled) return; // effect re-ran or unmounted: the newer run decides
       // One synchronous block, so the currency and the end of loading land in
       // the same render: no frame with the loaded UI still on USD.
-      if (!picked.current && detected && detected in prices) setCurrency(detected);
+      if (detected && detected in prices) setCurrency(detected);
       setDetecting(false);
     })();
     return () => {
@@ -52,11 +45,6 @@ export function PricingTable({ prices = PATRON_PRICES }: { prices?: PatronPriceT
     };
   }, [prices]);
 
-  const choose = (c: PatronCurrency) => {
-    picked.current = true;
-    setCurrency(c);
-    setDetecting(false);
-  };
   const monthlyAmount = prices[currency].monthly;
   const annualAmount = prices[currency].annual;
   const fmt = (n: number) => formatPatronPrice(currency, n);
@@ -87,32 +75,6 @@ export function PricingTable({ prices = PATRON_PRICES }: { prices?: PatronPriceT
     : billingCycle === "annual"
       ? `${fmt(annualPerMonth(currency, annualAmount))} a month, billed yearly${savingsPct ? ` · save ${savingsPct}` : ""}`
       : "Billed monthly. Cancel anytime.";
-
-  const regionPicker = detecting ? (
-    <span
-      role="status"
-      aria-label="Detecting your region"
-      className="inline-block h-[32px] w-[132px] rounded-[4px] bg-rail motion-safe:animate-pulse"
-    />
-  ) : (
-    <div role="group" aria-label="Show Patron pricing for" className={`${mono} inline-flex p-[3px] rounded-[4px] border border-rail text-[11px]`}>
-      {REGIONS.map((r) => (
-        <button
-          key={r.currency}
-          type="button"
-          onClick={() => choose(r.currency)}
-          aria-pressed={currency === r.currency}
-          aria-label={`${r.label} (${r.currency})`}
-          title={r.label}
-          className={`h-[24px] px-2.5 rounded-[2px] transition-colors cursor-pointer ${
-            currency === r.currency ? "bg-screen text-booth font-semibold" : "text-gray-500 hover:text-white"
-          }`}
-        >
-          {r.currency}
-        </button>
-      ))}
-    </div>
-  );
 
   return (
     <section className="space-y-6">
@@ -185,7 +147,6 @@ export function PricingTable({ prices = PATRON_PRICES }: { prices?: PatronPriceT
             price={premiumPrice}
             periodText={billingCycle === "annual" ? "/ year" : "/ month"}
             subPrice={premiumSubPrice}
-            priceControl={regionPicker}
             description="Video facecams, 16 seats, all-day shows and rooms that never close."
             features={CARD_FEATURES.premium}
             ctaText="Get the app to subscribe"

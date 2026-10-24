@@ -139,15 +139,24 @@ run finish (or cancel it) first, then push and re-dispatch.
    > 3. **Format**:
 
    The notes are not a workflow input; they become the stores' "What's New", and
-   you write them yourself in step 4 (already committed and pushed by now):
+   you write them yourself in step 4 (already committed and pushed by now).
+
+   **Each store gets only what its users can experience.** Sort every note by
+   platform before writing: a Mac user gains nothing from "fixed a Windows
+   title-bar bug", and a Windows user nothing from a macOS traffic-light fix.
+   Cross-platform changes (sync, rooms, chat, facecams) go in every store's
+   notes; platform-specific ones go only in that platform's notes. A note must
+   describe the user's benefit on that platform, never a platform's internals. If
+   a platform has no relevant change, keep the shared notes and do not pad.
+   iOS notes follow the same rule (iOS and Android-only changes stay out of the
+   desktop stores).
    - **Mac App Store**: new file `metadata/version/X.Y.Z/en-US.json`. Copy the
-     previous version's file and change only `whatsNew` (bullets as
-     `• TITLE
-text` JSON escapes, blank line between). Without it the version keeps its
-     copied What's New.
+     previous version's file and change only `whatsNew` (bullets are
+     `• TITLE\ntext`, a blank line between). Without it the version keeps
+     its copied What's New.
    - **Microsoft Store**: edit only the `ReleaseNotes` field of
      `metadata/msstore_listing_en-US.json`, as `What's New in SyncTogether vX.Y.Z:`
-     then `• TITLE: text` bullets (a real bullet character). CI applies the file to the submission
+     then `• TITLE: text` bullets. CI applies the file to the submission
      (see the Microsoft Store notes below), so nothing is pushed by hand.
 
    Then dispatch:

@@ -77,3 +77,12 @@ test("the pricing picker defaults by country, and unknown means USD", () => {
   assert.equal(currencyForCountry(null), "USD");
   assert.equal(currencyForCountry(undefined), "USD");
 });
+
+import { countryFromHeaders } from "../lib/constants.ts";
+
+test("Cloudflare's country beats Vercel's, which only names Cloudflare's edge", () => {
+  const h = (o: Record<string, string>) => new Headers(o);
+  assert.equal(countryFromHeaders(h({ "cf-ipcountry": "IN", "x-vercel-ip-country": "HK" })), "IN");
+  assert.equal(countryFromHeaders(h({ "x-vercel-ip-country": "PK" })), "PK");
+  assert.equal(countryFromHeaders(h({})), null);
+});

@@ -70,6 +70,14 @@ export function currencyForCountry(country: string | null | undefined): PatronCu
   }
 }
 
+/// The visitor's country from request headers. The site is proxied by
+/// Cloudflare, so Vercel only sees Cloudflare's edge IP and `x-vercel-ip-country`
+/// names the edge, not the visitor; `cf-ipcountry` is the real one. The Vercel
+/// header stays as the fallback for a host with no Cloudflare in front.
+export function countryFromHeaders(headers: { get(name: string): string | null }): string | null {
+  return headers.get("cf-ipcountry") || headers.get("x-vercel-ip-country");
+}
+
 /// "$3.99", "₹199", "PKR 581": no decimals unless the amount has them.
 export function formatPatronPrice(currency: PatronCurrency, amount: number): string {
   return new Intl.NumberFormat("en-US", {

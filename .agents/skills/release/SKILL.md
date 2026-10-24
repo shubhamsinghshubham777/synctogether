@@ -193,6 +193,7 @@ run finish (or cancel it) first, then push and re-dispatch.
      - **Before releasing**, add `metadata/version/X.Y.Z/en-US.json`, or the version keeps its copied What's New.
      - **Opt out** of auto-submission with `-f submit_for_review=false` on a direct `publish_mac_app_store.yaml` dispatch (the `publish_stores.yaml` fan-out always submits).
      - **Screenshots are still manual** (only needed when the UI changed): `asc screenshots upload --app 6809185202 --version "X.Y.Z" --locale en-US --platform MAC_OS --display-type APP_DESKTOP --files assets/store/mac/*.jpg`, and do it *before* the build is submitted.
+     - **A build already waiting for review is superseded automatically**: App Store Connect allows one unreleased macOS version, so the workflow cancels that submission (`asc submit cancel`) and renames its record to the new version before attaching the build.
      - If the submit step fails, check `asc review status --app 6809185202 --platform MAC_OS`; the build is already uploaded, so fix the cause and submit by hand with `asc review submit`.
 
    - **Microsoft Store (`msstore`)**:

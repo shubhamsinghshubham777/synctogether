@@ -38,7 +38,7 @@ export default function VsSyncplayPage() {
         { feature: "Self-hostable server", ours: "yes", theirs: "yes" },
         { feature: "Requires installing and configuring a player", ours: "no", theirs: "yes" },
         { feature: "Built-in voice chat", ours: "yes", theirs: "no" },
-        { feature: "Video facecams beside the film", ours: "yes", theirs: "no" },
+        { feature: "Video facecams beside the film", ours: "Patron (Free gets a short trial)", theirs: "no" },
         { feature: "Host can share the file with the room", ours: "yes", theirs: "no" },
         { feature: "YouTube", ours: "yes", theirs: "no" },
         { feature: "Everyone must already have the file", ours: "no", theirs: "yes" },

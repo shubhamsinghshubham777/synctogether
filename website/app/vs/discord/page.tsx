@@ -30,7 +30,7 @@ export default function VsDiscordPage() {
         { feature: "Everyone can pause and seek", ours: "yes", theirs: "no" },
         { feature: "Per-viewer subtitles and audio tracks", ours: "yes", theirs: "no" },
         { feature: "Voice chat", ours: "yes", theirs: "yes" },
-        { feature: "Video facecams", ours: "yes", theirs: "yes" },
+        { feature: "Video facecams", ours: "Patron (Free gets a short trial)", theirs: "yes" },
         { feature: "Works if the host's connection dips", ours: "yes", theirs: "no" },
         { feature: "Host can share the file with the room", ours: "yes", theirs: "no" },
         { feature: "YouTube together", ours: "yes", theirs: "yes" },

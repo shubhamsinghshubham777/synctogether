@@ -5,7 +5,7 @@ import { Check, Copy } from "lucide-react";
 
 /**
  * "Copy code" + "Open the room" under the carried-over invite ticket. The
- * copy is the point: the code will not survive the installer, so it has to
+ * copy is the point: the code will not survive the store install, so it has to
  * leave with the visitor. "Open the room" is the scheme link for somebody
  * who turns out to have the app already.
  */

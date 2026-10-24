@@ -20,7 +20,7 @@ export const metadata: Metadata = {
 };
 
 export default function TermsPage() {
-  const lastUpdated = "September 20, 2026";
+  const lastUpdated = "October 24, 2026";
 
   return (
     <LegalShell

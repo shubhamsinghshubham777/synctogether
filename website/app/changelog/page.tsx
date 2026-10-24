@@ -21,7 +21,7 @@ export default async function ChangelogPage() {
       published_at: "2026-10-04T12:00:00Z",
       body: `### New Features & Improvements
 - **Projection Booth Aesthetic**: Immersive cinema dark interface designed to keep the picture front and center with warm matte neutrals, high-contrast typography, and Beam amber accents.
-- **Enhanced Media Sharing**: High-speed peer transfer with instant local file playback fallback.
+- **Enhanced Media Sharing**: Stream the host's video to the room, with instant local file playback fallback.
 - **Real-Time Synchronisation**: Low-latency lockstep playback and state synchronization across macOS and Windows.
 - **Facecams & Multi-Track Audio**: High-fidelity LiveKit facecam rails and real-time room communication.`,
       html_url: "https://github.com/shubhamsinghshubham777/synctogether/releases",

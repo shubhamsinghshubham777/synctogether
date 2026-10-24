@@ -29,7 +29,7 @@ export default function VsTelepartyPage() {
         { feature: "Works without a browser extension", ours: "yes", theirs: "partial" },
         { feature: "Everyone needs their own subscription", ours: "no", theirs: "yes" },
         { feature: "Voice chat", ours: "yes", theirs: "Premium only" },
-        { feature: "Video facecams beside the film", ours: "yes", theirs: "Premium only" },
+        { feature: "Video facecams beside the film", ours: "Patron (Free gets a short trial)", theirs: "Premium only" },
         { feature: "Text chat", ours: "yes", theirs: "yes" },
         { feature: "Host can share the file with the room", ours: "yes", theirs: "no" },
         { feature: "Platforms", ours: "Mac, Windows", theirs: "Chrome, Edge, Opera, Mac, Android" },

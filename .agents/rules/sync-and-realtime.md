@@ -10,7 +10,7 @@ Guidance for working with `lib/sync/`, room state synchronization, and playback 
 
 ## 1. Sync Layer Architecture (`lib/sync/`)
 
-`SyncService` is room-scoped: created on room entry with `(player, room, profile, role)`, disposed on leave. It broadcasts typed events (`sync_events.dart`): play/pause/seek, `state_request`/`state_response`, `mode_switch`, `chat`, `typing`, `position_sync` (host heartbeat every 10 s; members correct if drift > 1.5 s), `file_info` (local-file identity for mismatch banners), `room_ended`.
+`SyncService` is room-scoped: created on room entry with `(player, room, profile, role)`, disposed on leave. It broadcasts typed events (`sync_events.dart`): play/pause/seek, `state_request`/`state_response`, `mode_switch`, `chat`, `typing`, `position_sync` (authority heartbeat every 10 s; members correct if drift > 1.5 s), `file_info` (local-file identity for mismatch banners), `room_ended`.
 
 Two seams exist purely so the sync layer is testable via pure delegation:
 - `lib/sync/sync_logic.dart`: Holds decisions as pure functions over plain values (authority election, gate evaluation, presence merge, last-action-wins ordering, reaction throttle, chat fuzzy-merge). `SyncService` delegates to it and re-exports it.

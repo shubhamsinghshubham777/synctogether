@@ -26,7 +26,7 @@ export default async function PricingPage() {
             <span className="text-brass">Patron seats</span> for the big ones.
           </span>
         }
-        lede="Free rooms hold 8 people for 4 hours. Patron, our Premium plan, is for the whole group, the all-day marathon, and the room that never closes."
+        lede="Free rooms hold 8 people for 4 hours. Patron, our Premium plan, is for the whole group, the all-day marathon, and the room you can keep and reopen."
         aside={
           <dl className={`${mono} grid grid-cols-3 border border-rail rounded-md divide-x divide-rail text-center`}>
             {[

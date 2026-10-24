@@ -94,7 +94,7 @@ update public.tier_limits set max_members = 10 where tier = 'free';
 | `video_trial_minutes` | 0 | 10 | 0 |
 | `video_trials_per_day` | 0 | 2 | 0 |
 
-Two of these are read as *behaviour*, not just numbers:
+Three of these are read as *behaviour*, not just numbers:
 
 - `av_level = 'none'` hides the facecam UI entirely, exactly as if LiveKit were unconfigured.
 - `max_total_session_minutes > max_session_minutes` is what makes a tier able to choose its own extension length.
@@ -179,6 +179,15 @@ them set. Changing any of these needs a rebuild and a release.
 | `POSTHOG_API_KEY` | No product analytics: no queue, no timer, no socket. |
 | `POSTHOG_HOST` | Defaults to `https://us.i.posthog.com`. |
 | `LIVEKIT_URL` | Facecams disappear entirely - no service, no token fetch, no UI. |
+| `TURNSTILE_SITE_KEY` | The client skips the captcha dialog, **but the server still demands a token**, so guest sign-in fails. Set it or disable captcha server-side too. |
+| `SUPABASE_URL` / `SUPABASE_PUBLISHABLE_KEY` | Required. Debug builds fall back to the local stack. |
+| `STORE_BUILD` | Store distribution. On macOS it is the Mac App Store build (StoreKit); on Windows it is the Microsoft Store build (Windows.Services.Store); on **Android it is the Google Play build**, which is consumption-only - Premium bought elsewhere unlocks, but no upsell, price or link is shown (`canSellPremium`, which is true on Apple builds and the Microsoft Store build). Every Play release must set it. iOS is always the App Store build regardless. |
+| `STORE_TARGET` | With `CAPTURE_STORE`: `mac` selects the Mac App Store screenshot set. Off in real builds. |
+| `DEMO_MODE` / `DEMO_ROOM` | Mock data for screenshots. Off in real builds. |
+| `DEMO_TIER` | With `DEMO_MODE`: `free` (default) or `premium`, so Patron-side states can be shot. |
+| `CAPTURE_STORE` | Store-screenshot capture flow: 1920x1080 into `store/` (Microsoft Store and README). Add `STORE_TARGET=mac` and `STORE_BUILD=true` for the Mac App Store set, 2880x1800 into `store/mac/`. Off in real builds. |
+| `CAPTURE_WEBSITE` | Writes the homepage product shot. Off in real builds. |
+| `CAPTURE_REVIEW` | With `DEMO_MODE`: renders every screen and state that has a design board to `build/review/<tier>/` at 1280x720 @ 1.5x, for comparing the build against the canvas. Run the built binary from the repo root. Off in real builds. |
 
 ### AV endpoint failover (`LIVEKIT_ENDPOINTS`, function secret)
 
@@ -189,14 +198,6 @@ A JSON array of LiveKit-protocol endpoints in priority order. The token function
 **Video trials** run only on endpoints whose entry has `"trial": true`. Omitted, it defaults to on for every server except a `*.livekit.cloud` URL, because trial minutes are only cheap on a server we run ourselves. A room that fails over to an endpoint without trials mid-trial carries on with voice only. `revoke_camera` jobs narrow every participant to microphone-only and server-mute any camera still publishing, on every endpoint.
 
 To take an endpoint out by hand: `insert into av_endpoint_state values ('cloud', now() + interval '1 day') on conflict (endpoint) do update set exhausted_until = excluded.exhausted_until;`.
-| `TURNSTILE_SITE_KEY` | The client skips the captcha dialog, **but the server still demands a token**, so guest sign-in fails. Set it or disable captcha server-side too. |
-| `SUPABASE_URL` / `SUPABASE_PUBLISHABLE_KEY` | Required. Debug builds fall back to the local stack. |
-| `STORE_BUILD` | Store distribution. On macOS it is the Mac App Store build (StoreKit); on Windows it is the Microsoft Store build (Windows.Services.Store); on **Android it is the Google Play build**, which is consumption-only - Premium bought elsewhere unlocks, but no upsell, price or link is shown (`canSellPremium`, which is true on Apple builds and the Microsoft Store build). Every Play release must set it. iOS is always the App Store build regardless. |
-| `DEMO_MODE` / `DEMO_ROOM` | Mock data for screenshots. Off in real builds. |
-| `DEMO_TIER` | With `DEMO_MODE`: `free` (default) or `premium`, so Patron-side states can be shot. |
-| `CAPTURE_STORE` | Store-screenshot capture flow: 1920x1080 into `assets/store/` (Microsoft Store and README). Add `STORE_TARGET=mac` and `STORE_BUILD=true` for the Mac App Store set, 2880x1800 into `assets/store/mac/`. Off in real builds. |
-| `CAPTURE_WEBSITE` | Writes the homepage product shot. Off in real builds. |
-| `CAPTURE_REVIEW` | With `DEMO_MODE`: renders every screen and state that has a design board to `build/review/<tier>/` at 1280x720 @ 1.5x, for comparing the build against the canvas. Run the built binary from the repo root. Off in real builds. |
 
 Server-side captcha is separate, in `supabase/config.toml` under `[auth.captcha]`,
 and ships with `supabase config push` (**not** `db push`).

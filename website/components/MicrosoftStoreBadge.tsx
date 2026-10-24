@@ -9,7 +9,7 @@ interface MicrosoftStoreBadgeProps {
 
 /**
  * Microsoft Store link, set as a projection booth outline button so it sits beside
- * the `.exe` download without competing with the one lit button on the page.
+ * the other store badge without competing with the one lit button on the page.
  * The brand mark keeps its own colours - it is never recoloured.
  */
 export function MicrosoftStoreBadge({ className = "", lit = false }: MicrosoftStoreBadgeProps) {

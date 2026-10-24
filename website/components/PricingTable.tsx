@@ -127,7 +127,7 @@ export function PricingTable({ prices = PATRON_PRICES }: { prices?: PatronPriceT
           />
         </div>
         {/* Wording follows app/refund/page.tsx: cancel any time, perks run to
-            the end of the paid period, 14-day refund on a first purchase. */}
+            the end of the paid period; refunds are handled by the store you bought from. */}
         <p className="text-sm text-gray-500 leading-relaxed">
           You subscribe inside the app (App Store or Microsoft Store), and the store handles billing, tax and cancellation. Cancel any time and you keep Premium until the end of the period you paid for. Refunds follow the{" "}
           <Link href="/refund" className="underline underline-offset-2 hover:text-white">store&apos;s refund process</Link>.
@@ -178,7 +178,7 @@ const CARD_FEATURES = {
   guest: ["1 live room at a time", "Up to 4 people per room", "60-minute shows", "Local files & YouTube", "Chat and 8 reactions"],
   free: ["4 live rooms", "Up to 8 people per room", "4-hour shows, room waits 24 h", "Voice facecams", "Upload your film: 2.5 GB a week"],
   premium: [
-    "20 rooms, kept for good",
+    "20 saved rooms",
     "Up to 16 people per room",
     "Shows up to 24 hours",
     "Voice + video facecams",
@@ -199,7 +199,7 @@ const COMPARISON: { feature: string; values: [Cell, Cell, Cell] }[] = [
   { feature: "Friends in one room", values: ["4", "8", "16"] },
   { feature: "How long one show can run", values: ["1 hour", "4 hours", "Up to 24 hours"] },
   { feature: "Talk and see each other", values: [null, "Voice only", "Voice + video"] },
-  { feature: "Room saved for your next show", values: [null, "For 24 hours", "Always"] },
+  { feature: "Room saved for your next show", values: [null, "For 24 hours", "Until 90 idle days"] },
   { feature: "Share your video file so friends without a copy can watch", values: [null, "2.5 GB a week, 2 GB per file", "No weekly limit, 10 GB per file"] },
   { feature: "Watch your own files and YouTube", values: [true, true, true] },
   { feature: "Your own public profile page", values: [null, null, true] },

@@ -177,7 +177,7 @@ export const PRICING_TIERS = {
       "Unlimited media streaming quota (up to 10.0 GB file)",
       "Video + Voice facecams",
       "24 animated Lottie reaction emoji",
-      "Persistent rooms (never expire or delete)",
+      "Saved rooms (kept until 90 idle days)",
       "Public profile page at synctogether.app/u/yourhandle",
       "Extra streak freeze, so a busy week doesn't cost you",
       "Host's Premium perks shared with all room members",
@@ -221,11 +221,11 @@ export const FAQ_ITEMS = [
       },
       {
         q: "Does SyncTogether upload my video files?",
-        a: "SyncTogether gives you two seamless options: (1) Local File Sync: If everyone already has the video file on their device, playback is 100% local and peer-synced with zero uploads. (2) Cloud Media Sharing: Room hosts can optionally upload and stream their video file directly to room guests (2.5 GB weekly quota / up to 2.0 GB per video on Free; unlimited uploads / up to 10.0 GB per video on Premium)."
+        a: "SyncTogether gives you two seamless options: (1) Local File Sync: If everyone already has the video file on their device, playback is 100% local and kept in sync through the room with zero uploads. (2) Cloud Media Sharing: Room hosts can optionally upload and stream their video file directly to room guests (2.5 GB weekly quota / up to 2.0 GB per video on Free; unlimited uploads / up to 10.0 GB per video on Premium)."
       },
       {
         q: "What happens when a room expires?",
-        a: "On Free and Guest tiers, rooms have a session timer (60 minutes for Guest, 4 hours for Free). Once a room expires, chat and temporary session data are automatically wiped. To keep permanent rooms that never expire, upgrade to Premium."
+        a: "On Free and Guest tiers, rooms have a session timer (60 minutes for Guest, 4 hours for Free). Once a room expires, chat and temporary session data are automatically wiped. To keep saved rooms you can restart any time (they are removed after 90 days without a session), upgrade to Premium."
       }
     ]
   },
@@ -263,7 +263,7 @@ export const FAQ_ITEMS = [
       },
       {
         q: "What are streaks, badges and the leaderboard?",
-        a: "SyncTogether counts the time you spend watching with other people. Twenty minutes in a room with somebody makes the day count towards your streak, and badges unlock along the way. Points are one a minute watched together (capped daily), plus a bonus for each different person you watch with, multiplied by your streak, so watching 40 minutes every day beats twelve hours on one Saturday. Watching alone earns nothing, and neither does a room left open, because the point is time spent together. Guests do not collect streaks: guest accounts are wiped after a few days, so a streak held on one would not survive the week."
+        a: "SyncTogether counts the time you spend watching with other people. Ten minutes in a room with somebody makes the day count towards your streak, and badges unlock along the way. Points are one a minute watched together (capped daily), plus a bonus for each different person you watch with, multiplied by your streak, so watching 40 minutes every day beats twelve hours on one Saturday. Watching alone earns nothing, and neither does a room left open, because the point is time spent together. Guests do not collect streaks: guest accounts are wiped after a few days, so a streak held on one would not survive the week."
       },
       {
         q: "Does the leaderboard show my name to strangers?",
@@ -283,7 +283,7 @@ export const FAQ_ITEMS = [
       },
       {
         q: "Are voice and video facecams recorded?",
-        a: "Never. Voice and video streams are transmitted end-to-end via encrypted real-time relays and are never recorded or stored on any server."
+        a: "Never. Voice and video streams are encrypted in transit and relayed through our real-time media server and are never recorded or stored on any server."
       }
     ]
   }

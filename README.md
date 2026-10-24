@@ -30,22 +30,22 @@ SyncTogether is a modern cross-platform application for synchronized media playb
 
 | Lobby | Theater Room |
 |:---:|:---:|
-| <img src="assets/store/1_lobby.jpg" alt="Lobby Screen" /> | <img src="assets/store/2_theater_room.jpg" alt="Theater Room" /> |
+| <img src="store/1_lobby.jpg" alt="Lobby Screen" /> | <img src="store/2_theater_room.jpg" alt="Theater Room" /> |
 | **Room Chat** | **Media Chooser** |
-| <img src="assets/store/3_room_chat.jpg" alt="Room Chat" /> | <img src="assets/store/4_media_chooser.jpg" alt="Media Chooser" /> |
+| <img src="store/3_room_chat.jpg" alt="Room Chat" /> | <img src="store/4_media_chooser.jpg" alt="Media Chooser" /> |
 
 ---
 
 ## Key Features
 
-- **Strict Lockstep Sync** - Coordinated playback in lockstep with readiness gates, host drift-correction heartbeats, and authority-answered state recovery for late joiners.
+- **Strict Lockstep Sync** - Coordinated playback in lockstep with readiness gates, authority drift-correction heartbeats, and authority-answered state recovery for late joiners.
 - **Two Playback Modes** - Local video files (via `media_kit` hardware-accelerated rendering with file hash mismatch warnings) and YouTube (via internal loopback IFrame bridge).
-- **Voice & Video Facecams** - Multi-participant live AV tiles powered by LiveKit SFU mesh with dynamic mic/camera controls.
+- **Voice & Video Facecams** - Multi-participant live AV tiles powered by a LiveKit SFU with dynamic mic/camera controls.
 - **Persisted Chat & Quick Reactions** - In-room chat history, typing indicators, and Google Noto animated emoji reactions.
 - **Flexible Authentication** - Instant anonymous guest accounts (protected by Cloudflare Turnstile), Sign in with Apple, Google Sign-In, or Passwordless Email OTP with seamless in-place identity upgrades.
 - **Resumable & Persistent Rooms** - Dormant rooms can be resumed by the host with playback position preserved, or extended/ended on demand.
 - **Self-Hosting Ready** - Deploy the complete stack (Postgres database, Realtime engine, Edge Functions, LiveKit server, Web portal) on your own infrastructure or cloud free tiers.
-- **Projection Booth cinema design** - A warm, matte cinema projection booth dark aesthetic where the video is always the brightest thing on screen, consistent across desktop, tablet and mobile.
+- **Projection Booth cinema design** - A warm, matte cinema projection booth dark aesthetic where the video is always the brightest thing on screen, built to stay consistent across screen sizes.
 
 ---
 
@@ -100,7 +100,7 @@ fvm flutter test
 # 2. Run Supabase pgTAP database RPC & RLS tests
 supabase start && supabase test db
 
-# 3. Run Web application & billing webhook tests
+# 3. Run the website test suite
 npm --prefix website test
 
 # 4. Run static analysis
@@ -113,9 +113,9 @@ fvm flutter analyze
 
 Every release ships through a store, built via GitHub Actions (`.github/workflows/publish_stores.yaml`), and the store handles updates:
 - **macOS**: Mac App Store (`publish_mac_app_store.yaml`).
-- **iOS / iPadOS**: App Store (`publish_ios_app_store.yaml`).
+- **iOS / iPadOS**: workflow exists (`publish_ios_app_store.yaml`), but mobile releases are not planned for now.
 - **Windows**: MSIX for the Microsoft Store (`publish_microsoft_store.yaml`).
-- **Android**: Release APK.
+- **Android**: not released and not planned for now; no workflow publishes it.
 
 ---
 
@@ -155,4 +155,4 @@ SyncTogether is licensed under the **[PolyForm Noncommercial License 1.0.0 (Poly
 
 - **Animated Reactions**: [Noto Animated Emoji](https://googlefonts.github.io/noto-emoji-animation/) by Google (licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)).
 - **Video Playback**: [media_kit](https://github.com/media-kit/media-kit) (MPV-backed high performance player for Flutter), with mpv and FFmpeg (LGPL) full-codec builds on every platform. See [codec support](docs/codec-support.md) and [third-party notices](docs/third-party-notices.md).
-- **WebRTC Mesh**: [LiveKit](https://livekit.io) real-time video and audio platform.
+- **Voice & Video**: [LiveKit](https://livekit.io) real-time video and audio platform.

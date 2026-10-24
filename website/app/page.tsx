@@ -62,7 +62,7 @@ const FEATURES = [
   {
     tag: "INTERMISSION",
     title: "Rooms that wait for you.",
-    body: "Stop for dinner. The room remembers where you were and reopens right there: for a day on Free, for good on Patron.",
+    body: "Stop for dinner. The room remembers where you were and reopens right there: for a day on Free, for 90 idle days on Patron.",
   },
   {
     tag: "PRIVATE",

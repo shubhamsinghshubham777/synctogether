@@ -432,7 +432,7 @@ function AccountDashboard() {
             <ul>
               {[
                 ["Live rooms", isPremium && (entitlement?.persistent_room_cap ?? 0) > 0
-                  ? entitlement?.max_live_rooms === entitlement?.persistent_room_cap ? `${entitlement?.max_live_rooms}, kept for good` : `${entitlement?.max_live_rooms}, ${entitlement?.persistent_room_cap} kept for good`
+                  ? entitlement?.max_live_rooms === entitlement?.persistent_room_cap ? `${entitlement?.max_live_rooms} saved` : `${entitlement?.max_live_rooms}, ${entitlement?.persistent_room_cap} saved`
                   : entitlement?.max_live_rooms ?? 4],
                 ["People per room", entitlement?.max_members ?? 8],
                 ["Session length", sessionHours],

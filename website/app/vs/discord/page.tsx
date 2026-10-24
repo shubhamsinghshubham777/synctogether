@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { ComparisonPage } from "@/components/ComparisonPage";
+import { PRICING_TIERS } from "@/lib/constants";
 
 export const metadata: Metadata = {
   title: "Better Than Discord Screen Share for Watching Movies Together",
@@ -33,7 +34,7 @@ export default function VsDiscordPage() {
         { feature: "Works if the host's connection dips", ours: "yes", theirs: "no" },
         { feature: "Host can share the file with the room", ours: "yes", theirs: "no" },
         { feature: "YouTube together", ours: "yes", theirs: "yes" },
-        { feature: "Price", ours: "Free, Patron $3.99/mo", theirs: "Free, Nitro $9.99/mo" },
+        { feature: "Price", ours: `Free, Patron ${PRICING_TIERS.premium.price.usdMonthly}/mo`, theirs: "Free, Nitro $9.99/mo" },
       ]}
       sections={[
         {

@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useMemo, useState, type CSSProperties } from "react";
 import { PRICING_TIERS, SITE_CONFIG } from "@/lib/constants";
 import { cheapestTierFor, type ResolvableTier } from "@/lib/tier-resolver";
@@ -38,6 +37,13 @@ export function TierConfigurator() {
   const peoplePct = ((people - 2) / (16 - 2)) * 100;
   const hoursPct = ((hours - 1) / (24 - 1)) * 100;
   const patronPrice = `${PRICING_TIERS.premium.price.usdMonthly}/mo`;
+
+  // Moves both sliders to a tier's ceiling, so the rows and "Need more?" agree.
+  const showTier = (key: ResolvableTier) => {
+    const { members, totalSessionMinutes } = PRICING_TIERS[key].limits;
+    setPeople(Math.max(2, Math.min(16, members)));
+    setHours(Math.max(1, Math.min(24, Math.round(totalSessionMinutes / 60))));
+  };
 
   const slider = (
     id: string,
@@ -133,10 +139,7 @@ export function TierConfigurator() {
                 {/* A row is a preset: pressing it moves both sliders to that tier's ceiling. */}
                 <button
                   type="button"
-                  onClick={() => {
-                    setPeople(Math.max(2, Math.min(16, tier.limits.members)));
-                    setHours(Math.max(1, Math.min(24, Math.round(tier.limits.totalSessionMinutes / 60))));
-                  }}
+                  onClick={() => showTier(key)}
                   aria-pressed={isCheapest}
                   aria-label={`Show what ${name} covers: ${holds} people, ${runs} sessions`}
                   className={`w-full text-left flex justify-between gap-4 py-[18px] px-5 border-l-[3px] cursor-pointer transition-[background-color,opacity,border-color] duration-200 ${
@@ -196,12 +199,13 @@ export function TierConfigurator() {
           {cheapest !== "premium" && cheapest !== null && (
             <span className="text-[15px] text-gray-500">
               Need more?{" "}
-              <Link
-                href="/pricing"
-                className="text-white font-semibold underline underline-offset-[6px] decoration-gray-600 hover:decoration-beam-500"
+              <button
+                type="button"
+                onClick={() => showTier("premium")}
+                className="text-white font-semibold underline underline-offset-[6px] decoration-gray-600 hover:decoration-beam-500 cursor-pointer"
               >
                 Patron · {patronPrice}
-              </Link>
+              </button>
             </span>
           )}
         </div>

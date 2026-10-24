@@ -1,34 +1,106 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { PRICING_TIERS } from "@/lib/constants";
+import { PATRON_LOCAL_PRICING, PATRON_PRICES, PRICING_TIERS, formatPatronPrice, type PatronCurrency, type PatronPriceTable } from "@/lib/constants";
 import { PlanCard } from "./PlanCard";
 import { Eyebrow, display, mono } from "./PageHead";
 
-export function PricingTable() {
+/** Region chips use the currency code, not a flag emoji: Windows browsers draw
+ *  flag emoji as two letters in a box. Country names stay in the aria-label. */
+const REGIONS: { currency: PatronCurrency; label: string }[] = [
+  { currency: "USD", label: "Worldwide" },
+  ...PATRON_LOCAL_PRICING.map(({ country, currency }) => ({ currency, label: country })),
+];
+
+/** Per-month equivalent of the annual price: cents for USD, whole units otherwise. */
+function annualPerMonth(currency: PatronCurrency, annual: number): number {
+  return currency === "USD" ? Math.floor((annual / 12) * 100) / 100 : Math.floor(annual / 12);
+}
+
+export function PricingTable({ prices = PATRON_PRICES }: { prices?: PatronPriceTable }) {
   const [billingCycle, setBillingCycle] = useState<"monthly" | "annual">("annual");
-  const { usdMonthly, usdAnnual, usdAnnualMonthlyEquivalent } = PRICING_TIERS.premium.price;
-  const monthlyAmount = Number(usdMonthly.slice(1));
-  const annualAmount = Number(usdAnnual.slice(1));
+  const [currency, setCurrency] = useState<PatronCurrency>("USD");
+  // True until we know the visitor's region, so prices show a placeholder
+  // instead of flashing USD and then swapping. A manual pick wins over detection.
+  const [detecting, setDetecting] = useState(true);
+  const picked = useRef(false);
 
-  const premiumPrice = billingCycle === "annual" ? usdAnnual : usdMonthly;
+  useEffect(() => {
+    const ctrl = new AbortController();
+    const timeout = setTimeout(() => ctrl.abort(), 1500);
+    fetch("/api/region", { signal: ctrl.signal, cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((body: { currency?: PatronCurrency } | null) => {
+        const detected = body?.currency;
+        if (!picked.current && detected && detected in prices) setCurrency(detected);
+      })
+      .catch(() => {})
+      .finally(() => {
+        clearTimeout(timeout);
+        setDetecting(false);
+      });
+    return () => {
+      clearTimeout(timeout);
+      ctrl.abort();
+    };
+  }, [prices]);
 
-  // The discount is derived from the very two amounts the cards display, never
-  // from a separately-carried figure: the live page once read "-58%" (the INR
-  // ratio, 199x12 vs 999) beside USD prices. Computing it here from
-  // monthlyAmount/annualAmount means the chip can only disagree with the
-  // prices if the prices themselves are wrong.
+  const choose = (c: PatronCurrency) => {
+    picked.current = true;
+    setCurrency(c);
+    setDetecting(false);
+  };
+  const monthlyAmount = prices[currency].monthly;
+  const annualAmount = prices[currency].annual;
+  const fmt = (n: number) => formatPatronPrice(currency, n);
+
+  // A same-size pulse in place of a figure that may still change.
+  const placeholder = (
+    <span
+      role="status"
+      aria-label="Loading prices"
+      className="inline-block h-[40px] w-[150px] rounded-[4px] bg-rail motion-safe:animate-pulse align-middle"
+    />
+  );
+  const premiumPrice = detecting ? placeholder : fmt(billingCycle === "annual" ? annualAmount : monthlyAmount);
+
+  // The discount is derived from the very two amounts the card displays, in the
+  // selected currency, never from a separately-carried figure: the live page
+  // once read "-58%" (the INR ratio, 199x12 vs 999) beside USD prices. Computed
+  // here, the chip can only disagree with the prices if the prices themselves
+  // are wrong.
   const savingsPct =
     monthlyAmount > 0 && annualAmount > 0
       ? `${Math.max(1, Math.round((1 - annualAmount / (monthlyAmount * 12)) * 100))}%`
       : null;
 
-  const zeroPrice = "$0";
-  const premiumSubPrice =
-    billingCycle === "annual"
-      ? `${usdAnnualMonthlyEquivalent} a month, billed yearly${savingsPct ? ` · save ${savingsPct}` : ""}`
+  const zeroPrice = detecting ? placeholder : fmt(0);
+  const premiumSubPrice = detecting
+    ? ""
+    : billingCycle === "annual"
+      ? `${fmt(annualPerMonth(currency, annualAmount))} a month, billed yearly${savingsPct ? ` · save ${savingsPct}` : ""}`
       : "Billed monthly. Cancel anytime.";
+
+  const regionPicker = (
+    <div role="group" aria-label="Show Patron pricing for" className={`${mono} inline-flex p-[3px] rounded-[4px] border border-rail text-[11px]`}>
+      {REGIONS.map((r) => (
+        <button
+          key={r.currency}
+          type="button"
+          onClick={() => choose(r.currency)}
+          aria-pressed={currency === r.currency}
+          aria-label={`${r.label} (${r.currency})`}
+          title={r.label}
+          className={`h-[24px] px-2.5 rounded-[2px] transition-colors cursor-pointer ${
+            currency === r.currency ? "bg-screen text-booth font-semibold" : "text-gray-500 hover:text-white"
+          }`}
+        >
+          {r.currency}
+        </button>
+      ))}
+    </div>
+  );
 
   return (
     <section className="space-y-6">
@@ -60,7 +132,7 @@ export function PricingTable() {
               }`}
             >
               <span>Annual</span>
-              {savingsPct && (
+              {savingsPct && !detecting && (
                 <span className={billingCycle === "annual" ? "text-[#1F6F62]" : "text-cue"}>−{savingsPct}</span>
               )}
             </button>
@@ -101,6 +173,7 @@ export function PricingTable() {
             price={premiumPrice}
             periodText={billingCycle === "annual" ? "/ year" : "/ month"}
             subPrice={premiumSubPrice}
+            priceControl={regionPicker}
             description="Video facecams, 16 seats, all-day shows and rooms that never close."
             features={CARD_FEATURES.premium}
             ctaText="Get the app to subscribe"
@@ -177,14 +250,14 @@ type Cell = string | null | true;
 // Mirrors tier_limits: guest dormant_hours 0 (room closes at expiry), free
 // 24 h dormant, premium persistent. Handles are Patron-only (claim_handle).
 const COMPARISON: { feature: string; values: [Cell, Cell, Cell] }[] = [
-  { feature: "Live rooms", values: ["1", "4", "20, kept for good"] },
-  { feature: "People per room", values: ["4", "8", "16"] },
-  { feature: "Session length", values: ["60 min", "4 hours", "up to 24 hours"] },
-  { feature: "Facecams", values: [null, "Voice", "Voice + video"] },
-  { feature: "Room waits between shows", values: [null, "24 hours", "Never closes"] },
-  { feature: "Upload your film for the room", values: [null, "2.5 GB / week · 2 GB file", "Unlimited · 10 GB file"] },
-  { feature: "Local files + YouTube", values: [true, true, true] },
-  { feature: "Public page at /u/handle", values: [null, null, true] },
+  { feature: "Rooms you can have open at once", values: ["1", "4", "20"] },
+  { feature: "Friends in one room", values: ["4", "8", "16"] },
+  { feature: "How long one show can run", values: ["1 hour", "4 hours", "Up to 24 hours"] },
+  { feature: "Talk and see each other", values: [null, "Voice only", "Voice + video"] },
+  { feature: "Room saved for your next show", values: [null, "For 24 hours", "Always"] },
+  { feature: "Share your video file so friends without a copy can watch", values: [null, "2.5 GB a week, 2 GB per file", "No weekly limit, 10 GB per file"] },
+  { feature: "Watch your own files and YouTube", values: [true, true, true] },
+  { feature: "Your own public profile page", values: [null, null, true] },
 ];
 
 function cellText(v: Cell) {

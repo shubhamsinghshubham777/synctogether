@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { ComparisonPage } from "@/components/ComparisonPage";
+import { PRICING_TIERS } from "@/lib/constants";
 
 export const metadata: Metadata = {
   title: "Teleparty Alternative for Downloaded Movies and Local Files",
@@ -32,7 +33,7 @@ export default function VsTelepartyPage() {
         { feature: "Text chat", ours: "yes", theirs: "yes" },
         { feature: "Host can share the file with the room", ours: "yes", theirs: "no" },
         { feature: "Platforms", ours: "Mac, Windows", theirs: "Chrome, Edge, Opera, Mac, Android" },
-        { feature: "Price", ours: "Free, Patron $3.99/mo", theirs: "Free, Premium $3.99/mo" },
+        { feature: "Price", ours: `Free, Patron ${PRICING_TIERS.premium.price.usdMonthly}/mo`, theirs: "Free, Premium $3.99/mo" },
       ]}
       sections={[
         {

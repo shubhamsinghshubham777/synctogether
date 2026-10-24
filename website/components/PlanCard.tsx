@@ -7,6 +7,8 @@ interface PlanCardProps {
   badge?: string;
   price: React.ReactNode;
   subPrice?: React.ReactNode;
+  /** Sits beside the badge, e.g. a region picker. */
+  priceControl?: React.ReactNode;
   periodText?: string;
   description: string;
   features: string[];
@@ -31,6 +33,7 @@ export function PlanCard({
   badge,
   price,
   subPrice,
+  priceControl,
   periodText = "/month",
   description,
   features,
@@ -44,7 +47,10 @@ export function PlanCard({
   const rule = isPremium ? "border-t-brass" : isPopular ? "border-t-beam-500" : "border-t-rail";
   return (
     <div className={`flex flex-col gap-[18px] p-7 bg-seat border border-rail border-t-[3px] ${rule} rounded-md ${className}`}>
-      <p className={`${mono} min-h-4 text-[11px] tracking-[0.14em] uppercase ${tone}`}>{badge}</p>
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+        <p className={`${mono} min-h-4 text-[11px] tracking-[0.14em] uppercase ${tone}`}>{badge}</p>
+        {priceControl}
+      </div>
 
       <h3
         className={`${display} flex items-center gap-2.5 text-[40px] font-extrabold tracking-[-0.04em] leading-[0.92] ${

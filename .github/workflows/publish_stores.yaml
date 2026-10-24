@@ -110,6 +110,35 @@ jobs:
               -f ref="refs/tags/$TAG" -f sha="${{ github.sha }}" >/dev/null
             echo "Tagged ${{ github.sha }} as $TAG."
           fi
+      # A notes-only GitHub release (never any installers - the stores deliver the
+      # app). It is what the website's /changelog reads.
+      - name: Publish release notes
+        env:
+          TAG: "v${{ steps.version.outputs.version }}"
+          VERSION: ${{ steps.version.outputs.version }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG already exists, leaving it alone."
+            exit 0
+          fi
+          FILE="metadata/version/$VERSION/en-US.json"
+          if [ ! -f "$FILE" ]; then
+            echo "::warning::$FILE is missing; skipping the GitHub release."
+            exit 0
+          fi
+          # whatsNew is bullets ("<bullet> TITLE", newline, text) split by blank lines.
+          python3 - "$FILE" > "$RUNNER_TEMP/notes.md" <<'PY'
+          import json, sys
+          nl = chr(10)
+          out = []
+          for block in json.load(open(sys.argv[1], encoding="utf-8"))["whatsNew"].split(nl * 2):
+              title, _, rest = block.strip().lstrip(chr(8226)).strip().partition(nl)
+              out.append("- **" + title.strip() + "**" + (": " + " ".join(rest.split()) if rest.strip() else ""))
+          print((nl * 2).join(out))
+          PY
+          gh release create "$TAG" --verify-tag --title "$TAG" --notes-file "$RUNNER_TEMP/notes.md"
 
   summary:
     name: Store Release Summary

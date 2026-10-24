@@ -65,8 +65,16 @@ function SeatCard({ seat }: { seat: Seat }) {
 }
 
 export function TierPreviewSection({ prices = PATRON_PRICES }: { prices?: PatronPriceTable }) {
-  const zero = "$0";
   const { currency, detecting } = useRegionCurrency();
+  // Every seat shows the same currency, so all three wait for the region together.
+  const pending = (
+    <span
+      role="status"
+      aria-label="Loading price"
+      className="inline-block h-[0.8em] w-[3.2ch] align-middle rounded-[4px] bg-rail motion-safe:animate-pulse"
+    />
+  );
+  const zero = detecting ? pending : formatPatronPrice(currency, 0);
 
   const seats: Seat[] = [
     { key: "guest", name: "Guest", note: "No account", price: zero, tone: "plain" },
@@ -77,11 +85,7 @@ export function TierPreviewSection({ prices = PATRON_PRICES }: { prices?: Patron
       note: "Per month",
       tone: "brass",
       price: detecting ? (
-        <span
-          role="status"
-          aria-label="Loading price"
-          className="inline-block h-[0.8em] w-[3.2ch] align-middle rounded-[4px] bg-rail motion-safe:animate-pulse"
-        />
+        pending
       ) : (
         <span id="features-premium-price">{formatPatronPrice(currency, prices[currency].monthly)}</span>
       ),

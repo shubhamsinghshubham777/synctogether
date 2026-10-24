@@ -94,7 +94,9 @@ async function ticket(req: Request): Promise<Response> {
   const user = await signedInUser(req);
   if (!user) return json({ error: "not_authenticated" }, 401);
   if (user.is_anonymous) return json({ error: "guest_cannot_purchase" }, 403);
-  return json({ service_ticket: await entraToken(PURCHASE_KEY_AUDIENCE) });
+  const serviceTicket = await entraToken(PURCHASE_KEY_AUDIENCE);
+  console.log(`ms-iap ticket: issued for ${user.id}`);
+  return json({ service_ticket: serviceTicket });
 }
 
 async function verify(req: Request): Promise<Response> {

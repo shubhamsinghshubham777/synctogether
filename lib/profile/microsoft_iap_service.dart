@@ -34,6 +34,7 @@ class MicrosoftProduct {
     required this.title,
     required this.price,
     required this.period,
+    this.currency = '',
   });
 
   final String storeId;
@@ -44,6 +45,10 @@ class MicrosoftProduct {
 
   /// `month`, `year` or `other`.
   final String period;
+
+  /// ISO code the Store prices this in (its market, in effect). Diagnostic only:
+  /// a payment that fails in one region and not another is read off this.
+  final String currency;
 
   bool get annual => period == 'year';
 
@@ -56,9 +61,47 @@ class MicrosoftProduct {
       title: '${raw['title'] ?? ''}',
       price: '${raw['price'] ?? ''}',
       period: '${raw['period'] ?? 'other'}',
+      currency: '${raw['currency'] ?? ''}',
     );
   }
 }
+
+/// What `RequestPurchaseAsync` answered: its status and the `ExtendedError`
+/// HRESULT behind it, the nearest thing the app gets to a decline reason.
+@immutable
+class StorePurchaseResult {
+  const StorePurchaseResult(this.status, {this.hresult = 0});
+
+  /// `succeeded`, `alreadyPurchased`, `notPurchased`, `networkError`, `serverError`.
+  final String status;
+
+  /// 0 (S_OK) when the Store attached no error.
+  final int hresult;
+
+  String get hresultHex => '0x${hresult.toUnsigned(32).toRadixString(16).padLeft(8, '0')}';
+
+  static StorePurchaseResult parse(Object? raw) {
+    if (raw is Map) {
+      final hresult = raw['hresult'];
+      return StorePurchaseResult(
+        '${raw['status'] ?? 'serverError'}',
+        hresult: hresult is int ? hresult : 0,
+      );
+    }
+    return const StorePurchaseResult('serverError');
+  }
+}
+
+/// Whether a purchase answer is worth a report. `notPurchased` alone is the
+/// person closing the dialog, which stays quiet; `notPurchased` carrying an
+/// error code is the Store refusing (a declined payment shows up this way), and
+/// that was invisible until the code was read. Pure, so it is testable without
+/// the Store.
+bool storePurchaseNeedsReport(StorePurchaseResult result) => switch (result.status) {
+  'succeeded' || 'alreadyPurchased' || 'networkError' => false,
+  'notPurchased' => result.hresult != 0,
+  _ => true,
+};
 
 /// Classifies `ms-iap/verify`'s answer. Pure, so the decision is testable
 /// without the Store. [active] is the server's "live right now"; a 200 for a
@@ -77,8 +120,7 @@ MicrosoftIapNotice classifyMicrosoftVerify(int status, String? error, {bool? act
 abstract interface class StorePurchaseChannel {
   Future<List<MicrosoftProduct>> products();
 
-  /// `succeeded`, `alreadyPurchased`, `notPurchased`, `networkError`, `serverError`.
-  Future<String> purchase(String storeId);
+  Future<StorePurchaseResult> purchase(String storeId);
 
   Future<String> idKey({required String serviceTicket, required String userId});
 }
@@ -107,8 +149,9 @@ class _NativeStorePurchase implements StorePurchaseChannel {
   }
 
   @override
-  Future<String> purchase(String storeId) async =>
-      await _channel.invokeMethod<String>('purchase', {'storeId': storeId}) ?? 'serverError';
+  Future<StorePurchaseResult> purchase(String storeId) async => StorePurchaseResult.parse(
+    await _channel.invokeMethod<Object?>('purchase', {'storeId': storeId}),
+  );
 
   @override
   Future<String> idKey({required String serviceTicket, required String userId}) async =>
@@ -196,7 +239,14 @@ class MicrosoftIapService extends ChangeNotifier {
     try {
       final list = await _store.products();
       _products = [...list]..sort((a, b) => a.annual == b.annual ? 0 : (a.annual ? 1 : -1));
-      trace('Store products loaded', category: 'billing', data: {'count': list.length});
+      trace(
+        'Store products loaded',
+        category: 'billing',
+        data: {
+          'count': list.length,
+          'currencies': {for (final p in list) p.currency}.join(','),
+        },
+      );
       if (list.isEmpty) {
         // A packaged, associated build with published add-ons always has some;
         // none means a wrong association or add-ons that are not live yet.
@@ -217,23 +267,39 @@ class MicrosoftIapService extends ChangeNotifier {
   Future<void> buy(MicrosoftProduct product) async {
     if (_userId == null || _busy) return;
     _setBusy(true);
-    trace('Store purchase started', category: 'billing', data: {'product': product.storeId});
+    // The user id rides the breadcrumbs, not the error text, so reports from
+    // one customer still group together while a report can be tied to them.
+    final context = {
+      'user': _userId,
+      'product': product.storeId,
+      'currency': product.currency,
+      'period': product.period,
+    };
+    trace('Store purchase started', category: 'billing', data: context);
     try {
-      final status = await _store.purchase(product.storeId);
-      trace('Store purchase finished', category: 'billing', data: {'status': status});
-      switch (status) {
+      final result = await _store.purchase(product.storeId);
+      trace(
+        'Store purchase finished',
+        category: 'billing',
+        data: {...context, 'status': result.status, 'hresult': result.hresultHex},
+      );
+      if (storePurchaseNeedsReport(result)) {
+        // A declined payment never reaches our server, so this is the only
+        // record of it: the status plus the Store's own error code.
+        reportNonFatal(
+          StateError('Store purchase ended with status ${result.status} ${result.hresultHex}'),
+          null,
+          during: 'starting a Microsoft Store purchase',
+        );
+      }
+      switch (result.status) {
         case 'succeeded' || 'alreadyPurchased':
           _notices.add(await sync());
         case 'notPurchased':
-          break; // The person closed the dialog.
+          break; // The Store showed its own dialog; there is nothing more to say.
         case 'networkError':
           _notices.add(.failed); // Transient; the trace above records it.
         default:
-          reportNonFatal(
-            StateError('Store purchase ended with status $status'),
-            null,
-            during: 'starting a Microsoft Store purchase',
-          );
           _notices.add(.failed);
       }
     } catch (e, s) {

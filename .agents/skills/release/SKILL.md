@@ -87,13 +87,21 @@ run finish (or cancel it) first, then push and re-dispatch.
 4. **Bump** - edit the `version:` line in pubspec.yaml (bare `X.Y.Z`, no
    `+build` suffix - CI's version extraction depends on this format).
 
+   **Then write the store notes yourself, now, before committing** - never ask
+   the user for them. Compose them from the commits per step 6's guidelines and
+   write them into the two files the stores read (formats in step 6), so they
+   land in the same commit as the bump. CI dispatches from `main`, so notes
+   committed after the push would not reach the stores.
+
 5. **Commit and push** - message follows repo precedent, exactly:
 
    ```
    Bump app version to X.Y.Z
    ```
 
-   No co-author trailers. Then `git push origin main`.
+   Stage `pubspec.yaml`, `metadata/version/X.Y.Z/en-US.json` and
+   `metadata/msstore_listing_en-US.json` together. No co-author trailers. Then
+   `git push origin main`.
 
    That subject line is matched by a `startsWith` guard in `test.yaml`, which
    skips the push-triggered test run for a bump commit - the dispatch in step 6
@@ -130,11 +138,19 @@ run finish (or cancel it) first, then push and re-dispatch.
    >      -> *User-friendly note*: **Smoother Video Sync**: Improved playback synchronization and video facecam stability on slower internet connections.
    > 3. **Format**:
 
-   The notes are not a workflow input any more: they become the stores' "What's
-   New". Mac App Store reads `metadata/version/X.Y.Z/en-US.json` (add it **before**
-   dispatching, or the version keeps its copied What's New) and the Microsoft
-   Store reads `metadata/msstore_listing_en-US.json`. Write the user-facing notes
-   into both, commit them with the bump, then dispatch:
+   The notes are not a workflow input; they become the stores' "What's New", and
+   you write them yourself in step 4 (already committed and pushed by now):
+   - **Mac App Store**: new file `metadata/version/X.Y.Z/en-US.json`. Copy the
+     previous version's file and change only `whatsNew` (bullets as
+     `• TITLE
+text` JSON escapes, blank line between). Without it the version keeps its
+     copied What's New.
+   - **Microsoft Store**: edit only the `ReleaseNotes` field of
+     `metadata/msstore_listing_en-US.json`, as `What's New in SyncTogether vX.Y.Z:`
+     then `• TITLE: text` bullets (a real bullet character). CI applies the file to the submission
+     (see the Microsoft Store notes below), so nothing is pushed by hand.
+
+   Then dispatch:
 
    ```bash
    gh workflow run publish_stores.yaml --ref main
@@ -173,11 +189,7 @@ run finish (or cancel it) first, then push and re-dispatch.
    - **Microsoft Store (`msstore`)**:
      1. **Automated Publishing**: CI automatically runs `msstore reconfigure` with GitHub Actions secrets and `msstore publish` with the built `.msix`.
      2. **State Machine Invariant**: A committed package submission progresses through `CommitStarted` -> `PreProcessing` -> `Certification` -> `Published`. During `PreProcessing` and `Certification`, Microsoft Partner Center locks the submission against metadata edits (`InvalidState`).
-     3. **Listing Metadata Updates**: Canonical listing text and release notes are maintained in `metadata/msstore_listing_en-US.json`. Once the package submission finishes certification and publishes (or on a draft submission before commit), push updated listing metadata via:
-        ```bash
-        msstore submission updateMetadata 9P1BZTSXHDFS -p metadata/msstore_updated_submission.json
-        msstore submission publish 9P1BZTSXHDFS
-        ```
+     3. **Listing Metadata Updates**: Canonical listing text and release notes live in `metadata/msstore_listing_en-US.json`. CI publishes the package with `--noCommit`, then `tool/apply_msstore_listing.ps1` patches that file's text onto the draft (screenshots keep the draft's ids) and commits it - so What's New ships with the release, as long as the file was updated and committed *before* dispatch. To fix the live listing without a release (no pending submission), run the same script by hand: `powershell -File tool/apply_msstore_listing.ps1 -ProductId 9P1BZTSXHDFS` (`-NoCommit` to review the draft first).
      4. **Store Assets**: 16:9 desktop screenshots reside in `assets/store/*.jpg` (1920 x 1080) and store logos (`store_logo_300x300.png`, `store_logo_150x150.png`).
 
    The dispatch is async - poll until the new run appears:

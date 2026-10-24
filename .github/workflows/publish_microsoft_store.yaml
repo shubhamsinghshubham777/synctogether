@@ -150,4 +150,8 @@ jobs:
           }
           $msixPath = "build/windows/x64/runner/Release/SyncTogether-${{ steps.version.outputs.APP_VERSION }}-Store.msix"
           Write-Host "Publishing $msixPath for Product ID $env:MSSTORE_PRODUCT_ID..."
-          msstore publish $msixPath --appId "$env:MSSTORE_PRODUCT_ID"
+          # Keep the submission a draft so the listing (What's New, description) can be
+          # applied before it is committed; a committed one is locked for metadata edits.
+          msstore publish $msixPath --appId "$env:MSSTORE_PRODUCT_ID" --noCommit
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          ./tool/apply_msstore_listing.ps1 -ProductId "$env:MSSTORE_PRODUCT_ID"

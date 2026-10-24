@@ -134,7 +134,7 @@ export function TierConfigurator({ prices = PATRON_PRICES }: { prices?: PatronPr
             const detail = `${mark(holds >= people)}holds ${holds} · ${mark(tier.limits.totalSessionMinutes >= minutes)}runs ${
               isPatron ? "up to " : ""
             }${runs}`;
-            const price = isPatron ? (detecting ? "…" : patronPrice) : "$0";
+            const price = detecting ? "…" : isPatron ? patronPrice : formatPatronPrice(currency, 0);
 
             return (
               <li key={key} className="border-b border-aisle">

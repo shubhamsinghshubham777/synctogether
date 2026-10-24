@@ -303,6 +303,35 @@ jobs:
           VERSION_ID=$(asc versions list --app "$APP_ID" --platform MAC_OS --version "$APP_VERSION" \
             | jq -r '(.data[0].id // empty)')
           if [ -z "$VERSION_ID" ]; then
+            # App Store Connect allows one unreleased macOS version at a time, so a
+            # build still waiting for review blocks `versions create` ("cannot create
+            # a new version in the current state"). The newer build supersedes it:
+            # withdraw that submission and rename its record to this version.
+            STALE=$(asc versions list --app "$APP_ID" --platform MAC_OS               --state PREPARE_FOR_SUBMISSION,WAITING_FOR_REVIEW,IN_REVIEW,REJECTED,METADATA_REJECTED,DEVELOPER_REJECTED,INVALID_BINARY               | jq -c '(.data[0] // empty) | {id, v: .attributes.versionString, s: (.attributes.appVersionState // .attributes.appStoreState)}')
+            if [ -n "$STALE" ]; then
+              STALE_ID=$(echo "$STALE" | jq -r .id)
+              echo "==> Superseding macOS version $(echo "$STALE" | jq -r .v) ($(echo "$STALE" | jq -r .s)) with $APP_VERSION"
+              # Anything not already editable is withdrawn (a no-op error if the state
+              # name was unreadable and it was editable all along - the rename decides).
+              if [ "$(echo "$STALE" | jq -r .s)" != "PREPARE_FOR_SUBMISSION" ]; then
+                asc submit cancel --version-id "$STALE_ID" --confirm || echo "::warning::Cancel did not apply; trying the rename anyway."
+              fi
+              # Cancelling is asynchronous; the record is renamable once it is back
+              # in PREPARE_FOR_SUBMISSION.
+              for attempt in 1 2 3 4 5 6; do
+                if asc versions update --version-id "$STALE_ID" --version "$APP_VERSION"; then
+                  VERSION_ID="$STALE_ID"; break
+                fi
+                echo "==> Version not renamable yet (attempt $attempt/6) - waiting"
+                sleep 20
+              done
+              if [ -z "$VERSION_ID" ]; then
+                echo "::error::Could not rename the pending macOS version to $APP_VERSION. Check App Store Connect."
+                exit 1
+              fi
+            fi
+          fi
+          if [ -z "$VERSION_ID" ]; then
             echo "==> No macOS $APP_VERSION version record yet - creating it"
             PREV=$(asc versions list --app "$APP_ID" --platform MAC_OS --state READY_FOR_SALE --latest \
               | jq -r '(.data[0].attributes.versionString // empty)')

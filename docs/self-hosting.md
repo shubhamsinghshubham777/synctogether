@@ -10,7 +10,7 @@ SyncTogether consists of four modular layers designed for low latency, secure ro
 
 ```mermaid
 flowchart TD
-    Client["SyncTogether Client<br/>(Desktop macOS/Windows, Mobile iOS/Android)"]
+    Client["SyncTogether Client<br/>(Desktop macOS/Windows)"]
     
     subgraph Backend ["Backend Infrastructure"]
         DB[("PostgreSQL Database<br/>(Rooms, Members, Chat, RLS)")]
@@ -243,7 +243,7 @@ If testing locally with the local Supabase stack (`./scripts/dev.sh`), no flags 
 # Fetch dependencies
 fvm flutter pub get
 
-# Run on macOS, Windows, Android, or iOS
+# Run on macOS or Windows
 fvm flutter run -d macos
 ```
 
@@ -270,15 +270,10 @@ fvm flutter build windows --release \
   --dart-define=SUPABASE_URL="https://<your-supabase-url>" \
   --dart-define=SUPABASE_PUBLISHABLE_KEY="<your-supabase-publishable-key>" \
   --dart-define=LIVEKIT_URL="wss://<your-livekit-url>"
-
-fvm flutter build apk --release \
-  --dart-define=SUPABASE_URL="https://<your-supabase-url>" \
-  --dart-define=SUPABASE_PUBLISHABLE_KEY="<your-supabase-publishable-key>" \
-  --dart-define=LIVEKIT_URL="wss://<your-livekit-url>"
 ```
 
 > [!WARNING]
-> **Hardcoded `synctogether.app` URLs.** The client builds shareable invite links (`/join/<code>`), recap and profile links, and the Google OAuth desktop bridge (`/auth/desktop-callback`) against `https://synctogether.app` in release builds (`lib/rewards/rewards_service.dart`, `lib/auth/auth_service.dart`). A self-hosted build should change those to your own web portal's origin, otherwise invites point at the official site and Google sign-in redirects through it. Guests, in-app room codes and `synctogether://join/<code>` links work without any web portal.
+> **Hardcoded `synctogether.app` URLs.** The client builds shareable invite links (`/join/<code>`), recap and profile links, the Google OAuth desktop bridge (`/auth/desktop-callback`) and the Terms/Privacy links against `https://synctogether.app` in release builds (`lib/rewards/rewards_service.dart`, `lib/auth/auth_service.dart`, `lib/auth/login_screen.dart`, `lib/profile/profile_screen.dart`, `lib/profile/subscription_screen.dart`, plus the support address in `lib/profile/banned_screen.dart` and the invite-link check in `lib/rooms/invite_clipboard.dart`). A self-hosted build should change those to your own web portal's origin, otherwise invites point at the official site and Google sign-in redirects through it. Guests, in-app room codes and `synctogether://join/<code>` links work without any web portal.
 
 > [!TIP]
 > **VS Code & Define Files**: Instead of passing command-line arguments manually, you can configure these defines under `args` in `.vscode/launch.json` or maintain a local JSON file passed with `--dart-define-from-file=my_config.json`.
@@ -335,6 +330,8 @@ In debug builds with no local values set, the client falls back to `http://127.0
 | `LIVEKIT_API_SECRET` | **Yes** *(for AV)* | LiveKit API Secret (used by edge function to sign JWT tokens) |
 | `LIVEKIT_URL` | **Yes** *(for AV)* | LiveKit WebSocket URL |
 | `LIVEKIT_ENDPOINTS` | *No* | JSON array of `{id, url, key, secret, trial?}` LiveKit endpoints in priority order; replaces the three above. `trial` (default: on unless the URL is `*.livekit.cloud`) allows the free tier's video trial there. Rooms fail over between them (see `docs/feature-toggles.md`) |
+| `LIVEKIT_TRIAL` | *No* | Single-endpoint override for the free tier's video trial (default: on unless the URL is `*.livekit.cloud`) |
+| `AV_DEBUG_SWITCHING` | *No* | Local/staging only, never production: lets debug builds switch AV endpoints by hand |
 | `CF_R2_ENDPOINT` | *No* | Cloudflare R2 / S3 S3-compatible endpoint for media sharing |
 | `CF_R2_ACCESS_KEY_ID` | *No* | Cloudflare R2 / S3 access key |
 | `CF_R2_SECRET_ACCESS_KEY` | *No* | Cloudflare R2 / S3 secret key |

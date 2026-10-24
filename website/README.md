@@ -33,6 +33,9 @@ Required and optional environment variables:
 - `NEXT_PUBLIC_TURNSTILE_SITE_KEY`: Cloudflare Turnstile site key for captcha verification
 - `NEXT_PUBLIC_POSTHOG_KEY`: PostHog public project key for web telemetry (optional)
 - `NEXT_PUBLIC_POSTHOG_HOST`: PostHog host endpoint (defaults to `https://us.i.posthog.com`)
+- `NEXT_PUBLIC_SHOW_USAGE_STATS`: show the public usage-stats strip (optional)
+- `PROD_SUPABASE_URL` / `PROD_SUPABASE_SERVICE_ROLE_KEY`: production project for the `/admin` and `/internal/metrics` dashboards (optional)
+- `POSTHOG_PROJECT_URL`, `METRICS_INR_PER_USD`, `SUPABASE_DB_CAP_BYTES`: metrics-dashboard tuning (optional); see `.env.example`
 
 ### 3. Run Development Server
 
@@ -59,7 +62,10 @@ Runs the test suite in `tests/` (metrics, moderation heuristics, rewards and tie
 - `/auth`, `/auth/callback`, `/auth/desktop-callback` - Supabase Google OAuth, Apple Sign-In, and Turnstile-protected email OTP authentication flows and desktop PKCE bridge
 - `/download` - Store hub: Mac App Store and Microsoft Store badges, with `?code=` invite carry-through
 - `/changelog` - Release history fetched directly from GitHub releases
-- `/faq`, `/privacy`, `/terms`, `/refund` - Help center and compliance documentation
+- `/join/<code>` - Invite landing: tries the `synctogether://` scheme, falls back to `/download?code=`
+- `/r/<id>` (shared session recaps), `/u/<handle>` (Premium profile pages), `/leaderboard`, `/wrapped/<handle>` - Gamification pages
+- `/vs/discord`, `/vs/syncplay`, `/vs/teleparty` - Comparison pages
+- `/faq`, `/privacy`, `/terms`, `/refund`, `/dmca` - Help center and compliance documentation
 - `/admin` - Protected administration console for inspecting subscriber entitlements
 - `/internal/metrics` - Real-time system performance and sync health telemetry dashboard
 

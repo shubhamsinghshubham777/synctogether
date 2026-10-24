@@ -60,10 +60,10 @@ Future<void> _sizeContentTo(Size logical) async {
 
 /// `STORE_TARGET=mac` shoots the Mac App Store set instead: 1440x900 at 2x
 /// (2880x1800, a size App Store Connect accepts - 1920x1080 is not one) into
-/// `assets/store/mac/`. The default is the Microsoft Store / README set.
+/// `store/mac/`. The default is the Microsoft Store / README set.
 const _kStoreTarget = String.fromEnvironment('STORE_TARGET', defaultValue: 'windows');
 const _kMacStore = _kStoreTarget == 'mac';
-const _kStoreDir = _kMacStore ? 'assets/store/mac' : 'assets/store';
+const _kStoreDir = _kMacStore ? 'store/mac' : 'store';
 const _kStoreLogical = _kMacStore ? Size(1440, 900) : _kCaptureLogical;
 const _kStoreRatio = _kMacStore ? 2.0 : _kCaptureRatio;
 

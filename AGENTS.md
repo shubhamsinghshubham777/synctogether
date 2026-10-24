@@ -39,9 +39,9 @@ supabase start                          # Start local Supabase container stack
 supabase db push                        # Apply migrations
 supabase test db                        # Run pgTAP database test suite
 
-# Web Application & Billing (website/)
+# Web Application (website/)
 cd website && npm run dev               # Run Next.js dev server (http://localhost:3000)
-npm --prefix website test               # Run webhook idempotency & signature test suite
+npm --prefix website test               # Run the website test suite
 ```
 
 ---
@@ -80,9 +80,9 @@ npm --prefix website test               # Run webhook idempotency & signature te
 Detailed domain-specific architecture and guidelines are split into progressive disclosure rules:
 
 * **[Realtime & Sync Protocol](.agents/rules/sync-and-realtime.md)**: Realtime channel contracts, presence rate limits (5 calls / 30s), authority election, readiness gate lockstep, YouTube IFrame intent model.
-* **[Backend, Database & Entitlements](.agents/rules/backend-and-entitlements.md)**: Supabase RLS policies, RPC invariants (`create_room`, `join_room`, `end_room`, `delete_room`), tier limits (`guest`/`free`/`premium`), web billing webhook processing, and pgTAP testing.
+* **[Backend, Database & Entitlements](.agents/rules/backend-and-entitlements.md)**: Supabase RLS policies, RPC invariants (`create_room`, `join_room`, `end_room`, `delete_room`), tier limits (`guest`/`free`/`premium`), store-only billing rails, and pgTAP testing.
 * **[Auth, Security & Platform Specifics](.agents/rules/auth-and-platform.md)**: Google OAuth PKCE deep linking, Cloudflare Turnstile loopback bridge, Windows WebView2 runtime, TLS root cert overrides.
-* **UI Design System, AV & Telemetry**: no separate rules file - see the Conventions and Architecture sections of `CLAUDE.md` (glass rendering, LiveKit AV rails, diagnostics vs. analytics, generated asset tools).
+* **[UI Design System, AV & Telemetry](.agents/rules/ui-and-av.md)**: Projection Booth tokens, `PTLoader`, LiveKit AV rails, diagnostics vs. analytics, generated asset tools. `CLAUDE.md` has the long form.
 
 ---
 

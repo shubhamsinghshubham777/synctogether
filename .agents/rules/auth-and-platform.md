@@ -1,5 +1,5 @@
 ---
-description: OAuth PKCE deep linking, Apple Sign-In, Passwordless Email OTP, Cloudflare Turnstile loopback bridge, Windows WebView2 runtime, TLS root cert overrides, and native silent desktop updates.
+description: OAuth PKCE deep linking, Apple Sign-In, Passwordless Email OTP, Cloudflare Turnstile loopback bridge, Windows WebView2 runtime, and TLS root cert overrides.
 trigger: model_decision
 ---
 

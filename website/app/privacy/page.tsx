@@ -36,7 +36,7 @@ export const metadata: Metadata = {
 };
 
 export default function PrivacyPage() {
-  const lastUpdated = "August 30, 2026";
+  const lastUpdated = "October 24, 2026";
   const effectiveDate = "August 30, 2026";
 
   const subprocessors = [
@@ -84,9 +84,15 @@ export default function PrivacyPage() {
     },
     {
       name: "Apple Inc.",
-      purpose: "Sign in with Apple single sign-on authentication.",
+      purpose: "Sign in with Apple single sign-on authentication, and App Store purchase verification (signed transactions) for Premium.",
       location: "United States / Global",
       privacyUrl: "https://www.apple.com/legal/privacy/",
+    },
+    {
+      name: "Microsoft Corporation",
+      purpose: "Microsoft Store purchase verification for Premium on Windows (a Store ID key bound to your account id).",
+      location: "United States / Global",
+      privacyUrl: "https://privacy.microsoft.com/privacystatement",
     },
     {
       name: "Google LLC",
@@ -109,7 +115,7 @@ export default function PrivacyPage() {
         <section className="space-y-3">
           <LegalPledge title="Our Privacy Pledge">
             <p>
-              SyncTogether is designed around privacy by architecture. When synchronizing local files, your video bytes and absolute disk paths never leave your device. When using real-time facecams and voice chat, streams are end-to-end encrypted in transit and <strong>never recorded or stored</strong> on any server. We do not sell your personal data, and we do not track you across the web.
+              SyncTogether is designed around privacy by architecture. When synchronizing local files, your video bytes and absolute disk paths never leave your device. When using real-time facecams and voice chat, streams are encrypted in transit and <strong>never recorded or stored</strong> on any server. We do not sell your personal data, and we do not track you across the web.
             </p>
           </LegalPledge>
         </section>
@@ -157,6 +163,9 @@ export default function PrivacyPage() {
                 </li>
                 <li>
                   <strong className="text-gray-200">User Profiles:</strong> You may customize your public display name at any time in your profile settings.
+                </li>
+                <li>
+                  <strong className="text-gray-200">Referral Attribution:</strong> When a brand-new account (less than a day old) joins a room, we record the room&apos;s creator as the person who brought them in. It is set once and never overwritten. The creator only sees running counts of how many people joined through their rooms, never who they are, and it is not used for advertising.
                 </li>
               </ul>
             </div>
@@ -323,7 +332,7 @@ export default function PrivacyPage() {
                 <span>Camera Access</span>
               </div>
               <p className="text-gray-400">
-                Used solely to capture and stream your video facecam when video is explicitly enabled by you in a room.
+                Used solely to capture and stream your video facecam when video is explicitly enabled by you in a room, and to take a profile photo when you choose to.
               </p>
             </div>
           </div>
@@ -484,9 +493,15 @@ export default function PrivacyPage() {
                 </p>
               </div>
               <div className="p-4 sm:p-5 rounded-xl bg-white/[0.02] border border-white/5 space-y-1.5">
+                <strong className="text-white block font-semibold text-base">Reports &amp; Blocks</strong>
+                <p className="text-gray-400">
+                  Blocking someone is saved to your account so it applies in every room, and it also files a report for our moderators. Reports are kept after the room is deleted so they can be reviewed; neither the person who filed one nor the person reported can read them.
+                </p>
+              </div>
+              <div className="p-4 sm:p-5 rounded-xl bg-white/[0.02] border border-white/5 space-y-1.5">
                 <strong className="text-white block font-semibold text-base">Guest Accounts</strong>
                 <p className="text-gray-400">
-                  Anonymous guest profiles inactive for more than 3 days without active rooms are purged daily via automated database routines.
+                  Anonymous guest accounts are purged daily once they are more than 3 days old, along with the data tied to them.
                 </p>
               </div>
               <div className="p-4 sm:p-5 rounded-xl bg-white/[0.02] border border-white/5 space-y-1.5">
@@ -550,7 +565,7 @@ export default function PrivacyPage() {
                   <span>Delete Account</span>
                 </div>
                 <p className="text-gray-400 text-sm">
-                  Permanently erase your account, profile, rooms, and all associated database records directly in the desktop app or website.
+                  Permanently erase your account, profile, rooms, and all associated database records from Profile in the app.
                 </p>
               </div>
 

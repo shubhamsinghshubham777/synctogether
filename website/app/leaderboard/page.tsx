@@ -176,7 +176,7 @@ export default async function LeaderboardPage() {
       <section className="border-t border-rail pt-12 grid md:grid-cols-[1fr_auto] gap-8 items-end">
         <div className="space-y-4 max-w-xl">
           <Kicker tone="muted">Want to be on it?</Kicker>
-          <Headline as="h2" className="text-3xl sm:text-4xl">Twenty minutes with someone and the day counts.</Headline>
+          <Headline as="h2" className="text-3xl sm:text-4xl">Ten minutes with someone and the day counts.</Headline>
           <p className="text-gray-400 leading-relaxed">
             Appearing here is opt-in. Turn it on from your profile in the app whenever you like.
           </p>

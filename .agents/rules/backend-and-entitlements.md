@@ -1,5 +1,5 @@
 ---
-description: Supabase RLS policies, RPC invariants (create_room, join_room, end_room, delete_room), tier limits, web billing webhook processing, and pgTAP testing.
+description: Supabase RLS policies, RPC invariants (create_room, join_room, end_room, delete_room), tier limits, store-only billing rails, and pgTAP testing.
 trigger: model_decision
 ---
 
@@ -22,6 +22,8 @@ Guidance for working with Supabase (`supabase/`), database RPCs/RLS, tier entitl
   - `livekit-token`: Issues participant tokens for LiveKit AV facecam rail.
   - `media-share`: Issues presigned S3/R2 URLs and orchestrates multipart uploads for shared local media.
   - `cleanup-r2`: Scheduled maintenance worker purging objects listed in `pending_r2_deletions`.
+  - `av-cleanup`: Mirrors room end/kick onto every LiveKit endpoint (drains `pending_av_cleanups`).
+  - `apple-iap` / `ms-iap`: Verify App Store and Microsoft Store purchases and bind them to the caller.
 
 ### RPC Invariants (`security definer`)
 - **`create_room`**: Generates 6-char code; denormalizes caps from the **host's** tier.
@@ -40,7 +42,7 @@ Three tiers: `guest` / `free` / `premium`.
 
 - **Limits are config**: Stored in `tier_limits` table. `effective_tier(uid)` is `guest` (anonymous), `premium` (active subscription), else `free`.
 - **Host owns room properties**: Joiners experience the host's room limits and AV capabilities.
-- **Room state**: `room_state` is `live` or `expired`. Active rooms stay live until their timer expires or host ends them; persistent rooms (premium) stay live indefinitely. `sweep_rooms` cron drives cleanup of expired rooms through `retire_room`.
+- **Room state**: `room_state` is `live`, `idle` or `expired`. A session is live until its timer expires or the host ends it. Non-persistent rooms then expire and are swept; persistent rooms (premium) rest as `idle` (listed, not joinable, resumed by the host with `resume_room`) and are deleted after `app_settings.idle_rooms.ttl_days`. `sweep_rooms` retires sessions through `retire_room`.
 - **Extending rooms**: `extend_room` branches on tier config (`max_total_session_minutes`, `free_extension_minutes`), not hardcoded tier strings.
 - **T-5 Expiry Banner**: Must NOT auto-dismiss for the host (it is the only affordance to extend/save the session). Auto-dismisses for members.
 - **Crown & Badges**: Visible badges (`PremiumCrown`, `PTAvatar.premium`) are resolved via `room_member_tiers(p_room_id)` RPC (single roundtrip, membership-gated). Never use presence self-reports for entitlement claims.

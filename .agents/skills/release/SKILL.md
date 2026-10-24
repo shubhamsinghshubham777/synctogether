@@ -200,7 +200,7 @@ run finish (or cancel it) first, then push and re-dispatch.
      - **Secrets**: `APP_STORE_CONNECT_KEY_ID`, `APP_STORE_CONNECT_ISSUER_ID` and `APP_STORE_CONNECT_API_KEY_P8` (the full `.p8`, BEGIN/END lines included; an App Manager role key). `APPLE_ID` / `APPLE_APP_SPECIFIC_PASSWORD` can only upload, not drive review, so they are the fallback, not a substitute.
      - **Before releasing**, add `metadata/version/X.Y.Z/en-US.json`, or the version keeps its copied What's New.
      - **Opt out** of auto-submission with `-f submit_for_review=false` on a direct `publish_mac_app_store.yaml` dispatch (the `publish_stores.yaml` fan-out always submits).
-     - **Screenshots are still manual** (only needed when the UI changed): `asc screenshots upload --app 6809185202 --version "X.Y.Z" --locale en-US --platform MAC_OS --display-type APP_DESKTOP --files assets/store/mac/*.jpg`, and do it *before* the build is submitted.
+     - **Screenshots are still manual** (only needed when the UI changed): `asc screenshots upload --app 6809185202 --version "X.Y.Z" --locale en-US --platform MAC_OS --display-type APP_DESKTOP --files store/mac/*.jpg`, and do it *before* the build is submitted.
      - **A build already waiting for review is superseded automatically**: App Store Connect allows one unreleased macOS version, so the workflow cancels that submission (`asc submit cancel`) and renames its record to the new version before attaching the build.
      - If the submit step fails, check `asc review status --app 6809185202 --platform MAC_OS`; the build is already uploaded, so fix the cause and submit by hand with `asc review submit`.
 
@@ -208,7 +208,7 @@ run finish (or cancel it) first, then push and re-dispatch.
      1. **Automated Publishing**: CI automatically runs `msstore reconfigure` with GitHub Actions secrets and `msstore publish` with the built `.msix`.
      2. **State Machine Invariant**: A committed package submission progresses through `CommitStarted` -> `PreProcessing` -> `Certification` -> `Published`. During `PreProcessing` and `Certification`, Microsoft Partner Center locks the submission against metadata edits (`InvalidState`).
      3. **Listing Metadata Updates**: Canonical listing text and release notes live in `metadata/msstore_listing_en-US.json`. CI publishes the package with `--noCommit`, then `tool/apply_msstore_listing.ps1` patches that file's text onto the draft (screenshots keep the draft's ids) and commits it - so What's New ships with the release, as long as the file was updated and committed *before* dispatch. To fix the live listing without a release (no pending submission), run the same script by hand: `powershell -File tool/apply_msstore_listing.ps1 -ProductId 9P1BZTSXHDFS` (`-NoCommit` to review the draft first).
-     4. **Store Assets**: 16:9 desktop screenshots reside in `assets/store/*.jpg` (1920 x 1080) and store logos (`store_logo_300x300.png`, `store_logo_150x150.png`).
+     4. **Store Assets**: 16:9 desktop screenshots reside in `store/*.jpg` (1920 x 1080) and store logos (`store_logo_300x300.png`, `store_logo_150x150.png`).
 
    The dispatch is async - poll until the new run appears:
 

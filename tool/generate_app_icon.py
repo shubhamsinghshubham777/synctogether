@@ -157,7 +157,7 @@ write("app_icon_monochrome", art(SIZE, bg=False, mono=True))
 # Microsoft Store listing logos. The store shows them as drawn, never masked,
 # so they get the rounded master like the Windows .ico.
 for size in (150, 300):
-    dest = os.path.join(ROOT, "assets", "store", f"store_logo_{size}x{size}.png")
+    dest = os.path.join(ROOT, "store", f"store_logo_{size}x{size}.png")
     render(master, dest, size)
     print("wrote", os.path.relpath(dest, ROOT))
 

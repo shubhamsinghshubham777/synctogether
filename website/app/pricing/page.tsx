@@ -3,6 +3,7 @@ import { PricingTable } from "@/components/PricingTable";
 import { TierConfigurator } from "@/components/pricing/TierConfigurator";
 import { Reveal } from "@/components/motion/Reveal";
 import { PageHead, display, mono } from "@/components/PageHead";
+import { getPatronPrices } from "@/lib/store-prices";
 
 export const metadata: Metadata = {
   title: "Pricing & Plans · SyncTogether Premium",
@@ -10,7 +11,8 @@ export const metadata: Metadata = {
     "Upgrade to SyncTogether Premium for 20 persistent rooms, 16 members, 24-hour sessions, video facecams, and extended emoji reactions.",
 };
 
-export default function PricingPage() {
+export default async function PricingPage() {
+  const { prices } = await getPatronPrices();
   return (
     <div className="relative pt-8 pb-12 md:pt-12 md:pb-12 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto space-y-10">
 
@@ -48,7 +50,7 @@ export default function PricingPage() {
       </div>
 
       <Reveal>
-        <PricingTable />
+        <PricingTable prices={prices} />
       </Reveal>
 
     </div>

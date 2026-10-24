@@ -35,6 +35,54 @@ export const DMCA_AGENT = {
   directoryUrl: "https://dmca.copyright.gov/osp/publish/history.html",
 };
 
+export type PatronCurrency = "USD" | "INR" | "PKR";
+export type PatronPriceTable = Record<PatronCurrency, { monthly: number; annual: number }>;
+
+/// Patron prices, in major units - the fallback figures. The pricing page
+/// overlays Apple's live prices on these (lib/store-prices.ts) and shows these
+/// when that call is unavailable. The stores are the source of truth: App Store
+/// Connect and Partner Center each hold their own per-territory price, and the
+/// two only offer slightly different steps (PKR 580 on Apple, 581 on Microsoft),
+/// so change a tier there first, then here.
+export const PATRON_PRICES: PatronPriceTable = {
+  USD: { monthly: 3.99, annual: 29.99 },
+  INR: { monthly: 199, annual: 999 },
+  PKR: { monthly: 581, annual: 3000 },
+};
+
+/// Local-currency Patron prices shown beside the USD ones (USD stays the
+/// headline). Territory names are display copy.
+export const PATRON_LOCAL_PRICING: { country: string; currency: Exclude<PatronCurrency, "USD"> }[] = [
+  { country: "India", currency: "INR" },
+  { country: "Pakistan", currency: "PKR" },
+];
+
+/// Region -> Patron currency, from an ISO 3166-1 alpha-2 country code. Anything
+/// not listed pays in USD (the store converts to the buyer's local currency).
+export function currencyForCountry(country: string | null | undefined): PatronCurrency {
+  switch (country?.toUpperCase()) {
+    case "IN":
+      return "INR";
+    case "PK":
+      return "PKR";
+    default:
+      return "USD";
+  }
+}
+
+/// "$3.99", "₹199", "PKR 581": no decimals unless the amount has them.
+export function formatPatronPrice(currency: PatronCurrency, amount: number): string {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency,
+    currencyDisplay: currency === "PKR" ? "code" : "symbol",
+    minimumFractionDigits: Number.isInteger(amount) ? 0 : 2,
+    maximumFractionDigits: 2,
+  })
+    .format(amount)
+    .replace(/\u00a0/g, " ");
+}
+
 export const PRICING_TIERS = {
   guest: {
     name: "Guest",
@@ -101,9 +149,9 @@ export const PRICING_TIERS = {
     name: "Premium",
     badge: "Ultimate Experience",
     price: {
-      usdMonthly: "$3.99",
-      usdAnnual: "$29.99",
-      usdAnnualMonthlyEquivalent: "$2.49",
+      usdMonthly: formatPatronPrice("USD", PATRON_PRICES.USD.monthly),
+      usdAnnual: formatPatronPrice("USD", PATRON_PRICES.USD.annual),
+      usdAnnualMonthlyEquivalent: formatPatronPrice("USD", Math.floor((PATRON_PRICES.USD.annual / 12) * 100) / 100),
       // No savingsPct here on purpose: PricingTable derives it from the two
       // amounts it displays (USD saves 37%), so it cannot drift from them.
     },

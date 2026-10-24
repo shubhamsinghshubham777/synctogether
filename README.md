@@ -14,6 +14,14 @@
   <img src="https://img.shields.io/badge/Platforms-macOS_%7C_Windows-FFB23F" alt="Platforms">
 </p>
 
+<p align="center">
+  <a href="https://apps.apple.com/in/app/synctogether-watch-party/id6809185202?mt=12"><img src="https://tools.applemediaservices.com/api/badges/download-on-the-mac-app-store/black/en-us" height="52" alt="Download on the Mac App Store"></a>
+  &nbsp;
+  <a href="https://apps.microsoft.com/detail/9P1BZTSXHDFS"><img src="https://get.microsoft.com/images/en-us%20dark.svg" height="52" alt="Get it from Microsoft"></a>
+</p>
+
+<p align="center"><sub>SyncTogether is distributed through the stores only - there are no direct installers, and the Store delivers updates.</sub></p>
+
 ---
 
 SyncTogether is a modern cross-platform application for synchronized media playback across devices. Create a **room**, share a 6-character room code (or a `synctogether://join/<code>` invite link), and keep everyone's playback in lockstep - play, pause, and seeks broadcast in real-time, accompanied by synchronized chat, animated emoji reactions, and live voice & video facecams.

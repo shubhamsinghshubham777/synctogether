@@ -265,6 +265,8 @@ class _LoginScreenState extends State<LoginScreen> with WindowListener {
     trace('guest sign-in started', category: 'auth', data: {'captcha': captchaRequired});
     if (captchaRequired) {
       captchaToken = await showTurnstileDialog(context);
+      // A sign-in can land behind the dialog and route us away.
+      if (!mounted) return;
       if (captchaToken == null) {
         trace('guest sign-in abandoned: no captcha token', category: 'auth');
         return;

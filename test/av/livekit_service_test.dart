@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:livekit_client/livekit_client.dart' as lk;
 import 'package:synctogether/av/livekit_service.dart';
 
 void main() {
@@ -73,6 +74,57 @@ void main() {
 
       await service.setCamEnabled(true);
       expect(service.camEnabled, isFalse);
+
+      service.dispose();
+    });
+
+    test('a camera that cannot open is switched back off and announced', () async {
+      final service = LiveKitService(roomId: 'room-1', avLevel: .video);
+      await service.connect();
+      await service.setCamEnabled(true);
+      final failures = <String>[];
+      service.trackFailures.listen(failures.add);
+      var notified = 0;
+      service.addListener(() => notified++);
+
+      service.debugTrackSyncFailed('cam', lk.TrackCreateException());
+      await Future<void>.delayed(Duration.zero);
+
+      expect(service.camEnabled, isFalse);
+      expect(failures, ['cam']);
+      expect(notified, 1);
+      expect(service.debugSyncCoolingDown, isTrue);
+
+      service.dispose();
+    });
+
+    test('a mic that cannot open leaves the camera alone', () async {
+      final service = LiveKitService(roomId: 'room-1', avLevel: .video);
+      await service.connect();
+      await service.setMicEnabled(true);
+      await service.setCamEnabled(true);
+
+      service.debugTrackSyncFailed('mic', lk.TrackCreateException());
+
+      expect(service.micEnabled, isFalse);
+      expect(service.camEnabled, isTrue);
+
+      service.dispose();
+    });
+
+    test('a publisher closed mid-reconnect cools down but keeps what was asked for', () async {
+      final service = LiveKitService(roomId: 'room-1', avLevel: .video);
+      await service.connect();
+      await service.setMicEnabled(true);
+      final failures = <String>[];
+      service.trackFailures.listen(failures.add);
+
+      service.debugTrackSyncFailed('mic', lk.UnexpectedConnectionState('publisher is closed'));
+      await Future<void>.delayed(Duration.zero);
+
+      expect(service.micEnabled, isTrue);
+      expect(failures, isEmpty);
+      expect(service.debugSyncCoolingDown, isTrue);
 
       service.dispose();
     });

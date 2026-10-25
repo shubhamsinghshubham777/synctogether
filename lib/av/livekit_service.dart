@@ -32,7 +32,11 @@ bool isTransientAvError(Object error) => switch (error) {
   // up - bad ICE, a network change mid-offer. The engine renegotiates and we
   // reconnect; they say nothing about our code.
   lk.NegotiationError() ||
-  lk.TrackPublishException() => true,
+  lk.TrackPublishException() ||
+  // A publish racing a reconnect or a room swap: the publisher it started on
+  // is already closed. The reconnect re-syncs the tracks.
+  lk.UnexpectedConnectionState() ||
+  lk.UnexpectedStateException() => true,
   // flutter_webrtc throws bare strings for native peer-connection failures.
   String(:final length) when length > 0 => error.startsWith('Unable to RTCPeerConnection::'),
   // NotAllowed is the SFU refusing our token - a real answer, like a 4xx.
@@ -152,8 +156,15 @@ class LiveKitService extends ChangeNotifier {
   bool _desiredCamEnabled = false;
   bool _disposed = false;
   bool _syncingTracks = false;
+  DateTime? _syncCooldownUntil;
   int _reconnectAttempts = 0;
   Timer? _reconnectTimer;
+
+  final _trackFailures = StreamController<String>.broadcast();
+
+  /// `'mic'` or `'cam'` each time that device could not be opened and was
+  /// switched back off, so the room can say so instead of the toggle lying.
+  Stream<String> get trackFailures => _trackFailures.stream;
 
   bool get micEnabled => _desiredMicEnabled;
   bool get camEnabled => _desiredCamEnabled;
@@ -273,8 +284,9 @@ class LiveKitService extends ChangeNotifier {
         if (_state == .connected) {
           final local = room.localParticipant;
           if (local != null) {
-            if ((_desiredMicEnabled && !local.isMicrophoneEnabled()) ||
-                (_desiredCamEnabled && canPublishCamera && !local.isCameraEnabled())) {
+            if (!_syncCooldownActive &&
+                ((_desiredMicEnabled && !local.isMicrophoneEnabled()) ||
+                    (_desiredCamEnabled && canPublishCamera && !local.isCameraEnabled()))) {
               unawaited(_syncTracks());
             }
           }
@@ -546,36 +558,80 @@ class LiveKitService extends ChangeNotifier {
     _room = null;
   }
 
+  bool get _syncCooldownActive =>
+      _syncCooldownUntil != null && DateTime.now().isBefore(_syncCooldownUntil!);
+
+  @visibleForTesting
+  void debugTrackSyncFailed(String kind, Object error) =>
+      _trackSyncFailed(kind, error, StackTrace.current, _room);
+
+  @visibleForTesting
+  bool get debugSyncCoolingDown => _syncCooldownActive;
+
   Future<void> _syncTracks() async {
     if (_syncingTracks || _state != .connected) return;
-    final local = _room?.localParticipant;
+    final room = _room;
+    final local = room?.localParticipant;
     if (local == null) return;
     _syncingTracks = true;
     try {
       if (_desiredMicEnabled != local.isMicrophoneEnabled()) {
-        await local.setMicrophoneEnabled(_desiredMicEnabled);
+        try {
+          await local.setMicrophoneEnabled(_desiredMicEnabled);
+        } catch (e, s) {
+          _trackSyncFailed('mic', e, s, room);
+        }
       }
       if (canPublishCamera && _desiredCamEnabled != local.isCameraEnabled()) {
-        await local.setCameraEnabled(
-          _desiredCamEnabled,
-          cameraCaptureOptions: _desiredCamEnabled ? _cameraCapture : null,
-        );
+        try {
+          await local.setCameraEnabled(
+            _desiredCamEnabled,
+            cameraCaptureOptions: _desiredCamEnabled ? _cameraCapture : null,
+          );
+        } catch (e, s) {
+          _trackSyncFailed('cam', e, s, room);
+        }
       }
-    } catch (e, s) {
-      reportNonFatal(e, s, during: 'syncing AV tracks for room $roomId');
     } finally {
       _syncingTracks = false;
     }
+  }
+
+  /// The room-event listener re-syncs whenever wanted and actual differ, so a
+  /// device that cannot open used to be retried on every event, each attempt
+  /// reported. Cool down, and for a device that failed to open (in use,
+  /// denied, absent) give up and say so - retrying cannot change that. A
+  /// publisher closed under us is a reconnect in flight, which re-syncs itself.
+  void _trackSyncFailed(String kind, Object e, StackTrace s, lk.Room? room) {
+    _syncCooldownUntil = DateTime.now().add(const Duration(seconds: 3));
+    final deviceFailed = e is lk.TrackCreateException;
+    trace(
+      'av track sync failed',
+      category: 'av',
+      data: {'room_id': roomId, 'kind': kind, 'device': deviceFailed, 'error': '$e'},
+    );
+    if (!isTransientAvError(e)) {
+      reportNonFatal(e, s, during: 'syncing AV tracks for room $roomId');
+    }
+    if (!deviceFailed || !identical(room, _room)) return;
+    if (kind == 'mic') {
+      _desiredMicEnabled = false;
+    } else {
+      _desiredCamEnabled = false;
+    }
+    if (!_trackFailures.isClosed) _trackFailures.add(kind);
+    notifyListeners();
   }
 
   Future<void> setMicEnabled(bool enabled) async {
     _desiredMicEnabled = enabled;
     notifyListeners();
     if (_room != null && _state == .connected) {
+      final room = _room;
       try {
-        await _room?.localParticipant?.setMicrophoneEnabled(enabled);
+        await room?.localParticipant?.setMicrophoneEnabled(enabled);
       } catch (e, s) {
-        reportNonFatal(e, s, during: 'setting microphone enabled to $enabled');
+        _trackSyncFailed('mic', e, s, room);
       }
     }
   }
@@ -585,13 +641,14 @@ class LiveKitService extends ChangeNotifier {
     _desiredCamEnabled = enabled;
     notifyListeners();
     if (_room != null && _state == .connected) {
+      final room = _room;
       try {
-        await _room?.localParticipant?.setCameraEnabled(
+        await room?.localParticipant?.setCameraEnabled(
           enabled,
           cameraCaptureOptions: enabled ? _cameraCapture : null,
         );
       } catch (e, s) {
-        reportNonFatal(e, s, during: 'setting camera enabled to $enabled');
+        _trackSyncFailed('cam', e, s, room);
       }
     }
   }
@@ -795,6 +852,7 @@ class LiveKitService extends ChangeNotifier {
     _disposed = true;
     _reconnectTimer?.cancel();
     _reconnectTimer = null;
+    unawaited(_trackFailures.close());
     unawaited(_cleanupRoom());
     super.dispose();
   }

@@ -35,4 +35,14 @@ void main() {
     expect(isTransientAvError(StateError('bug')), isFalse);
     expect(isTransientAvError(const FormatException('bad token payload')), isFalse);
   });
+
+  test('a publisher closed under us is a reconnect in flight, not a bug', () {
+    expect(isTransientAvError(lk.UnexpectedConnectionState('publisher is closed')), isTrue);
+    expect(isTransientAvError(lk.UnexpectedStateException('not connected')), isTrue);
+  });
+
+  test('a device that cannot open is not a network error', () {
+    // Handled by the service (switched off, user told), not by retrying.
+    expect(isTransientAvError(lk.TrackCreateException('no track')), isFalse);
+  });
 }

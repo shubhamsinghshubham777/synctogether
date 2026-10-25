@@ -1187,6 +1187,17 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     if (LiveKitService.isAvailableFor(room.avLevel)) {
       final av = LiveKitService(roomId: widget.roomId, avLevel: room.avLevel);
       av.addListener(_onAvChanged);
+      _subscriptions.add(
+        av.trackFailures.listen((kind) {
+          if (!mounted) return;
+          _snack(
+            kind == 'mic'
+                ? "Couldn't start your microphone - check it isn't in use or blocked."
+                : "Couldn't start your camera - check it isn't in use or blocked.",
+            kind: .info,
+          );
+        }),
+      );
       setState(() => _av = av);
       av
           .connect()
@@ -2547,6 +2558,13 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
       }
       return;
     }
+    // A file mpv cannot parse (not a video, truncated, an unsupported
+    // container) is a property of the file, like the codec case above.
+    if (error.contains('Failed to recognize file format')) {
+      trace('unrecognised file format', category: 'media');
+      if (_localFileName != null && _duration == Duration.zero) _surfaceLocalLoadFailure();
+      return;
+    }
     reportNonFatal(
       StateError('mpv: ${_redactPaths(error)}'),
       StackTrace.current,
@@ -3797,7 +3815,18 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     // or playback stopped first, and chaining them is what made this freeze.
     // Safe here (unlike dispose): this path always lands on the lobby, never
     // straight into another room.
-    unawaited(Future.wait([?_sync?.disconnect(), _player.stop()]));
+    unawaited(
+      Future.wait([
+        ?_sync?.disconnect(),
+        // The app can be tearing the player down as we leave; stopping a
+        // disposed one asserts, and there is nothing left to stop.
+        _player.stop().then<void>(
+          (_) {},
+          onError: (Object e, StackTrace _) =>
+              trace('player stop failed on leave', category: 'media', data: {'error': '$e'}),
+        ),
+      ]),
+    );
     if (AuthService.instance.isSignedIn) {
       unawaited(ProfileService.instance.load());
       unawaited(EntitlementService.instance.refresh());

@@ -59,6 +59,10 @@ class LobbyScreen extends StatefulWidget {
   State<LobbyScreen> createState() => _LobbyScreenState();
 }
 
+/// How often the lobby re-reads "Your rooms". Countdowns are computed on the
+/// client from `expires_at`, so this only catches state another device changed.
+const kMyRoomsPollInterval = Duration(seconds: 60);
+
 class _LobbyScreenState extends State<LobbyScreen> with WindowListener {
   final _nameController = TextEditingController();
   final _codeKey = GlobalKey<PTCodeInputState>();
@@ -105,9 +109,9 @@ class _LobbyScreenState extends State<LobbyScreen> with WindowListener {
     );
     unawaited(RewardsService.instance.load());
     unawaited(_loadMyRooms());
-    _myRoomsPollTimer = Timer.periodic(const Duration(seconds: 15), (_) {
-      if (mounted && RoomService.instance.currentRoom == null) {
-        unawaited(_loadMyRooms());
+    _myRoomsPollTimer = Timer.periodic(kMyRoomsPollInterval, (_) {
+      if (mounted && RoomService.instance.currentRoom == null && _appIsVisible()) {
+        unawaited(_loadMyRooms(refreshAccount: false));
       }
     });
     RoomService.instance.addListener(_onRoomServiceChanged);
@@ -475,11 +479,24 @@ class _LobbyScreenState extends State<LobbyScreen> with WindowListener {
     }
   }
 
-  Future<void> _loadMyRooms() async {
+  /// A backgrounded app has nobody looking at the list, so the poll stands down.
+  bool _appIsVisible() {
+    final state = WidgetsBinding.instance.lifecycleState;
+    return state == null ||
+        state == AppLifecycleState.resumed ||
+        state == AppLifecycleState.inactive;
+  }
+
+  /// [refreshAccount] re-reads the profile and entitlement alongside the list,
+  /// which is right after something that could have changed them (room exit, an
+  /// upload) and wrong on the poll: those two cost three requests every tick for
+  /// data the poll has no reason to think moved. Moderation and subscription
+  /// changes arrive over their own realtime channels.
+  Future<void> _loadMyRooms({bool refreshAccount = true}) async {
     try {
       final rooms = await RoomService.instance.loadMyRooms();
       await LocalMediaStore.instance.prune(keepRoomIds: {for (final r in rooms) r.room.id});
-      if (AuthService.instance.isSignedIn) {
+      if (refreshAccount && AuthService.instance.isSignedIn) {
         unawaited(ProfileService.instance.load());
         unawaited(EntitlementService.instance.refresh());
       }

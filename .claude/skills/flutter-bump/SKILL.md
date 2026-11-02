@@ -56,9 +56,9 @@ or CI.
 
    After editing, re-run the grep and confirm every hit shows the new version.
 
-   Also update CLAUDE.md and AGENTS.md - CLAUDE.md documents the CI Flutter version in prose
+   Also update CLAUDE.md - it documents the CI Flutter version in prose
    (currently "CI uses Flutter 3.44.8"). Find it with
-   `grep -n 'Flutter [0-9]' CLAUDE.md AGENTS.md` and update every mention.
+   `grep -n 'Flutter [0-9]' CLAUDE.md docs/agent` and update every mention.
 
 6. **Verify** - the whole point of the exact pins is that this must resolve:
 
@@ -70,7 +70,7 @@ or CI.
    the working tree for the user to inspect.
 
 7. **Commit and push** - include `.fvmrc`, pubspec.yaml, pubspec.lock (if it
-   changed), CLAUDE.md, AGENTS.md (if it changed), and the workflow files. Message, exactly:
+   changed), CLAUDE.md, and the workflow files. Message, exactly:
 
    ```
    Bump Flutter to <version>

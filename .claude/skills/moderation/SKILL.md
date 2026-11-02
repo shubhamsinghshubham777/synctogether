@@ -6,7 +6,7 @@ description: >-
 
 # Anti-Piracy & Content Moderation
 
-SyncTogether provides an end-to-end moderation system allowing human reviewers and AI agents (Antigravity & Claude Code) to review user-reported copyright infringements and malicious behavior, and execute administrative enforcement.
+SyncTogether provides an end-to-end moderation system allowing human reviewers and AI agents (Claude Code) to review user-reported copyright infringements and malicious behavior, and execute administrative enforcement.
 
 ## Enforcement Doctrine
 

@@ -49,12 +49,12 @@ if git diff --cached -G"^[<>=]{7}( |$)" --name-only -- ':!.githooks/*' | grep -q
   exit 1
 fi
 
-# Check markdown files for forbidden LaTeX math syntax per AGENTS.md rule
+# Check markdown files for forbidden LaTeX math syntax per CLAUDE.md rule
 STAGED_MD=$(echo "$STAGED_FILES" | grep -E '\.md$' || true)
 if [ -n "$STAGED_MD" ]; then
   if git diff --cached -G"\\\\(frac|text|mathbf|approx|times)\\{" -- $STAGED_MD | grep -q .; then
     echo "⚠️  WARNING: Staged markdown contains LaTeX math syntax (\\text{...}, \\frac{...}, etc.)."
-    echo "    Repository doctrine (AGENTS.md): Use clean plain text and standard math operators (x, ÷, =, ~)."
+    echo "    Repository doctrine (CLAUDE.md): Use clean plain text and standard math operators (x, ÷, =, ~)."
   fi
 fi
 

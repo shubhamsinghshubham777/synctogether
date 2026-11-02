@@ -10,7 +10,7 @@ only) - keying glowing artwork needs real image ops:
 
 The *source renders are not in the repo* - eighteen 2048px PNGs is ~90 MB, and
 they are regenerable. Point the first argument at wherever they live. The
-prompts that produced them are in docs/gamification-plan.md.
+prompts that produced them are in docs/badge-art-prompts.md.
 
 The art is generated, so `assets/badges/*.png` is build output: change this
 script and re-run it, never hand-edit a PNG.

@@ -1,7 +1,7 @@
 ---
 name: document-cleanup
 description: >-
-  Audit SyncTogether's documentation against the actual code, fix anything outdated or inaccurate, and delete docs that no longer earn their place. Covers docs/*.md (especially docs/self-hosting.md), README.md, AGENTS.md, website/README.md, the .env.example files and .agents/rules. Use when the user says "check the docs", "docs are outdated", "clean up documentation", "update the self-hosting guide", "delete unnecessary docs", or "/document-cleanup". Optional arg narrows the scope (e.g. "/document-cleanup self-hosting").
+  Audit SyncTogether's documentation against the actual code, fix anything outdated or inaccurate, and delete docs that no longer earn their place. Covers docs/*.md (especially docs/self-hosting.md), README.md, CLAUDE.md, docs/agent/*.md, website/README.md and the .env.example files. Use when the user says "check the docs", "docs are outdated", "clean up documentation", "update the self-hosting guide", "delete unnecessary docs", or "/document-cleanup". Optional arg narrows the scope (e.g. "/document-cleanup self-hosting").
 ---
 
 # Document cleanup
@@ -13,8 +13,8 @@ Docs rot silently: code changes, the doc keeps describing the old shape, and not
 ## 1. Inventory
 
 ```bash
-ls docs/ .agents/rules/ .agents/skills/ .claude/skills/
-wc -l docs/*.md README.md AGENTS.md website/README.md
+ls docs/ docs/agent/ .claude/skills/
+wc -l docs/*.md docs/agent/*.md README.md CLAUDE.md website/README.md
 ls supabase/functions supabase/migrations scripts
 ```
 
@@ -61,11 +61,11 @@ For each self-hosting step, ask: **would a fresh self-hoster following this succ
 ## 4. Delete unnecessary docs
 
 Delete a doc (`git rm`) only when **all** of these hold:
-- Nothing references it: not code, tools, migrations, `CLAUDE.md`, `AGENTS.md` or README.
+- Nothing references it: not code, tools, migrations, `CLAUDE.md` or README.
 - Its content is obsolete or duplicated elsewhere.
 - It isn't operator reference material (`feature-toggles.md`, `self-hosting.md`, `known-issues.md` stay).
 
-Something referenced as a source of truth stays, even if it reads like an old plan. For example, `docs/gamification-plan.md` holds the badge-art prompts that `tool/process_badge_art.py` depends on. After deleting, fix any links and indexes that listed the file.
+Something referenced as a source of truth stays, even if it reads like an old plan. For example, `docs/badge-art-prompts.md` holds the badge-art prompts that `tool/process_badge_art.py` depends on. After deleting, fix any links and indexes that listed the file.
 
 ## 5. Finish
 

@@ -2,7 +2,7 @@
 /**
  * Agent Moderation & Anti-Piracy CLI
  *
- * Designed for Antigravity IDE and Claude Code agents to review complaints,
+ * Designed for Claude Code agents to review complaints,
  * inspect room media evidence, and take administrative actions directly.
  *
  * Usage:
@@ -333,7 +333,7 @@ async function main() {
       break;
     default:
       console.log(`
-SyncTogether Moderation CLI (for Antigravity & Claude Code)
+SyncTogether Moderation CLI (for Claude Code)
 
 Commands:
   node scripts/moderate.ts list [status]     List reports (open, reviewing, actioned, dismissed, all)

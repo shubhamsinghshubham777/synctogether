@@ -1,1 +1,0 @@
-../skills/flutter-bump/SKILL.md

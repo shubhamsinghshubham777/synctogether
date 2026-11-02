@@ -1,6 +1,7 @@
 "use client";
 
 import { AppStoreBadge } from "@/components/AppStoreBadge";
+import { trackWebEvent } from "@/components/AnalyticsBeacon";
 import { AppleLogo, WindowsLogo } from "@/components/Icons";
 import { MicrosoftStoreBadge } from "@/components/MicrosoftStoreBadge";
 import { useDesktopOS } from "@/components/hero/useDesktopOS";
@@ -20,13 +21,13 @@ export function DownloadDoors({ code }: { code?: string }) {
   // The code does not survive the store install, so the click that leaves for
   // the store also puts the invite on the clipboard. The app's "Paste invite"
   // button picks it up. Capture phase: the badge is a link that navigates away.
-  const carryInvite = code
-    ? () => {
-        navigator.clipboard?.writeText(`synctogether://join/${code}`).catch(() => {
-          // Blocked clipboard: the code on the ticket is still the fallback.
-        });
-      }
-    : undefined;
+  const storeClick = (name: "store_click_mac" | "store_click_windows") => () => {
+    trackWebEvent(name);
+    if (!code) return;
+    navigator.clipboard?.writeText(`synctogether://join/${code}`).catch(() => {
+      // Blocked clipboard: the code on the ticket is still the fallback.
+    });
+  };
 
   const tag = (
     <span className={`${mono} ml-3 rounded-[2px] bg-beam-500 px-[7px] py-[3px] text-[10px] tracking-[0.14em] text-booth`}>
@@ -60,7 +61,7 @@ export function DownloadDoors({ code }: { code?: string }) {
           ["From", "Mac App Store"],
           ["Needs", "macOS 12 Monterey or later"],
         ])}
-        <div className="mt-auto" onClickCapture={carryInvite}>
+        <div className="mt-auto" onClickCapture={storeClick("store_click_mac")}>
           <AppStoreBadge lit={macLit} className="w-full" />
         </div>
       </section>
@@ -78,7 +79,7 @@ export function DownloadDoors({ code }: { code?: string }) {
           ["From", "Microsoft Store"],
           ["Needs", "Windows 10 / 11"],
         ])}
-        <div className="mt-auto" onClickCapture={carryInvite}>
+        <div className="mt-auto" onClickCapture={storeClick("store_click_windows")}>
           <MicrosoftStoreBadge lit={winLit} className="w-full" />
         </div>
       </section>

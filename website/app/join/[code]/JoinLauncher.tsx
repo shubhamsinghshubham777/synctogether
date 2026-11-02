@@ -12,6 +12,7 @@ import Link from "next/link";
 import { Check, Download, Mail } from "lucide-react";
 import { Ticket } from "@/components/Ticket";
 import { JoinStamp } from "@/components/JoinStamp";
+import { trackWebEvent } from "@/components/AnalyticsBeacon";
 
 /**
  * Hands the invite to an installed app, or sells the app to somebody who has
@@ -113,6 +114,9 @@ export function JoinLauncher({ code, heading }: { code: string; heading?: React.
     const settle = (next: "fallback" | "handed-off") => {
       if (settled.current) return;
       settled.current = true;
+      // The one signal of whether an installed app took the invite - the
+      // install rate the growth plan steers by.
+      trackWebEvent(next === "handed-off" ? "join_handed_off" : "join_fallback");
       setPhase(next);
     };
 

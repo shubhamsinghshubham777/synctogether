@@ -2,9 +2,34 @@
 
 import { useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
+import type { WebEventName } from "@/lib/web-events";
 
 const COOKIE_NAME = "pt_vid";
 const ONE_YEAR_SECONDS = 31536000;
+
+/**
+ * Reports a conversion moment (see `lib/web-events.ts`) under the same visitor
+ * cookie as the pageviews. Fire-and-forget: telemetry never throws into the page.
+ */
+export function trackWebEvent(name: WebEventName) {
+  try {
+    const visitorId = getOrCreateVisitorId();
+    if (!visitorId) return;
+    const payload = JSON.stringify({ visitorId, pathname: window.location.pathname, event: name });
+    if (navigator.sendBeacon) {
+      navigator.sendBeacon("/api/analytics/collect", new Blob([payload], { type: "application/json" }));
+    } else {
+      fetch("/api/analytics/collect", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: payload,
+        keepalive: true,
+      }).catch(() => {});
+    }
+  } catch {
+    // Non-fatal telemetry catch
+  }
+}
 
 function getOrCreateVisitorId(): string {
   if (typeof document === "undefined") return "";

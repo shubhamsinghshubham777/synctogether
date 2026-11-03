@@ -5,6 +5,7 @@ import { PageHead, display, mono } from "@/components/PageHead";
 import { JoinStamp } from "@/components/JoinStamp";
 import { DownloadDoors } from "@/components/DownloadDoors";
 import { DownloadInviteActions } from "@/components/DownloadInviteActions";
+import { SendToComputer } from "@/components/SendToComputer";
 
 export const metadata: Metadata = {
   title: "Get SyncTogether on the App Store and Microsoft Store",
@@ -75,6 +76,8 @@ export default async function DownloadPage({
           ) : undefined
         }
       />
+
+      <SendToComputer />
 
       <DownloadDoors code={inviteCode ?? undefined} />
 

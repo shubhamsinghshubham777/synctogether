@@ -1,5 +1,5 @@
 -- Gamification: watch ledger, streaks, achievements, leaderboards, recaps.
--- Plan: docs/gamification-plan.md
+-- Plan: removed once shipped; see docs/agent/gamification.md
 --
 -- Doctrine this migration follows, and which any change to it must keep:
 --   * Thresholds are CONFIG ROWS, not constants - tuning is an `update`, never a

@@ -1,15 +1,17 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
+import Link from "next/link";
 import type { ReactNode } from "react";
 import { isAuthorizedLocalAccess } from "@/lib/admin-guard";
-import { getDashboardMetrics, type DashboardMetrics } from "@/lib/metrics";
-import { formatBytes } from "@/lib/metrics_logic";
+import { getDashboardMetrics, type DashboardMetrics, type TrafficSources } from "@/lib/metrics";
+import { formatBytes, unreferencedR2Bytes } from "@/lib/metrics_logic";
 import { ProductionCredentialsError } from "@/lib/supabase/admin";
 import { GlassPanel } from "@/components/GlassPanel";
 import { InternalMetricsControls } from "./InternalMetricsControls";
 import {
   Activity,
+  ArrowLeft,
   Crown,
   Database,
   Download,
@@ -22,7 +24,7 @@ import {
 } from "lucide-react";
 
 export const metadata: Metadata = {
-  title: "Internal Metrics | SyncTogether",
+  title: "Internal Metrics",
   description: "Local-only internal metrics dashboard for SyncTogether",
   robots: { index: false, follow: false },
 };
@@ -30,6 +32,44 @@ export const metadata: Metadata = {
 export const dynamic = "force-dynamic";
 
 const UNAVAILABLE = "unavailable";
+
+/** The sources the organic reach playbook asks to be watched, by referrer host. */
+const PLAYBOOK_CHANNELS = [
+  { label: "Pinterest", hosts: ["pinterest.com", "pin.it"] },
+  { label: "Reddit", hosts: ["reddit.com"] },
+  { label: "TikTok", hosts: ["tiktok.com"] },
+  { label: "Instagram", hosts: ["instagram.com", "l.instagram.com"] },
+  { label: "YouTube", hosts: ["youtube.com", "youtu.be"] },
+  { label: "ChatGPT", hosts: ["chatgpt.com"] },
+  { label: "Perplexity", hosts: ["perplexity.ai"] },
+  { label: "Direct", hosts: ["(direct)"] },
+];
+
+const TREND_BUCKETS = 8;
+
+/** Oldest to newest. `weekly` ages are 0 = newest, so reverse into reading order. */
+function trendFor(t: TrafficSources, hosts: string[]): number[] {
+  const out = new Array<number>(TREND_BUCKETS).fill(0);
+  for (const w of t.weekly) {
+    if (w.age < 0 || w.age >= TREND_BUCKETS) continue;
+    if (hosts.some((h) => w.source === h || w.source.endsWith(`.${h}`))) out[TREND_BUCKETS - 1 - w.age] += w.visitors;
+  }
+  return out;
+}
+
+/** Tiny dependency-free line; the final point is dotted because it is the live window. */
+function Sparkline({ values }: { values: number[] }) {
+  const w = 96, h = 28, pad = 3;
+  const max = Math.max(...values, 1);
+  const pts = values.map((v, i) => [pad + (i * (w - pad * 2)) / (values.length - 1), h - pad - (v / max) * (h - pad * 2)]);
+  const last = pts[pts.length - 1];
+  return (
+    <svg viewBox={`0 0 ${w} ${h}`} className="w-full h-7" role="img" aria-label={`Weekly new visitors, oldest to newest: ${values.join(", ")}`}>
+      <polyline points={pts.map((p) => p.join(",")).join(" ")} fill="none" className="stroke-beam-400" strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" />
+      <circle cx={last[0]} cy={last[1]} r="2" className="fill-beam-300" />
+    </svg>
+  );
+}
 
 function num(v: number | null | undefined): string {
   return v == null ? UNAVAILABLE : v.toLocaleString();
@@ -55,6 +95,66 @@ function Stat({ label, value, def, tone = "text-screen" }: { label: string; valu
       <div className="text-xs font-mono uppercase tracking-wider text-gray-400">{label}</div>
       <div className={`text-2xl font-bold font-mono ${muted ? "text-gray-500 text-base" : tone}`}>{value}</div>
       <p className="text-[11px] leading-snug text-gray-500">{def}</p>
+    </div>
+  );
+}
+
+/** Cloudflare's own total beside what the database references; the gap is what nothing will clean up. */
+function R2BucketStat({ r2, referencedBytes }: { r2: DashboardMetrics["r2"]; referencedBytes: number | null }) {
+  if (!r2.configured) {
+    return (
+      <Stat label="R2 bucket size" value="not measured"
+        def="Set CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN (Workers R2 Storage: Read) in website/.env.local to read it." />
+    );
+  }
+  if (!r2.usage) {
+    return <Stat label="R2 bucket size" value={UNAVAILABLE} def={`Cloudflare did not answer${r2.error ? `: ${r2.error}` : ""}.`} />;
+  }
+  const { usage } = r2;
+  const orphaned = referencedBytes == null ? null : unreferencedR2Bytes(usage.publishedBytes, referencedBytes);
+  return (
+    <Stat label="R2 bucket size" value={formatBytes(usage.publishedBytes)}
+      def={`${usage.objects.toLocaleString()} objects across the account's buckets, per Cloudflare (can lag). ${
+        orphaned == null ? "" : `Not referenced by any room or staged upload: ${formatBytes(orphaned)}. `
+      }${usage.pendingUploadBytes > 0 ? `Unfinished multipart uploads: ${formatBytes(usage.pendingUploadBytes)}.` : ""}`} />
+  );
+}
+
+const PLATFORM_LABELS: Record<string, string> = { macos: "macOS", windows: "Windows", other: "Other" };
+
+/** Share of a keyed count per row, largest first; the bar is the share, so rows compare at a glance. */
+function PlatformBreakdown({ counts }: { counts: Record<string, number> | null }) {
+  const rows = counts ? Object.entries(counts).sort((a, b) => b[1] - a[1]) : [];
+  const total = rows.reduce((n, [, v]) => n + v, 0);
+  return (
+    <div className="p-4 rounded-md bg-aisle/60 border border-rail space-y-3">
+      <div className="text-xs font-mono uppercase tracking-wider text-gray-400">By platform</div>
+      {counts == null ? (
+        <div className="text-base font-bold font-mono text-gray-500">{UNAVAILABLE}</div>
+      ) : total === 0 ? (
+        <div className="text-base font-bold font-mono text-gray-500">0</div>
+      ) : (
+        <div className="space-y-2.5">
+          {rows.map(([platform, n]) => {
+            const share = (n / total) * 100;
+            return (
+              <div key={platform} className="space-y-1">
+                <div className="flex items-baseline justify-between gap-3 font-mono">
+                  <span className="text-sm text-gray-200">{PLATFORM_LABELS[platform] ?? platform}</span>
+                  <span className="text-sm text-screen">
+                    <span className="font-bold">{n.toLocaleString()}</span>
+                    <span className="text-xs text-gray-400 ml-2 inline-block w-10 text-right">{Math.round(share)}%</span>
+                  </span>
+                </div>
+                <div className="h-1.5 rounded-full bg-rail overflow-hidden">
+                  <div className="h-full rounded-full bg-beam-400" style={{ width: `${share}%` }} />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+      <p className="text-[11px] leading-snug text-gray-500">Site downloads by the platform requested.</p>
     </div>
   );
 }
@@ -134,26 +234,47 @@ export default async function InternalMetricsPage() {
     throw err;
   }
 
-  const { db, derived, source, consoleLinks } = metrics;
+  const { db, derived, source, consoleLinks, trafficSources } = metrics;
   const subs = db?.subscriptions;
   const mrr = derived.mrr;
 
   return (
     <div className="py-10 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto space-y-6">
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-extrabold text-screen tracking-tight font-[family-name:var(--font-space-grotesk)]">
-            Internal metrics
-          </h1>
-          <p className="text-sm text-gray-400 mt-1">
-            Production data, local-only view. A figure that could not be read says so rather than guessing.
-          </p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-rail pb-4">
+        <div className="flex items-center gap-3">
+          <div className="p-2.5 rounded-xl bg-purple-600/20 border border-purple-500/30 text-purple-400">
+            <Activity className="w-6 h-6" />
+          </div>
+          <div>
+            <h1 className="text-xl font-bold font-[family-name:var(--font-space-grotesk)] text-screen tracking-tight">Internal Metrics</h1>
+            <p className="text-xs text-gray-400 font-mono">
+              Production Data &bull; Local-Only View &bull; Unreadable Figures Say So
+            </p>
+          </div>
         </div>
-        <div className="flex flex-wrap items-center gap-2 text-xs font-mono">
-          <span className={`px-3 py-1.5 rounded-md border ${source.supabaseConnected ? "border-cue/40 text-cue" : "border-signal/40 text-signal"}`}>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <span
+            className={`px-3 py-1.5 rounded-lg border text-xs font-mono ${source.supabaseConnected ? "border-cue/40 text-cue" : "border-signal/40 text-signal"}`}
+          >
             {source.host} ·{" "}
             {source.supabaseConnected ? `RPC ${source.rpcLatencyMs}ms` : `RPC failed${source.rpcError ? `: ${source.rpcError}` : ""}`}
           </span>
+          <Link
+            href="/internal/moderation"
+            replace
+            className="px-3 py-1.5 rounded-lg bg-aisle hover:bg-aisle/80 text-xs font-mono text-gray-300 hover:text-white border border-rail flex items-center gap-1.5 transition-colors"
+          >
+            <ShieldAlert className="w-3.5 h-3.5 text-beam-300" />
+            Moderation
+          </Link>
+          <Link
+            href="/"
+            className="px-3 py-1.5 rounded-lg bg-aisle hover:bg-aisle/80 text-xs font-mono text-gray-400 hover:text-white border border-rail flex items-center gap-1.5 transition-colors"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+            Back to Site
+          </Link>
         </div>
       </div>
 
@@ -226,12 +347,46 @@ export default async function InternalMetricsPage() {
         </div>
       </Section>
 
+      <Section icon={<Eye className="w-5 h-5 text-beam-400" />} title="Traffic sources"
+        note="New visitors by first referrer · organic reach playbook, step 5">
+        {trafficSources == null ? (
+          <div className="text-xs font-mono text-gray-500 py-2">{UNAVAILABLE}</div>
+        ) : (
+          <>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              {PLAYBOOK_CHANNELS.map((c) => {
+                const row = trafficSources.sources.filter((s) => c.hosts.some((h) => s.source === h || s.source.endsWith(`.${h}`)));
+                const v7 = row.reduce((n, s) => n + s.visitors_7d, 0);
+                const v30 = row.reduce((n, s) => n + s.visitors_30d, 0);
+                return (
+                  <div key={c.label} className="p-3 rounded-md bg-aisle/60 border border-rail space-y-0.5">
+                    <div className="text-[11px] font-mono uppercase tracking-wider text-gray-400">{c.label}</div>
+                    <div className={`text-xl font-bold font-mono ${v30 ? "text-beam-300" : "text-gray-500"}`}>{v30.toLocaleString()}</div>
+                    <div className="text-[11px] font-mono text-gray-500">{v7.toLocaleString()} this week</div>
+                    <Sparkline values={trendFor(trafficSources, c.hosts)} />
+                  </div>
+                );
+              })}
+            </div>
+            <div className="space-y-2">
+              <div className="text-xs font-mono text-gray-400">All sources, visitors first seen in the last 30 days (7d in brackets)</div>
+              <RankedList
+                rows={trafficSources.sources.map((s) => ({ key: `${s.source} (${s.visitors_7d.toLocaleString()} in 7d)`, count: s.visitors_30d }))}
+                empty="No visitors in 30 days." unit="visitors" />
+            </div>
+            <p className="text-xs font-mono text-gray-400">
+              Instagram and TikTok in-app browsers often hide the referrer, so some of them sit in (direct). Read the channel tiles as a floor.
+              Sparklines show new visitors per rolling 7 days over the last 8 weeks, newest on the right; after 8 weeks double the time on the top source and cut the weakest.
+            </p>
+          </>
+        )}
+      </Section>
+
       <Section icon={<Download className="w-5 h-5 text-beam-400" />} title="Downloads">
         <Grid>
           <Stat label="Site downloads (acquisition)" value={num(db?.website.downloads_total)} tone="text-beam-300"
             def={`Clicks logged before the site moved to store links. 24h ${num(db?.website.downloads_24h)} · 7d ${num(db?.website.downloads_7d)} · 30d ${num(db?.website.downloads_30d)}.`} />
-          <Stat label="By platform" value={db ? Object.entries(db.website.downloads_by_platform).map(([k, v]) => `${k} ${v}`).join(" · ") || "0" : UNAVAILABLE}
-            def="Site downloads by the platform requested." />
+          <PlatformBreakdown counts={db?.website.downloads_by_platform ?? null} />
         </Grid>
       </Section>
 
@@ -263,8 +418,7 @@ export default async function InternalMetricsPage() {
           <Stat label="R2: room media" value={bytes(db?.storage.active_room_media_bytes)} def="Rooms whose shared upload is ready. What the DB references, not a bucket listing." />
           <Stat label="R2: staged uploads" value={bytes(db?.storage.staged_ready_bytes)} def="Ready lobby pre-uploads not yet claimed by a room." />
           <Stat label="R2: queued deletions" value={num(db?.storage.pending_r2_deletions)} def="Objects in pending_r2_deletions. The queue records no sizes." />
-          <Stat label="LiveKit usage" value="not measured" def="No SFU probe is wired up; check the LiveKit console." />
-          <Stat label="R2 bucket size" value="not measured" def="Real bucket bytes need Cloudflare analytics; check the R2 console." />
+          <R2BucketStat r2={metrics.r2} referencedBytes={db ? db.storage.active_room_media_bytes + db.storage.staged_ready_bytes : null} />
         </Grid>
       </Section>
     </div>

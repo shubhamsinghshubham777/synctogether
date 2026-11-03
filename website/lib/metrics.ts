@@ -1,6 +1,8 @@
 import { createProductionMetricsClient } from "@/lib/supabase/admin";
 import {
   computeMrr,
+  parseR2Metrics,
+  type R2Usage,
   DEFAULT_INR_PER_USD,
   percent,
   type MrrSummary,
@@ -66,6 +68,20 @@ export interface InternalMetricsRpc {
   };
 }
 
+/** One row of `public.internal_traffic_sources()`; first-time visitors by referrer host. */
+export interface TrafficSource {
+  source: string;
+  visitors_7d: number;
+  visitors_30d: number;
+}
+
+/** Result of `public.internal_traffic_sources()`. */
+export interface TrafficSources {
+  sources: TrafficSource[];
+  /** New visitors per source in rolling 7-day buckets; age 0 = last 7 days, 7 = oldest. */
+  weekly: { source: string; age: number; visitors: number }[];
+}
+
 export interface DashboardMetrics {
   timestamp: string;
   source: {
@@ -79,6 +95,14 @@ export interface DashboardMetrics {
   };
   /** Null when the RPC failed. */
   db: InternalMetricsRpc | null;
+  /** Null when its RPC failed (e.g. the migration is not applied yet). */
+  trafficSources: TrafficSources | null;
+  /**
+   * Cloudflare's own R2 figures. `configured` is false when no Cloudflare token
+   * is set (the card says how to enable it); `usage` is null when configured
+   * but the call failed.
+   */
+  r2: { configured: boolean; usage: R2Usage | null; error: string | null };
   derived: {
     mrr: MrrSummary | null;
     inrPerUsd: number;
@@ -106,6 +130,27 @@ function positiveEnvNumber(name: string): number | null {
   return Number.isFinite(n) && n > 0 ? n : null;
 }
 
+/** Needs a token with "Workers R2 Storage: Read" and the account id; both optional. */
+async function getR2Usage(): Promise<DashboardMetrics["r2"]> {
+  const account = process.env.CLOUDFLARE_ACCOUNT_ID;
+  const token = process.env.CLOUDFLARE_API_TOKEN;
+  if (!account || !token) return { configured: false, usage: null, error: null };
+  try {
+    const res = await fetch(`https://api.cloudflare.com/client/v4/accounts/${encodeURIComponent(account)}/r2/metrics`, {
+      headers: { Authorization: `Bearer ${token}` },
+      signal: AbortSignal.timeout(8000),
+      cache: "no-store",
+    });
+    const body: unknown = await res.json().catch(() => null);
+    const usage = res.ok ? parseR2Metrics(body) : null;
+    if (usage) return { configured: true, usage, error: null };
+    const msg = (body as { errors?: { message?: string }[] } | null)?.errors?.[0]?.message;
+    return { configured: true, usage: null, error: msg ?? `HTTP ${res.status}` };
+  } catch (err) {
+    return { configured: true, usage: null, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
 export async function getDashboardMetrics(): Promise<DashboardMetrics> {
   const { client: supabase, host } = createProductionMetricsClient();
 
@@ -114,7 +159,14 @@ export async function getDashboardMetrics(): Promise<DashboardMetrics> {
     (res) => ({ res, ms: Date.now() - rpcStart }),
     (error: unknown) => ({ res: { data: null, error }, ms: Date.now() - rpcStart })
   );
-  const { res, ms } = await rpcPromise;
+  const sourcesPromise = supabase.rpc("internal_traffic_sources").then(
+    (r) => r,
+    (error: unknown) => ({ data: null, error })
+  );
+  const [{ res, ms }, sourcesRes, r2] = await Promise.all([rpcPromise, sourcesPromise, getR2Usage()]);
+  if (r2.error) console.error("R2 metrics failed:", r2.error);
+  if (sourcesRes.error) console.error("internal_traffic_sources RPC failed:", sourcesRes.error);
+  const trafficSources = sourcesRes.error ? null : ((sourcesRes.data as TrafficSources | null) ?? null);
 
   const rpcError = res.error
     ? res.error instanceof Error
@@ -137,6 +189,8 @@ export async function getDashboardMetrics(): Promise<DashboardMetrics> {
       rpcError,
     },
     db,
+    trafficSources,
+    r2,
     derived: {
       mrr: db ? computeMrr(db.subscriptions.web_revenue, inrPerUsd) : null,
       inrPerUsd,

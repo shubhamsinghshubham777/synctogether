@@ -10,7 +10,7 @@ import { ModerationTriageClient, type ModerationReportItem } from "./ModerationT
 import { ShieldAlert, Activity, ArrowLeft, Shield } from "lucide-react";
 
 export const metadata: Metadata = {
-  title: "Moderation Queue | SyncTogether",
+  title: "Moderation Queue",
   description: "Internal Anti-Piracy & Content Moderation Dashboard",
   robots: { index: false, follow: false },
 };
@@ -174,6 +174,7 @@ export default async function ModerationPage() {
         <div className="flex items-center gap-2">
           <Link
             href="/internal/metrics"
+            replace
             className="px-3 py-1.5 rounded-lg bg-aisle hover:bg-aisle/80 text-xs font-mono text-gray-300 hover:text-white border border-rail flex items-center gap-1.5 transition-colors"
           >
             <Activity className="w-3.5 h-3.5 text-beam-300" />

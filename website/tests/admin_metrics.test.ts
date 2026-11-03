@@ -108,3 +108,17 @@ test("validateProductionCredentials denies loopback, demo keys, missing and inva
   assert.equal(ok.valid, true);
   if (ok.valid) assert.equal(ok.host, "myprodproject.supabase.co");
 });
+
+test("R2 metrics: bytes are payload plus metadata, and a bad body is null", async () => {
+  const { parseR2Metrics, unreferencedR2Bytes } = await import("../lib/metrics_logic.ts");
+  const ok = {
+    success: true,
+    result: { standard: { published: { objects: 12, payloadSize: 1000, metadataSize: 24 }, uploaded: { objects: 1, payloadSize: 50, metadataSize: 0 } } },
+  };
+  assert.deepEqual(parseR2Metrics(ok), { objects: 12, publishedBytes: 1024, pendingUploadBytes: 50 });
+  assert.equal(parseR2Metrics({ success: false, result: null }), null);
+  assert.equal(parseR2Metrics({ success: true, result: {} }), null);
+  assert.equal(parseR2Metrics(null), null);
+  assert.equal(unreferencedR2Bytes(1024, 1000), 24);
+  assert.equal(unreferencedR2Bytes(1000, 1024), 0);
+});

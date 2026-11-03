@@ -99,3 +99,45 @@ export function computeMrr(rows: WebRevenueRow[], inrPerUsd = DEFAULT_INR_PER_US
 
   return { byCurrency, usdEquivalent, unconvertedSubscribers };
 }
+
+/** Storage Cloudflare reports for the account's R2 buckets (all buckets, standard class). */
+export interface R2Usage {
+  objects: number;
+  /** Bytes of finished objects: payload + metadata. */
+  publishedBytes: number;
+  /** Bytes held by multipart uploads that were started and never completed or aborted. */
+  pendingUploadBytes: number;
+}
+
+/**
+ * Reads `GET /accounts/{id}/r2/metrics`. Null when the body is not a success
+ * envelope with the standard class, so the page says "unavailable" and never a
+ * made-up zero.
+ */
+export function parseR2Metrics(body: unknown): R2Usage | null {
+  const b = body as { success?: boolean; result?: { standard?: { published?: R2Size; uploaded?: R2Size } } } | null;
+  const std = b?.success === true ? b.result?.standard : undefined;
+  if (!std?.published) return null;
+  const size = (s?: R2Size) => (s ? (Number(s.payloadSize) || 0) + (Number(s.metadataSize) || 0) : 0);
+  return {
+    objects: Number(std.published.objects) || 0,
+    publishedBytes: size(std.published),
+    pendingUploadBytes: size(std.uploaded),
+  };
+}
+
+interface R2Size {
+  objects?: number;
+  payloadSize?: number;
+  metadataSize?: number;
+}
+
+/**
+ * Bytes in R2 that the database does not point at: Cloudflare's total minus
+ * what rooms and unclaimed staged uploads reference. Positive means objects
+ * nothing will clean up (orphans, or finished-upload rows that were deleted);
+ * it is floored at 0 because Cloudflare's metrics lag the database.
+ */
+export function unreferencedR2Bytes(r2PublishedBytes: number, referencedBytes: number): number {
+  return Math.max(0, r2PublishedBytes - referencedBytes);
+}

@@ -1,5 +1,5 @@
 begin;
-select plan(14);
+select plan(20);
 
 create function pg_temp.as_role(p_role text) returns void
 language plpgsql as $$
@@ -91,6 +91,28 @@ values ('ZZEXP1', (select v from t where k = 'w'), 60, now() - interval '1 minut
        ('ZZLIV1', (select v from t where k = 'w'), 60, now() + interval '59 minutes', now());
 select is((pg_temp.m() #>> '{rooms,live_now}')::int - (select (j #>> '{rooms,live_now}')::int from base),
   1, 'an expired room is not counted as live');
+
+-- Traffic sources: first-referrer host, www. stripped, blank = (direct).
+insert into public.website_visitors (visitor_id, first_seen_at, first_referrer) values
+  ('ts-a', now(), 'https://www.pinterest.com/pin/1'),
+  ('ts-b', now() - interval '10 days', 'https://pinterest.com/'),
+  ('ts-c', now(), null),
+  ('ts-d', now() - interval '40 days', 'https://reddit.com/r/x');
+select pg_temp.as_role('service_role');
+select is((select (e->>'visitors_30d')::int from jsonb_array_elements(public.internal_traffic_sources()->'sources') e where e->>'source' = 'pinterest.com'),
+  2, 'www. is stripped and hosts are merged');
+select is((select (e->>'visitors_7d')::int from jsonb_array_elements(public.internal_traffic_sources()->'sources') e where e->>'source' = 'pinterest.com'),
+  1, 'the 7 day column only counts visitors first seen this week');
+select ok(exists (select 1 from jsonb_array_elements(public.internal_traffic_sources()->'sources') e where e->>'source' = '(direct)'),
+  'a visitor with no referrer is (direct)');
+select ok(not exists (select 1 from jsonb_array_elements(public.internal_traffic_sources()->'sources') e where e->>'source' = 'reddit.com'),
+  'visitors first seen over 30 days ago are excluded');
+select is((select (e->>'visitors')::int from jsonb_array_elements(public.internal_traffic_sources()->'weekly') e
+  where e->>'source' = 'pinterest.com' and (e->>'age')::int = 1),
+  1, 'weekly trend puts a visitor first seen 10 days ago in bucket 1');
+select is((select (e->>'visitors')::int from jsonb_array_elements(public.internal_traffic_sources()->'weekly') e
+  where e->>'source' = 'reddit.com' and (e->>'age')::int = 5),
+  1, 'weekly trend reaches back 8 buckets (40 days ago is bucket 5)');
 
 select * from finish();
 rollback;

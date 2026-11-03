@@ -1,5 +1,5 @@
 begin;
-select plan(7);
+select plan(8);
 
 select is(
   (select count(*)::int from cron.job where jobname = 'minutely-maintenance' and schedule = '* * * * *'),
@@ -45,6 +45,11 @@ select public.minutely_maintenance();
 select ok(
   (select ended_at is not null from public.rooms where id = (select id from made)),
   'an expired room is retired through the wrapper');
+
+select is(
+  (select count(*)::int from cron.job where jobname = 'prune-cron-history' and command ilike '%job_run_details%'),
+  1,
+  'cron history is pruned, or its own run log outgrows the data it serves');
 
 select * from finish();
 rollback;

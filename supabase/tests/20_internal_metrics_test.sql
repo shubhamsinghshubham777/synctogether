@@ -1,5 +1,5 @@
 begin;
-select plan(20);
+select plan(21);
 
 create function pg_temp.as_role(p_role text) returns void
 language plpgsql as $$
@@ -113,6 +113,9 @@ select is((select (e->>'visitors')::int from jsonb_array_elements(public.interna
 select is((select (e->>'visitors')::int from jsonb_array_elements(public.internal_traffic_sources()->'weekly') e
   where e->>'source' = 'reddit.com' and (e->>'age')::int = 5),
   1, 'weekly trend reaches back 8 buckets (40 days ago is bucket 5)');
+
+select is((pg_temp.m() #>> '{storage,db_bytes}')::bigint >= (select sum(pg_database_size(datname)) from pg_database), true,
+  'db_bytes covers every database in the cluster, as Supabase counts it');
 
 select * from finish();
 rollback;

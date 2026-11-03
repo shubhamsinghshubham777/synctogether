@@ -119,6 +119,8 @@ export interface DashboardMetrics {
   };
   consoleLinks: {
     supabaseUsage: string;
+    /** Supabase's Database Report: database size over time. */
+    supabaseDatabase: string;
     livekitConsole: string;
     cloudflareR2: string;
     posthog: string;
@@ -204,6 +206,9 @@ export async function getDashboardMetrics(): Promise<DashboardMetrics> {
     consoleLinks: {
       supabaseUsage: projectRef
         ? `https://supabase.com/dashboard/project/${projectRef}/settings/billing/usage`
+        : "https://supabase.com/dashboard",
+      supabaseDatabase: projectRef
+        ? `https://supabase.com/dashboard/project/${projectRef}/observability/database`
         : "https://supabase.com/dashboard",
       livekitConsole: "https://cloud.livekit.io/projects",
       cloudflareR2: "https://dash.cloudflare.com/?to=/:account/r2/overview",

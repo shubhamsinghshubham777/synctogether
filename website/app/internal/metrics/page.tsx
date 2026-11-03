@@ -88,14 +88,25 @@ function money(v: number, currency: string): string {
 }
 
 /** One figure with its definition beneath it - the definition is the point. */
-function Stat({ label, value, def, tone = "text-screen" }: { label: string; value: string; def: string; tone?: string }) {
+function Stat({ label, value, def, tone = "text-screen", href }: { label: string; value: string; def: ReactNode; tone?: string; href?: string }) {
   const muted = value === UNAVAILABLE || value === "not measured";
-  return (
-    <div className="p-4 rounded-md bg-aisle/60 border border-rail space-y-1">
-      <div className="text-xs font-mono uppercase tracking-wider text-gray-400">{label}</div>
+  const body = (
+    <>
+      <div className="flex items-center justify-between gap-2 text-xs font-mono uppercase tracking-wider text-gray-400">
+        {label}
+        {href && <ExternalLink className="w-3 h-3 shrink-0 opacity-60 group-hover:opacity-100 group-hover:text-beam-300 transition-opacity" />}
+      </div>
       <div className={`text-2xl font-bold font-mono ${muted ? "text-gray-500 text-base" : tone}`}>{value}</div>
       <p className="text-[11px] leading-snug text-gray-500">{def}</p>
-    </div>
+    </>
+  );
+  const box = "block p-4 rounded-md bg-aisle/60 border border-rail space-y-1";
+  return href ? (
+    <a href={href} target="_blank" rel="noopener noreferrer" className={`group ${box} hover:border-beam-400/50 transition-colors`}>
+      {body}
+    </a>
+  ) : (
+    <div className={box}>{body}</div>
   );
 }
 
@@ -118,6 +129,11 @@ function R2BucketStat({ r2, referencedBytes }: { r2: DashboardMetrics["r2"]; ref
         orphaned == null ? "" : `Not referenced by any room or staged upload: ${formatBytes(orphaned)}. `
       }${usage.pendingUploadBytes > 0 ? `Unfinished multipart uploads: ${formatBytes(usage.pendingUploadBytes)}.` : ""}`} />
   );
+}
+
+/** Headroom colour for a share of a plan limit: calm, then a warning, then act now. */
+function capTone(share: number): string {
+  return share >= 0.9 ? "text-signal" : share >= 0.7 ? "text-beam-300" : "text-cue";
 }
 
 const PLATFORM_LABELS: Record<string, string> = { macos: "macOS", windows: "Windows", other: "Other" };
@@ -413,8 +429,20 @@ export default async function InternalMetricsPage() {
           </div>
         }>
         <Grid>
-          <Stat label="Database size" value={bytes(db?.storage.db_bytes)}
-            def={derived.dbCapBytes && db ? `pg_database_size, ${Math.round((db.storage.db_bytes / derived.dbCapBytes) * 100)}% of ${formatBytes(derived.dbCapBytes)} (SUPABASE_DB_CAP_BYTES).` : "pg_database_size. Set SUPABASE_DB_CAP_BYTES to see it against your plan."} />
+          <Stat label="Database size" value={bytes(db?.storage.db_bytes)} href={consoleLinks.supabaseDatabase}
+            def={
+              derived.dbCapBytes && db ? (
+                <>
+                  pg_database_size,{" "}
+                  <span className={`text-sm font-bold ${capTone(db.storage.db_bytes / derived.dbCapBytes)}`}>
+                    {Math.round((db.storage.db_bytes / derived.dbCapBytes) * 100)}%
+                  </span>{" "}
+                  of your {formatBytes(derived.dbCapBytes)} plan limit.
+                </>
+              ) : (
+                "pg_database_size. Set SUPABASE_DB_CAP_BYTES to see it against your plan."
+              )
+            } />
           <Stat label="R2: room media" value={bytes(db?.storage.active_room_media_bytes)} def="Rooms whose shared upload is ready. What the DB references, not a bucket listing." />
           <Stat label="R2: staged uploads" value={bytes(db?.storage.staged_ready_bytes)} def="Ready lobby pre-uploads not yet claimed by a room." />
           <Stat label="R2: queued deletions" value={num(db?.storage.pending_r2_deletions)} def="Objects in pending_r2_deletions. The queue records no sizes." />

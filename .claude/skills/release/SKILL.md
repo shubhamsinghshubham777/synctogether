@@ -193,8 +193,9 @@ Microsoft Store listing in Partner Center for Windows.
      `• TITLE\ntext`, a blank line between). Without it the version keeps
      its copied What's New.
    - **Microsoft Store**: edit only the `ReleaseNotes` field of
-     `metadata/msstore_listing_en-US.json`, as `What's New in SyncTogether vX.Y.Z:`
-     then `• TITLE: text` bullets. CI applies the file to the submission
+     `metadata/msstore_listing_en-US.json`, as `• TITLE: text` bullets only. No
+     "What's New in SyncTogether vX.Y.Z:" heading: the Store labels the section
+     and shows the version itself, and the Mac notes carry no heading either. CI applies the file to the submission
      (see the Microsoft Store notes below), so nothing is pushed by hand.
 
    Then dispatch:

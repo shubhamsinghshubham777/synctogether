@@ -72,3 +72,9 @@ Runs the test suite in `tests/` (metrics, moderation heuristics, rewards and tie
 ### API Route Handlers
 - `GET /api/internal/metrics` - Aggregated system and room metrics endpoint.
 - `POST /api/analytics/collect` - Proxied privacy-preserving web analytics event collector.
+
+## Deploying
+
+Vercel builds the **last commit of a push** and cancels it when that commit changes nothing under `website/`. If a push ends with an app-only commit (a version bump, a docs tweak), website changes from earlier commits in the same push are never built, and redeploying from the dashboard is canceled the same way. End the push with a commit that touches `website/`, or push the website change on its own.
+
+The hero and social images are baked from the demo build: recapture with `CAPTURE_WEBSITE=true` (see `docs/feature-toggles.md`), then re-run `node tool/compose-og-image.mjs` for `public/og-image.png`.

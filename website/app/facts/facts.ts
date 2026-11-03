@@ -55,6 +55,11 @@ export const FACTS: { label: string; value: string }[] = [
   },
 ];
 
+export const GUIDES: { name: string; path: string }[] = [
+  { name: "24 long-distance date night ideas", path: "/guides/long-distance-date-night-ideas" },
+  { name: "How to watch a movie together across time zones", path: "/guides/watch-a-movie-together-across-time-zones" },
+];
+
 export const COMPARISONS: { name: string; path: string }[] = [
   { name: "Teleparty", path: "/vs/teleparty" },
   { name: "Syncplay", path: "/vs/syncplay" },

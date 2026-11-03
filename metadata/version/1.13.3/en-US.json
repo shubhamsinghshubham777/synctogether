@@ -4,5 +4,5 @@
   "marketingUrl": "https://synctogether.app",
   "promotionalText": "Movie night, even when you're apart. Watch your own video files or YouTube in perfect sync, with voice and facecams beside the film. Free on Mac.",
   "supportUrl": "https://synctogether.app/faq",
-  "whatsNew": "• FACECAMS CONNECT AGAIN\nVoice and video facecams now connect reliably on the Mac App Store version, so you can see and hear everyone in the room."
+  "whatsNew": "• MIC OR CAMERA THAT WON'T START\nIf your microphone or camera can't be opened (another app is using it, or access was blocked), it now switches back off and tells you, instead of staying lit as if it were on.\n\n• TRUER ROOM RECAPS\nIf someone drops out and rejoins quickly, the recap no longer counts them twice.\n\n• A LIGHTER LOBBY\nThe lobby checks your rooms less often and stops while the app is in the background."
 }

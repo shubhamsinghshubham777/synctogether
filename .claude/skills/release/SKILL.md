@@ -95,11 +95,26 @@ run finish (or cancel it) first, then push and re-dispatch.
 4. **Bump** - edit the `version:` line in pubspec.yaml (bare `X.Y.Z`, no
    `+build` suffix - CI's version extraction depends on this format).
 
-   **Then write the store notes yourself, now, before committing** - never ask
-   the user for them. Compose them from the commits per step 6's guidelines and
-   write them into the two files the stores read (formats in step 6), so they
-   land in the same commit as the bump. CI dispatches from `main`, so notes
-   committed after the push would not reach the stores.
+   **Then draft the store notes yourself, now, before committing** - the user
+   should not have to write them. Compose them from the commits per step 6's
+   guidelines and write them into the two files the stores read (formats in
+   step 6), so they land in the same commit as the bump. CI dispatches from
+   `main`, so notes committed after the push would not reach the stores.
+
+   **Always confirm the What's New text with the user before you commit, push
+   or dispatch - every release, even a patch, even when they passed an explicit
+   version.** What's New is public, store-facing copy and cannot be edited on a
+   live version. Show the exact Mac text and the exact Microsoft Store text
+   (and iOS if it is a target) and wait for an explicit go-ahead; apply any
+   edits they ask for and show the result again if the change is non-trivial.
+   Silence is not approval. This gate sits before step 5 and overrides the
+   "no confirmation needed" allowance in step 3, which covers only the version
+   number.
+
+   If `metadata/version/X.Y.Z/` already exists (staged earlier for new
+   keywords or a description), its `whatsNew` is probably a copy of the
+   previous release's - replace it, and still show it for confirmation. A
+   staged folder for a different version than the one you chose needs renaming.
 
 5. **Commit and push** - message follows repo precedent, exactly:
 
@@ -146,8 +161,9 @@ run finish (or cancel it) first, then push and re-dispatch.
    >      -> *User-friendly note*: **Smoother Video Sync**: Improved playback synchronization and video facecam stability on slower internet connections.
    > 3. **Format**:
 
-   The notes are not a workflow input; they become the stores' "What's New", and
-   you write them yourself in step 4 (already committed and pushed by now).
+   The notes are not a workflow input; they become the stores' "What's New".
+   You drafted them in step 4 and the user approved the exact text there, so by
+   now they are already committed and pushed.
 
    **Each store gets only what its users can experience.** Sort every note by
    platform before writing: a Mac user gains nothing from "fixed a Windows

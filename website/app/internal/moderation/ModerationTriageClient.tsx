@@ -6,14 +6,10 @@ import {
   Ban,
   CheckCircle2,
   Copy,
-  ExternalLink,
   Film,
-  MessageSquare,
   ShieldAlert,
   ShieldCheck,
-  UserCheck,
   UserX,
-  XCircle,
 } from "lucide-react";
 import { formatPromptForAgent, type HeuristicEvaluation } from "@/lib/moderation-heuristics";
 import {
@@ -56,8 +52,10 @@ interface Props {
   reports: ModerationReportItem[];
 }
 
+type ReportFilter = "all" | "open" | "copyright" | "high_risk" | "actioned" | "dismissed";
+
 export function ModerationTriageClient({ reports }: Props) {
-  const [filter, setFilter] = useState<"all" | "open" | "copyright" | "high_risk" | "actioned" | "dismissed">("open");
+  const [filter, setFilter] = useState<ReportFilter>("open");
   const [isPending, startTransition] = useTransition();
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [activeActionModal, setActiveActionModal] = useState<{
@@ -160,8 +158,8 @@ export function ModerationTriageClient({ reports }: Props) {
           await dismissReportAction(reportId, notes);
         }
         setActiveActionModal(null);
-      } catch (err: any) {
-        alert(err.message || "Failed to execute moderation action");
+      } catch (err) {
+        alert(err instanceof Error && err.message ? err.message : "Failed to execute moderation action");
       }
     });
   };
@@ -170,17 +168,17 @@ export function ModerationTriageClient({ reports }: Props) {
     <div className="space-y-6">
       {/* Filter Tabs */}
       <div className="flex flex-wrap gap-2 border-b border-rail pb-3">
-        {[
+        {([
           { id: "open", label: "Open / Triage", count: reports.filter((r) => r.status === "open").length },
           { id: "copyright", label: "Copyright & Piracy", count: reports.filter((r) => r.reason === "copyright").length },
           { id: "high_risk", label: "High Risk (>60%)", count: reports.filter((r) => r.heuristics.riskScore >= 60).length },
           { id: "actioned", label: "Actioned", count: reports.filter((r) => r.status === "actioned").length },
           { id: "dismissed", label: "Dismissed", count: reports.filter((r) => r.status === "dismissed").length },
           { id: "all", label: "All Reports", count: reports.length },
-        ].map((t) => (
+        ] as { id: ReportFilter; label: string; count: number }[]).map((t) => (
           <button
             key={t.id}
-            onClick={() => setFilter(t.id as any)}
+            onClick={() => setFilter(t.id)}
             className={`px-3 py-1.5 rounded-lg text-xs font-mono font-medium transition-colors flex items-center gap-2 ${
               filter === t.id
                 ? "bg-purple-600 text-white shadow-sm"

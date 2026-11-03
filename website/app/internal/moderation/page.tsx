@@ -17,6 +17,23 @@ export const metadata: Metadata = {
 
 export const dynamic = "force-dynamic";
 
+type ReportedProfile = {
+  id: string;
+  display_name: string | null;
+  email: string | null;
+  profile_moderation:
+    | ProfileModeration
+    | ProfileModeration[]
+    | null;
+};
+
+type ProfileModeration = {
+  strikes_count: number | null;
+  moderation_status: string | null;
+  warning_reason: string | null;
+  ban_reason: string | null;
+};
+
 export default async function ModerationPage() {
   const reqHeaders = await headers();
   if (!isAuthorizedLocalAccess({ headers: reqHeaders })) {
@@ -26,7 +43,7 @@ export default async function ModerationPage() {
   const supabase = createAdminClient();
 
   // Fetch reports with joined profiles
-  const { data: rawReports, error: reportErr } = await supabase
+  const { data: rawReports } = await supabase
     .from("content_reports")
     .select(`
       id,
@@ -81,11 +98,11 @@ export default async function ModerationPage() {
   // Transform reports with heuristics
   const reports: ModerationReportItem[] = (rawReports || []).map((r) => {
     const room = r.room_id ? roomsById.get(r.room_id) : null;
-    const reported = r.reported as any;
-    const reportedMod = (Array.isArray(reported?.profile_moderation)
+    const reported = r.reported as unknown as ReportedProfile | null;
+    const reportedMod = Array.isArray(reported?.profile_moderation)
       ? reported.profile_moderation[0]
-      : reported?.profile_moderation) as any;
-    const reporter = r.reporter as any;
+      : reported?.profile_moderation;
+    const reporter = r.reporter as unknown as { id: string; display_name: string | null; email: string | null } | null;
 
     const heuristics = evaluateReportHeuristics({
       reason: r.reason,
@@ -112,13 +129,13 @@ export default async function ModerationPage() {
       },
       // The client component reads camelCase; the query returns snake_case.
       reporter: reporter
-        ? { id: reporter.id, displayName: reporter.display_name, email: reporter.email }
+        ? { id: reporter.id, displayName: reporter.display_name ?? undefined, email: reporter.email ?? undefined }
         : null,
       reported: reported
         ? {
             id: reported.id,
-            displayName: reported.display_name,
-            email: reported.email,
+            displayName: reported.display_name ?? undefined,
+            email: reported.email ?? undefined,
             strikesCount: reportedMod?.strikes_count ?? 0,
             moderationStatus: reportedMod?.moderation_status ?? "clean",
             warningReason: reportedMod?.warning_reason ?? null,

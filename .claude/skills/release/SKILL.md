@@ -33,6 +33,20 @@ hit this). The REST call points a ref at an existing commit and changes no files
 **Do not push to `main` between dispatching and the run finishing.** Let the
 run finish (or cancel it) first, then push and re-dispatch.
 
+## One version on every store
+
+The Mac App Store and the Microsoft Store always carry the same version number.
+Never ship a version to one store only. A normal `/release` goes to both through
+`publish_stores.yaml`, and the version in pubspec is the version both stores show.
+If a leg fails and is re-dispatched alone (see "Re-running after a failure"), it
+re-ships the *same* version; do not bump to work around it. If the stores ever
+drift (one was published without the other, as 1.13.2 was Mac-only), the next
+release brings both to the new number, and its notes must cover everything since
+the *older* store's version, since that store's users have not seen the changes
+in between. Check what each store is on before drafting notes:
+`asc versions list --app 6809185202 --platform MAC_OS` for the Mac, and the
+Microsoft Store listing in Partner Center for Windows.
+
 ## Release Targets
 
 - **Desktop App Stores (`/release`, `/release stores`)**:

@@ -20,6 +20,7 @@ export default function VsTelepartyPage() {
           <span className="text-beam-500">your own video files.</span>
         </>
       }
+      answer="Choose SyncTogether over Teleparty if you want to watch video files from your own computer or YouTube together. Teleparty syncs streaming services like Netflix inside Chrome and needs everyone to hold the same subscription. SyncTogether is a free Mac and Windows app with voice and facecams, and joining needs no account."
       intro="Teleparty (formerly Netflix Party) is a Chrome extension that keeps a streaming service in sync across browsers. It is free, it is good at that, and if everything you watch together lives on Netflix you probably do not need anything else. The gap opens the moment the thing you want to watch is a file on your computer."
       lastChecked="2026-09-24"
       rows={[

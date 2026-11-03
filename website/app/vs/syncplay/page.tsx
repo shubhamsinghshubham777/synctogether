@@ -20,6 +20,7 @@ export default function VsSyncplayPage() {
           <span className="text-beam-500">voice and facecams built in.</span>
         </>
       }
+      answer="Choose SyncTogether over Syncplay if you want voice, video facecams and file sharing in the same window as the film. Syncplay is free, open source and excellent at syncing local files, but it needs a separate player and call. SyncTogether ships its own player for Mac and Windows; Syncplay also runs on Linux."
       intro="Syncplay is free, open source, cross-platform and genuinely good at the hard part: keeping local video files in lockstep across machines. It has been doing this for over a decade. If it already works for you, there is a reasonable argument that you should keep using it, and this page will not pretend otherwise. What follows is what SyncTogether does that Syncplay does not."
       lastChecked="2026-09-24"
       rows={[

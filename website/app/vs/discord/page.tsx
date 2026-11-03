@@ -5,7 +5,7 @@ import { PRICING_TIERS } from "@/lib/constants";
 export const metadata: Metadata = {
   title: "Better Than Discord Screen Share for Watching Movies Together",
   description:
-    "Discord screen share compresses your film to a blurry, stuttering stream and drifts out of sync with the audio. SyncTogether plays the file natively on both machines instead. An honest comparison.",
+    "Discord screen share streams one person's screen to everyone, so only they hold the remote. SyncTogether plays the file on every machine, so anyone can pause, rewind and choose subtitles. An honest comparison.",
   alternates: { canonical: "/vs/discord" },
 };
 
@@ -16,32 +16,32 @@ export default function VsDiscordPage() {
       eyebrow="Comparison"
       headline={
         <>
-          Watching a film over Discord{" "}
-          <span className="text-beam-500">looks like a potato.</span>
+          Watching a film over Discord:{" "}
+          <span className="text-beam-500">everyone gets a remote.</span>
         </>
       }
+      answer="Discord screen share works well for sharing a screen. SyncTogether is built for watching a film together: every machine plays the file itself, so anyone can pause, rewind or pick their own subtitles and audio track, and nobody's computer has to stream the film to everyone else. Voice and facecams sit in the same window, on Mac and Windows."
       intro="Discord screen share is where almost everyone starts, because the call is already running. It is also the wrong tool for a two-hour film. The problem is not your internet. It is what screen sharing is."
       lastChecked="2026-09-24"
       rows={[
-        { feature: "Full source quality (1080p, 4K, HDR)", ours: "yes", theirs: "no" },
+        { feature: "Everyone plays the original file", ours: "yes", theirs: "no" },
         { feature: "Needs Nitro for higher resolution", ours: "no", theirs: "yes" },
         { feature: "Host's CPU encodes the whole film", ours: "no", theirs: "yes" },
-        { feature: "Audio and video stay in sync", ours: "yes", theirs: "partial" },
         { feature: "Everyone can pause and seek", ours: "yes", theirs: "no" },
         { feature: "Per-viewer subtitles and audio tracks", ours: "yes", theirs: "no" },
         { feature: "Voice chat", ours: "yes", theirs: "yes" },
         { feature: "Video facecams", ours: "Patron (Free gets a short trial)", theirs: "yes" },
-        { feature: "Works if the host's connection dips", ours: "yes", theirs: "no" },
+        { feature: "Host's upload speed limits what everyone sees", ours: "no", theirs: "yes" },
         { feature: "Host can share the file with the room", ours: "yes", theirs: "no" },
         { feature: "YouTube together", ours: "yes", theirs: "yes" },
         { feature: "Price", ours: `Free, Patron ${PRICING_TIERS.premium.price.usdMonthly}/mo`, theirs: "Free, Nitro $9.99/mo" },
       ]}
       sections={[
         {
-          heading: "Screen sharing re-encodes your film in real time",
+          heading: "Screen sharing streams a copy; SyncTogether plays the file",
           body: [
-            "When you share your screen, Discord captures the pixels your player is drawing, compresses them live at a low bitrate, and sends that stream to everyone. Your carefully encoded 15 Mbps file becomes a few megabits of real-time video conferencing codec. Dark scenes band, fast motion smears, and film grain is destroyed because compression treats it as noise to discard.",
-            "SyncTogether never streams the picture. Each machine opens the video file itself and plays it natively with hardware acceleration, and only tiny control messages (play, pause, seek) travel over the network. What you see is the file, at full quality, on both ends.",
+            "When you share your screen, Discord captures what your player is drawing, encodes it live and sends that stream to everyone. It does that job well, and for a clip or a quick look at something it is the right tool. But what everyone else sees is a live copy of the host's screen, shaped by the host's settings, machine and upload.",
+            "SyncTogether never streams the picture. Each machine opens the video file itself and plays it natively with hardware acceleration, and only tiny control messages (play, pause, seek) travel over the network. What each person watches is the file itself, on their own machine.",
           ],
         },
         {
@@ -54,8 +54,8 @@ export default function VsDiscordPage() {
         {
           heading: "Your connection stops being everyone's problem",
           body: [
-            "In a screen share, the host's upload speed is the ceiling for the entire room, and the host's CPU is doing real-time video encoding on top of decoding and playing the film. A dropped frame or a brief network dip hits everyone at once.",
-            "With local playback there is nothing to drop. A momentary network problem delays a pause message by a fraction of a second; it does not degrade the picture. SyncTogether also resynchronises automatically if anyone drifts more than about a second and a half.",
+            "In a screen share, the host's upload speed is the ceiling for the entire room, and the host's CPU is doing real-time video encoding on top of decoding and playing the film. Whatever happens on the host's machine or connection happens to everyone watching.",
+            "With local playback there is nothing to drop. A momentary network problem delays a pause message by a fraction of a second; the picture is not travelling over the network at all. SyncTogether also resynchronises automatically if anyone drifts more than about a second and a half.",
           ],
         },
         {

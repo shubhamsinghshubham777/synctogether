@@ -35,6 +35,12 @@ export interface ComparisonPageProps {
   competitor: string;
   eyebrow: string;
   headline: ReactNode;
+  /**
+   * The 40-60 word direct answer the page opens with. It leads the header
+   * because it is the passage featured snippets and AI answers lift; `intro`
+   * stays as the longer, more candid context beneath it.
+   */
+  answer: string;
   intro: string;
   /** ISO date the competitor's side of the table was last verified. */
   lastChecked: string;
@@ -55,6 +61,7 @@ export function ComparisonPage({
   competitor,
   eyebrow,
   headline,
+  answer,
   intro,
   lastChecked,
   rows,
@@ -73,7 +80,8 @@ export function ComparisonPage({
           <h1 className={`${display} text-[clamp(2.5rem,6vw,4.5rem)] font-extrabold leading-[0.9] tracking-[-0.045em] text-white`}>
             {headline}
           </h1>
-          <p className="text-lg sm:text-[19px] leading-[1.55] text-gray-300 max-w-[600px]">{intro}</p>
+          <p className="text-lg sm:text-[19px] leading-[1.55] text-white max-w-[600px]">{answer}</p>
+          <p className="text-base leading-[1.55] text-gray-400 max-w-[600px]">{intro}</p>
         </div>
         <div className="min-w-0">
           <Ticket

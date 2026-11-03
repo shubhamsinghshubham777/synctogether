@@ -35,6 +35,8 @@ export interface RoomFrameIdentity {
 export interface RoomFrameProps {
   state: RoomSimState;
   actions?: RoomSimActions; // omitted => non-interactive frame
+  onToggleMic?: () => void; // mic is per-device: lets a non-interactive frame toggle only its own mic
+  onTogglePlay?: () => void; // lets a non-interactive frame drive just the play/pause button
   /** Seconds this frame lags (negative) or leads (positive) the canonical clock. */
   offsetSec: number;
   fidelity: FrameFidelity;
@@ -72,6 +74,8 @@ function formatTime(sec: number) {
 export function RoomFrame({
   state,
   actions,
+  onToggleMic,
+  onTogglePlay,
   offsetSec,
   fidelity,
   identity,
@@ -149,7 +153,7 @@ export function RoomFrame({
       </div>
 
       {/* The app's theatre layout: top strip, picture, flat bar under it. */}
-      <div className="relative w-full aspect-[16/11] sm:aspect-[16/10.5] overflow-hidden flex flex-col">
+      <div className="relative w-full flex-1 aspect-[16/11] sm:aspect-[16/10.5] overflow-hidden flex flex-col">
         {/* Top strip */}
         <div className="relative z-10 shrink-0 h-8 sm:h-10 px-2.5 sm:px-3.5 flex items-center gap-2 sm:gap-3 border-b border-aisle bg-booth">
           <span className="text-[11px] sm:text-[13px] font-semibold text-screen font-[family-name:var(--font-display)] tracking-tight truncate">
@@ -346,12 +350,12 @@ export function RoomFrame({
 
           <div className="flex items-center gap-1.5">
             <button
-              onClick={actions?.togglePlay}
+              onClick={onTogglePlay ?? actions?.togglePlay}
               title={state.playing ? "Pause" : "Play"}
-              disabled={!interactive}
+              disabled={!interactive && !onTogglePlay}
               aria-label={state.playing ? "Pause" : "Play"}
               className={`w-8 h-7 sm:w-9 sm:h-8 rounded-[4px] bg-beam-500 text-[#1A1206] flex items-center justify-center ${
-                interactive ? "cursor-pointer active:scale-95 transition-transform" : ""
+                interactive || onTogglePlay ? "cursor-pointer active:scale-95 transition-transform" : ""
               }`}
             >
               {state.playing ? <Pause className="w-3.5 h-3.5 fill-current" /> : <Play className="w-3.5 h-3.5 fill-current translate-x-px" />}
@@ -359,7 +363,7 @@ export function RoomFrame({
             <div className="w-px h-4 bg-rail mx-1" />
             <IconToggle
               active={state.micOn}
-              onClick={actions?.toggleMic}
+              onClick={onToggleMic ?? actions?.toggleMic}
               on={<Mic className="w-3.5 h-3.5" />}
               off={<MicOff className="w-3.5 h-3.5" />}
               title="Toggle mic"

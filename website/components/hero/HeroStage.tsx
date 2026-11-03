@@ -7,6 +7,7 @@ import { useMediaQuery } from "@/lib/useMediaQuery";
 import { useReducedMotion } from "@/lib/useReducedMotion";
 import { useSaveData } from "@/lib/useSaveData";
 import { SyncToggle } from "./SyncToggle";
+import { AppleLogo, WindowsLogo } from "@/components/Icons";
 
 type SyncPhase = "desynced" | "syncing" | "synced";
 
@@ -36,11 +37,17 @@ function loopDelta(to: number, from: number, durationSec: number) {
 }
 
 /** Mono strip above a screen: whose screen it is and what it is doing right now. */
-function ScreenLabel({ who, state, tone }: { who: string; state: string; tone: "beam" | "cue" | "signal" }) {
+function ScreenLabel({ role, os, state, tone }: { role: string; os: "mac" | "windows"; state: string; tone: "beam" | "cue" | "signal" }) {
   const color = tone === "beam" ? "text-beam-500" : tone === "cue" ? "text-cue" : "text-signal";
   return (
     <div className="flex items-center justify-between px-1 pb-2 font-[family-name:var(--font-jetbrains-mono)] text-[11px] tracking-[0.14em] uppercase">
-      <span className="text-gray-500">{who}</span>
+      <span className="flex items-center gap-1.5 text-gray-500">
+        {role} ·
+        <span className="flex items-center gap-1">
+          {os === "mac" ? <AppleLogo className="w-3 h-3 -mt-px" /> : <WindowsLogo className="w-2.5 h-2.5" />}
+          {os === "mac" ? "Mac" : "Windows"}
+        </span>
+      </span>
       <span className={`${color} transition-colors duration-300`} aria-live="polite">
         {state}
       </span>
@@ -56,10 +63,15 @@ export function HeroStage({ header }: { header?: React.ReactNode } = {}) {
   const hasRunAutoDemo = useRef(false);
 
   const sim = useRoomSim({ active });
+  // Mic is local to each device: every frame keeps its own, none mirror the host.
+  const [guestMics, setGuestMics] = useState<[boolean, boolean]>([false, false]);
+  const toggleGuestMic = (i: 0 | 1) => setGuestMics((m) => (i === 0 ? [!m[0], m[1]] : [m[0], !m[1]]));
 
   const [phase, setPhase] = useState<SyncPhase>("synced");
   const [offsets, setOffsets] = useState<[number, number, number]>(SYNCED_OFFSETS);
   const [pulse, setPulse] = useState(false);
+  // Without sync each guest owns its transport; with it they follow the host.
+  const [guestFree, setGuestFree] = useState<[boolean, boolean]>([true, true]);
   const rafRef = useRef<number | null>(null);
   const tweenRef = useRef<{
     start: number;
@@ -159,6 +171,7 @@ export function HeroStage({ header }: { header?: React.ReactNode } = {}) {
     setOffsets(DESYNCED_OFFSETS);
     videoOffsetsRef.current = DESYNCED_VIDEO_OFFSETS;
     alignSecondaries(true);
+    setGuestFree([true, true]);
     setPhase("desynced");
   };
 
@@ -167,19 +180,22 @@ export function HeroStage({ header }: { header?: React.ReactNode } = {}) {
     else if (phase === "desynced") startSyncTween();
   };
 
-  // Without sync nothing links the screens, so the host's play/pause reaches
-  // the host's screen alone - the guests carry on as if nobody had touched
-  // anything. That is the whole point of the flip.
+  // Without sync nothing links the screens, so each play/pause button reaches its
+  // own screen alone - the others carry on as if nobody had touched anything.
+  // That is the whole point of the flip.
   const linked = phase !== "desynced";
-  const guestsPlaying = linked ? sim.playing : true;
+  const guestPlaying: [boolean, boolean] = linked ? [sim.playing, sim.playing] : guestFree;
+  const [playingB, playingC] = guestPlaying;
+  const toggleGuestPlay = (i: 0 | 1) =>
+    linked ? sim.actions.togglePlay() : setGuestFree((g) => (i === 0 ? [!g[0], g[1]] : [g[0], !g[1]]));
 
   // Playback follows visibility (and each screen's transport), never autoplays offscreen.
   useEffect(() => {
     if (posterOnly) return;
     const plan: [HTMLVideoElement | null, boolean][] = [
       [videoA.current, sim.playing],
-      [videoB.current, guestsPlaying],
-      [videoC.current, guestsPlaying],
+      [videoB.current, playingB],
+      [videoC.current, playingC],
     ];
     const toPlay: HTMLVideoElement[] = [];
     for (const [el, playing] of plan) {
@@ -196,7 +212,7 @@ export function HeroStage({ header }: { header?: React.ReactNode } = {}) {
     return () => {
       cancelled = true;
     };
-  }, [active, sim.playing, guestsPlaying, posterOnly]);
+  }, [active, sim.playing, playingB, playingC, posterOnly]);
 
   // Independent decoders drift apart within seconds; a sync demo cannot afford that -
   // but only while sync is on. With it off, drifting is exactly what they should do.
@@ -207,14 +223,21 @@ export function HeroStage({ header }: { header?: React.ReactNode } = {}) {
     return () => clearInterval(id);
   }, [active, posterOnly, linked, alignSecondaries]);
 
-  // The HUD clocks come from the host's sim, which stops when the host pauses. Guests
-  // who never heard about the pause keep counting: a second a tick, only while that is
-  // actually the situation on screen.
+  // The HUD clocks come from the host's sim, which stops when the host pauses. A guest
+  // who never heard about the pause keeps counting (a second a tick), while a guest
+  // that paused itself stands still against a running host.
   useEffect(() => {
-    if (linked || sim.playing || !active) return;
-    const id = setInterval(() => setOffsets((o) => [o[0], o[1] + 1, o[2] + 1]), 1000);
+    if (linked || !active) return;
+    const id = setInterval(
+      () =>
+        setOffsets((o) => {
+          const host = sim.playing ? 0 : 1;
+          return [o[0], o[1] + (guestFree[0] ? host : sim.playing ? -1 : 0), o[2] + (guestFree[1] ? host : sim.playing ? -1 : 0)];
+        }),
+      1000,
+    );
     return () => clearInterval(id);
-  }, [linked, sim.playing, active]);
+  }, [linked, sim.playing, guestFree, active]);
 
   // Gate every timer on visibility, and run the auto-demo exactly once.
   useEffect(() => {
@@ -260,11 +283,11 @@ export function HeroStage({ header }: { header?: React.ReactNode } = {}) {
     phase === "desynced" ? "wait what just happened??" : phase === "synced" ? "in sync" : undefined;
 
   const hostState = phase === "synced" ? "In sync" : phase === "syncing" ? "Syncing" : "Out of sync";
-  const drifting = phase === "desynced" && !sim.playing ? "Still playing" : null;
-  const secState = phase === "synced" ? "In sync" : phase === "syncing" ? "Catching up" : drifting ?? "Behind";
-  const secStateC = phase === "synced" ? "Caught up" : phase === "syncing" ? "Catching up" : drifting ?? "Ahead";
+  const drifting = (i: 0 | 1) => (phase === "desynced" && !sim.playing && guestFree[i] ? "Still playing" : null);
+  const secState = phase === "synced" ? "In sync" : phase === "syncing" ? "Catching up" : drifting(0) ?? "Behind";
+  const secStateC = phase === "synced" ? "Caught up" : phase === "syncing" ? "Catching up" : drifting(1) ?? "Ahead";
   // What the guests' own transports show: their own playback, not the host's.
-  const guestSim = linked ? sim : { ...sim, playing: guestsPlaying };
+  const guestSim = (i: 0 | 1) => ({ ...sim, playing: guestPlaying[i], micOn: guestMics[i] });
   const secTone = phase === "synced" ? ("cue" as const) : ("signal" as const);
 
   const identity = { roomName: "movie night", roomCode: "WZ2CWX", osChrome: "macos" as const };
@@ -281,17 +304,20 @@ export function HeroStage({ header }: { header?: React.ReactNode } = {}) {
       </div>
       <div
         ref={containerRef}
-        className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-5 lg:gap-6"
+        className="flex flex-col sm:flex-row items-center sm:items-stretch justify-center gap-3 sm:gap-5 lg:gap-6"
       >
         {/* Frame B - secondary, flanks left on tablet+, stacks below the host on mobile so the flip has someone to desync */}
         <div
-          className="order-2 sm:order-1 w-full sm:w-[38%] lg:w-[27%] shrink-0"
+          className="order-2 sm:order-1 flex flex-col w-full sm:w-[38%] lg:w-[27%] shrink-0"
           style={{ zIndex: 0 }}
         >
-          <ScreenLabel who="Guest · Windows" state={secState} tone={secTone} />
+          <ScreenLabel role="Guest" os="windows" state={secState} tone={secTone} />
           <RoomFrame
-            state={guestSim}
+            state={guestSim(0)}
             offsetSec={offsets[1]}
+            onToggleMic={() => toggleGuestMic(0)}
+            onTogglePlay={() => toggleGuestPlay(0)}
+            className="flex-1"
             fidelity="reduced"
             identity={identity}
             videoRef={videoB}
@@ -303,7 +329,7 @@ export function HeroStage({ header }: { header?: React.ReactNode } = {}) {
 
         {/* Frame A - primary, interactive, and the clock every other frame is seeked against */}
         <div className="order-1 sm:order-2 w-full sm:w-[56%] lg:w-[42%] shrink-0 relative z-10">
-          <ScreenLabel who="Host · Mac" state={hostState} tone="beam" />
+          <ScreenLabel role="Host" os="mac" state={hostState} tone="beam" />
           <RoomFrame
             state={sim}
             actions={sim.actions}
@@ -321,13 +347,16 @@ export function HeroStage({ header }: { header?: React.ReactNode } = {}) {
 
         {/* Frame C - secondary, desktop only */}
         <div
-          className="hidden lg:block order-3 lg:w-[27%] shrink-0"
+          className="hidden lg:flex flex-col order-3 lg:w-[27%] shrink-0"
           style={{ zIndex: 0 }}
         >
-          <ScreenLabel who="Guest · Mac" state={secStateC} tone={secTone} />
+          <ScreenLabel role="Guest" os="mac" state={secStateC} tone={secTone} />
           <RoomFrame
-            state={guestSim}
+            state={guestSim(1)}
             offsetSec={offsets[2]}
+            onToggleMic={() => toggleGuestMic(1)}
+            onTogglePlay={() => toggleGuestPlay(1)}
+            className="flex-1"
             fidelity="reduced"
             identity={identity}
             videoRef={videoC}

@@ -41,14 +41,14 @@ const mockCurrentProfile = Profile(
 
 final mockRoomOne = Room(
   id: 'demo-room-1',
-  name: 'Cosmic Voyage Screening',
+  name: 'Sunday Sofa Screening',
   code: 'X7K9P2',
   createdBy: 'user-alex',
   durationMinutes: 150,
   maxMembers: 8,
   avLevel: .video,
   mediaKind: .local,
-  mediaName: 'Cosmic_Voyage_CC_4K.mp4',
+  mediaName: 'Sunday_Sofa_CC_4K.mp4',
   mediaDuration: const Duration(hours: 2, minutes: 49, seconds: 3),
   persistent: true,
   createdAt: DateTime.now().subtract(const Duration(minutes: 84)),
@@ -127,7 +127,7 @@ final mockPresentList = [
     role: 'host',
     joinedAt: DateTime.now().subtract(const Duration(minutes: 84)),
     readyStatus: .ready,
-    loadedFileName: 'Cosmic_Voyage_CC_4K.mp4',
+    loadedFileName: 'Sunday_Sofa_CC_4K.mp4',
   ),
   PresentMember(
     userId: 'user-sarah',
@@ -135,7 +135,7 @@ final mockPresentList = [
     role: 'member',
     joinedAt: DateTime.now().subtract(const Duration(minutes: 75)),
     readyStatus: .ready,
-    loadedFileName: 'Cosmic_Voyage_CC_4K.mp4',
+    loadedFileName: 'Sunday_Sofa_CC_4K.mp4',
   ),
   PresentMember(
     userId: 'user-david',
@@ -143,7 +143,7 @@ final mockPresentList = [
     role: 'member',
     joinedAt: DateTime.now().subtract(const Duration(minutes: 60)),
     readyStatus: .ready,
-    loadedFileName: 'Cosmic_Voyage_CC_4K.mp4',
+    loadedFileName: 'Sunday_Sofa_CC_4K.mp4',
   ),
   PresentMember(
     userId: 'user-elena',
@@ -151,7 +151,7 @@ final mockPresentList = [
     role: 'guest',
     joinedAt: DateTime.now().subtract(const Duration(minutes: 40)),
     readyStatus: .ready,
-    loadedFileName: 'Cosmic_Voyage_CC_4K.mp4',
+    loadedFileName: 'Sunday_Sofa_CC_4K.mp4',
   ),
 ];
 

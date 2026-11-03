@@ -1373,7 +1373,11 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     }
     unawaited(_refreshMemberTiers());
     _syncGateReveal();
-    if (present.length > _peakMembers) _peakMembers = present.length;
+    // Distinct people, not presence entries: a member who leaves and rejoins within
+    // a couple of seconds briefly has two entries (the old one has not expired), which
+    // used to push the peak - and the recap's "in sync with N others" - one too high.
+    final people = {for (final member in present) member.userId}.length;
+    if (people > _peakMembers) _peakMembers = people;
     for (final member in present) {
       final tally = _tally(member.userId, member.displayName);
       if (!_firstPresenceSeen) tally.presentAtStart = true;

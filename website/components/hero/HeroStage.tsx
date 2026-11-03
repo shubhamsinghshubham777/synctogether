@@ -356,6 +356,7 @@ export function HeroStage({ header }: { header?: React.ReactNode } = {}) {
             offsetSec={offsets[2]}
             onToggleMic={() => toggleGuestMic(1)}
             onTogglePlay={() => toggleGuestPlay(1)}
+            mayaFirst
             className="flex-1"
             fidelity="reduced"
             identity={identity}

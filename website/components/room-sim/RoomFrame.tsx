@@ -36,6 +36,7 @@ export interface RoomFrameProps {
   state: RoomSimState;
   actions?: RoomSimActions; // omitted => non-interactive frame
   onToggleMic?: () => void; // mic is per-device: lets a non-interactive frame toggle only its own mic
+  mayaFirst?: boolean; // reduced frames only: put the third facecam on top of the rail
   onTogglePlay?: () => void; // lets a non-interactive frame drive just the play/pause button
   /** Seconds this frame lags (negative) or leads (positive) the canonical clock. */
   offsetSec: number;
@@ -76,6 +77,7 @@ export function RoomFrame({
   actions,
   onToggleMic,
   onTogglePlay,
+  mayaFirst,
   offsetSec,
   fidelity,
   identity,
@@ -265,12 +267,26 @@ export function RoomFrame({
 
             {/* Facecam rail */}
             <div
-              className={`absolute z-10 top-2.5 left-2.5 sm:top-3 sm:left-3 flex flex-col gap-2 transition-transform duration-300 ${
+              className={`absolute z-10 top-2.5 left-2.5 sm:top-3 sm:left-3 flex flex-col gap-1.5 sm:gap-2 transition-transform duration-300 ${
                 state.camsOn ? "translate-x-0 opacity-100" : "-translate-x-4 opacity-0 pointer-events-none"
               }`}
             >
-              <FacecamTile avatar="/avatars/av-02-cam.avif" name={fidelity === "full" ? "Shubham Singh" : undefined} premium />
-              <FacecamTile avatar="/avatars/av-01-cam.avif" name={fidelity === "full" ? "Guest-0397" : undefined} muted />
+              {fidelity === "full" ? (
+                <>
+                  <FacecamTile avatar="/avatars/av-02-cam.avif" name="Shubham Singh" premium />
+                  <FacecamTile avatar="/avatars/av-01-cam.avif" name="Guest-0397" muted />
+                  <FacecamTile avatar="/avatars/av-04-cam.avif" name="Maya" className="hidden lg:block" />
+                </>
+              ) : (
+                <>
+                  <FacecamTile avatar="/avatars/av-01-cam.avif" muted className={mayaFirst ? "order-2" : ""} />
+                  <FacecamTile avatar="/avatars/av-02-cam.avif" premium className={mayaFirst ? "order-3" : ""} />
+                  <FacecamTile
+                    avatar="/avatars/av-04-cam.avif"
+                    className={`hidden lg:block ${mayaFirst ? "order-1" : ""}`}
+                  />
+                </>
+              )}
             </div>
           </div>
 
@@ -398,20 +414,22 @@ function FacecamTile({
   name,
   premium,
   muted,
+  className = "",
 }: {
   /** The -cam crop, which fills the tile as the camera feed itself. */
   avatar: string;
   name?: string;
   premium?: boolean;
   muted?: boolean;
+  className?: string;
 }) {
   return (
     <div
-      className={`w-24 sm:w-28 h-14 sm:h-16 rounded-[4px] border ${
+      className={`w-20 sm:w-24 h-11 sm:h-[54px] rounded-[4px] border ${
         premium ? "border-brass" : "border-rail"
-      } relative overflow-hidden bg-aisle`}
+      } relative overflow-hidden bg-aisle ${className}`}
     >
-      {/* Fixed 128px in every frame, so the two files decode once and the scaled-down
+      {/* Fixed 128px in every frame, so the three files decode once and the scaled-down
           secondaries reuse them rather than pulling a second srcset candidate. */}
       <Image src={avatar} alt="" fill sizes="128px" className="object-cover" />
       {/* Scrim only under the label - a full-tile wash would dull the feed it sits on. */}

@@ -29,27 +29,62 @@ class CallForegroundService : Service() {
     val wantCam = intent?.getBooleanExtra(EXTRA_CAM, false) ?: false
     ensureChannel()
     val notification = buildNotification(title)
-    try {
-      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-        // A type whose runtime permission is not held throws on Android 14+,
-        // so ask for microphone / camera only while granted.
-        var type = ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
+    // Microphone / camera types only exist from API 30, and a type whose
+    // runtime permission is not held throws on Android 14+, so ask for them
+    // only while granted. Media playback (API 29) is always declared.
+    var type = 0
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+      type = ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
         if (wantMic && granted(Manifest.permission.RECORD_AUDIO)) {
           type = type or ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
         }
         if (wantCam && granted(Manifest.permission.CAMERA)) {
           type = type or ServiceInfo.FOREGROUND_SERVICE_TYPE_CAMERA
         }
+      }
+    }
+    var started = tryStartForeground(notification, type)
+    if (!started && type != ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK &&
+      Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
+    ) {
+      // Re-typing from the background (Android 14+) or a revoked permission
+      // can refuse the richer type; playback alone is still worth keeping.
+      started = tryStartForeground(notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK)
+    }
+    if (!started) {
+      // Never stop before a startForeground attempt has been made, or the
+      // OS raises ForegroundServiceDidNotStartInTimeException.
+      running = false
+      stopSelf()
+    } else {
+      running = true
+    }
+    return START_NOT_STICKY
+  }
+
+  private fun tryStartForeground(notification: Notification, type: Int): Boolean =
+    try {
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
         startForeground(NOTIFICATION_ID, notification, type)
       } else {
         startForeground(NOTIFICATION_ID, notification)
       }
+      true
     } catch (e: Exception) {
-      // The OS refused (started from the background, permission revoked). The
-      // call carries on unprotected; never crash the app over it.
-      stopSelf()
+      false
     }
-    return START_NOT_STICKY
+
+  // The user swiped the app away: nothing is left to keep alive.
+  override fun onTaskRemoved(rootIntent: Intent?) {
+    running = false
+    stopSelf()
+    super.onTaskRemoved(rootIntent)
+  }
+
+  override fun onDestroy() {
+    running = false
+    super.onDestroy()
   }
 
   private fun granted(permission: String) =
@@ -87,6 +122,8 @@ class CallForegroundService : Service() {
     const val EXTRA_TITLE = "title"
     const val EXTRA_MIC = "mic"
     const val EXTRA_CAM = "cam"
+    /** Whether the service currently holds a foreground notification. */
+    @Volatile var running = false
     private const val CHANNEL_ID = "active_room"
     private const val NOTIFICATION_ID = 4722
   }

@@ -55,6 +55,7 @@
         <service
             android:name="app.synctogether.android.CallForegroundService"
             android:exported="false"
+            android:stopWithTask="true"
             android:foregroundServiceType="mediaPlayback|microphone|camera" />
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->

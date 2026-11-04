@@ -1764,6 +1764,8 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
           ..setVolume((_volume * 100).round());
       }
     });
+    // _playing was just reset; a local picture that was playing no longer is.
+    _syncScreenAwake();
     existing?.loadVideo(videoId);
     _sync?.updatePlaybackState('youtube', url);
     _armYouTubeReadyFallback();

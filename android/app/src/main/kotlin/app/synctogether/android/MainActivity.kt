@@ -18,6 +18,7 @@ class MainActivity : FlutterActivity() {
   private var reader: Thread? = null
   @Volatile private var latestPeak = 0.0
   private var pendingStart: MethodChannel.Result? = null
+  private var notificationRequestInFlight = false
 
   override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
     super.configureFlutterEngine(flutterEngine)
@@ -55,6 +56,8 @@ class MainActivity : FlutterActivity() {
             stopService(Intent(this, CallForegroundService::class.java))
             result.success(null)
           }
+          // Lets Dart learn the real state when the OS refused or killed it.
+          "isRunning" -> result.success(CallForegroundService.running)
           else -> result.notImplemented()
         }
       }
@@ -62,11 +65,19 @@ class MainActivity : FlutterActivity() {
 
   private fun startCallService(mic: Boolean, cam: Boolean, title: String) {
     // POST_NOTIFICATIONS is a runtime permission on 13+. Without it the service
-    // still runs, just without a visible notification, so ask but never wait.
-    if (Build.VERSION.SDK_INT >= 33 &&
+    // still runs, just without a visible notification, so it is optional: asked
+    // once, only after the user turns the mic or camera on (their own prompt
+    // is settled by then), and never over another pending request.
+    if ((mic || cam) && Build.VERSION.SDK_INT >= 33 &&
+      pendingStart == null && !notificationRequestInFlight &&
       checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
     ) {
-      requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), NOTIFICATION_REQUEST)
+      val prefs = getSharedPreferences("background_call", MODE_PRIVATE)
+      if (!prefs.getBoolean("asked_notifications", false)) {
+        prefs.edit().putBoolean("asked_notifications", true).apply()
+        notificationRequestInFlight = true
+        requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), NOTIFICATION_REQUEST)
+      }
     }
     val intent = Intent(this, CallForegroundService::class.java)
       .putExtra(CallForegroundService.EXTRA_TITLE, title)
@@ -96,6 +107,7 @@ class MainActivity : FlutterActivity() {
     grantResults: IntArray,
   ) {
     super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+    if (requestCode == NOTIFICATION_REQUEST) notificationRequestInFlight = false
     if (requestCode != MIC_REQUEST) return
     val pending = pendingStart ?: return
     pendingStart = null

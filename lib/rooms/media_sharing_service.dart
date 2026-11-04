@@ -4,12 +4,12 @@ import 'dart:math';
 
 import 'package:mime/mime.dart';
 import 'package:path/path.dart' as p;
+import 'package:synctogether/av/background_call.dart';
 import 'package:synctogether/diagnostics.dart';
 import 'package:synctogether/profile/profile_models.dart';
 import 'package:synctogether/rooms/local_media_store.dart';
 import 'package:synctogether/sync/sync_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:wakelock_plus/wakelock_plus.dart';
 
 class MediaSharingException implements Exception {
   final String code;
@@ -278,16 +278,20 @@ class MediaSharingService {
     final fileName = p.basename(file.path);
     final contentType = lookupMimeType(file.path) ?? 'video/mp4';
 
-    try {
-      await WakelockPlus.enable();
-    } catch (_) {}
+    await ScreenAwake.hold('upload');
 
-    final initiateData = await _edgeCaller('initiate', {
-      'roomId': roomId,
-      'fileName': fileName,
-      'fileSize': fileSize,
-      'contentType': contentType,
-    });
+    final Map<String, dynamic> initiateData;
+    try {
+      initiateData = await _edgeCaller('initiate', {
+        'roomId': roomId,
+        'fileName': fileName,
+        'fileSize': fileSize,
+        'contentType': contentType,
+      });
+    } catch (_) {
+      await ScreenAwake.release('upload');
+      rethrow;
+    }
 
     final uploadId = initiateData['uploadId'] as String;
     final r2Key = initiateData['r2Key'] as String;
@@ -332,9 +336,7 @@ class MediaSharingService {
     }
     var session = initialSession;
 
-    try {
-      await WakelockPlus.enable();
-    } catch (_) {}
+    await ScreenAwake.hold('upload');
 
     try {
       final listData = await _edgeCaller('list-parts', {
@@ -489,9 +491,7 @@ class MediaSharingService {
       return session;
     } finally {
       client.close(force: true);
-      try {
-        await WakelockPlus.disable();
-      } catch (_) {}
+      await ScreenAwake.release('upload');
     }
   }
 
@@ -512,9 +512,7 @@ class MediaSharingService {
       }
     } finally {
       await _mediaStore.clearUploadSession(roomId);
-      try {
-        await WakelockPlus.disable();
-      } catch (_) {}
+      await ScreenAwake.release('upload');
     }
   }
 
@@ -539,16 +537,20 @@ class MediaSharingService {
     final fileSize = await file.length();
     final mime = lookupMimeType(file.path) ?? 'video/mp4';
 
-    try {
-      await WakelockPlus.enable();
-    } catch (_) {}
+    await ScreenAwake.hold('upload');
 
-    final initiateData = await _edgeCaller('staged-initiate', {
-      'fileName': fileName,
-      'fileSize': fileSize,
-      'durationMs': duration?.inMilliseconds,
-      'contentType': mime,
-    });
+    final Map<String, dynamic> initiateData;
+    try {
+      initiateData = await _edgeCaller('staged-initiate', {
+        'fileName': fileName,
+        'fileSize': fileSize,
+        'durationMs': duration?.inMilliseconds,
+        'contentType': mime,
+      });
+    } catch (_) {
+      await ScreenAwake.release('upload');
+      rethrow;
+    }
 
     final stagedId = initiateData['stagedId'] as String;
     final uploadId = initiateData['uploadId'] as String;
@@ -676,9 +678,7 @@ class MediaSharingService {
       rethrow;
     } finally {
       client.close(force: true);
-      try {
-        await WakelockPlus.disable();
-      } catch (_) {}
+      await ScreenAwake.release('upload');
     }
   }
 
@@ -718,9 +718,7 @@ class MediaSharingService {
         reportNonFatal(e, s, during: 'aborting staged upload $stagedId');
       }
     } finally {
-      try {
-        await WakelockPlus.disable();
-      } catch (_) {}
+      await ScreenAwake.release('upload');
     }
   }
 }

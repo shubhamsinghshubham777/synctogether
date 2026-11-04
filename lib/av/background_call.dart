@@ -34,7 +34,13 @@ class BackgroundCall {
   Future<void> update({required bool mic, required bool cam, required String title}) async {
     if (!_supported()) return;
     final next = (mic: mic, cam: cam);
-    if (_running == next) return;
+    if (_running == next) {
+      // Same type as last time, but the OS may have refused or killed the
+      // service since; ask native for the truth and restart if it is gone.
+      if (await _nativeRunning()) return;
+      trace('background call service vanished; restarting', category: 'av');
+      _running = null;
+    }
     final wasRunning = isRunning;
     _running = next;
     try {
@@ -46,6 +52,18 @@ class BackgroundCall {
       // Forget the attempt so the next change retries.
       _running = null;
       reportNonFatal(e, s, during: 'starting the background call service');
+    }
+  }
+
+  /// Whether the native service really holds its foreground notification.
+  /// Assumes yes when the channel cannot answer, so a flaky query never
+  /// causes a restart loop.
+  Future<bool> _nativeRunning() async {
+    try {
+      return await _channel.invokeMethod<bool>('isRunning') ?? true;
+    } catch (e, s) {
+      reportNonFatal(e, s, during: 'querying the background call service');
+      return true;
     }
   }
 
@@ -66,12 +84,51 @@ class BackgroundCall {
 bool shouldHoldScreenAwake({required bool mobile, required bool inRoom, required bool playing}) =>
     mobile && inRoom && playing;
 
-/// Applies [shouldHoldScreenAwake]'s verdict. media_kit_video's `Video`
-/// widget only holds a wakelock on web, so native phones must do it here.
-Future<void> setScreenAwake(bool awake) async {
-  try {
-    await WakelockPlus.toggle(enable: awake);
-  } catch (e, s) {
-    reportNonFatal(e, s, during: 'toggling the screen wakelock');
+/// Reasons the screen is being held awake. The wakelock is one global switch,
+/// so independent holders (picture playing, a long upload) must not switch it
+/// off under each other: it is on while any reason is held, off when none is.
+class ScreenAwake {
+  ScreenAwake._();
+
+  static final Set<String> _holds = {};
+
+  /// Swappable for tests; defaults to the real wakelock.
+  @visibleForTesting
+  static Future<void> Function(bool enable) apply = (enable) => WakelockPlus.toggle(enable: enable);
+
+  @visibleForTesting
+  static Set<String> get holds => Set.unmodifiable(_holds);
+
+  @visibleForTesting
+  static void reset() => _holds.clear();
+
+  static Future<void> hold(String reason) => _change(() => _holds.add(reason));
+
+  static Future<void> release(String reason) => _change(() => _holds.remove(reason));
+
+  /// Holds or releases [reason] to match [awake].
+  static Future<void> set(String reason, bool awake) => awake ? hold(reason) : release(reason);
+
+  static Future<void> _change(bool Function() mutate) async {
+    final before = _holds.isNotEmpty;
+    final changed = mutate();
+    final after = _holds.isNotEmpty;
+    // Edges only; an upload's repeated holds must not hammer the platform.
+    if (!changed || before == after) return;
+    trace(
+      'screen wakelock ${after ? 'on' : 'off'}',
+      category: 'av',
+      data: {'holds': _holds.toList()},
+    );
+    try {
+      await apply(after);
+    } catch (e, s) {
+      reportNonFatal(e, s, during: 'toggling the screen wakelock');
+    }
   }
 }
+
+/// Applies [shouldHoldScreenAwake]'s verdict as the 'playback' hold.
+/// media_kit_video's `Video` widget only holds a wakelock on web, so native
+/// phones must do it here.
+Future<void> setScreenAwake(bool awake) => ScreenAwake.set('playback', awake);

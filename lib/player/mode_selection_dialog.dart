@@ -6,6 +6,7 @@ import 'package:synctogether/ui/pt_theme.dart';
 import 'package:flutter/services.dart';
 import 'package:synctogether/ui/buttons.dart';
 import 'package:synctogether/ui/glass.dart';
+import 'package:synctogether/ui/responsive.dart';
 
 enum InitialMode { local, youtube, leave }
 
@@ -13,7 +14,14 @@ enum InitialMode { local, youtube, leave }
 class ModeSelectionDialog extends StatelessWidget {
   const ModeSelectionDialog({super.key});
 
+  /// The close button's job. On touch it dismisses the picker (the room menu
+  /// and back gesture still leave); a stray tap on an X must not open "Leave
+  /// the room?". Pointer windows keep the leave confirmation.
   Future<void> _handleClose(BuildContext context) async {
+    if (inputOf(context) == .touch) {
+      Navigator.of(context).pop();
+      return;
+    }
     final confirmed = await showGlassDialog<bool>(
       context: context,
       width: 380,
@@ -71,7 +79,7 @@ class ModeSelectionDialog extends StatelessWidget {
                 eyebrow: 'Now showing',
                 title: 'What are we watching?',
                 closeIconSize: 20,
-                closeTooltip: 'Leave room',
+                closeTooltip: inputOf(context) == .touch ? 'Close' : 'Leave room',
                 onClose: () => _handleClose(context),
               ),
             ),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:synctogether/ui/booth_icons.g.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:synctogether/player/mode_selection_dialog.dart';
@@ -83,6 +84,7 @@ void main() {
     });
 
     testWidgets('close button prompts leave confirmation; Stay keeps dialog open', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
       InitialMode? result;
 
       await tester.pumpWidget(
@@ -123,11 +125,13 @@ void main() {
       // Dialog is still open, result is still null
       expect(find.text('What are we watching?'), findsOneWidget);
       expect(result, isNull);
+      debugDefaultTargetPlatformOverride = null;
     });
 
     testWidgets('close button prompts leave confirmation; Leave room pops InitialMode.leave', (
       tester,
     ) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
       InitialMode? result;
 
       await tester.pumpWidget(
@@ -160,9 +164,11 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(result, InitialMode.leave);
+      debugDefaultTargetPlatformOverride = null;
     });
 
     testWidgets('pressing ESC key triggers leave confirmation', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
       InitialMode? result;
 
       await tester.pumpWidget(
@@ -197,6 +203,44 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(result, InitialMode.leave);
+      debugDefaultTargetPlatformOverride = null;
+    });
+
+    testWidgets('on touch the close button dismisses the picker, never asks to leave', (
+      tester,
+    ) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+      InitialMode? result = InitialMode.local;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => ElevatedButton(
+                onPressed: () async {
+                  result = await showGlassDialog<InitialMode>(
+                    context: context,
+                    builder: (_) => const ModeSelectionDialog(),
+                  );
+                },
+                child: const Text('Open Dialog'),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Open Dialog'));
+      await tester.pumpAndSettle();
+      expect(find.byTooltip('Close'), findsOneWidget);
+
+      await tester.tap(find.byIcon(BoothIcons.close));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Leave the room?'), findsNothing);
+      expect(find.text('What are we watching?'), findsNothing);
+      expect(result, isNull);
+      debugDefaultTargetPlatformOverride = null;
     });
   });
 }

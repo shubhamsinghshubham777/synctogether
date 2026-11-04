@@ -32,6 +32,10 @@ class RoomAboveChat extends StatelessWidget {
   }
 }
 
+/// Natural height of the portrait transport plus an open reaction strip, which
+/// the keyboard-up layout reserves before sizing the picture.
+const double kPortraitControlsExtent = 170;
+
 /// The handheld and portrait tablet composition.
 class RoomMobilePortraitLayout extends StatelessWidget {
   const RoomMobilePortraitLayout({
@@ -43,8 +47,13 @@ class RoomMobilePortraitLayout extends StatelessWidget {
     required this.embeddedChat,
     this.facecamStrip,
     this.roomy = false,
+    this.keyboardUp = false,
     super.key,
   });
+
+  /// Whether the soft keyboard is up. Passed in rather than read here: the
+  /// Scaffold above consumes the bottom view inset, so by this point it is 0.
+  final bool keyboardUp;
 
   final Widget header;
   final Widget videoSurface;
@@ -58,14 +67,20 @@ class RoomMobilePortraitLayout extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final gutter = roomy ? 24.0 : (MediaQuery.sizeOf(context).width < 380 ? 10.0 : 14.0);
-    final keyboardUp = MediaQuery.viewInsetsOf(context).bottom > 0;
     final chatFloor = MediaQuery.textScalerOf(context).scale(160);
 
     return SafeArea(
       child: LayoutBuilder(
         builder: (context, box) {
           final headerHeight = keyboardUp ? 0.0 : MediaQuery.textScalerOf(context).scale(60);
-          final videoHeight = (box.maxHeight - chatFloor - headerHeight).clamp(
+          // With the keyboard up the picture is what gives: the transport and
+          // the reaction strip keep their natural height (play must never
+          // sit half-clipped in a scroll area), the picture shrinks to what
+          // is left after them and the chat's floor.
+          final controlsExtent = keyboardUp
+              ? MediaQuery.textScalerOf(context).scale(kPortraitControlsExtent)
+              : 0.0;
+          final videoHeight = (box.maxHeight - chatFloor - headerHeight - controlsExtent).clamp(
             0.0,
             box.maxWidth * 9 / 16,
           );
@@ -95,6 +110,13 @@ class RoomMobilePortraitLayout extends StatelessWidget {
     );
   }
 }
+
+/// Bottom clearance for things beside the landscape controls: the reaction
+/// strip + control bar column (~130 px) above its 22 px inset, and a gap.
+const double kLandscapeControlsReserve = 160;
+
+/// The same with controls hidden: the show-controls chevron and a gap.
+const double kLandscapeChevronReserve = 76;
 
 /// The mobile landscape fullscreen video composition.
 class RoomMobileLandscapeLayout extends StatelessWidget {
@@ -150,9 +172,13 @@ class RoomMobileLandscapeLayout extends StatelessWidget {
               builder: (context, box) {
                 final chatWidth = math.min(300.0, box.maxWidth * 0.38);
                 final bannerWidth = math.min(420.0, box.maxWidth * 0.55);
-                final controlsBottom = controlsVisible ? 84.0 : 20.0;
-                final keyboardMode =
-                    chatOpen && (keyboardUp || box.maxHeight - 72 - controlsBottom < floor);
+                // Chat is a column beside the controls, never over them: the
+                // control bar is ~130 px tall and full width, so a panel that
+                // merely stopped above it would be too short to read.
+                final keyboardMode = chatOpen && (keyboardUp || box.maxHeight - 72 - 22 < floor);
+                final beside = chatOpen && !keyboardMode ? chatWidth + 12 : 0.0;
+                final motion = PTMotion.functional(context, PTMotion.state);
+                final curve = controlsVisible ? PTMotion.enter : PTMotion.exit;
 
                 return Stack(
                   children: [
@@ -163,10 +189,17 @@ class RoomMobileLandscapeLayout extends StatelessWidget {
                       child: overlayControls(topActionsBuilder(keyboardMode), fromTop: true),
                     ),
                     if (facecamRail != null)
+                      // Bounded above the control bar (or the show-controls
+                      // chevron when it is hidden); the rail fits its tiles to
+                      // this slot and folds the rest into "+N".
                       Positioned(
                         top: 72,
                         right: 0,
-                        child: SizedBox(width: 104, child: facecamRail!),
+                        bottom: controlsVisible
+                            ? kLandscapeControlsReserve
+                            : kLandscapeChevronReserve,
+                        width: 104,
+                        child: Align(alignment: Alignment.topRight, child: facecamRail!),
                       ),
                     Positioned(top: 66, left: 0, width: bannerWidth, child: bannerStack),
                     if (chatDisplacedOverlay != null)
@@ -179,10 +212,12 @@ class RoomMobileLandscapeLayout extends StatelessWidget {
                         child: chatDisplacedOverlay!,
                       ),
                     if (!keyboardMode) ...[
-                      Positioned(
+                      AnimatedPositioned(
+                        duration: motion,
+                        curve: curve,
                         bottom: 22,
                         left: 0,
-                        right: 0,
+                        right: beside,
                         child: overlayControls(
                           Column(
                             mainAxisSize: MainAxisSize.min,
@@ -191,7 +226,13 @@ class RoomMobileLandscapeLayout extends StatelessWidget {
                           fromTop: false,
                         ),
                       ),
-                      Positioned(bottom: 22, right: 0, child: showControlsButton),
+                      AnimatedPositioned(
+                        duration: motion,
+                        curve: curve,
+                        bottom: 22,
+                        right: beside,
+                        child: showControlsButton,
+                      ),
                     ],
                     if (chatRevealedBuilder != null)
                       AnimatedPositioned(
@@ -199,7 +240,7 @@ class RoomMobileLandscapeLayout extends StatelessWidget {
                         curve: controlsVisible ? PTMotion.enter : PTMotion.exit,
                         top: keyboardMode ? 8 : 72,
                         right: 0,
-                        bottom: keyboardMode ? 8 : controlsBottom,
+                        bottom: keyboardMode ? 8 : 22,
                         width: chatWidth,
                         child: chatRevealedBuilder!(chatWidth),
                       ),

@@ -23,6 +23,9 @@ import 'package:synctogether/rooms/room_dependencies.dart';
 import 'package:synctogether/rooms/room_models.dart';
 import 'package:synctogether/rooms/room_screen.dart';
 import 'package:synctogether/rooms/room_service.dart';
+import 'package:synctogether/rooms/widgets/facecam_rail.dart';
+import 'package:synctogether/rooms/widgets/reaction_strip.dart';
+import 'package:synctogether/rooms/widgets/room_chat_panel.dart';
 import 'package:synctogether/rooms/widgets/room_control_bar.dart';
 import 'package:synctogether/sync/sync_service.dart';
 import 'package:synctogether/ui/buttons.dart';
@@ -200,6 +203,22 @@ Future<_Harness> _pumpRoom(
   SyncService.defaultBackendOverride = h.backend;
   LiveKitService.isConfiguredOverride = av;
   LiveKitService.isMockMode = av;
+  // Phone cases hold the screen awake while playing; answer the pigeon call.
+  tester.binding.defaultBinaryMessenger.setMockMessageHandler(
+    'dev.flutter.pigeon.wakelock_plus_platform_interface.WakelockPlusApi.toggle',
+    (_) async => const StandardMessageCodec().encodeMessage(<Object?>[null]),
+  );
+  // Facecam cases enumerate devices through flutter_webrtc, which has no plugin here.
+  for (final name in [
+    'FlutterWebRTC.Method',
+    'FlutterWebRTC.Event',
+    'app.synctogether/background_call',
+  ]) {
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      MethodChannel(name),
+      (call) async => call.method == 'getSources' ? <String, Object?>{'sources': []} : null,
+    );
+  }
   // Desktop cases reach window_manager, which has no plugin under test.
   tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
     const MethodChannel('window_manager'),
@@ -269,6 +288,15 @@ void main() {
     await _finish(tester);
   }, cases: kScreenMatrix.where((c) => c.keyboard > 0).toList());
 
+  screenMatrix(
+    'room facecams, six in the room',
+    (tester, c, s) async {
+      await _pumpRoom(tester, c, s, av: true, members: 6);
+      await _finish(tester);
+    },
+    cases: kScreenMatrix.where((c) => c.name.startsWith('phone')).toList(),
+  );
+
   screenMatrix('room readiness overlay', (tester, c, s) async {
     await _pumpRoom(tester, c, s, members: 7, allReady: false);
     // The roster stagger's delays are real-zone timers here, so give the real
@@ -303,6 +331,101 @@ void main() {
       await _finish(tester);
     } finally {
       debugDefaultTargetPlatformOverride = null;
+    }
+  });
+
+  Finder tiles() => find.descendant(
+    of: find.byType(FacecamRail),
+    matching: find.byWidgetPredicate((w) => w.runtimeType.toString() == '_FacecamTile'),
+  );
+
+  Rect chatPanelRect(WidgetTester tester) => tester.getRect(find.byType(RoomChatPanel).first);
+
+  group('phone defects', () {
+    testWidgets('portrait + keyboard keeps play and the reaction bar reachable', (tester) async {
+      final c = kScreenMatrix.firstWhere((c) => c.name == 'phone-keyboard');
+      try {
+        await _pumpRoom(tester, c, 1.0, chatOpen: true);
+        final field = find.byType(EditableText);
+        if (field.evaluate().isNotEmpty) {
+          await tester.showKeyboard(field.first);
+          await tester.pump(const Duration(milliseconds: 400));
+        }
+        final visibleBottom = c.size.height - c.keyboard;
+        await tester.tap(find.byTooltip('React (R)'));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 600));
+        final play = tester.getRect(find.byType(PTPlayButton));
+        expect(play.bottom, lessThanOrEqualTo(visibleBottom), reason: 'play under keyboard');
+        // Not clipped by the scroll area it sits in.
+        final scroll = tester.getRect(
+          find.ancestor(of: find.byType(PTPlayButton), matching: find.byType(Scrollable)).first,
+        );
+        expect(scroll.top, lessThanOrEqualTo(play.top + 0.5), reason: 'play clipped (top)');
+        expect(scroll.bottom, greaterThanOrEqualTo(play.bottom - 0.5), reason: 'play clipped');
+        final strip = find.byType(ReactionStrip);
+        expect(strip, findsOneWidget);
+        final sr = tester.getRect(strip);
+        expect(sr.height, greaterThan(20));
+        expect(scroll.bottom, greaterThanOrEqualTo(sr.bottom - 0.5), reason: 'reactions clipped');
+        expect(scroll.top, lessThanOrEqualTo(sr.top + 0.5), reason: 'reactions clipped (top)');
+        await _finish(tester);
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
+      }
+    });
+
+    for (final name in ['phone-land', 'phone-android-land', 'phone-se-land']) {
+      final c = kScreenMatrix.firstWhere((c) => c.name == name);
+      testWidgets('$name facecams clear the control bar and keep +N', (tester) async {
+        try {
+          await _pumpRoom(tester, c, 1.0, av: true, members: 6);
+          final bar = tester.getRect(find.byType(RoomControlBar));
+          final all = tiles().evaluate().length;
+          expect(all, greaterThan(0));
+          for (var i = 0; i < all; i++) {
+            final r = tester.getRect(tiles().at(i));
+            expect(r.overlaps(bar), isFalse, reason: 'tile $i $r under bar $bar');
+          }
+          final pill = find.text('+${6 - all}');
+          expect(pill, findsOneWidget);
+          expect(tester.getRect(pill).overlaps(bar), isFalse, reason: '+N under the bar');
+          await _finish(tester);
+        } finally {
+          debugDefaultTargetPlatformOverride = null;
+        }
+      });
+
+      testWidgets('$name hidden controls: +N clears the show-controls chevron', (tester) async {
+        try {
+          await _pumpRoom(tester, c, 1.0, av: true, members: 6);
+          await _playAndHideControls(tester);
+          await tester.pump(const Duration(seconds: 1));
+          final chevron = tester.getRect(find.byTooltip('Show controls (H)'));
+          final all = tiles().evaluate().length;
+          for (var i = 0; i < all; i++) {
+            expect(tester.getRect(tiles().at(i)).overlaps(chevron), isFalse, reason: 'tile $i');
+          }
+          final pill = find.text('+${6 - all}');
+          expect(pill, findsOneWidget);
+          expect(tester.getRect(pill).overlaps(chevron), isFalse, reason: '+N on the chevron');
+          await _finish(tester);
+        } finally {
+          debugDefaultTargetPlatformOverride = null;
+        }
+      });
+
+      testWidgets('$name chat open does not cover the control bar', (tester) async {
+        try {
+          await _pumpRoom(tester, c, 1.0, chatOpen: true, chat: mockChatMessagesList);
+          final bar = tester.getRect(find.byType(RoomControlBar));
+          final panel = chatPanelRect(tester);
+          expect(panel.overlaps(bar), isFalse, reason: 'chat $panel covers bar $bar');
+          await _finish(tester);
+        } finally {
+          debugDefaultTargetPlatformOverride = null;
+        }
+      });
     }
   });
 

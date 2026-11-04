@@ -18,6 +18,11 @@ import 'video_trial_widgets.dart';
 
 const bool kDemoMode = bool.fromEnvironment('DEMO_MODE', defaultValue: false);
 
+/// Measured extents of the mini stack's parts, for fitting tiles to a slot.
+const double kMiniTileExtent = 58;
+const double kMiniPillExtent = 30;
+const double kMiniGap = 6;
+
 enum FacecamLayout { railLeft, stripTop, miniStackRight }
 
 /// What a mic/cam toggle says while every AV endpoint is spent. Never "service
@@ -116,17 +121,53 @@ class _FacecamRailState extends State<FacecamRail> {
     super.dispose();
   }
 
+  /// How many tiles a [FacecamLayout.miniStackRight] stack can show in
+  /// [height] px, keeping room for the "+N" pill when some are left out. A
+  /// bounded slot (landscape, under the control bar) gets fewer tiles and a
+  /// pill instead of tiles scrolled out of sight behind the bar.
+  int _tilesThatFit(double height, int total, int extras) {
+    if (!height.isFinite) return widget.maxTiles;
+    final spent = extras * (kMiniPillExtent + kMiniGap);
+    var fit = 1;
+    for (var k = widget.maxTiles; k > 1; k--) {
+      final shown = k.clamp(0, total);
+      final needed =
+          spent +
+          shown * kMiniTileExtent +
+          (shown - 1) * kMiniGap +
+          (total > shown ? kMiniGap + kMiniPillExtent : 0);
+      if (needed <= height) {
+        fit = k;
+        break;
+      }
+    }
+    return fit;
+  }
+
   @override
   Widget build(BuildContext context) {
+    if (widget.layout != .miniStackRight) return _buildRail(widget.maxTiles);
+    return LayoutBuilder(
+      builder: (context, box) {
+        final extras =
+            (widget.trialEndsAt != null ? 1 : 0) +
+            (widget.showTrialEnded ? 1 : 0) +
+            (widget.av.state == .unavailable ? 1 : 0);
+        return _buildRail(_tilesThatFit(box.maxHeight, _ordered.length, extras));
+      },
+    );
+  }
+
+  Widget _buildRail(int maxTiles) {
     return ListenableBuilder(
       listenable: widget.av,
       builder: (context, _) {
         final ordered = _ordered;
-        final visible = ordered.take(widget.maxTiles).toList();
+        final visible = ordered.take(maxTiles).toList();
         final overflow = ordered.length - visible.length;
         // Leavers only fill slots the live roster isn't using.
         final departing = _leaving.values
-            .take((widget.maxTiles - visible.length).clamp(0, widget.maxTiles))
+            .take((maxTiles - visible.length).clamp(0, maxTiles))
             .toList();
 
         final state = widget.av.state;

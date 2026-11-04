@@ -5937,6 +5937,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     final gutter = roomy ? 24.0 : (MediaQuery.sizeOf(context).width < 380 ? 10.0 : 14.0);
     return RoomMobilePortraitLayout(
       roomy: roomy,
+      keyboardUp: keyboardUp,
       header: keyboardUp
           ? const SizedBox.shrink()
           : _portraitHeader(

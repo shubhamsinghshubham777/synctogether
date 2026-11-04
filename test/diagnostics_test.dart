@@ -7,6 +7,36 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:synctogether/diagnostics.dart';
 
 void main() {
+  group('isMalformedAuthCallback', () {
+    test('gotrue "No <field> detected." from a session-less callback link is benign', () {
+      for (final field in ['access_token', 'expires_in', 'refresh_token', 'token_type']) {
+        expect(isMalformedAuthCallback(AuthException('No $field detected.')), isTrue);
+      }
+    });
+
+    test('real auth failures still get through', () {
+      expect(isMalformedAuthCallback(AuthException('No user found.')), isFalse);
+      expect(isMalformedAuthCallback(AuthException('Invalid login credentials')), isFalse);
+      expect(
+        isMalformedAuthCallback(AuthException('No expires_in detected.', statusCode: '400')),
+        isFalse,
+      );
+      expect(
+        isMalformedAuthCallback(
+          AuthApiException('No expires_in detected.', statusCode: '400', code: 'bad_jwt'),
+        ),
+        isFalse,
+      );
+      expect(
+        isMalformedAuthCallback(
+          AuthPKCEGrantCodeExchangeError('No code detected in query parameters.'),
+        ),
+        isFalse,
+      );
+      expect(isMalformedAuthCallback(StateError('No expires_in detected.')), isFalse);
+    });
+  });
+
   group('isTransientNetworkError', () {
     test('connectivity failures are transient', () {
       expect(isTransientNetworkError(const SocketException('Failed host lookup')), isTrue);

@@ -122,7 +122,7 @@ class _PTSplashState extends State<PTSplash> with SingleTickerProviderStateMixin
     // started so sound and visual animation begin in lockstep.
     final player = await _prepareAudio();
     if (!mounted || _disposed) {
-      unawaited(player?.dispose());
+      _release(player);
       return;
     }
     _sound = player;
@@ -142,6 +142,27 @@ class _PTSplashState extends State<PTSplash> with SingleTickerProviderStateMixin
     }
   }
 
+  /// Players this splash has already released. media_kit's `dispose` is not
+  /// idempotent - a second call throws `AssertionError('[Player] has been
+  /// disposed')` - and three paths can reach the same player: the splash being
+  /// torn down mid-load, the 3 s budget expiring (the abandoned load keeps
+  /// running and later hits its own `_disposed` branch), and `_run` finding
+  /// the splash gone. Identity set, since `Player` has no useful equality.
+  final Set<Player> _released = Set.identity();
+
+  /// True when [player] must not be touched any more.
+  bool _gone(Player player) => _disposed || _released.contains(player);
+
+  /// Disposes [player] exactly once; a no-op for null or an already released one.
+  void _release(Player? player) {
+    if (player == null || !_released.add(player)) return;
+    unawaited(
+      player.dispose().catchError((Object e, StackTrace s) {
+        reportNonFatal(e, s, during: 'releasing the splash sound player');
+      }),
+    );
+  }
+
   Future<Player?> _prepareAudio() async {
     Player? player;
     try {
@@ -153,7 +174,7 @@ class _PTSplashState extends State<PTSplash> with SingleTickerProviderStateMixin
       return ready;
     } catch (e, s) {
       _loadingPlayer = null;
-      unawaited(player?.dispose());
+      _release(player);
       if (e is! TimeoutException) {
         reportNonFatal(e, s, during: 'loading the splash sound');
       }
@@ -162,21 +183,21 @@ class _PTSplashState extends State<PTSplash> with SingleTickerProviderStateMixin
   }
 
   Future<Player?> _startPlayback(Player player) async {
-    if (_disposed) {
-      unawaited(player.dispose());
+    if (_gone(player)) {
+      _release(player);
       return null;
     }
 
     await player.setVolume(75);
-    if (_disposed) {
-      unawaited(player.dispose());
+    if (_gone(player)) {
+      _release(player);
       return null;
     }
 
     final media = widget.mediaOverride ?? Media(_kSfx);
     await player.open(media, play: false);
-    if (_disposed) {
-      unawaited(player.dispose());
+    if (_gone(player)) {
+      _release(player);
       return null;
     }
 
@@ -186,8 +207,8 @@ class _PTSplashState extends State<PTSplash> with SingleTickerProviderStateMixin
         (d) => d > Duration.zero,
         orElse: () => Duration.zero,
       );
-      if (_disposed || d <= Duration.zero) {
-        unawaited(player.dispose());
+      if (_gone(player) || d <= Duration.zero) {
+        _release(player);
         return null;
       }
     }
@@ -197,8 +218,8 @@ class _PTSplashState extends State<PTSplash> with SingleTickerProviderStateMixin
     await player.play();
     if (!player.state.playing) {
       final playing = await player.stream.playing.firstWhere((p) => p, orElse: () => false);
-      if (_disposed || !playing) {
-        unawaited(player.dispose());
+      if (_gone(player) || !playing) {
+        _release(player);
         return null;
       }
     }
@@ -211,8 +232,8 @@ class _PTSplashState extends State<PTSplash> with SingleTickerProviderStateMixin
     _disposed = true;
     _reducedMotionTimer?.cancel();
     // The splash outlives the 1.30 s sting, so this never clips a tail.
-    unawaited(_sound?.dispose());
-    unawaited(_loadingPlayer?.dispose());
+    _release(_sound);
+    _release(_loadingPlayer);
     _loadingPlayer = null;
     _controller.dispose();
     super.dispose();

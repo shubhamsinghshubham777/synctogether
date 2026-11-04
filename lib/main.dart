@@ -65,6 +65,10 @@ Future<void> main() async {
         trace('dropped transient error', category: 'network', data: {'error': '$error'});
         return null;
       }
+      if (error != null && isMalformedAuthCallback(error)) {
+        trace('dropped malformed auth callback', category: 'auth', data: {'error': '$error'});
+        return null;
+      }
       return event;
     };
   }, appRunner: _bootstrap);

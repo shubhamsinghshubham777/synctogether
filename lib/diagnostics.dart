@@ -5,7 +5,12 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' show ClientException;
 import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart'
-    show AuthApiException, AuthRetryableFetchException, FunctionException, PostgrestException;
+    show
+        AuthApiException,
+        AuthException,
+        AuthRetryableFetchException,
+        FunctionException,
+        PostgrestException;
 
 /// Whether [error] is the network or an upstream proxy failing rather than
 /// our code: an offline laptop, a dropped Wi-Fi, a reset socket, Cloudflare
@@ -39,6 +44,31 @@ bool isTransientNetworkError(Object error) => switch (error) {
   },
   _ => false,
 };
+
+/// Whether [error] is gotrue rejecting an `synctogether://auth-callback` link
+/// that carries no session at all - a stale, hand-typed or foreign link such as
+/// `synctogether://auth-callback#foo`.
+///
+/// supabase_flutter hands every such link to `getSessionFromUrl`, which throws
+/// a *bare* [AuthException] for the first token field it cannot find, and then
+/// forwards it down `onAuthStateChange` as an error event. Nothing in the app
+/// can act on it - no session was ever on offer - and with no error handler on
+/// the stream it surfaces as an unhandled exception and into Sentry.
+///
+/// Deliberately narrow so real auth failures stay visible: only the exact
+/// [AuthException] type (never [AuthApiException] or the PKCE subclasses, which
+/// carry a server verdict or a genuine failed exchange), with no HTTP status
+/// or code, and only gotrue's four "No FIELD detected." messages. `No user
+/// found.` and `Invalid ...` come from a token that was actually presented and
+/// are not matched.
+bool isMalformedAuthCallback(Object error) =>
+    error.runtimeType == AuthException &&
+    error is AuthException &&
+    error.statusCode == null &&
+    error.code == null &&
+    RegExp(
+      r'^No (access_token|expires_in|refresh_token|token_type) detected\.$',
+    ).hasMatch(error.message);
 
 /// The HTTP status behind a [PostgrestException] that came from a gateway
 /// rather than from Postgres, or null for a real database answer.

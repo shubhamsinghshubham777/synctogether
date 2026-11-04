@@ -13,6 +13,7 @@ class _FakePlayer implements Player {
   final positionController = StreamController<Duration>.broadcast();
 
   bool isDisposed = false;
+  int disposeCalls = 0;
   bool playCalled = false;
   double volume = 0;
   Playable? openedMedia;
@@ -66,6 +67,8 @@ class _FakePlayer implements Player {
 
   @override
   Future<void> dispose({bool synchronized = true}) async {
+    disposeCalls++;
+    if (isDisposed) throw AssertionError('[Player] has been disposed');
     isDisposed = true;
     await playingController.close();
     await durationController.close();
@@ -80,6 +83,29 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   group('PTSplash synchronization & timeout', () {
+    testWidgets('a splash torn down mid-load disposes the player exactly once', (tester) async {
+      final fakePlayer = _FakePlayer();
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: PTSplash(
+            playerFactory: () => fakePlayer,
+            mediaOverride: _testMedia,
+            child: const Text('App Content', textDirection: TextDirection.ltr),
+          ),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 100));
+
+      // Still waiting for the duration; remove the splash. Closing the stream
+      // (the fake's dispose) wakes the load, which meets its own "splash is
+      // gone" branch - that used to be a second dispose of the same player.
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump(const Duration(milliseconds: 100));
+
+      expect(fakePlayer.disposeCalls, 1);
+    });
+
     testWidgets('does not start visual animation until audio playback actively begins', (
       tester,
     ) async {

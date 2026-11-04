@@ -161,7 +161,7 @@ class _DeviceSelectorPanelState extends State<_DeviceSelectorPanel> {
   @override
   Widget build(BuildContext context) {
     return GlassPanel(
-      radius: 20,
+      radius: PTRadius.panel,
       baseColor: PTColors.surfaceBase,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       child: Column(

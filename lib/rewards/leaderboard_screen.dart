@@ -490,54 +490,67 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> with WindowListen
   /// for months.
   Widget _controls(RewardState state) {
     final open = state.globalBoard.open;
-    return Container(
-      decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: PTColors.aisle)),
-      ),
+    // Both tab groups scale down rather than ellipsize: "Your ..." and
+    // "ALL TI..." are not tabs.
+    Widget scopeTabs() => FittedBox(
+      fit: .scaleDown,
+      alignment: .centerLeft,
       child: Row(
-        crossAxisAlignment: .end,
+        mainAxisSize: .min,
+        spacing: 20,
         children: [
-          if (open)
-            Flexible(
-              child: Row(
-                mainAxisSize: .min,
-                spacing: 20,
-                children: [
-                  for (final scope in LeaderboardScope.values)
-                    Flexible(
-                      child: _UnderlineTab(
-                        label: scope.title,
-                        selected: _scope == scope,
-                        onTap: () => _setScope(scope),
-                      ),
-                    ),
-                ],
-              ),
+          for (final scope in LeaderboardScope.values)
+            _UnderlineTab(
+              label: scope.title,
+              selected: _scope == scope,
+              onTap: () => _setScope(scope),
             ),
-          if (open) const Spacer(),
-          Flexible(
-            child: Row(
-              mainAxisSize: .min,
-              spacing: 20,
-              children: [
-                for (final period in LeaderboardPeriod.values)
-                  Flexible(
-                    child: _UnderlineTab(
-                      label: switch (period) {
-                        .week => 'WEEK',
-                        .month => 'MONTH',
-                        .all => 'ALL TIME',
-                      },
-                      mono: true,
-                      selected: _period == period,
-                      onTap: () => _setPeriod(period),
-                    ),
-                  ),
-              ],
-            ),
-          ),
         ],
       ),
+    );
+    Widget periodTabs() => FittedBox(
+      fit: .scaleDown,
+      alignment: .centerLeft,
+      child: Row(
+        mainAxisSize: .min,
+        spacing: 20,
+        children: [
+          for (final period in LeaderboardPeriod.values)
+            _UnderlineTab(
+              label: switch (period) {
+                .week => 'WEEK',
+                .month => 'MONTH',
+                .all => 'ALL TIME',
+              },
+              mono: true,
+              selected: _period == period,
+              onTap: () => _setPeriod(period),
+            ),
+        ],
+      ),
+    );
+    return LayoutBuilder(
+      builder: (context, box) {
+        // Both groups side by side need ~400 px at 1x text; narrower than that
+        // (a phone, or large text) they stack rather than ellipsize each other
+        // into "Your ..." and "WE...".
+        final stacked = open && box.maxWidth < MediaQuery.textScalerOf(context).scale(420);
+        return Container(
+          decoration: const BoxDecoration(
+            border: Border(bottom: BorderSide(color: PTColors.aisle)),
+          ),
+          child: stacked
+              ? Column(crossAxisAlignment: .start, children: [scopeTabs(), periodTabs()])
+              : Row(
+                  crossAxisAlignment: .end,
+                  children: [
+                    if (open) Flexible(child: scopeTabs()),
+                    if (open) const Spacer(),
+                    Flexible(child: periodTabs()),
+                  ],
+                ),
+        );
+      },
     );
   }
 

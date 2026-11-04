@@ -207,7 +207,7 @@ class _AccountMenuPanel extends StatelessWidget {
       },
     );
     return GlassPanel(
-      radius: 20,
+      radius: PTRadius.panel,
       baseColor: PTColors.surfaceBase,
       borderColor: PTColors.white(0.14),
       child: SingleChildScrollView(

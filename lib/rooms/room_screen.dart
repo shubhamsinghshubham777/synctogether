@@ -3594,7 +3594,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
       child: IgnorePointer(
         ignoring: _controlsVisible,
         child: GlassPanel(
-          radius: 20,
+          radius: PTRadius.panel,
           baseColor: PTColors.surfaceBase,
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
           child: PTIconButton(

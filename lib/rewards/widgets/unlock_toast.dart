@@ -140,10 +140,10 @@ class UnlockCard extends StatelessWidget {
       child: Material(
         type: .transparency,
         child: InkWell(
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(PTRadius.panel),
           onTap: onTap,
           child: GlassPanel(
-            radius: 20,
+            radius: PTRadius.panel,
             opacity: 0.8,
             baseColor: PTColors.dialogGlassBase,
             borderColor: colour.withValues(alpha: 0.4),

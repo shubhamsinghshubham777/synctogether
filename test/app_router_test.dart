@@ -1,7 +1,8 @@
-import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:synctogether/app_router.dart';
+import 'package:synctogether/ui/not_found_screen.dart';
 
 void main() {
   group('room path helpers', () {
@@ -108,6 +109,39 @@ void main() {
       expect(tester.takeException(), isNull);
       expect(find.text('room r1'), findsOneWidget);
       expect(router.routerDelegate.currentConfiguration.uri.path, '/lobby/room/r1');
+    });
+  });
+
+  group('unmatched locations', () {
+    testWidgets('render the in-app Not Found screen and lead back to the lobby', (tester) async {
+      final router = GoRouter(
+        initialLocation: '/lobby',
+        errorBuilder: notFoundBuilder,
+        routes: [
+          GoRoute(
+            path: '/lobby',
+            builder: (_, _) => const Text('lobby', textDirection: TextDirection.ltr),
+          ),
+        ],
+      );
+      await tester.pumpWidget(MaterialApp.router(routerConfig: router, theme: ThemeData.dark()));
+      await tester.pumpAndSettle();
+      expect(find.text('lobby'), findsOneWidget);
+
+      // A query is present on purpose: it must not reach the screen.
+      router.go('/definitely/not/a/route?access_token=secret');
+      await tester.pumpAndSettle();
+      expect(find.byType(NotFoundScreen), findsOneWidget);
+      expect(find.text('Lost in sync'), findsOneWidget);
+      expect(
+        tester.widget<NotFoundScreen>(find.byType(NotFoundScreen)).location,
+        '/definitely/not/a/route',
+      );
+      expect(find.textContaining('GoException'), findsNothing);
+
+      await tester.tap(find.text('Back to lobby'));
+      await tester.pumpAndSettle();
+      expect(find.text('lobby'), findsOneWidget);
     });
   });
 }

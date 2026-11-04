@@ -20,6 +20,7 @@ import 'rooms/lobby_screen.dart';
 import 'rooms/moderation_service.dart';
 import 'rooms/room_screen.dart';
 import 'rooms/room_service.dart';
+import 'ui/not_found_screen.dart';
 import 'ui/pt_motion.dart';
 
 /// Profile, subscribe and rooms are *sub-routes* of the lobby, so the lobby is always the
@@ -55,11 +56,18 @@ String locationForAppSchemeLink(Uri? current) {
   return path.isEmpty ? '/lobby' : path;
 }
 
+/// The page for a location no route matches, in place of go_router's generic
+/// "Page Not Found". Only the path is reported - never the query or fragment,
+/// which can carry auth tokens.
+Widget notFoundBuilder(BuildContext context, GoRouterState state) =>
+    NotFoundScreen(location: state.uri.path, onHome: () => context.go('/lobby'));
+
 GoRouter buildRouter([Player? player]) {
   late final GoRouter router;
   router = GoRouter(
     initialLocation: kDemoRoom ? '/lobby/room/demo-room-1' : '/lobby',
     refreshListenable: _AuthRefresh(),
+    errorBuilder: notFoundBuilder,
     redirect: (context, state) {
       if (isAppSchemeLink(state.uri)) {
         // Keep whatever is on screen; the real handlers run off app_links.

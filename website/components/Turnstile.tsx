@@ -30,7 +30,8 @@ declare global {
         options: {
           sitekey: string;
           theme?: "light" | "dark" | "auto";
-          size?: "normal" | "compact" | "flexible" | "invisible";
+          size?: "normal" | "compact" | "flexible";
+          appearance?: "always" | "execute" | "interaction-only";
           execution?: "render" | "execute";
           callback?: (token: string) => void;
           "error-callback"?: (error?: unknown) => void;
@@ -145,7 +146,10 @@ export const Turnstile = forwardRef<TurnstileHandle, TurnstileProps>(
           const id = window.turnstile.render(containerRef.current, {
             sitekey: effectiveSiteKey,
             theme: "dark",
-            size: "invisible",
+            // The site key is a Managed widget, so "invisible" is not a size
+            // (Cloudflare rejects it: 'Invalid value for parameter "size"'). Run
+            // on demand and only show anything if a challenge needs the visitor.
+            appearance: "interaction-only",
             execution: "execute",
             callback: (token: string) => {
               if (pendingPromiseRef.current) {
@@ -259,12 +263,13 @@ export const Turnstile = forwardRef<TurnstileHandle, TurnstileProps>(
       return null;
     }
 
-    // With size: "invisible", Cloudflare manages the widget's hidden state and injects an overlay modal
-    // only if an interactive challenge is triggered. The container must allow the modal to be visible.
+    // With appearance "interaction-only" the widget collapses to nothing unless a
+    // challenge needs the visitor, so the container must be free to grow: a 0x0
+    // box would clip the one case where the visitor has to click.
     return (
       <div
         ref={containerRef}
-        className={`fixed top-0 left-0 w-0 h-0 overflow-visible pointer-events-auto z-[99999] ${className}`}
+        className={`fixed bottom-4 right-4 pointer-events-auto z-[99999] ${className}`}
         aria-hidden="true"
       />
     );

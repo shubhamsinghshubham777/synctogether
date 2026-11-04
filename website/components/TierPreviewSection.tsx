@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { PATRON_PRICES, PRICING_TIERS, formatPatronPrice, type PatronPriceTable } from "@/lib/constants";
-import { useRegionCurrency } from "@/lib/useRegionCurrency";
+import { ByCurrency } from "./ByCurrency";
 
 const mono = "font-[family-name:var(--font-jetbrains-mono)]";
 const display = "font-[family-name:var(--font-space-grotesk)]";
@@ -65,16 +65,7 @@ function SeatCard({ seat }: { seat: Seat }) {
 }
 
 export function TierPreviewSection({ prices = PATRON_PRICES }: { prices?: PatronPriceTable }) {
-  const { currency, detecting } = useRegionCurrency();
-  // Every seat shows the same currency, so all three wait for the region together.
-  const pending = (
-    <span
-      role="status"
-      aria-label="Loading price"
-      className="inline-block h-[0.8em] w-[3.2ch] align-middle rounded-[4px] bg-rail motion-safe:animate-pulse"
-    />
-  );
-  const zero = detecting ? pending : formatPatronPrice(currency, 0);
+  const zero = <ByCurrency render={(c) => formatPatronPrice(c, 0)} />;
 
   const seats: Seat[] = [
     { key: "guest", name: "Guest", note: "No account", price: zero, tone: "plain" },
@@ -84,11 +75,7 @@ export function TierPreviewSection({ prices = PATRON_PRICES }: { prices?: Patron
       name: "Patron",
       note: "Per month",
       tone: "brass",
-      price: detecting ? (
-        pending
-      ) : (
-        <span id="features-premium-price">{formatPatronPrice(currency, prices[currency].monthly)}</span>
-      ),
+      price: <ByCurrency render={(c) => formatPatronPrice(c, prices[c].monthly)} />,
     },
   ];
 

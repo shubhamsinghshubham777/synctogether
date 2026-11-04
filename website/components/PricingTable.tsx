@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { PATRON_PRICES, PRICING_TIERS, formatPatronPrice, type PatronCurrency, type PatronPriceTable } from "@/lib/constants";
-import { useRegionCurrency } from "@/lib/useRegionCurrency";
+import { ByCurrency } from "./ByCurrency";
 import { PlanCard } from "./PlanCard";
 import { Eyebrow, display, mono } from "./PageHead";
 
@@ -14,50 +14,53 @@ function annualPerMonth(currency: PatronCurrency, annual: number): number {
 
 export function PricingTable({ prices = PATRON_PRICES }: { prices?: PatronPriceTable }) {
   const [billingCycle, setBillingCycle] = useState<"monthly" | "annual">("annual");
-  // Region is detected, never picked: a picker invites comparing what each
-  // country pays. Prices show a placeholder until it is known.
-  const { currency, detecting } = useRegionCurrency();
-  const monthlyAmount = prices[currency].monthly;
-  const annualAmount = prices[currency].annual;
-  const fmt = (n: number) => formatPatronPrice(currency, n);
-
-  // A same-size pulse in place of a figure that may still change.
-  const placeholder = (
-    <span
-      role="status"
-      aria-label="Loading prices"
-      className="inline-block h-[40px] w-[150px] rounded-[4px] bg-rail motion-safe:animate-pulse align-middle"
-    />
-  );
-  const premiumPrice = detecting ? placeholder : fmt(billingCycle === "annual" ? annualAmount : monthlyAmount);
+  // Region is detected on the server, never picked: a picker invites comparing
+  // what each country pays. Every figure that varies is a ByCurrency, so the
+  // right one is in the page already.
+  const priceIn = (currency: PatronCurrency) => ({
+    monthly: prices[currency].monthly,
+    annual: prices[currency].annual,
+    fmt: (n: number) => formatPatronPrice(currency, n),
+  });
 
   // The discount is derived from the very two amounts the card displays, in the
   // selected currency, never from a separately-carried figure: the live page
   // once read "-58%" (the INR ratio, 199x12 vs 999) beside USD prices. Computed
   // here, the chip can only disagree with the prices if the prices themselves
   // are wrong.
-  const savingsPct =
-    monthlyAmount > 0 && annualAmount > 0
-      ? `${Math.max(1, Math.round((1 - annualAmount / (monthlyAmount * 12)) * 100))}%`
+  const savingsPct = (currency: PatronCurrency) => {
+    const { monthly, annual } = priceIn(currency);
+    return monthly > 0 && annual > 0
+      ? `${Math.max(1, Math.round((1 - annual / (monthly * 12)) * 100))}%`
       : null;
+  };
 
-  const zeroPrice = detecting ? placeholder : fmt(0);
-  const premiumSubPrice = detecting
-    ? ""
-    : billingCycle === "annual"
-      ? (
-          <>
-            <span className="text-brass font-semibold">{fmt(annualPerMonth(currency, annualAmount))}</span> a month, billed
-            yearly
-            {savingsPct && (
-              <>
-                {" "}
-                · save <span className="text-brass font-semibold">{savingsPct}</span>
-              </>
-            )}
-          </>
-        )
-      : "Billed monthly. Cancel anytime.";
+  const zeroPrice = <ByCurrency render={(c) => priceIn(c).fmt(0)} />;
+  const premiumPrice = (
+    <ByCurrency render={(c) => priceIn(c).fmt(billingCycle === "annual" ? priceIn(c).annual : priceIn(c).monthly)} />
+  );
+  const premiumSubPrice =
+    billingCycle === "annual" ? (
+      <ByCurrency
+        render={(c) => {
+          const { annual, fmt } = priceIn(c);
+          const pct = savingsPct(c);
+          return (
+            <>
+              <span className="text-brass font-semibold">{fmt(annualPerMonth(c, annual))}</span> a month, billed yearly
+              {pct && (
+                <>
+                  {" "}
+                  · save <span className="text-brass font-semibold">{pct}</span>
+                </>
+              )}
+            </>
+          );
+        }}
+      />
+    ) : (
+      "Billed monthly. Cancel anytime."
+    );
 
   return (
     <section className="space-y-6 min-[2000px]:space-y-0! min-[2000px]:grid min-[2000px]:grid-cols-[1.25fr_1fr] min-[2000px]:gap-x-16 min-[2000px]:gap-y-6 min-[2000px]:items-start">
@@ -89,9 +92,9 @@ export function PricingTable({ prices = PATRON_PRICES }: { prices?: PatronPriceT
               }`}
             >
               <span>Annual</span>
-              {savingsPct && !detecting && (
-                <span className={billingCycle === "annual" ? "text-[#1F6F62]" : "text-cue"}>−{savingsPct}</span>
-              )}
+              <span className={billingCycle === "annual" ? "text-[#1F6F62]" : "text-cue"}>
+                <ByCurrency render={(c) => (savingsPct(c) ? `−${savingsPct(c)}` : null)} />
+              </span>
             </button>
           </div>
         </div>

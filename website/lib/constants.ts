@@ -36,6 +36,10 @@ export const DMCA_AGENT = {
 };
 
 export type PatronCurrency = "USD" | "INR" | "PKR";
+export const PATRON_CURRENCIES: PatronCurrency[] = ["USD", "INR", "PKR"];
+/// Set by middleware from the visitor's country, read by the inline script in
+/// the root layout, which tags <html data-cur> before first paint.
+export const CURRENCY_COOKIE = "pt_cur";
 export type PatronPriceTable = Record<PatronCurrency, { monthly: number; annual: number }>;
 
 /// Patron prices, in major units - the fallback figures. The pricing page

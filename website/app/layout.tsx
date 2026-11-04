@@ -6,7 +6,7 @@ import { SpeedInsights } from "@vercel/speed-insights/next";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { AnalyticsBeacon } from "@/components/AnalyticsBeacon";
-import { SITE_CONFIG } from "@/lib/constants";
+import { CURRENCY_COOKIE, SITE_CONFIG } from "@/lib/constants";
 
 // Projection booth typography. globals.css maps the older --font-space-grotesk /
 // --font-outfit slots onto these, so existing classes pick them up.
@@ -137,6 +137,12 @@ export default function RootLayout({
         <meta name="color-scheme" content="dark" />
         <meta name="theme-color" content="#121010" />
         <meta name="awin-verification" content="Awin" />
+        {/* Runs before first paint: middleware's cookie picks which ByCurrency copy shows. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `try{var m=document.cookie.match(/(?:^|; )${CURRENCY_COOKIE}=(USD|INR|PKR)/);if(m)document.documentElement.dataset.cur=m[1]}catch(e){}`,
+          }}
+        />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLdOrg) }}

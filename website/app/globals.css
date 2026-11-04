@@ -663,3 +663,19 @@ button:focus-visible {
     transform: none;
   }
 }
+
+/* ByCurrency: one copy per currency in the HTML, the visitor's shown. */
+.by-cur {
+  display: none;
+}
+.by-cur[data-c="USD"] {
+  display: contents;
+}
+html[data-cur="INR"] .by-cur[data-c="USD"],
+html[data-cur="PKR"] .by-cur[data-c="USD"] {
+  display: none;
+}
+html[data-cur="INR"] .by-cur[data-c="INR"],
+html[data-cur="PKR"] .by-cur[data-c="PKR"] {
+  display: contents;
+}

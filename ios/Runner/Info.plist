@@ -40,11 +40,15 @@
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSCameraUsageDescription</key>
-	<string>SyncTogether uses your camera for facecams during watch parties.</string>
+	<string>SyncTogether uses your camera for taking profile photos and for video facecams during watch parties.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>SyncTogether uses your microphone for voice chat during watch parties.</string>
 	<key>NSLocalNetworkUsageDescription</key>
-	<string>SyncTogether connects to your local development backend or peers on your local network.</string>
+	<string>SyncTogether uses your local network to find the best direct connection for voice and video with the friends in your room.</string>
+	<!-- NSAllowsLocalNetworking only (never NSAllowsArbitraryLoads): the YouTube
+	     embed and Turnstile challenge are served to the WebView from a throwaway
+	     http server on 127.0.0.1, and `scripts/run-ios.sh` reaches a LAN backend.
+	     Every remote host (Supabase, LiveKit, R2) stays on enforced HTTPS. -->
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsLocalNetworking</key>

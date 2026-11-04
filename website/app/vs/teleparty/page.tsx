@@ -22,7 +22,7 @@ export default function VsTelepartyPage() {
       }
       answer="Choose SyncTogether over Teleparty if you want to watch video files from your own computer or YouTube together. Teleparty syncs streaming services like Netflix inside Chrome and needs everyone to hold the same subscription. SyncTogether is a free Mac and Windows app with voice and facecams, and joining needs no account."
       intro="Teleparty (formerly Netflix Party) is a Chrome extension that keeps a streaming service in sync across browsers. It is free, it is good at that, and if everything you watch together lives on Netflix you probably do not need anything else. The gap opens the moment the thing you want to watch is a file on your computer."
-      lastChecked="2026-09-24"
+      lastChecked="2026-11-04"
       rows={[
         { feature: "Netflix, Disney+, Prime Video, HBO", ours: "no", theirs: "yes" },
         { feature: "Local video files (MKV, MP4, 4K HDR)", ours: "yes", theirs: "no" },
@@ -33,8 +33,8 @@ export default function VsTelepartyPage() {
         { feature: "Video facecams beside the film", ours: "Patron (Free gets a short trial)", theirs: "Premium only" },
         { feature: "Text chat", ours: "yes", theirs: "yes" },
         { feature: "Host can share the file with the room", ours: "yes", theirs: "no" },
-        { feature: "Platforms", ours: "Mac, Windows", theirs: "Chrome, Edge, Opera, Mac, Android" },
-        { feature: "Price", ours: `Free, Patron ${PRICING_TIERS.premium.price.usdMonthly}/mo`, theirs: "Free, Premium $3.99/mo" },
+        { feature: "Platforms", ours: "Mac, Windows", theirs: "Chrome, Edge, Safari, Opera; iOS and Android apps" },
+        { feature: "Price", ours: `Free, Patron ${PRICING_TIERS.premium.price.usdMonthly}/mo`, theirs: "Free, Premium $3.99/mo billed yearly ($6.59 monthly)" },
       ]}
       sections={[
         {

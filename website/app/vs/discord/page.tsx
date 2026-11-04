@@ -22,7 +22,7 @@ export default function VsDiscordPage() {
       }
       answer="Discord screen share works well for sharing a screen. SyncTogether is built for watching a film together: every machine plays the file itself, so anyone can pause, rewind or pick their own subtitles and audio track, and nobody's computer has to stream the film to everyone else. Voice and facecams sit in the same window, on Mac and Windows."
       intro="Discord screen share is where almost everyone starts, because the call is already running. It is built for showing a screen, though, not for a two-hour film that two people want to pause, rewind and talk over. The difference is not your internet. It is what screen sharing is."
-      lastChecked="2026-09-24"
+      lastChecked="2026-11-04"
       rows={[
         { feature: "Everyone plays the original file", ours: "yes", theirs: "no" },
         { feature: "Needs Nitro for higher resolution", ours: "no", theirs: "yes" },

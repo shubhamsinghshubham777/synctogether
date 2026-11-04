@@ -152,6 +152,12 @@ export default async function ProfilePage({
           >
             See the leaderboard
           </Link>
+          <Link
+            href={`/wrapped/${card.handle}`}
+            className="text-[15px] font-semibold text-white underline underline-offset-[6px] decoration-rail hover:decoration-beam-500 transition-colors"
+          >
+            See their year
+          </Link>
         </div>
       </section>
     </div>

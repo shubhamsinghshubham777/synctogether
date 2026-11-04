@@ -7,6 +7,7 @@ import {
   subscriptionIdsByProduct,
 } from "./store_prices_logic";
 
+const ASC_TIMEOUT_MS = 3000;
 const ASC = "https://api.appstoreconnect.apple.com/v1";
 // Numeric app id from the App Store URL, and the two product ids from
 // lib/profile/apple_iap_service.dart (permanent once created in App Store Connect).
@@ -19,6 +20,9 @@ async function ascGet(path: string, token: string) {
   const res = await fetch(`${ASC}${path}`, {
     headers: { Authorization: `Bearer ${token}` },
     next: { revalidate: 86400 },
+    // Apple being slow must not hold the page: on timeout the caller falls
+    // back to the constants (a 500 once stretched one render to ~21 s).
+    signal: AbortSignal.timeout(ASC_TIMEOUT_MS),
   });
   if (!res.ok) throw new Error(`App Store Connect ${res.status} for ${path.split("?")[0]}`);
   return res.json();

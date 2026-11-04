@@ -18,6 +18,12 @@ String recapUrl(String id) => '$rewardsSiteBase/r/$id';
 
 String profileUrl(String handle) => '$rewardsSiteBase/u/$handle';
 
+/// The year-in-review page. No year means the current one; the page resolves it,
+/// so a link shared in January keeps pointing at the new year, and `year` pins
+/// last year's card once the calendar has turned.
+String wrappedUrl(String handle, {int? year}) =>
+    '$rewardsSiteBase/wrapped/$handle${year == null ? '' : '?year=$year'}';
+
 /// Reads the ledger, streak, badges and boards, and carries the one write the
 /// room makes - the heartbeat.
 ///

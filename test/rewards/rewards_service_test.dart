@@ -83,6 +83,8 @@ void main() {
       expect(recapUrl('abc123'), startsWith('http'));
       expect(recapUrl('abc123'), endsWith('/r/abc123'));
       expect(profileUrl('reel_fan'), endsWith('/u/reel_fan'));
+      expect(wrappedUrl('reel_fan'), endsWith('/wrapped/reel_fan'));
+      expect(wrappedUrl('reel_fan', year: 2025), endsWith('/wrapped/reel_fan?year=2025'));
       expect(rewardsSiteBase, isNot(contains('synctogether://')));
     });
   });

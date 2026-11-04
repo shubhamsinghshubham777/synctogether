@@ -816,17 +816,26 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> with WindowListen
         style: PTText.finePrint.copyWith(fontSize: 11.5),
       );
     }
-    final url = profileUrl(handle);
-    return PTButton(
-      label: 'Share my profile',
+    // Two pages off one handle, one event: `surface` says which was shared, so the
+    // profile_shared funnel is not split in two.
+    Widget share(String label, String surface, String url) => PTButton(
+      label: label,
       icon: BoothIcons.share,
       variant: .secondary,
       onPressed: () async {
-        Analytics.instance.track('profile_shared', {'surface': 'leaderboard'});
+        Analytics.instance.track('profile_shared', {'surface': surface});
         await Clipboard.setData(ClipboardData(text: url));
         if (mounted) showPTSnack(context, 'Link copied.', kind: .success);
         await launchUrl(Uri.parse(url), mode: .externalApplication);
       },
+    );
+    return Wrap(
+      spacing: 12,
+      runSpacing: 12,
+      children: [
+        share('Share my profile', 'leaderboard', profileUrl(handle)),
+        share('Share my year', 'leaderboard_wrapped', wrappedUrl(handle)),
+      ],
     );
   }
 }

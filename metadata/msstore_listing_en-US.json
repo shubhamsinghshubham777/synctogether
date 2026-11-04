@@ -24,7 +24,7 @@
     "Free plan includes 4-hour watch parties with voice chat for up to 8 friends",
     "Optional Patron upgrade for 24-hour sessions, permanent video facecams & 16 members"
   ],
-  "ReleaseNotes": "• MIC OR CAMERA THAT WON'T START: If your microphone or camera can't be opened (another app is using it, or access was blocked), it now switches back off and tells you, instead of staying lit as if it were on.\n• TRUER ROOM RECAPS: If someone drops out and rejoins quickly, the recap no longer counts them twice.\n• A LIGHTER LOBBY: The lobby checks your rooms less often and stops while the app is in the background.",
+  "ReleaseNotes": "• SHARE YOUR YEAR: Your leaderboard card now has a Share my year button next to Share my profile. It copies a link to your year in review, with your watch time, streaks and badges, that anyone can open without the app. It shows up once you have a public handle.",
   "Images": [
     {
       "FileName": "1_lobby.png",

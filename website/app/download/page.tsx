@@ -27,7 +27,7 @@ export default async function DownloadPage({
   const inviteCode = normalizeRoomCode(code ?? "");
 
   return (
-    <div className="relative pt-8 md:pt-14 pb-12 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto space-y-10">
+    <div className="relative pt-8 md:pt-14 pb-12 px-4 sm:px-6 lg:px-8 max-w-7xl min-[2000px]:max-w-[1920px] mx-auto space-y-10">
       <PageHead
         titleClassName="text-[clamp(2.75rem,7vw,5.5rem)]"
         gridClassName="lg:grid-cols-[1fr_480px] items-center"
@@ -77,11 +77,16 @@ export default async function DownloadPage({
         }
       />
 
-      <SendToComputer />
+      <div className="space-y-10 min-[2000px]:space-y-0 min-[2000px]:grid min-[2000px]:grid-cols-[1.6fr_1fr] min-[2000px]:grid-rows-[auto_1fr] min-[2000px]:gap-x-16 min-[2000px]:items-start">
+      <div className="min-[2000px]:col-start-2 min-[2000px]:row-start-1">
+        <SendToComputer />
+      </div>
 
-      <DownloadDoors code={inviteCode ?? undefined} />
+      <div className="min-[2000px]:col-start-1 min-[2000px]:row-start-1 min-[2000px]:row-span-2 min-w-0">
+        <DownloadDoors code={inviteCode ?? undefined} />
+      </div>
 
-      <section className="grid md:grid-cols-3 gap-8 md:gap-10">
+      <section className="grid md:grid-cols-3 min-[2000px]:grid-cols-1! gap-8 md:gap-10 min-[2000px]:col-start-2 min-[2000px]:row-start-2 min-[2000px]:pt-10">
         {[
           {
             label: "Store-verified",
@@ -106,6 +111,7 @@ export default async function DownloadPage({
           </div>
         ))}
       </section>
+      </div>
     </div>
   );
 }

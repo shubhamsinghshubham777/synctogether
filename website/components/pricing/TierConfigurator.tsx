@@ -59,7 +59,7 @@ export function TierConfigurator({ prices = PATRON_PRICES }: { prices?: PatronPr
   ) => (
     <div className="flex flex-col gap-3.5">
       <label htmlFor={id} className="flex items-baseline justify-between gap-4 leading-[1.2]">
-        <span className={`${mono} text-[11px] tracking-[0.14em] uppercase text-gray-500`}>{label}</span>
+        <span className={`${mono} text-xs tracking-[0.14em] uppercase text-gray-500`}>{label}</span>
         <span>
           <span className={`${display} text-[34px] leading-[1.2] font-extrabold tracking-[-0.03em] tabular-nums text-white`}>{value}</span>{" "}
           <span className="text-[15px] text-gray-500">{unit}</span>
@@ -85,7 +85,7 @@ export function TierConfigurator({ prices = PATRON_PRICES }: { prices?: PatronPr
   );
 
   return (
-    <section className="grid lg:grid-cols-2 gap-10 lg:gap-[72px] items-start">
+    <section className="grid lg:grid-cols-2 gap-10 lg:gap-[72px] items-start min-[2000px]:grid-cols-[1.25fr_1fr]! min-[2000px]:gap-x-16!">
       <div className="flex flex-col gap-[30px] min-w-0">
         <div className="flex flex-col gap-3.5">
           <Eyebrow n="01">Find your seat</Eyebrow>
@@ -99,7 +99,7 @@ export function TierConfigurator({ prices = PATRON_PRICES }: { prices?: PatronPr
         {slider("pt-hours-range", "Running time", hours, hours === 1 ? "hour" : "hours", hoursPct, 1, 24, setHours)}
 
         {/* The house: one seat per person, the ticket's spare seats dashed */}
-        <div aria-hidden="true" className="flex flex-wrap gap-2.5">
+        <div aria-hidden="true" className="flex flex-wrap gap-x-[18px] gap-y-4 p-1">
           {Array.from({ length: people }, (_, n) => {
             const seat = SEATS[n % SEATS.length];
             return (
@@ -130,10 +130,17 @@ export function TierConfigurator({ prices = PATRON_PRICES }: { prices?: PatronPr
             const runs = formatTierSession(tier.limits.totalSessionMinutes);
             // Marks only where they say something: why a row is out, or that
             // the lit row covers both.
-            const mark = (ok: boolean) => (!sufficient ? (ok ? "✓ " : "× ") : isCheapest ? "✓ " : "");
-            const detail = `${mark(holds >= people)}holds ${holds} · ${mark(tier.limits.totalSessionMinutes >= minutes)}runs ${
-              isPatron ? "up to " : ""
-            }${runs}`;
+            const mark = (ok: boolean) => {
+              const glyph = !sufficient ? (ok ? "✓" : "×") : isCheapest ? "✓" : "";
+              return glyph && <span className="text-[1.45em] leading-none font-semibold align-[-0.08em] mr-1.5">{glyph}</span>;
+            };
+            const detail = (
+              <>
+                {mark(holds >= people)}holds {holds} · {mark(tier.limits.totalSessionMinutes >= minutes)}runs{" "}
+                {isPatron ? "up to " : ""}
+                {runs}
+              </>
+            );
             const price = detecting ? "…" : isPatron ? patronPrice : formatPatronPrice(currency, 0);
 
             return (
@@ -150,19 +157,19 @@ export function TierConfigurator({ prices = PATRON_PRICES }: { prices?: PatronPr
                 >
                   <span className="min-w-0">
                     <span
-                      className={`${display} block text-[22px] leading-[1.2] font-extrabold tracking-[-0.02em] ${
+                      className={`${display} block text-[26px] leading-[1.2] font-extrabold tracking-[-0.02em] ${
                         !sufficient ? "text-gray-500" : isPatron ? "text-brass" : "text-white"
                       }`}
                     >
                       {name}
                       {isCheapest && (
-                        <span className={`${mono} ml-2.5 text-[10px] tracking-[0.14em] uppercase text-beam-500`}>Your seat</span>
+                        <span className={`${mono} ml-2.5 text-xs tracking-[0.14em] uppercase text-beam-500`}>Your seat</span>
                       )}
                     </span>
-                    <span className={`${mono} block mt-1.5 text-xs leading-[1.2] text-gray-500`}>{detail}</span>
+                    <span className={`${mono} block mt-1.5 text-[15px] leading-[1.2] text-gray-500`}>{detail}</span>
                   </span>
                   <span
-                    className={`${mono} text-[13px] ${
+                    className={`${mono} text-[18px] ${
                       !sufficient ? "text-gray-500" : isPatron ? "text-brass" : "text-white"
                     }`}
                   >
@@ -200,11 +207,11 @@ export function TierConfigurator({ prices = PATRON_PRICES }: { prices?: PatronPr
           )}
           {cheapest !== "premium" && cheapest !== null && (
             <span className="text-[15px] text-gray-500">
-              Need more?{" "}
+              Need more?
               <button
                 type="button"
                 onClick={() => showTier("premium")}
-                className="text-white font-semibold underline underline-offset-[6px] decoration-gray-600 hover:decoration-beam-500 cursor-pointer"
+                className="ml-4 text-white font-semibold underline underline-offset-[6px] decoration-gray-600 hover:decoration-beam-500 cursor-pointer"
               >
                 Patron · {detecting ? "…" : patronPrice}
               </button>

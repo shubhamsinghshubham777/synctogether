@@ -32,11 +32,18 @@ function ScoreKey() {
   return (
     <div className="rounded-md ring-1 ring-inset ring-rail px-5 py-4">
       <p className={`${mono} text-[10px] tracking-[0.16em] uppercase text-gray-500 mb-2`}>How the score is kept</p>
-      <dl className={`${mono} grid sm:grid-cols-2 gap-x-10 gap-y-1.5 text-xs`}>
+      {/* A list of label/value rows up to 2000px; on very wide screens each rule becomes a tile with its
+          number set large, so the value sits with its label instead of a screen away from it. */}
+      <dl className={`${mono} grid sm:grid-cols-2 gap-x-10 gap-y-1.5 text-xs min-[2000px]:grid-cols-4! min-[2000px]:gap-x-0! min-[2000px]:gap-y-0!`}>
         {RULES.map((r) => (
-          <div key={r.k} className="flex justify-between gap-4">
-            <dt className="text-gray-400">{r.k}</dt>
-            <dd className="text-white font-semibold whitespace-nowrap">{r.v}</dd>
+          <div
+            key={r.k}
+            className="flex justify-between gap-4 min-[2000px]:flex-col-reverse min-[2000px]:justify-end min-[2000px]:gap-1.5 min-[2000px]:px-6 min-[2000px]:first:pl-0 min-[2000px]:border-l min-[2000px]:border-rail min-[2000px]:first:border-l-0"
+          >
+            <dt className="text-gray-400 min-[2000px]:text-[13px]">{r.k}</dt>
+            <dd className="text-white font-semibold whitespace-nowrap min-[2000px]:font-[family-name:var(--font-space-grotesk)] min-[2000px]:text-[34px] min-[2000px]:leading-none min-[2000px]:font-extrabold min-[2000px]:tracking-[-0.03em]">
+              {r.v}
+            </dd>
           </div>
         ))}
       </dl>
@@ -63,7 +70,7 @@ export default async function LeaderboardPage() {
   const rest = board.open ? board.rows.slice(3) : [];
 
   return (
-    <div className="px-4 sm:px-6 lg:px-8 max-w-4xl mx-auto pt-8 pb-12 md:pt-12 md:pb-16 space-y-10 md:space-y-12">
+    <div className="px-4 sm:px-6 lg:px-8 max-w-4xl min-[2000px]:max-w-[1920px] mx-auto pt-8 pb-12 md:pt-12 md:pb-16 space-y-10 md:space-y-12">
       <header>
         <div className="space-y-5">
           <Kicker>The board · this week</Kicker>
@@ -79,8 +86,8 @@ export default async function LeaderboardPage() {
       </header>
 
       {board.open ? (
-        <section className="space-y-10" aria-label="Leaderboard">
-          <ol className="grid grid-cols-3 gap-2 sm:gap-4 items-end max-w-xl mx-auto">
+        <section className="space-y-10 min-[2000px]:space-y-0 min-[2000px]:grid min-[2000px]:grid-cols-2 min-[2000px]:gap-x-24 min-[2000px]:items-start" aria-label="Leaderboard">
+          <ol className="grid grid-cols-3 gap-2 sm:gap-4 items-end max-w-xl min-[2000px]:max-w-2xl mx-auto min-[2000px]:w-full">
             {podium.map((row) => {
               const place = PLACE[row.rank] ?? PLACE[3];
               return (
@@ -173,7 +180,7 @@ export default async function LeaderboardPage() {
 
       <ScoreKey />
 
-      <section className="border-t border-rail pt-12 grid md:grid-cols-[1fr_auto] gap-8 items-end">
+      <section className="border-t border-rail pt-12 grid md:grid-cols-[auto_auto] md:justify-start md:gap-x-16 gap-8 items-end">
         <div className="space-y-4 max-w-xl">
           <Kicker tone="muted">Want to be on it?</Kicker>
           <Headline as="h2" className="text-3xl sm:text-4xl">Ten minutes with someone and the day counts.</Headline>

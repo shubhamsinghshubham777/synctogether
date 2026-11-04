@@ -15,7 +15,7 @@ export function HeroPoster() {
   // Geometry is the board's, as fractions of its 580x440 frame: a 580x337
   // screen, a 400x140 ticket at (200, 300), a 110px stamp 10px in and 30px up.
   return (
-    <div className="relative mx-auto w-full max-w-[580px] aspect-[580/440] [container-type:inline-size] [transform-style:preserve-3d]">
+    <div className="relative mx-auto w-full max-w-[580px] min-[2000px]:max-w-[820px] aspect-[580/440] [container-type:inline-size] [transform-style:preserve-3d]">
       {/* The screen */}
       <div className="hero-screen absolute left-0 top-0 w-full rounded-md bg-seat border border-rail p-[2.07%]">
         <div className="relative w-full aspect-video overflow-hidden rounded-[2px] bg-[#050404] border border-aisle">

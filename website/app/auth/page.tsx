@@ -467,7 +467,7 @@ function AuthCard() {
 
 export default function AuthPage() {
   return (
-    <div className="px-4 sm:px-6 lg:px-8 max-w-6xl mx-auto py-10 md:py-12 grid lg:grid-cols-[minmax(0,1fr)_460px] gap-12 lg:gap-24 items-start lg:items-center lg:min-h-[704px] lg:py-10">
+    <div className="px-4 sm:px-6 lg:px-8 max-w-6xl min-[2000px]:max-w-[1600px] mx-auto py-10 md:py-12 grid lg:grid-cols-[minmax(0,1fr)_460px] gap-12 lg:gap-24 items-start lg:items-center lg:min-h-[704px] lg:py-10">
       <div className="space-y-[26px]">
         <div className="space-y-[26px]">
           <Kicker>Members&apos; entrance</Kicker>

@@ -82,8 +82,8 @@ export default async function HomePage() {
   return (
     <div className="relative overflow-x-clip">
       {/* 1. HERO - the projection booth canvas's split composition */}
-      <section className="relative px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto pt-6 pb-10 lg:pt-10 lg:pb-8">
-        <div className="grid lg:grid-cols-[1.05fr_1fr] gap-12 lg:gap-14 items-start">
+      <section className="relative px-4 sm:px-6 lg:px-8 max-w-7xl min-[2000px]:max-w-[1920px] mx-auto pt-6 pb-10 lg:pt-10 lg:pb-8">
+        <div className="grid lg:grid-cols-[1.05fr_1fr] gap-12 lg:gap-14 items-start min-[2000px]:items-center">
           <div className="flex flex-col gap-[26px]">
             <div className="flex flex-wrap items-center gap-4">
               <p className={`${mono} text-xs tracking-[0.14em] text-gray-500`}>
@@ -91,13 +91,13 @@ export default async function HomePage() {
               </p>
             </div>
             <h1
-              className={`${display} font-extrabold text-[clamp(50px,6vw,86px)] leading-[0.88] tracking-[-0.045em]`}
+              className={`${display} font-extrabold text-[clamp(50px,6vw,86px)] min-[2000px]:text-[clamp(96px,5vw,132px)] leading-[0.88] tracking-[-0.045em]`}
             >
               <span className="line-in">Same movie.</span>
               <span className="line-in [animation-delay:90ms]">Same second.</span>
               <span className="line-in [animation-delay:180ms] text-beam-500">Different couches.</span>
             </h1>
-            <p className="text-base sm:text-[19px] leading-[1.55] text-gray-300 max-w-[520px]">
+            <p className="text-base sm:text-[19px] leading-[1.55] text-gray-300 max-w-[520px] min-[2000px]:max-w-[720px] min-[2000px]:text-[24px]">
               Open a room, send the ticket, press play once. Your own files or YouTube, with
               chat, reactions and facecams, and everyone stays within a frame of each other.
             </p>
@@ -111,10 +111,12 @@ export default async function HomePage() {
 
       <TrustStrip />
 
+      {/* 2 + 3. On very wide screens the steps and the demo sit side by side. */}
+      <div className="min-[2000px]:grid min-[2000px]:grid-cols-[26rem_minmax(0,1fr)] min-[2000px]:gap-x-14 min-[2000px]:items-start min-[2000px]:max-w-[1920px] min-[2000px]:mx-auto min-[2000px]:px-8 min-[2000px]:py-10">
       {/* 2. HOW IT WORKS - three reels */}
-      <section id="how" className="px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto py-10 scroll-mt-24">
+      <section id="how" className="px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto py-10 scroll-mt-24 min-[2000px]:max-w-none min-[2000px]:mx-0 min-[2000px]:px-0 min-[2000px]:py-0">
         <Reveal>
-          <div className="grid lg:grid-cols-[1fr_2fr] gap-10 lg:gap-16">
+          <div className="grid lg:grid-cols-[1fr_2fr] gap-10 lg:gap-16 min-[2000px]:grid-cols-1! min-[2000px]:gap-8">
             <div className="flex flex-col gap-4">
               <Kicker n="01">How it works</Kicker>
               <h2 className={`${display} text-[34px] sm:text-5xl font-extrabold tracking-[-0.04em] leading-[0.92]`}>
@@ -123,7 +125,7 @@ export default async function HomePage() {
                 One of them is pressing play.
               </h2>
             </div>
-            <ol className="grid sm:grid-cols-3 gap-0 sm:gap-8">
+            <ol className="grid sm:grid-cols-3 gap-0 sm:gap-8 min-[2000px]:grid-cols-1! min-[2000px]:gap-6">
               {STEPS.map((s) => (
                 <li key={s.n} className="step border-t-2 border-rail py-4 sm:pt-5 sm:pb-0 flex flex-col gap-2 sm:gap-3">
                   <p className={`${mono} text-[13px] text-beam-500`}>{s.n}</p>
@@ -137,8 +139,8 @@ export default async function HomePage() {
       </section>
 
       {/* 3. THE DEMO - flip the sync off and watch the room fall apart */}
-      <section className="bg-[#0D0B0B] border-y border-aisle py-10 md:py-11">
-        <div className="px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+      <section className="bg-[#0D0B0B] border-y border-aisle py-10 md:py-11 min-[2000px]:border min-[2000px]:rounded-[6px] min-[2000px]:min-w-0">
+        <div className="px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto min-[2000px]:max-w-none">
           <HeroStage
             header={
               <div className="max-w-[640px] flex flex-col gap-4">
@@ -151,13 +153,16 @@ export default async function HomePage() {
           />
         </div>
       </section>
+      </div>
 
-      <Reveal>
+      {/* 3b + 4. Likewise the comparison and the feature grid. */}
+      <div className="min-[2000px]:grid min-[2000px]:grid-cols-2 min-[2000px]:gap-x-16 min-[2000px]:items-start min-[2000px]:max-w-[1920px] min-[2000px]:mx-auto min-[2000px]:px-8">
+      <Reveal className="min-[2000px]:col-start-1 min-[2000px]:row-start-1">
         <WhyNotScreenShare />
       </Reveal>
 
       {/* 4. FEATURES - an editorial grid, not a wall of icon cards */}
-      <section id="features" className="border-t border-aisle px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto pt-12 pb-10 scroll-mt-24">
+      <section id="features" className="border-t border-aisle px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto pt-12 pb-10 scroll-mt-24 min-[2000px]:max-w-none min-[2000px]:mx-0 min-[2000px]:px-0 min-[2000px]:border-t-0 min-[2000px]:pt-14 min-[2000px]:min-w-0 min-[2000px]:col-start-2 min-[2000px]:row-start-1 min-[2000px]:row-span-2">
         <Reveal>
           <div className="max-w-2xl space-y-4 mb-10">
             <Kicker n="04">What&apos;s in the room</Kicker>
@@ -165,7 +170,7 @@ export default async function HomePage() {
               Everything a couch has. Minus the couch.
             </h2>
           </div>
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-x-10 gap-y-10">
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 min-[2000px]:grid-cols-2! gap-x-10 gap-y-10">
             {FEATURES.map((f) => (
               <div key={f.tag} className="feature border-t border-rail pt-5 space-y-3">
                 <p className={`${mono} text-[11px] tracking-[0.16em] text-beam-500`}>{f.tag}</p>
@@ -175,8 +180,10 @@ export default async function HomePage() {
             ))}
           </div>
         </Reveal>
+      </section>
 
-        <Reveal className="mt-12 md:mt-16">
+      <section className="px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto pt-2 md:pt-6 pb-10 min-[2000px]:max-w-none min-[2000px]:mx-0 min-[2000px]:px-0 min-[2000px]:pt-10 min-[2000px]:col-start-1 min-[2000px]:row-start-2 min-[2000px]:min-w-0">
+        <Reveal>
           <div className="grid lg:grid-cols-[1fr_1.4fr] gap-10 items-center">
             <div className="space-y-4">
               <p className={`${mono} text-[11px] tracking-[0.16em] text-signal`}>TRY IT</p>
@@ -192,16 +199,18 @@ export default async function HomePage() {
           </div>
         </Reveal>
       </section>
+      </div>
 
       <Reveal>
         <TierPreviewSection prices={prices} />
       </Reveal>
 
       {/* 5. CLOSING - the ticket, one more time */}
-      <section className="px-4 sm:px-6 lg:px-8 max-w-[960px] mx-auto pt-4 pb-14">
+      <section className="px-4 sm:px-6 lg:px-8 max-w-[960px] min-[2000px]:max-w-[1920px] mx-auto pt-4 pb-14">
         <Reveal>
-          <div className="space-y-8">
+          <div className="space-y-8 min-[2000px]:space-y-0 min-[2000px]:flex min-[2000px]:items-center min-[2000px]:gap-16">
             <Ticket
+              className="min-[2000px]:flex-1"
               stubClassName="w-24 sm:w-[140px]"
               stub={
                 <span className={`${mono} text-base sm:text-xl font-semibold tracking-[0.1em]`}>FREE</span>
@@ -210,11 +219,13 @@ export default async function HomePage() {
               <p className={`${mono} text-[11px] tracking-[0.16em] text-[#A33A22]`}>
                 ADMIT YOUR WHOLE GROUP CHAT
               </p>
-              <p className={`${display} mt-2 text-3xl sm:text-5xl font-extrabold tracking-[-0.04em] leading-[0.95]`}>
+              <p className={`${display} mt-2 text-3xl sm:text-5xl min-[2000px]:text-[68px]! font-extrabold tracking-[-0.04em] leading-[0.95]`}>
                 Tonight&apos;s showing starts when you do.
               </p>
             </Ticket>
-            <DownloadCTA />
+            <div className="min-[2000px]:shrink-0">
+              <DownloadCTA />
+            </div>
           </div>
         </Reveal>
       </section>

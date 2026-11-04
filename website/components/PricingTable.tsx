@@ -45,12 +45,23 @@ export function PricingTable({ prices = PATRON_PRICES }: { prices?: PatronPriceT
   const premiumSubPrice = detecting
     ? ""
     : billingCycle === "annual"
-      ? `${fmt(annualPerMonth(currency, annualAmount))} a month, billed yearly${savingsPct ? ` · save ${savingsPct}` : ""}`
+      ? (
+          <>
+            <span className="text-brass font-semibold">{fmt(annualPerMonth(currency, annualAmount))}</span> a month, billed
+            yearly
+            {savingsPct && (
+              <>
+                {" "}
+                · save <span className="text-brass font-semibold">{savingsPct}</span>
+              </>
+            )}
+          </>
+        )
       : "Billed monthly. Cancel anytime.";
 
   return (
-    <section className="space-y-6">
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+    <section className="space-y-6 min-[2000px]:space-y-0! min-[2000px]:grid min-[2000px]:grid-cols-[1.25fr_1fr] min-[2000px]:gap-x-16 min-[2000px]:gap-y-6 min-[2000px]:items-start">
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 min-[2000px]:col-start-1 min-[2000px]:row-start-1">
         <div className="flex flex-col gap-3.5">
           <Eyebrow n="02">The plans</Eyebrow>
           <h2 className={`${display} text-4xl sm:text-[52px] font-extrabold tracking-[-0.04em] leading-[0.92]`}>
@@ -87,7 +98,7 @@ export function PricingTable({ prices = PATRON_PRICES }: { prices?: PatronPriceT
       </div>
 
       {/* The playbill: three tickets. Phones stack Free, Patron, Guest. */}
-      <div className="space-y-4">
+      <div className="space-y-4 min-[2000px]:col-start-1 min-[2000px]:row-start-2">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <PlanCard
             className="order-3 md:order-1"
@@ -135,7 +146,7 @@ export function PricingTable({ prices = PATRON_PRICES }: { prices?: PatronPriceT
       </div>
 
       {/* Comparison */}
-      <div className="pt-2 space-y-4">
+      <div className="pt-2 space-y-4 min-[2000px]:col-start-2 min-[2000px]:row-start-1 min-[2000px]:row-span-2 min-[2000px]:pt-0 min-[2000px]:min-w-0">
         <h3 className={`${display} text-3xl sm:text-[36px] font-extrabold tracking-[-0.04em] leading-[0.92]`}>Side by side.</h3>
 
         {/* One ruled table at every width: four columns fit 360px because the
@@ -206,13 +217,13 @@ const COMPARISON: { feature: string; values: [Cell, Cell, Cell] }[] = [
 ];
 
 function cellText(v: Cell) {
-  if (v === null) return <span aria-label="Not included">×</span>;
+  if (v === null) return <span aria-label="Not included" className="text-lg sm:text-xl font-semibold leading-none">-</span>;
   if (v === true) return <span aria-label="Included">Included</span>;
   return v;
 }
 
 // Guest reads muted, Free in Screen, Patron in Brass: the board's columns.
 function cellTone(v: Cell, i: number) {
-  if (v === null) return "text-[#5A4F44]";
+  if (v === null) return "text-gray-500";
   return ["text-gray-400", "text-white", "text-brass"][i];
 }

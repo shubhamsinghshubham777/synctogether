@@ -62,7 +62,7 @@ export default async function JoinPage({
   if (!normalized) notFound();
 
   return (
-    <div className="relative px-4 sm:px-6 lg:px-8 max-w-[1152px] mx-auto min-h-[calc(100svh-76px)] flex flex-col">
+    <div className="relative px-4 sm:px-6 lg:px-8 max-w-[1152px] min-[2000px]:max-w-[1600px] mx-auto min-h-[calc(100svh-76px)] flex flex-col">
       <div className="flex-1 flex items-center py-10 md:py-16">
       <JoinLauncher
         code={normalized}

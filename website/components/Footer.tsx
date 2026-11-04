@@ -23,6 +23,8 @@ const COLUMNS: { title: string; links: FooterLink[] }[] = [
       { label: "vs Syncplay", href: "/vs/syncplay" },
       { label: "vs Discord", href: "/vs/discord" },
       { label: "vs Teleparty", href: "/vs/teleparty" },
+      { label: "Guides", href: "/guides" },
+      { label: "Facts", href: "/facts" },
       { label: "FAQ", href: "/faq" },
     ],
   },
@@ -48,6 +50,7 @@ const display = "font-[family-name:var(--font-space-grotesk)]";
 const COMPACT_LINKS: FooterLink[] = [
   { label: "Download", href: "/download" },
   { label: "Pricing", href: "/pricing" },
+  { label: "Guides", href: "/guides" },
   { label: "FAQ", href: "/faq" },
   { label: "Changelog", href: "/changelog" },
   { label: "Leaderboard", href: "/leaderboard" },
@@ -91,7 +94,7 @@ export function Footer() {
   if (COMPACT_PATHS.has(pathname ?? "")) {
     return (
       <footer className="relative bg-[#0D0B0B] border-t border-aisle">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-7">
+        <div className="max-w-7xl min-[2000px]:max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-7">
           <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-5">
             <p className={`${display} text-[32px] leading-[0.92] font-extrabold tracking-[-0.04em] text-white`}>House lights up.</p>
             <nav aria-label="Footer" className="flex flex-wrap gap-x-[22px] gap-y-2 text-sm">
@@ -112,7 +115,7 @@ export function Footer() {
 
   return (
     <footer className="relative bg-[#0D0B0B] border-t border-aisle">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-12 md:pt-14 pb-10 flex flex-col gap-12">
+      <div className="max-w-7xl min-[2000px]:max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-8 pt-12 md:pt-14 pb-10 flex flex-col gap-12">
         <div className="grid grid-cols-2 lg:grid-cols-[1.3fr_1fr_1fr_1fr] gap-x-6 gap-y-10 lg:gap-12">
           <div className="col-span-2 lg:col-span-1 flex flex-col gap-5">
             <p className={`${display} text-4xl sm:text-[44px] font-extrabold tracking-[-0.04em] leading-[0.92] text-white`}>

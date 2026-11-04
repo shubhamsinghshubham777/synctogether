@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { X, Check } from "lucide-react";
 
 /**
@@ -28,7 +29,7 @@ const mono = "font-[family-name:var(--font-jetbrains-mono)]";
 export function WhyNotScreenShare() {
   return (
     <section className="relative pt-12 md:pt-14 pb-8">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 min-[2000px]:max-w-none min-[2000px]:mx-0 min-[2000px]:px-0">
         <div className="mb-6 space-y-3.5">
           <p className={`${mono} text-xs tracking-[0.16em] text-beam-500 uppercase`}>
             <span className="text-[#5A4F44]">03 · </span>The obvious question
@@ -65,6 +66,19 @@ export function WhyNotScreenShare() {
             </div>
           ))}
         </div>
+
+        <p className="mt-5 flex flex-wrap items-baseline gap-x-6 gap-y-2 text-sm text-gray-400">
+          <span className={`${mono} text-[11px] tracking-[0.16em] uppercase text-gray-500`}>Full comparisons</span>
+          {[
+            ["vs Discord", "/vs/discord"],
+            ["vs Teleparty", "/vs/teleparty"],
+            ["vs Syncplay", "/vs/syncplay"],
+          ].map(([label, href]) => (
+            <Link key={href} href={href} className="text-white underline underline-offset-4 decoration-rail hover:decoration-beam-500">
+              {label}
+            </Link>
+          ))}
+        </p>
       </div>
     </section>
   );

@@ -369,6 +369,7 @@ export function RoomFrame({
               onClick={onTogglePlay ?? actions?.togglePlay}
               title={state.playing ? "Pause" : "Play"}
               disabled={!interactive && !onTogglePlay}
+              tabIndex={interactive ? undefined : -1}
               aria-label={state.playing ? "Pause" : "Play"}
               className={`w-8 h-7 sm:w-9 sm:h-8 rounded-[4px] bg-beam-500 text-[#1A1206] flex items-center justify-center ${
                 interactive || onTogglePlay ? "cursor-pointer active:scale-95 transition-transform" : ""
@@ -380,6 +381,7 @@ export function RoomFrame({
             <IconToggle
               active={state.micOn}
               onClick={onToggleMic ?? actions?.toggleMic}
+              tabIndex={interactive ? undefined : -1}
               on={<Mic className="w-3.5 h-3.5" />}
               off={<MicOff className="w-3.5 h-3.5" />}
               title="Toggle mic"
@@ -464,18 +466,21 @@ function IconToggle({
   on,
   off,
   title,
+  tabIndex,
 }: {
   active: boolean;
   onClick?: () => void;
   on: React.ReactNode;
   off: React.ReactNode;
   title: string;
+  tabIndex?: number;
 }) {
   return (
     <button
       onClick={onClick}
       title={title}
       disabled={!onClick}
+      tabIndex={tabIndex}
       className={`p-1.5 rounded-[4px] border transition-colors ${onClick ? "cursor-pointer" : ""} ${
         active ? "border-signal text-signal" : "border-rail text-screen/60 hover:text-screen"
       }`}

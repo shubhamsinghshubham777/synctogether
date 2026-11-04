@@ -42,7 +42,7 @@ export default async function ChangelogPage() {
   const displayReleases = releases.length > 0 ? releases : fallbackReleases;
 
   return (
-    <div className="relative pt-8 md:pt-14 pb-12 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+    <div className="relative pt-8 md:pt-14 pb-12 px-4 sm:px-6 lg:px-8 max-w-7xl min-[2000px]:max-w-[1920px] mx-auto">
       <PageHead
         titleClassName="text-[clamp(2.5rem,6vw,5rem)]"
         gridClassName="lg:grid-cols-[1.4fr_1fr] items-end"
@@ -61,8 +61,14 @@ export default async function ChangelogPage() {
         }
       />
 
-      <ol className="space-y-0">
+      {/* Wide screens read across: 1st top-left, 2nd top-right, 3rd below the 1st, and so on. Two
+          stacks (even | odd) do that without row-aligned gaps; below 2000px the stacks dissolve
+          and `order` keeps the newest-first sequence. */}
+      <div className="flex flex-col min-[2000px]:flex-row min-[2000px]:gap-x-16">
+      {[0, 1].map((col) => (
+      <ol key={col} className="contents min-[2000px]:flex min-[2000px]:flex-col min-[2000px]:flex-1 min-[2000px]:min-w-0">
         {displayReleases.map((rel, idx) => {
+          if (idx % 2 !== col) return null;
           const releaseDate = new Date(rel.published_at).toLocaleDateString(
             "en-GB",
             { year: "numeric", month: "short", day: "numeric" }
@@ -74,7 +80,8 @@ export default async function ChangelogPage() {
           return (
             <li
               key={rel.id}
-              className="grid md:grid-cols-[13rem_1fr] lg:grid-cols-[260px_1fr] gap-6 md:gap-12 lg:gap-[72px] py-9 border-b border-aisle"
+              className="grid md:grid-cols-[13rem_1fr] lg:grid-cols-[260px_1fr] min-[2000px]:grid-cols-[12rem_1fr]! gap-6 md:gap-12 lg:gap-[72px] min-[2000px]:gap-x-10! py-9 border-b border-aisle"
+              style={{ order: idx }}
             >
               {/* The slate: tag, date, source */}
               <div className="md:sticky md:top-28 self-start space-y-3">
@@ -114,6 +121,8 @@ export default async function ChangelogPage() {
           );
         })}
       </ol>
+      ))}
+      </div>
     </div>
   );
 }

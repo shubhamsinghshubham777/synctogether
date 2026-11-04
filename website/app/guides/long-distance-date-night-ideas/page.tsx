@@ -12,6 +12,7 @@ export default function LongDistanceDateNightIdeasPage() {
   return (
     <GuidePage
       eyebrow="Guide"
+      path="/guides/long-distance-date-night-ideas"
       updated="November 2026"
       title={
         <>
@@ -139,6 +140,7 @@ export default function LongDistanceDateNightIdeasPage() {
         },
         {
           heading: "Making a movie night actually work",
+          fullWidth: true,
           body: [
             "Of the ideas above, watching a film together is the one most couples try first and the one that most often goes wrong in the first five minutes: someone is a few seconds ahead, someone has a different cut of the film, and the evening starts with a countdown from three.",
             "Syncplay is a free, open-source way to keep a local video file in sync between two computers. Teleparty does the same for streaming services inside a browser. SyncTogether is a desktop app for Mac and Windows that keeps play, pause and seek aligned for a video file or YouTube link, with voice and facecams in the same window. Which one fits depends on what you watch and how much setup you want.",

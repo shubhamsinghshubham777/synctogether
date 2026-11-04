@@ -116,6 +116,7 @@ export function Header() {
   const navLinks = [
     { name: "How it works", href: "/#how" },
     { name: "Pricing", href: "/pricing" },
+    { name: "Guides", href: "/guides" },
     { name: "FAQ", href: "/faq" },
     { name: "Changelog", href: "/changelog" },
   ];
@@ -126,12 +127,12 @@ export function Header() {
         scrolled ? "bg-booth border-aisle" : "bg-transparent border-aisle/60"
       }`}
     >
-      <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between">
+      <div className="w-full max-w-7xl min-[2000px]:max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between">
         {/* Brand Logo */}
         <Logo />
 
         {/* Desktop Nav Links */}
-        <nav className="hidden md:flex items-center gap-8">
+        <nav className="hidden md:flex items-center gap-5 lg:gap-8 whitespace-nowrap">
           {navLinks.map((link) => {
             // "How it works" lives on the home page, so it lights for all of "/".
             const isActive = pathname === link.href || (pathname === "/" && link.href.startsWith("/#"));
@@ -150,7 +151,7 @@ export function Header() {
         </nav>
 
         {/* Desktop Actions / Auth State */}
-        <div className="hidden md:flex items-center gap-4">
+        <div className="hidden md:flex items-center gap-4 whitespace-nowrap">
           {user ? (
             <div className="flex items-center gap-[22px]">
               <Link href="/account" className="flex items-center gap-2.5 text-sm font-medium text-white hover:text-beam-400 transition-colors">
@@ -182,7 +183,7 @@ export function Header() {
               </PTButton>
             </div>
           ) : (
-            <div className="flex items-center gap-[22px]">
+            <div className="flex items-center gap-4 lg:gap-[22px]">
               <Link href="/auth" className="text-sm font-medium text-gray-300 hover:text-white transition-colors">
                 Sign in
               </Link>

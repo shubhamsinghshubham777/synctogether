@@ -17,7 +17,7 @@ export async function TrustStrip() {
   const stats = showUsageStats ? await getPublicStats().catch(() => null) : null;
 
   return (
-    <section className="relative px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+    <section className="relative px-4 sm:px-6 lg:px-8 max-w-7xl min-[2000px]:max-w-[1920px] mx-auto">
       {stats?.publishable && (
         <p className="text-center text-xs sm:text-sm font-mono text-gray-400 mb-6">
           {stats.roomsAllTime} rooms hosted · {stats.downloadsAllTime} downloads ·{" "}

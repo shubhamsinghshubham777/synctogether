@@ -94,7 +94,7 @@ export function TierPreviewSection({ prices = PATRON_PRICES }: { prices?: Patron
 
   return (
     <section id="tiers" className="relative pt-4 pb-12">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid lg:grid-cols-[1fr_2.2fr] gap-10 lg:gap-14 items-start">
+      <div className="max-w-7xl min-[2000px]:max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-8 grid lg:grid-cols-[1fr_2.2fr] gap-10 lg:gap-14 items-start">
         <div className="flex flex-col gap-[18px]">
           <p className={`${mono} text-xs tracking-[0.16em] text-beam-500 uppercase`}>
             <span className="text-[#5A4F44]">05 · </span>Seats

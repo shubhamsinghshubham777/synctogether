@@ -12,6 +12,7 @@ export default function WatchAMovieAcrossTimeZonesPage() {
   return (
     <GuidePage
       eyebrow="Guide"
+      path="/guides/watch-a-movie-together-across-time-zones"
       updated="November 2026"
       title={
         <>

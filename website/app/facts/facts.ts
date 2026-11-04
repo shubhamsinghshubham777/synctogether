@@ -27,7 +27,7 @@ export const FACTS: { label: string; value: string }[] = [
   },
   {
     label: "Joining",
-    value: "Guests join with a 6-character room code or an invite link and need no account. Hosts can sign in with Google.",
+    value: "Guests join with a 6-character room code or an invite link and need no account. Hosts can sign in with Google, Apple or an emailed code.",
   },
   {
     label: "Price",

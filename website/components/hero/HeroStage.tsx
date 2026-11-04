@@ -284,8 +284,12 @@ export function HeroStage({ header }: { header?: React.ReactNode } = {}) {
 
   const hostState = phase === "synced" ? "In sync" : phase === "syncing" ? "Syncing" : "Out of sync";
   const drifting = (i: 0 | 1) => (phase === "desynced" && !sim.playing && guestFree[i] ? "Still playing" : null);
-  const secState = phase === "synced" ? "In sync" : phase === "syncing" ? "Catching up" : drifting(0) ?? "Behind";
-  const secStateC = phase === "synced" ? "Caught up" : phase === "syncing" ? "Catching up" : drifting(1) ?? "Ahead";
+  // Out of sync the label follows the clock: positive offset = ahead of the host.
+  const driftLabel = (offsetSec: number) => (Math.abs(offsetSec) < 0.05 ? "In sync" : offsetSec > 0 ? "Ahead" : "Behind");
+  const guestState = (i: 0 | 1) =>
+    phase === "synced" ? "In sync" : phase === "syncing" ? "Catching up" : drifting(i) ?? driftLabel(offsets[i + 1]);
+  const secState = guestState(0);
+  const secStateC = guestState(1);
   // What the guests' own transports show: their own playback, not the host's.
   const guestSim = (i: 0 | 1) => ({ ...sim, playing: guestPlaying[i], micOn: guestMics[i] });
   const secTone = phase === "synced" ? ("cue" as const) : ("signal" as const);

@@ -14,7 +14,7 @@ export const metadata: Metadata = {
 export default async function PricingPage() {
   const { prices } = await getPatronPrices();
   return (
-    <div className="relative pt-8 pb-12 md:pt-12 md:pb-12 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto space-y-10">
+    <div className="relative pt-8 pb-12 md:pt-12 md:pb-12 px-4 sm:px-6 lg:px-8 max-w-7xl min-[2000px]:max-w-[1920px] mx-auto space-y-10">
 
       <PageHead
         eyebrow="Box office"

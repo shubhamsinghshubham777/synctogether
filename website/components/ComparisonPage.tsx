@@ -71,7 +71,7 @@ export function ComparisonPage({
 }: ComparisonPageProps) {
   const verdictN = String(sections.length + 2).padStart(2, "0");
   return (
-    <div className="px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto pt-8 md:pt-12 pb-12">
+    <div className="px-4 sm:px-6 lg:px-8 max-w-7xl min-[2000px]:max-w-[1920px] mx-auto pt-8 md:pt-12 pb-12">
       <header className="grid lg:grid-cols-[1.3fr_1fr] gap-10 lg:gap-16 items-end border-b border-aisle pb-8 md:pb-11">
         <div className="flex flex-col gap-[22px] min-w-0">
           <p className={`${mono} text-xs tracking-[0.14em] uppercase text-gray-500`}>
@@ -91,12 +91,13 @@ export function ComparisonPage({
           >
             <p className={`${mono} text-[11px] tracking-[0.14em] text-gray-500`}>TONIGHT&apos;S DOUBLE BILL</p>
             <p className={`${display} mt-2 text-[32px] font-extrabold tracking-[-0.03em] leading-none`}>{SITE_CONFIG.name}</p>
-            <p className="mt-2.5 text-sm text-gray-400 truncate">and {competitor}, honestly compared</p>
+            <p className="mt-2.5 text-sm text-gray-400">and {competitor}, honestly compared</p>
           </Ticket>
         </div>
       </header>
 
-      <section className="pt-10 pb-9 flex flex-col gap-5">
+      <div className="min-[2000px]:grid min-[2000px]:grid-cols-[1.1fr_1fr] min-[2000px]:gap-x-16 min-[2000px]:items-start">
+      <section className="pt-10 pb-9 flex flex-col gap-5 min-w-0">
         <Kicker n="01">Side by side</Kicker>
         <table className="w-full table-fixed">
           <caption className="sr-only">
@@ -104,18 +105,18 @@ export function ComparisonPage({
           </caption>
           <colgroup>
             <col />
-            <col className="w-[30%] sm:w-[240px]" />
-            <col className="w-[30%] sm:w-[240px]" />
+            <col className="w-[33%] sm:w-[240px]" />
+            <col className="w-[33%] sm:w-[240px]" />
           </colgroup>
           <thead>
             <tr className="border-b border-rail">
               <th scope="col" className={`${mono} text-left py-3.5 pr-3 font-normal text-[10px] sm:text-[11px] text-gray-500 uppercase tracking-[0.14em]`}>
                 Feature
               </th>
-              <th scope="col" className={`${display} bg-seat rounded-t-md py-3.5 px-3 font-extrabold text-white text-center text-sm sm:text-[17px] tracking-[-0.01em] break-words`}>
+              <th scope="col" className={`${display} bg-seat rounded-t-md py-3.5 px-1.5 sm:px-3 font-extrabold text-white text-center text-sm sm:text-[17px] tracking-[-0.01em] break-words`}>
                 {SITE_CONFIG.name}
               </th>
-              <th scope="col" className={`${display} py-3.5 px-3 font-semibold text-gray-400 text-center text-sm sm:text-[17px] break-words`}>
+              <th scope="col" className={`${display} py-3.5 px-1.5 sm:px-3 font-semibold text-gray-400 text-center text-sm sm:text-[17px] break-words`}>
                 {competitor}
               </th>
             </tr>
@@ -126,10 +127,10 @@ export function ComparisonPage({
                 <th scope="row" className="text-left py-[11px] pr-3 font-normal text-gray-300 text-[13px] sm:text-[15px] leading-snug break-words">
                   {row.feature}
                 </th>
-                <td className="bg-seat py-[11px] px-3 text-center align-middle">
+                <td className="bg-seat py-[11px] px-1.5 sm:px-3 text-center align-middle">
                   <Cell value={row.ours} />
                 </td>
-                <td className="py-[11px] px-3 text-center align-middle">
+                <td className="py-[11px] px-1.5 sm:px-3 text-center align-middle">
                   <Cell value={row.theirs} />
                 </td>
               </tr>
@@ -147,11 +148,15 @@ export function ComparisonPage({
           </a>
           .
         </p>
+        <p className="text-[13px] text-gray-500">
+          {competitor} and other product names are trademarks of their owners, used here only to describe how the products compare. {SITE_CONFIG.name} is not
+          affiliated with or endorsed by {competitor}.
+        </p>
       </section>
 
-      <div className="pb-9 flex flex-col gap-9">
+      <div className="pb-9 flex flex-col gap-9 min-[2000px]:pt-10 min-w-0">
         {sections.map((section, i) => (
-          <section key={section.heading} className="grid lg:grid-cols-[1fr_1.4fr] gap-5 lg:gap-16 border-t border-aisle pt-7">
+          <section key={section.heading} className="grid lg:grid-cols-[1fr_1.4fr] min-[2000px]:grid-cols-1! gap-5 lg:gap-16 min-[2000px]:gap-4! border-t border-aisle pt-7">
             <div className="flex flex-col gap-3">
               <p className={`${mono} text-xs text-gray-500`}>{String(i + 2).padStart(2, "0")}</p>
               <h2 className={`${display} text-2xl sm:text-[32px] font-extrabold tracking-[-0.03em] leading-[1.02] text-white`}>
@@ -167,6 +172,8 @@ export function ComparisonPage({
             </div>
           </section>
         ))}
+      </div>
+
       </div>
 
       <section className="pt-1 pb-10 flex flex-col gap-6">

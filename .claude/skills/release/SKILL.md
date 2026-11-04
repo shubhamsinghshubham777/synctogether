@@ -189,9 +189,10 @@ Microsoft Store listing in Partner Center for Windows.
    iOS notes follow the same rule (iOS and Android-only changes stay out of the
    desktop stores).
    - **Mac App Store**: new file `metadata/version/X.Y.Z/en-US.json`. Copy the
-     previous version's file and change only `whatsNew` (bullets are
-     `• TITLE\ntext`, a blank line between). Without it the version keeps
-     its copied What's New.
+     previous version's file and change only `whatsNew`. **Every store uses the
+     same format, the Microsoft one**: `• TITLE: text`, one line per bullet, a
+     newline between bullets, no heading (never the old `• TITLE\ntext` layout).
+     Without it the version keeps its copied What's New.
    - **Microsoft Store**: edit only the `ReleaseNotes` field of
      `metadata/msstore_listing_en-US.json`, as `• TITLE: text` bullets only. No
      "What's New in SyncTogether vX.Y.Z:" heading: the Store labels the section

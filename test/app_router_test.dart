@@ -1,4 +1,6 @@
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:synctogether/app_router.dart';
 
 void main() {
@@ -51,6 +53,61 @@ void main() {
 
     test('a trailing segment stays part of the id rather than being split off', () {
       expect(roomIdOfPath('/lobby/room/r1/extra'), 'r1/extra');
+    });
+  });
+
+  group('app-scheme links', () {
+    test('only the synctogether scheme is treated as a link', () {
+      expect(isAppSchemeLink(Uri.parse('synctogether://join/ABC123')), isTrue);
+      expect(isAppSchemeLink(Uri.parse('synctogether://auth-callback?code=x')), isTrue);
+      expect(isAppSchemeLink(Uri.parse('/lobby')), isFalse);
+      expect(isAppSchemeLink(Uri.parse('/lobby/room/r1')), isFalse);
+      expect(isAppSchemeLink(Uri.parse('https://synctogether.app/join/ABC123')), isFalse);
+    });
+
+    test('the fallback is the current location, or the lobby when nothing is shown', () {
+      expect(locationForAppSchemeLink(null), '/lobby');
+      expect(
+        locationForAppSchemeLink(Uri.parse('/lobby/room/r1?chat=true')),
+        '/lobby/room/r1?chat=true',
+      );
+    });
+
+    // The real router needs a live Supabase client, so this drives a router
+    // wired with the same redirect shape: the link must not produce a
+    // "Page Not Found", and must not move the user off their current page.
+    testWidgets('a link arriving as a location keeps the current page', (tester) async {
+      late final GoRouter router;
+      router = GoRouter(
+        initialLocation: '/lobby/room/r1',
+        redirect: (context, state) {
+          if (!isAppSchemeLink(state.uri)) return null;
+          final config = router.routerDelegate.currentConfiguration;
+          return locationForAppSchemeLink(config.isEmpty ? null : config.uri);
+        },
+        routes: [
+          GoRoute(
+            path: '/lobby',
+            builder: (_, _) => const Text('lobby', textDirection: TextDirection.ltr),
+          ),
+          GoRoute(
+            path: '/lobby/room/:id',
+            builder: (_, s) =>
+                Text('room ${s.pathParameters['id']}', textDirection: TextDirection.ltr),
+          ),
+        ],
+      );
+      await tester.pumpWidget(
+        WidgetsApp.router(routerConfig: router, color: const Color(0xFF000000)),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('room r1'), findsOneWidget);
+
+      router.go('synctogether://join/ABC123');
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      expect(find.text('room r1'), findsOneWidget);
+      expect(router.routerDelegate.currentConfiguration.uri.path, '/lobby/room/r1');
     });
   });
 }

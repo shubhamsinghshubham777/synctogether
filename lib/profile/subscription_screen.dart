@@ -759,17 +759,25 @@ class _SubscriptionScreenState extends State<SubscriptionScreen>
   }
 
   Widget _stickyBar(double gutter) {
+    final media = MediaQuery.of(context);
     return Container(
-      padding: EdgeInsets.fromLTRB(gutter, 12, gutter, 12 + MediaQuery.paddingOf(context).bottom),
+      padding: EdgeInsets.fromLTRB(gutter, 10, gutter, 10 + media.padding.bottom),
       decoration: const BoxDecoration(
         color: PTColors.canvas,
         border: Border(top: BorderSide(color: PTColors.aisle)),
       ),
-      child: Column(
-        mainAxisSize: .min,
-        crossAxisAlignment: .stretch,
-        spacing: 10,
-        children: [_purchaseActions(), _legalLinks()],
+      // Large text scales on a short screen could still outgrow the bar: cap
+      // it so the ticket above keeps its room, and let the bar scroll.
+      constraints: BoxConstraints(maxHeight: media.size.height * 0.5),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: .min,
+          crossAxisAlignment: .stretch,
+          spacing: 10,
+          // The store fine print already carries Terms and Privacy beside the
+          // price (3.1.2), so the bar adds no second set of links.
+          children: [_purchaseActions(compact: true)],
+        ),
       ),
     );
   }
@@ -835,9 +843,9 @@ class _SubscriptionScreenState extends State<SubscriptionScreen>
     );
   }
 
-  Widget _purchaseActions() {
-    if (_isAppleStore) return _appStorePurchase();
-    if (_isMicrosoftStore) return _microsoftPurchase();
+  Widget _purchaseActions({bool compact = false}) {
+    if (_isAppleStore) return _appStorePurchase(compact: compact);
+    if (_isMicrosoftStore) return _microsoftPurchase(compact: compact);
     return _panel(
       Text(
         "Patron seats are sold in the App Store apps for now. Premium bought there unlocks here too.",
@@ -866,7 +874,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen>
     );
   }
 
-  Widget _appStorePurchase() {
+  Widget _appStorePurchase({bool compact = false}) {
     final iap = AppleIapService.instance;
     if (EntitlementService.instance.limitsOrFallback.isGuest) {
       return _infoCard(
@@ -897,7 +905,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen>
       crossAxisAlignment: .stretch,
       spacing: 10,
       children: [
-        for (final product in iap.products) _storeOption(product, iap),
+        for (final product in iap.products) _storeOption(product, iap, compact: compact),
         Center(
           child: TextButton.icon(
             onPressed: iap.busy ? null : iap.restore,
@@ -905,6 +913,8 @@ class _SubscriptionScreenState extends State<SubscriptionScreen>
             label: const Text('Restore purchases'),
             style: TextButton.styleFrom(
               foregroundColor: PTColors.fg,
+              visualDensity: compact ? VisualDensity.compact : null,
+              minimumSize: compact ? const Size(0, 32) : null,
               textStyle: PTText.body.copyWith(
                 fontSize: 14,
                 fontWeight: .w600,
@@ -913,19 +923,21 @@ class _SubscriptionScreenState extends State<SubscriptionScreen>
             ),
           ),
         ),
-        _appStoreFinePrint(),
+        _appStoreFinePrint(compact: compact),
       ],
     );
   }
 
   /// One App Store plan as a row: monthly lit, annual outlined, each with
   /// StoreKit's own localized price - never a hard-coded one.
-  Widget _storeOption(ProductDetails product, AppleIapService iap) => _planRow(
-    annual: product.id == kAppleAnnualProductId,
-    price: product.price,
-    busy: iap.busy,
-    onTap: () => _buyOnAppStore(product),
-  );
+  Widget _storeOption(ProductDetails product, AppleIapService iap, {bool compact = false}) =>
+      _planRow(
+        compact: compact,
+        annual: product.id == kAppleAnnualProductId,
+        price: product.price,
+        busy: iap.busy,
+        onTap: () => _buyOnAppStore(product),
+      );
 
   /// One store plan as a row: monthly lit, annual outlined, each with the
   /// store's own localized price - never a hard-coded one.
@@ -934,6 +946,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen>
     required String price,
     required bool busy,
     required VoidCallback onTap,
+    bool compact = false,
   }) {
     final ink = annual ? PTColors.fg : PTColors.onAccent;
     return Semantics(
@@ -948,7 +961,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen>
             duration: PTMotion.functional(context, PTMotion.hover),
             opacity: busy ? 0.5 : 1,
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+              padding: EdgeInsets.symmetric(horizontal: 18, vertical: compact ? 9 : 14),
               decoration: BoxDecoration(
                 color: annual ? Colors.transparent : PTColors.primary,
                 border: Border.all(color: annual ? PTColors.rail : PTColors.primary),
@@ -967,13 +980,14 @@ class _SubscriptionScreenState extends State<SubscriptionScreen>
                           annual ? 'Annual' : 'Monthly',
                           style: PTText.buttonLabel.copyWith(color: ink, fontSize: 16),
                         ),
-                        Text(
-                          annual ? 'Billed yearly' : 'Renews every month',
-                          style: PTText.caption.copyWith(
-                            color: ink.withValues(alpha: 0.7),
-                            fontSize: 12,
+                        if (!compact)
+                          Text(
+                            annual ? 'Billed yearly' : 'Renews every month',
+                            style: PTText.caption.copyWith(
+                              color: ink.withValues(alpha: 0.7),
+                              fontSize: 12,
+                            ),
                           ),
-                        ),
                       ],
                     ),
                   ),
@@ -990,7 +1004,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen>
     );
   }
 
-  Widget _microsoftPurchase() {
+  Widget _microsoftPurchase({bool compact = false}) {
     final iap = MicrosoftIapService.instance;
     if (EntitlementService.instance.limitsOrFallback.isGuest) {
       return _infoCard(
@@ -1031,6 +1045,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen>
       children: [
         for (final product in iap.products)
           _planRow(
+            compact: compact,
             annual: product.annual,
             price: product.price,
             busy: iap.busy,
@@ -1043,6 +1058,8 @@ class _SubscriptionScreenState extends State<SubscriptionScreen>
             label: const Text('Restore purchases'),
             style: TextButton.styleFrom(
               foregroundColor: PTColors.fg,
+              visualDensity: compact ? VisualDensity.compact : null,
+              minimumSize: compact ? const Size(0, 32) : null,
               textStyle: PTText.body.copyWith(
                 fontSize: 14,
                 fontWeight: .w600,
@@ -1052,6 +1069,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen>
           ),
         ),
         _storeFinePrint(
+          compact: compact,
           'Payment is charged to your Microsoft account when you confirm. Your subscription '
           'renews automatically at the same price until you cancel it in your Microsoft account '
           'subscription settings.',
@@ -1112,25 +1130,30 @@ class _SubscriptionScreenState extends State<SubscriptionScreen>
     );
   }
 
-  Widget _appStoreFinePrint() => _storeFinePrint(
+  Widget _appStoreFinePrint({bool compact = false}) => _storeFinePrint(
+    compact: compact,
     'Payment is charged to your Apple ID when you confirm. Your subscription renews '
     'automatically at the same price unless cancelled at least 24 hours before the end '
     'of the current period. Manage or cancel any time in your App Store account settings.',
   );
 
-  Widget _storeFinePrint(String text) {
-    final style = PTText.finePrint.copyWith(color: PTColors.white(0.45), height: 1.45);
+  Widget _storeFinePrint(String text, {bool compact = false}) {
+    final style = PTText.finePrint.copyWith(
+      color: PTColors.white(0.45),
+      height: compact ? 1.3 : 1.45,
+      fontSize: compact ? 11 : null,
+    );
     final link = style.copyWith(color: PTColors.link, decoration: TextDecoration.underline);
     return Column(
-      spacing: 8,
+      spacing: compact ? 4 : 8,
       children: [
-        const SizedBox(height: 4),
+        if (!compact) const SizedBox(height: 4),
         Text(text, textAlign: TextAlign.center, style: style),
         // Wrap so both links stay on screen at 320 wide / 2.0x text.
         Wrap(
           alignment: .center,
           spacing: 16,
-          runSpacing: 6,
+          runSpacing: compact ? 2 : 6,
           children: [
             GestureDetector(
               onTap: () => _openUrl(_termsUrl),

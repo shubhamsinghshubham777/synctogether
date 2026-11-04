@@ -35,6 +35,12 @@
             <meta-data
                 android:name="io.flutter.embedding.android.NormalTheme"
                 android:resource="@style/NormalTheme" />
+            <!-- Links are consumed by app_links / supabase_flutter, never by the
+                 router: without this Flutter also pushes the URL as a route and
+                 go_router shows "Page Not Found". -->
+            <meta-data
+                android:name="flutter_deeplinking_enabled"
+                android:value="false" />
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />

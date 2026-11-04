@@ -38,11 +38,34 @@ String? roomIdOfPath(String path) =>
 const bool kDemoMode = bool.fromEnvironment('DEMO_MODE', defaultValue: false);
 const bool kDemoRoom = bool.fromEnvironment('DEMO_ROOM', defaultValue: false);
 
+/// Whether [uri] is an app-scheme link (`synctogether://join/<code>`,
+/// `synctogether://auth-callback`) rather than a router location.
+///
+/// Flutter's engine forwards every incoming URL to the router as a route
+/// (`FlutterDeepLinkingEnabled` defaults to true), so these reach go_router
+/// too - where no route matches and "Page Not Found" covers the app. They are
+/// consumed elsewhere (`app_links` in `MainApp`, supabase_flutter's own
+/// listener for the auth callback), so the router must simply ignore them.
+bool isAppSchemeLink(Uri uri) => uri.scheme == 'synctogether';
+
+/// Where a router should stay when it is handed an app-scheme link: the
+/// current location, or the lobby on a cold start with nothing shown yet.
+String locationForAppSchemeLink(Uri? current) {
+  final path = current?.toString() ?? '';
+  return path.isEmpty ? '/lobby' : path;
+}
+
 GoRouter buildRouter([Player? player]) {
-  return GoRouter(
+  late final GoRouter router;
+  router = GoRouter(
     initialLocation: kDemoRoom ? '/lobby/room/demo-room-1' : '/lobby',
     refreshListenable: _AuthRefresh(),
     redirect: (context, state) {
+      if (isAppSchemeLink(state.uri)) {
+        // Keep whatever is on screen; the real handlers run off app_links.
+        final configuration = router.routerDelegate.currentConfiguration;
+        return locationForAppSchemeLink(configuration.isEmpty ? null : configuration.uri);
+      }
       final signedIn = AuthService.instance.isSignedIn;
       final atLogin = state.matchedLocation == '/login';
       final atBanned = state.matchedLocation == '/banned';
@@ -115,6 +138,7 @@ GoRouter buildRouter([Player? player]) {
       ),
     ],
   );
+  return router;
 }
 
 /// Every transition is fade-dominant and short. The room mounts a media_kit

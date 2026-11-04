@@ -17,6 +17,11 @@ on:
         type: boolean
         required: true
         default: false
+      publish_to_google_play:
+        description: "Build and upload to Google Play internal track (AAB)"
+        type: boolean
+        required: true
+        default: false
   workflow_call:
     inputs:
       publish_to_microsoft_store:
@@ -31,6 +36,11 @@ on:
         default: true
       publish_to_ios_app_store:
         description: "Build and upload to iOS App Store Connect (IPA)"
+        type: boolean
+        required: false
+        default: false
+      publish_to_google_play:
+        description: "Build and upload to Google Play internal track (AAB)"
         type: boolean
         required: false
         default: false
@@ -75,13 +85,23 @@ jobs:
       publish_to_store: true
     secrets: inherit
 
+  google-play:
+    name: Google Play (Android AAB)
+    needs: tests
+    if: ${{ inputs.publish_to_google_play }}
+    uses: ./.github/workflows/publish_play_store.yaml
+    with:
+      publish_to_store: true
+      track: internal
+    secrets: inherit
+
   tag:
     name: Tag the built commit
-    needs: [ tests, microsoft-store, mac-app-store, ios-app-store ]
+    needs: [ tests, microsoft-store, mac-app-store, ios-app-store, google-play ]
     # At least one store job succeeded and none failed. `needs.*.result` cannot be
     # used here: `tests` is in it and always succeeds, which tagged runs where
     # every store was skipped.
-    if: ${{ always() && needs.tests.result == 'success' && (needs.microsoft-store.result == 'success' || needs.mac-app-store.result == 'success' || needs.ios-app-store.result == 'success') && needs.microsoft-store.result != 'failure' && needs.mac-app-store.result != 'failure' && needs.ios-app-store.result != 'failure' && needs.microsoft-store.result != 'cancelled' && needs.mac-app-store.result != 'cancelled' && needs.ios-app-store.result != 'cancelled' }}
+    if: ${{ always() && needs.tests.result == 'success' && (needs.microsoft-store.result == 'success' || needs.mac-app-store.result == 'success' || needs.ios-app-store.result == 'success' || needs.google-play.result == 'success') && needs.microsoft-store.result != 'failure' && needs.mac-app-store.result != 'failure' && needs.ios-app-store.result != 'failure' && needs.google-play.result != 'failure' && needs.microsoft-store.result != 'cancelled' && needs.mac-app-store.result != 'cancelled' && needs.ios-app-store.result != 'cancelled' && needs.google-play.result != 'cancelled' }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -144,7 +164,7 @@ jobs:
     name: Store Release Summary
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    needs: [ tests, microsoft-store, mac-app-store, ios-app-store ]
+    needs: [ tests, microsoft-store, mac-app-store, ios-app-store, google-play ]
     if: always()
     steps:
       - name: Generate Summary Report
@@ -173,6 +193,12 @@ jobs:
             echo "| iOS App Store | iOS / iPadOS | IPA | ${{ needs.ios-app-store.result }} |" >> $GITHUB_STEP_SUMMARY
           else
             echo "| iOS App Store | iOS / iPadOS | IPA | Skipped |" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          if [ "${{ inputs.publish_to_google_play }}" = "true" ]; then
+            echo "| Google Play | Android | AAB (internal track) | ${{ needs.google-play.result }} |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| Google Play | Android | AAB (internal track) | Skipped |" >> $GITHUB_STEP_SUMMARY
           fi
 
           echo "" >> $GITHUB_STEP_SUMMARY

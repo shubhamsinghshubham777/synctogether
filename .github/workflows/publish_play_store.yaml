@@ -1,0 +1,158 @@
+name: Publish to Google Play (AAB)
+on:
+  workflow_dispatch:
+    inputs:
+      publish_to_store:
+        description: "Upload to Google Play after building the AAB"
+        type: boolean
+        required: true
+        default: false
+      track:
+        description: "Play track to upload to (internal, alpha, beta, production)"
+        type: string
+        required: true
+        default: internal
+  workflow_call:
+    inputs:
+      publish_to_store:
+        description: "Upload to Google Play after building the AAB"
+        type: boolean
+        required: false
+        default: true
+      track:
+        description: "Play track to upload to (internal, alpha, beta, production)"
+        type: string
+        required: false
+        default: internal
+    outputs:
+      app_version:
+        description: "Version from pubspec.yaml, e.g. 1.2.0"
+        value: ${{ jobs.build-and-publish.outputs.app_version }}
+      artifact_name:
+        description: "Name of uploaded AAB artifact"
+        value: android-store-aab
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}-android
+  cancel-in-progress: true
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    outputs:
+      app_version: ${{ steps.version.outputs.APP_VERSION }}
+    env:
+      # Play refuses a versionCode it has already seen, and pubspec carries a bare
+      # version, so the run number (monotonic per workflow) is the build number.
+      BUILD_NUMBER: ${{ github.run_number }}
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v6
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Get Flutter
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
+        with:
+          flutter-version: '3.44.8'
+          cache: true
+
+      - name: Extract version from pubspec.yaml
+        id: version
+        run: |
+          VERSION=$(grep '^version:' pubspec.yaml | cut -d ' ' -f 2 | cut -d '+' -f 1)
+          echo "APP_VERSION=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Cache pub dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.pub-cache/hosted
+          key: pub-${{ runner.os }}-${{ hashFiles('pubspec.lock') }}
+          restore-keys: |
+            pub-${{ runner.os }}-
+
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('android/**/*.gradle*', 'android/gradle/wrapper/gradle-wrapper.properties', 'pubspec.lock', 'third_party/**') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Restore upload keystore
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          if [ -z "${ANDROID_KEYSTORE_BASE64:-}" ] || [ -z "${ANDROID_KEYSTORE_PASSWORD:-}" ] || [ -z "${ANDROID_KEY_ALIAS:-}" ] || [ -z "${ANDROID_KEY_PASSWORD:-}" ]; then
+            echo "::error::ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS and ANDROID_KEY_PASSWORD secrets are required to sign the Play build."
+            exit 1
+          fi
+          KEYSTORE_PATH="$RUNNER_TEMP/upload-keystore.jks"
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE_PATH"
+          echo "ANDROID_KEYSTORE_PATH=$KEYSTORE_PATH" >> "$GITHUB_ENV"
+
+      - name: Build Android App Bundle (Store mode)
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+          LIVEKIT_URL: ${{ secrets.LIVEKIT_URL }}
+          TURNSTILE_SITE_KEY: ${{ secrets.TURNSTILE_SITE_KEY }}
+          SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
+          POSTHOG_API_KEY: ${{ secrets.POSTHOG_API_KEY }}
+          POSTHOG_HOST: ${{ secrets.POSTHOG_HOST }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_PUBLISHABLE_KEY" ]; then
+            echo "::error::SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY secrets must be configured in GitHub repository secrets."
+            exit 1
+          fi
+          # STORE_BUILD=true is what makes this the consumption-only Play edition.
+          flutter build appbundle --release \
+            --build-number="$BUILD_NUMBER" \
+            --dart-define=STORE_BUILD=true \
+            --dart-define=SUPABASE_URL="$SUPABASE_URL" \
+            --dart-define=SUPABASE_PUBLISHABLE_KEY="$SUPABASE_PUBLISHABLE_KEY" \
+            --dart-define=LIVEKIT_URL="$LIVEKIT_URL" \
+            --dart-define=TURNSTILE_SITE_KEY="$TURNSTILE_SITE_KEY" \
+            --dart-define=SENTRY_DSN="$SENTRY_DSN" \
+            --dart-define=POSTHOG_API_KEY="$POSTHOG_API_KEY" \
+            --dart-define=POSTHOG_HOST="$POSTHOG_HOST"
+          cp build/app/outputs/bundle/release/app-release.aab "SyncTogether-${{ steps.version.outputs.APP_VERSION }}-${BUILD_NUMBER}-Android.aab"
+
+      - name: Upload AAB artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-store-aab
+          path: SyncTogether-${{ steps.version.outputs.APP_VERSION }}-${{ env.BUILD_NUMBER }}-Android.aab
+
+      - name: Publish to Google Play
+        if: ${{ inputs.publish_to_store }}
+        uses: r0adkll/upload-google-play@v1.1.3
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: app.synctogether.android
+          releaseFiles: SyncTogether-${{ steps.version.outputs.APP_VERSION }}-${{ env.BUILD_NUMBER }}-Android.aab
+          track: ${{ inputs.track }}
+          status: completed
+
+      - name: Clean up keystore
+        if: always()
+        run: rm -f "$RUNNER_TEMP/upload-keystore.jks"

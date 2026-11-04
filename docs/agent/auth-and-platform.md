@@ -29,4 +29,12 @@ Every platform ships a **full-codec LGPL** libmpv, not media_kit's slim default 
 
 There is **no direct distribution and no in-app updater**: every build ships through a store (Mac App Store, iOS App Store, Microsoft Store), and the store delivers updates. There is no installer, DMG, appcast or Sparkle/WinSparkle to maintain. `STORE_BUILD` still selects the store flavour (loopback webview server, StoreKit on macOS, Play consumption-only on Android). The `v<ver>` git tag is created by the `tag` job in `publish_stores.yaml` once a store job succeeds.
 
+### Google Play release (Android)
+
+`publish_play_store.yaml` builds a signed `.aab` with `STORE_BUILD=true` (the consumption-only Play edition) and uploads it with `r0adkll/upload-google-play`. It is opt-in from `publish_stores.yaml` (`publish_to_google_play`, default off) and can be dispatched alone with a `track` (default `internal`). versionCode is the workflow run number (`--build-number`), so it only ever rises.
+
+Signing lives in `android/app/build.gradle.kts`: `ANDROID_KEYSTORE_PATH` / `ANDROID_KEYSTORE_PASSWORD` / `ANDROID_KEY_ALIAS` / `ANDROID_KEY_PASSWORD` in the environment, or `android/key.properties` (gitignored; `storeFile`, `storePassword`, `keyAlias`, `keyPassword`, with `storeFile` relative to `android/app`). With neither, a local `flutter run --release` falls back to the debug key, but any release assemble/bundle under `CI` fails with a clear error; debug builds never need a keystore. R8/minify is deliberately off (JNI/reflection in media_kit, flutter_webrtc and livekit; a missing keep rule only crashes on a device).
+
+Repository secrets, beyond the shared Supabase/LiveKit/Turnstile/Sentry/PostHog ones: `ANDROID_KEYSTORE_BASE64` (`base64 -i upload-keystore.jks`), `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASSWORD`, and `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` (full JSON of a Play Console API service account with release permission on the app). Play requires the first upload of a new app to be done by hand in the Console (with Play App Signing enrolled; the keystore above is then the *upload* key) before the API can publish to it.
+
 - **`package_info_plus` is pinned back at 9.0.1**: 10.x needs win32 ^6, and `livekit_client` → `device_info_plus` 12.x pins win32 ^5. Bumping it fails resolution until LiveKit moves.

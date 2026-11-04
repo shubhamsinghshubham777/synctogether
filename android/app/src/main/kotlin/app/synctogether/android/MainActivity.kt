@@ -1,7 +1,9 @@
 package app.synctogether.android
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.os.Build
 import android.media.AudioFormat
 import android.media.AudioRecord
 import android.media.MediaRecorder
@@ -34,6 +36,43 @@ class MainActivity : FlutterActivity() {
           else -> result.notImplemented()
         }
       }
+    MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "app.synctogether/background_call")
+      .setMethodCallHandler { call, result ->
+        when (call.method) {
+          "start" -> {
+            try {
+              startCallService(
+                call.argument<Boolean>("mic") ?: false,
+                call.argument<Boolean>("cam") ?: false,
+                call.argument<String>("title") ?: "SyncTogether",
+              )
+              result.success(null)
+            } catch (e: Exception) {
+              result.error("start_failed", e.message, null)
+            }
+          }
+          "stop" -> {
+            stopService(Intent(this, CallForegroundService::class.java))
+            result.success(null)
+          }
+          else -> result.notImplemented()
+        }
+      }
+  }
+
+  private fun startCallService(mic: Boolean, cam: Boolean, title: String) {
+    // POST_NOTIFICATIONS is a runtime permission on 13+. Without it the service
+    // still runs, just without a visible notification, so ask but never wait.
+    if (Build.VERSION.SDK_INT >= 33 &&
+      checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+    ) {
+      requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), NOTIFICATION_REQUEST)
+    }
+    val intent = Intent(this, CallForegroundService::class.java)
+      .putExtra(CallForegroundService.EXTRA_TITLE, title)
+      .putExtra(CallForegroundService.EXTRA_MIC, mic)
+      .putExtra(CallForegroundService.EXTRA_CAM, cam)
+    startForegroundService(intent)
   }
 
   private fun start(result: MethodChannel.Result) {
@@ -115,5 +154,6 @@ class MainActivity : FlutterActivity() {
 
   private companion object {
     const val MIC_REQUEST = 4721
+    const val NOTIFICATION_REQUEST = 4723
   }
 }

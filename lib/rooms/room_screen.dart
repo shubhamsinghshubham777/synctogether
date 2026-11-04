@@ -18,6 +18,7 @@ import 'package:synctogether/analytics.dart';
 import 'package:synctogether/auth/auth_service.dart';
 
 import 'package:synctogether/av/device_preference_service.dart';
+import 'package:synctogether/av/background_call.dart';
 import 'package:synctogether/av/livekit_service.dart';
 import 'package:synctogether/av/video_trial.dart';
 import 'package:synctogether/diagnostics.dart';
@@ -151,6 +152,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
   Room? _room;
   SyncService? _sync;
   LiveKitService? _av;
+  final _backgroundCall = BackgroundCall();
 
   /// The room's video trial (free rooms only). The end is the room row's
   /// `video_trial_ends_at`, adopted from the row and the broadcast alike.
@@ -1199,6 +1201,9 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
         }),
       );
       setState(() => _av = av);
+      // Started while the app is in the foreground (Android 14 insists), and
+      // held until the room is left or disposed.
+      _syncBackgroundCall();
       av
           .connect()
           .then((_) {
@@ -1214,6 +1219,29 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
 
   void _onAvChanged() {
     if (mounted) setState(() {});
+    _syncBackgroundCall();
+  }
+
+  /// Mobile only: keeps the call alive in the background, re-typing the
+  /// Android service as the mic and camera come and go. Cheap when nothing
+  /// changed - [BackgroundCall] dedupes.
+  void _syncBackgroundCall() {
+    final av = _av;
+    if (!mounted || av == null || !isMobile) return;
+    unawaited(
+      _backgroundCall.update(
+        mic: av.micEnabled,
+        cam: av.camEnabled,
+        title: _room?.name ?? 'SyncTogether',
+      ),
+    );
+  }
+
+  /// Holds the phone's screen awake only while the picture is playing.
+  void _syncScreenAwake() {
+    unawaited(
+      setScreenAwake(shouldHoldScreenAwake(mobile: isMobile, inRoom: mounted, playing: _playing)),
+    );
   }
 
   Future<void> _applyPreferredDevices() async {
@@ -1311,6 +1339,10 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     _sync?.dispose();
     _av?.removeListener(_onAvChanged);
     _av?.dispose();
+    if (isMobile) {
+      unawaited(_backgroundCall.stop());
+      unawaited(setScreenAwake(false));
+    }
     _ownedPlayer?.dispose();
     _positionNotifier.dispose();
     super.dispose();
@@ -3557,6 +3589,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
   }
 
   void _onPlayingChangedForControls(bool playing) {
+    _syncScreenAwake();
     if (!playing) {
       // Paused: controls stay up - hiding them on a paused frame helps no one.
       _cursorHideTimer?.cancel();
@@ -3806,6 +3839,10 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     trace('leaving the room', category: 'room', data: {'room_id': widget.roomId});
     _setImmersive(false);
     _trackWatchSessionEnded();
+    if (isMobile) {
+      unawaited(_backgroundCall.stop());
+      unawaited(setScreenAwake(false));
+    }
     unawaited(_persistPosition());
     try {
       await RoomService.instance.leaveRoom(widget.roomId);

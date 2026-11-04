@@ -61,3 +61,11 @@ bool? canSellPremiumOverride;
 /// origin-sensitive content like Turnstile).
 bool get useLoopbackServer =>
     kIsWeb || !isStoreBuild || defaultTargetPlatform != TargetPlatform.macOS;
+
+/// True on phones and tablets (Android / iOS). Gates behaviour that only makes
+/// sense when the OS can suspend or kill the app - foreground services, screen
+/// wakelocks.
+bool get isMobile =>
+    !kIsWeb &&
+    (defaultTargetPlatform == TargetPlatform.android ||
+        defaultTargetPlatform == TargetPlatform.iOS);

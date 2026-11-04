@@ -71,6 +71,13 @@
 			</array>
 		</dict>
 	</dict>
+	<!-- audio keeps the room's playback and voice chat alive when the app is
+	     backgrounded. Deliberately not voip: that mode is reserved for CallKit /
+	     PushKit calling apps and invites a rejection under guideline 2.5.4. -->
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>audio</string>
+	</array>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<!-- Light glyphs over the dark launch screen; after launch Flutter's

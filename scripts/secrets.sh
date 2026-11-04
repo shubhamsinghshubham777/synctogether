@@ -104,6 +104,7 @@ discover_secret_files() {
     "website/.env"
     "website/.env.production.local"
     "android/key.properties"
+    "android/app/upload-keystore.jks"
   )
 
   for candidate in "${known_candidates[@]}"; do
@@ -246,6 +247,16 @@ action_pack() {
       fi
       break
     done
+  fi
+
+  # key.properties names its keystore relative to android/app; a bundle holding one
+  # without the other restores to a release build that cannot sign.
+  if [ -f "$REPO_ROOT/android/key.properties" ]; then
+    local ks_rel
+    ks_rel=$(sed -n 's/^storeFile=//p' "$REPO_ROOT/android/key.properties" | head -1)
+    if [ -n "$ks_rel" ] && [ ! -f "$REPO_ROOT/android/app/$ks_rel" ]; then
+      warn "android/key.properties points at android/app/$ks_rel, which does not exist - the bundle will not be able to sign Android releases."
+    fi
   fi
 
   info "Archiving and encoding files..."

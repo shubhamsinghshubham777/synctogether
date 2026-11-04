@@ -89,6 +89,10 @@ jobs:
     name: Google Play (Android AAB)
     needs: tests
     if: ${{ inputs.publish_to_google_play }}
+    # Called workflows cannot hold more permissions than their caller grants.
+    permissions:
+      contents: read
+      id-token: write
     uses: ./.github/workflows/publish_play_store.yaml
     with:
       publish_to_store: true

@@ -223,6 +223,38 @@ void main() {
     await finishCase(tester);
   });
 
+  // Board 47/48: the host's empty room. "Choose a video" is the one thing that
+  // must stay reachable; the secondary YouTube link, the tablet's Photos/Files
+  // row and the "Reopen" line step down around it.
+  screenMatrix('room/readiness-overlay-empty-room', (tester, c, s) async {
+    await pumpAtSize(
+      tester,
+      Scaffold(
+        body: ReadinessOverlay(
+          headline: 'Pick something for everyone to watch.',
+          members: const [],
+          media: RoomMedia.none,
+          selfId: 'me',
+          selfIsHost: true,
+          onLocateFile: null,
+          onKick: null,
+          onPickSource: () {},
+          onSwitchSource: () {},
+          reopenName: 'Cosmic Voyage (2019).mkv',
+          reopenAgo: '2H AGO',
+          onReopen: () {},
+          onPickPhotos: () {},
+          onPickFiles: () {},
+          compact: _compact(c),
+        ),
+      ),
+      c,
+      textScale: s,
+    );
+    expectShownWhole(tester, 'Choose a video');
+    await finishCase(tester);
+  });
+
   for (final layout in FacecamLayout.values) {
     screenMatrix('room/facecams-${layout.name}', (tester, c, s) async {
       final av = LiveKitService(roomId: 'room-1', avLevel: .video);

@@ -19,6 +19,7 @@ abstract final class PTColors {
   static const screenBg = Color(0xFF121010);
   static const glassBase = Color(0xFF1C1917); // Seat - panels
   static const aisle = Color(0xFF27221F); // raised
+  static const well = Color(0xFF151211); // recessed inside a Seat: tiles, reopen lines
   static const rail = Color(0xFF3A332E); // lines
   static const fg = Color(0xFFF4ECDF); // Screen - text, tickets
   static const railStrong = Color(0xFF5A4F44); // secondary button outline

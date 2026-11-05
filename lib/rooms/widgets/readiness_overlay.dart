@@ -64,6 +64,11 @@ class ReadinessOverlay extends StatelessWidget {
     this.onSwitchSource,
     this.switchSourceLabel = 'Use a YouTube link instead',
     this.switchSourceShortLabel = 'YouTube link',
+    this.reopenName,
+    this.reopenAgo,
+    this.onReopen,
+    this.onPickPhotos,
+    this.onPickFiles,
     this.compact = false,
     this.chromeInsets = EdgeInsets.zero,
     this.reveal = 1,
@@ -100,6 +105,20 @@ class ReadinessOverlay extends StatelessWidget {
   final VoidCallback? onSwitchSource;
   final String switchSourceLabel;
   final String switchSourceShortLabel;
+
+  /// The empty room's "Reopen (last file)" line (board 47/48): the newest entry
+  /// in Recent, one tap to play it again. Null hides the line.
+  final String? reopenName;
+
+  /// Mono kicker beside it ("2H AGO").
+  final String? reopenAgo;
+  final VoidCallback? onReopen;
+
+  /// Touch tablets, where the card is roomy: Photos and Files get their own
+  /// buttons under the primary one (board 47, tablet empty room), skipping the
+  /// chooser. Null everywhere else - the one primary button opens the chooser.
+  final VoidCallback? onPickPhotos;
+  final VoidCallback? onPickFiles;
   final bool compact;
 
   /// The part of the video box covered by floating chrome; the card centres
@@ -141,9 +160,13 @@ class ReadinessOverlay extends StatelessWidget {
         final dense = room < 300;
         // Side-by-side buttons only while both labels fit whole; the empty
         // state's pair has longer labels, so it asks for more.
-        final needed = onPickSource != null ? 340.0 : 330.0;
-        final sideBySide =
-            box.maxWidth - padding.horizontal >= MediaQuery.textScalerOf(context).scale(needed);
+        final needed = onPickSource != null ? 310.0 : 330.0;
+        // The card is capped at 460 and pads itself, so what the buttons really
+        // get is that, not the whole box.
+        final inner =
+            math.min(460.0, box.maxWidth - padding.horizontal) -
+            2 * (tight ? 8 : (compact ? 18 : 24));
+        final sideBySide = inner >= MediaQuery.textScalerOf(context).scale(needed);
         return _build(
           context,
           t,
@@ -153,6 +176,7 @@ class ReadinessOverlay extends StatelessWidget {
           room < 200 ? 2 : 3,
           () => row++,
           tight: tight,
+          roomyEnough: inner >= MediaQuery.textScalerOf(context).scale(400),
         );
       },
     );
@@ -167,7 +191,20 @@ class ReadinessOverlay extends StatelessWidget {
     int headlineLines,
     int Function() nextRow, {
     bool tight = false,
+    bool roomyEnough = false,
   }) {
+    // The empty room's pair reads "Choose a video | YouTube link" side by side
+    // when both fit (board 48), so its secondary always uses the short label.
+    final emptyRoom = onPickSource != null;
+    final threeWays =
+        emptyRoom &&
+        !compact &&
+        roomyEnough &&
+        onPickPhotos != null &&
+        onPickFiles != null &&
+        onSwitchSource != null &&
+        !tight;
+    final pairRow = emptyRoom && !threeWays && onSwitchSource != null && !tight && sideBySide;
     final actions = [
       if (onPickSource != null)
         PTButton(
@@ -176,14 +213,31 @@ class ReadinessOverlay extends StatelessWidget {
           expand: true,
           onPressed: onPickSource,
         ),
+      if (threeWays)
+        Row(
+          spacing: 8,
+          children: [
+            Expanded(
+              child: _WayButton(label: 'From Photos', icon: BoothIcons.image, onTap: onPickPhotos!),
+            ),
+            Expanded(
+              child: _WayButton(label: 'From Files', icon: BoothIcons.folder, onTap: onPickFiles!),
+            ),
+            Expanded(
+              child: _WayButton(label: switchSourceShortLabel, onTap: onSwitchSource!),
+            ),
+          ],
+        )
       // Dense and narrow, or tight: the room menu carries "Switch source".
-      if (onPickSource != null && onSwitchSource != null && !tight && (!dense || sideBySide))
+      else if (onPickSource != null && onSwitchSource != null && !tight && (!dense || sideBySide))
         PTButton(
-          label: dense ? switchSourceShortLabel : switchSourceLabel,
+          label: dense || (emptyRoom && sideBySide) ? switchSourceShortLabel : switchSourceLabel,
           variant: .secondary,
           expand: true,
           onPressed: onSwitchSource,
         ),
+      if (emptyRoom && onReopen != null && reopenName != null && !tight)
+        _ReopenLine(name: reopenName!, ago: reopenAgo, onTap: onReopen!),
       if (onLocateFile != null)
         PTButton(
           // Just the action - the headline directly above already names the
@@ -288,10 +342,17 @@ class ReadinessOverlay extends StatelessWidget {
                             ),
                         ],
                       ),
-                    if (dense && sideBySide && actions.length > 1)
+                    if (pairRow)
+                      // The empty room: primary and YouTube link share a row.
+                      Row(
+                        spacing: 10,
+                        children: [for (final a in actions.take(2)) Expanded(child: a)],
+                      )
+                    else if (dense && sideBySide && actions.length > 1)
                       Row(spacing: 10, children: [for (final a in actions) Expanded(child: a)])
                     else
                       ...actions,
+                    if (pairRow) ...actions.skip(2),
                   ],
                 ),
               ),
@@ -429,6 +490,115 @@ class _StatusChip extends StatelessWidget {
           key: ValueKey(status.label),
           overflow: .ellipsis,
           style: PTText.label.copyWith(fontSize: 12, letterSpacing: 1, color: status.color),
+        ),
+      ),
+    );
+  }
+}
+
+/// "Reopen NAME 2H AGO": the newest Recent entry as a quiet one-tap line
+/// under the empty room's choices. Cue teal because it is the thing that is
+/// ready; the name is the only bold part.
+class _ReopenLine extends StatelessWidget {
+  const _ReopenLine({required this.name, required this.ago, required this.onTap});
+
+  final String name;
+  final String? ago;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: 'Reopen $name',
+      excludeSemantics: true,
+      child: PTPressable(
+        onTap: onTap,
+        pressedScale: 0.99,
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 48),
+          padding: const EdgeInsets.fromLTRB(10, 6, 12, 6),
+          decoration: BoxDecoration(
+            color: PTColors.well,
+            borderRadius: BorderRadius.circular(PTRadius.control),
+            border: Border.all(color: PTColors.aisle),
+          ),
+          child: Row(
+            spacing: 10,
+            children: [
+              const Icon(BoothIcons.restore, size: 18, color: PTColors.online),
+              Expanded(
+                child: Text.rich(
+                  TextSpan(
+                    children: [
+                      const TextSpan(
+                        text: 'Reopen ',
+                        style: TextStyle(color: PTColors.fgMute),
+                      ),
+                      TextSpan(
+                        text: name,
+                        style: const TextStyle(fontWeight: .w600, color: PTColors.fg),
+                      ),
+                    ],
+                  ),
+                  maxLines: 2,
+                  overflow: .ellipsis,
+                  style: PTText.body.copyWith(fontSize: 13),
+                ),
+              ),
+              if (ago != null)
+                Text(ago!, style: PTText.label.copyWith(fontSize: 10.5, color: PTColors.fgMute)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// One of the tablet empty room's three ways in (board 47): an outlined 44 pt
+/// key with a Beam glyph, quieter than the primary button above it.
+class _WayButton extends StatelessWidget {
+  const _WayButton({required this.label, required this.onTap, this.icon});
+
+  final String label;
+  final IconData? icon;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: label,
+      excludeSemantics: true,
+      child: PTPressable(
+        onTap: onTap,
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 44),
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(PTRadius.control),
+            border: Border.all(color: PTColors.rail),
+          ),
+          child: Row(
+            mainAxisAlignment: .center,
+            spacing: 8,
+            children: [
+              if (icon != null) Icon(icon, size: 16, color: PTColors.primary),
+              Flexible(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: .ellipsis,
+                  style: PTText.body.copyWith(
+                    fontSize: 13.5,
+                    fontWeight: .w600,
+                    color: PTColors.fg,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

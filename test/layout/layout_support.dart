@@ -1,6 +1,13 @@
+import 'dart:io';
+
+import 'package:fast_file_picker/fast_file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:synctogether/player/local_video.dart';
+import 'package:synctogether/player/local_video_chooser.dart';
+import 'package:synctogether/player/recent_videos.dart';
 import 'package:synctogether/rewards/rewards_models.dart';
 import 'package:synctogether/rewards/rewards_service.dart';
 import 'package:synctogether/ui/glass.dart';
@@ -292,3 +299,82 @@ final sampleBadgesState = RewardState(
     ),
   ],
 );
+
+/// The board-47 shelf: four healthy rows (one with a very long name), one whose
+/// file has moved, and the clock pinned so "Opened 2 hours ago" is stable.
+/// [empty] leaves Recent with nothing in it. Files that should exist are created
+/// under `build/chooser_media/` (outside any tmp/cache segment, which Recent
+/// would refuse to remember).
+Future<LocalVideoChooserServices> sampleChooserServices(
+  ScreenCase c, {
+  bool empty = false,
+  FilePick? pickFile,
+}) async {
+  SharedPreferences.setMockInitialValues({});
+  final prefs = await SharedPreferences.getInstance();
+  final now = DateTime(2026, 11, 6, 12);
+  var clock = now;
+  final recents = RecentVideos(
+    prefs: prefs,
+    thumbnailDir: () async => Directory('build/chooser_thumbs'),
+    clock: () => clock,
+  );
+  final touch = c.platform == TargetPlatform.iOS || c.platform == TargetPlatform.android;
+  if (!empty) {
+    final samples = <(String, Duration, int, Duration, bool)>[
+      (
+        'Cosmic Voyage (2019).mkv',
+        const Duration(hours: 2),
+        9019860000,
+        const Duration(hours: 2, minutes: 49, seconds: 3),
+        true,
+      ),
+      ('IMG_4821.MOV', const Duration(hours: 20), 100663296, const Duration(seconds: 42), false),
+      (
+        'Nosferatu - Friday Horror Club - Extended Cut With Commentary (1922) 4K Remaster.mp4',
+        const Duration(days: 3),
+        1181116006,
+        const Duration(hours: 1, minutes: 34, seconds: 10),
+        true,
+      ),
+      (
+        'holiday-reel-final.webm',
+        const Duration(days: 8),
+        325058560,
+        const Duration(minutes: 12, seconds: 8),
+        true,
+      ),
+      ('Wrong Turn.mp4', const Duration(days: 20), 734003200, const Duration(minutes: 96), true),
+    ];
+    for (final (name, ago, bytes, runtime, exists) in samples) {
+      final path = exists
+          ? (File('build/chooser_media/$name')..createSync(recursive: true)).absolute.path
+          : '/moved/away/$name';
+      clock = now.subtract(ago);
+      await recents.record(
+        LocalVideo(
+          name: name,
+          mediaUri: path,
+          path: path,
+          origin: VideoOrigin.files,
+          reference: PathReference(path),
+          sizeBytes: bytes,
+        ),
+        duration: runtime,
+      );
+    }
+    clock = now;
+  }
+  return LocalVideoChooserServices(
+    recents: recents,
+    pickFile: pickFile ?? () async => null,
+    pickPhoto: () async => null,
+    showPhotos: touch,
+    probeMissing: true,
+    clock: () => now,
+  );
+}
+
+/// A picker answer that is plainly not a video (the banner case).
+Future<FastFilePickerPath?> pickNotAVideo() async =>
+    FastFilePickerPath.fromPath('notes.pdf', '/docs/notes.pdf');

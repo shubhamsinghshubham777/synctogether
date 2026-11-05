@@ -23,7 +23,12 @@ import 'package:synctogether/av/livekit_service.dart';
 import 'package:synctogether/av/video_trial.dart';
 import 'package:synctogether/diagnostics.dart';
 import 'package:synctogether/platform.dart';
+import 'package:synctogether/player/local_video.dart';
+import 'package:synctogether/player/local_video_chooser.dart';
 import 'package:synctogether/player/media_file_types.dart';
+import 'package:synctogether/player/photo_picker.dart';
+import 'package:synctogether/player/recent_format.dart';
+import 'package:synctogether/player/recent_videos.dart';
 import 'package:synctogether/player/mode_selection_dialog.dart';
 import 'package:synctogether/player/subtitles/subtitle_applier.dart';
 import 'package:synctogether/player/track_label.dart';
@@ -48,6 +53,7 @@ import 'package:synctogether/rooms/room_models.dart';
 import 'package:synctogether/rooms/moderation_service.dart';
 import 'package:synctogether/rooms/widgets/report_dialog.dart';
 import 'package:synctogether/rooms/room_service.dart';
+import 'package:synctogether/rooms/upload_source.dart';
 import 'package:synctogether/rooms/widgets/extend_room_dialog.dart';
 import 'package:synctogether/rooms/widgets/facecam_rail.dart';
 import 'package:synctogether/rooms/widgets/kick_member_dialog.dart';
@@ -353,7 +359,20 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
   int _uploadEtaSeconds = 0;
   String _uploadState = 'none';
   bool _recoveringStream403 = false;
-  File? _currentLocalHostFile;
+
+  /// The video this device has open in the player, with whatever platform
+  /// access it holds (an iOS security scope). Released when it is replaced and
+  /// when the room is left.
+  LocalVideo? _localVideo;
+
+  /// What the running (or last) upload reads from, to refuse the same source twice.
+  String? _uploadingRef;
+
+  /// The Recent entry for the open file, so its duration can be filled in once
+  /// the player knows it, and the newest entry for the empty room's Reopen line.
+  String? _recentId;
+  RecentVideo? _lastRecent;
+  StreamSubscription<bool>? _thumbWait;
   bool _localReadyPromptDismissed = false;
   Duration? _bufferPosition;
   StreamSubscription<List<lk.MediaDevice>>? _deviceChangeSub;
@@ -788,6 +807,8 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
         ),
       );
     }
+    RecentVideos.instance.addListener(_onRecentsChanged);
+    unawaited(_onRecentsChanged());
     if (widget.dependencies.videoView == null) {
       _controller = VideoController(_player);
       _subtitleStyle = SubtitleStyleApplier(_player);
@@ -1099,7 +1120,13 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
             data: {'ms': duration.inMilliseconds, 'file': _localFileName},
           );
         }
-        if (duration != Duration.zero) _localLoadWatchdog?.cancel();
+        if (duration != Duration.zero) {
+          _localLoadWatchdog?.cancel();
+          final recentId = _recentId;
+          if (recentId != null && !_isStreamingRemoteSharedMedia) {
+            unawaited(RecentVideos.instance.updateDuration(recentId, duration));
+          }
+        }
         // A non-zero duration is what "the file is actually open" means, so
         // this is the local-mode loading -> ready edge.
         _updateReadiness();
@@ -1328,6 +1355,9 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     _ytBufferFallbackTimer?.cancel();
     _catchUpTimeoutTimer?.cancel();
     _localLoadWatchdog?.cancel();
+    _thumbWait?.cancel();
+    RecentVideos.instance.removeListener(_onRecentsChanged);
+    unawaited(_localVideo?.release());
     for (final t in _overlayChatTimers) {
       t.cancel();
     }
@@ -2028,58 +2058,89 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
   /// room has nothing set yet, so the gate is waiting on *us*.
   bool get _hostMustChoose => (_sync?.isHost ?? false) && !_canonicalMedia.isSet;
 
-  Future<void> _pickVideo() async {
+  /// Opens the local-video chooser (Photos, Files, Recent) and plays what it
+  /// returns. [autoStart] jumps straight to one door (the tablet empty room's
+  /// own Photos/Files buttons).
+  Future<void> _pickVideo({ChoiceSource? autoStart}) async {
     _isFilePickerOpen = true;
     _updateReadiness();
-    final FastFilePickerPath? response;
+    final LocalVideoChoice? choice;
     try {
-      response = await FastFilePicker.pickFile(acceptedTypeGroups: [kVideoTypeGroup]);
+      choice = await showLocalVideoChooser(context, autoStart: autoStart);
     } finally {
       _isFilePickerOpen = false;
     }
-    final uri = response?.uri ?? response?.path;
-    if (uri == null) {
-      _updateReadiness(); // cancelled: back to whatever we had before
+    final video = choice?.video;
+    if (video == null) {
+      _updateReadiness(); // closed: back to whatever we had before
       return;
     }
-    final name = _basename(response!);
-    // The picker's filter is advisory (iOS Browse shows everything): refuse a
-    // non-video here, before anything about the room changes.
-    if (!looksLikeVideoFile(name)) {
-      trace('picked file is not a video', category: 'media', data: {'file': name});
-      _updateReadiness();
-      if (mounted) _snack(kNotAVideoMessage);
+    await _playChosenVideo(video, source: choice!.source);
+  }
+
+  /// The empty room's "Reopen (last file)" line: Recent's newest entry, no chooser.
+  Future<void> _reopenLastRecent() async {
+    final entry = _lastRecent;
+    if (entry == null) return;
+    var r = await RecentVideos.instance.resolve(entry);
+    if (r.status == ResolveStatus.downloading) {
+      _snack('Downloading from iCloud…');
+      r = await LocalVideoAccess.instance.waitForDownload(r);
+    }
+    final video = r.video;
+    if (video == null || !r.isReady) {
+      _snack(r.message ?? kNotAVideoMessage);
       return;
     }
-    final path = response.path;
+    if (_ended || !mounted) {
+      await video.release();
+      return;
+    }
+    trackLocalVideoChosen(ChoiceSource.recent);
+    await _playChosenVideo(video, source: ChoiceSource.recent);
+  }
+
+  /// Everything after a video was chosen: open it, then (host) offer to share it.
+  Future<void> _playChosenVideo(LocalVideo video, {required ChoiceSource source}) async {
     trace(
       'local file picked',
       category: 'media',
       data: {
         'platform': Platform.operatingSystem,
-        'from': response.uri != null ? 'uri' : 'path',
-        'file': name,
-        'name_has_non_ascii': name.runes.any((r) => r > 127),
-        'path_length': path?.length,
-        'exists': path == null ? null : File(path).existsSync(),
-        'bytes': path == null ? null : _sizeOf(path),
-        'normalized': _redactPaths(Media(uri).uri),
+        'source': source.name,
+        'origin': video.origin.name,
+        'file': video.name,
+        'name_has_non_ascii': video.name.runes.any((r) => r > 127),
+        'content_uri': video.isContentUri,
+        'bytes': video.sizeBytes,
+        'normalized': _redactPaths(Media(video.mediaUri).uri),
       },
     );
     _isStreamingRemoteSharedMedia = false;
-    if (_ended || !mounted) return;
-    await _adoptLocalFile(uri: uri, name: name, path: path);
-
+    if (_ended || !mounted) {
+      await video.release();
+      return;
+    }
+    final opened = await _adoptLocalVideo(video);
     // If host, handle media sharing prompt / upload
-    if (_sync?.isHost ?? false) {
-      if (path != null && File(path).existsSync()) {
-        unawaited(_handleHostMediaSharingPrompt(File(path), name));
-      }
+    if (opened && (_sync?.isHost ?? false)) {
+      unawaited(_handleHostMediaSharingPrompt(video));
     }
   }
 
-  Future<void> _handleHostMediaSharingPrompt(File file, String name) async {
-    _currentLocalHostFile = file;
+  Future<void> _onRecentsChanged() async {
+    final list = await RecentVideos.instance.list();
+    if (!mounted) return;
+    final newest = list.isEmpty ? null : list.first;
+    if (newest?.id != _lastRecent?.id) setState(() => _lastRecent = newest);
+  }
+
+  /// The newest Recent entry as the empty room's Reopen line, unless it is the
+  /// file already open.
+  bool get _reopenOffered => _lastRecent != null && _localVideo == null;
+
+  Future<void> _handleHostMediaSharingPrompt(LocalVideo video) async {
+    final name = video.name;
     final limits = EntitlementService.instance.limits;
     if (!(limits?.canShareMedia ?? false)) return;
 
@@ -2091,7 +2152,14 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
       shouldShare = autoChoice;
     } else {
       if (!mounted) return;
-      final size = await file.length();
+      final source = video.uploadSource();
+      final int size;
+      try {
+        size = await source.length();
+      } catch (e, s) {
+        reportNonFatal(e, s, during: 'sizing a local video for sharing');
+        return;
+      }
       if (!mounted) return;
       final result = await showMediaSharingPromptDialog(
         context: context,
@@ -2107,19 +2175,26 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     }
 
     if (shouldShare && mounted) {
-      unawaited(_startMediaSharingUpload(file, name));
+      unawaited(_startMediaSharingUpload(video.uploadSource(), name));
     }
   }
 
-  Future<void> _startMediaSharingUpload(File file, String name) async {
+  Future<void> _startMediaSharingUpload(UploadSource source, String name) async {
     // The same file twice (a re-pick with a remembered choice, a double Retry)
     // would only abort the upload already in flight.
-    if (_isUploadingSharedMedia && _currentLocalHostFile?.path == file.path) {
+    if (_isUploadingSharedMedia && _uploadingRef == source.reference) {
       trace('upload already running for this file', category: 'media', data: {'file': name});
       return;
     }
     final generation = ++_uploadGeneration;
-    final fileSize = await file.length();
+    final int fileSize;
+    try {
+      fileSize = await source.length();
+    } catch (e, s) {
+      reportNonFatal(e, s, during: 'sizing a local video for sharing');
+      _snack("Hmm, we can't read that video to share it. Pick it again to try once more.");
+      return;
+    }
     final limits = EntitlementService.instance.limitsOrFallback;
     final maxFileBytes = limits.mediaSharingMaxSizeBytes;
     if (fileSize > maxFileBytes) {
@@ -2164,7 +2239,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
       }
     }
 
-    _currentLocalHostFile = file;
+    _uploadingRef = source.reference;
     _isUploadingSharedMedia = true;
     _uploadFraction = 0.0;
     _uploadSpeedBps = 0.0;
@@ -2183,7 +2258,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     try {
       await _mediaSharingService.uploadFile(
         roomId: widget.roomId,
-        file: file,
+        source: source,
         onProgress: (p) {
           if (!mounted) return;
           setState(() {
@@ -2237,19 +2312,38 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
   Future<void> _retryLocalUpload() async {
     if (!(_sync?.isHost ?? false)) return;
 
-    File? fileToUpload = _currentLocalHostFile;
-    if (fileToUpload == null || !fileToUpload.existsSync()) {
+    var video = _localVideo;
+    if (video != null && !await _readable(video)) video = null;
+    if (video == null) {
+      // The handle is gone (or its file moved): try what this device remembers.
       final entry = await LocalMediaStore.instance.lookup(widget.roomId);
       if (entry != null && entry.fileStillExists) {
-        fileToUpload = File(entry.path);
+        var r = await entry.reopen();
+        if (r.status == ResolveStatus.downloading) {
+          r = await LocalVideoAccess.instance.waitForDownload(r);
+        }
+        video = r.video;
+        if (video != null && mounted) {
+          if (!identical(video, _localVideo)) unawaited(_localVideo?.release());
+          _localVideo = video;
+        }
       }
     }
-
-    if (fileToUpload != null && fileToUpload.existsSync()) {
-      final name = _localFileName ?? p.basename(fileToUpload.path);
-      unawaited(_startMediaSharingUpload(fileToUpload, name));
-    } else {
+    if (video != null && mounted) {
+      unawaited(_startMediaSharingUpload(video.uploadSource(), _localFileName ?? video.name));
+    } else if (mounted) {
       await _pickVideo();
+    }
+  }
+
+  /// Whether [video]'s bytes can still be read (a moved file or a revoked
+  /// Android grant says no).
+  Future<bool> _readable(LocalVideo video) async {
+    try {
+      await video.uploadSource().length();
+      return true;
+    } catch (_) {
+      return false;
     }
   }
 
@@ -2350,37 +2444,44 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     await _mediaSharingService.abortUpload(roomId: widget.roomId);
   }
 
-  Future<void> _adoptLocalFile({
-    required String uri,
-    required String name,
-    String? path,
-    Duration? seekTo,
-  }) async {
+  /// Plays [video] and remembers it. Takes ownership of its handle: on success
+  /// the previous video is released, on failure this one is. True when opened.
+  Future<bool> _adoptLocalVideo(LocalVideo video, {Duration? seekTo}) async {
+    final name = video.name;
     _localLoadWatchdog?.cancel();
     _localLoadStalled = false;
     _openFailedFor = null;
     _isStreamingRemoteSharedMedia = false;
     _bufferPosition = null;
     try {
-      await _player.open(Media(uri), play: false);
+      await _player.open(Media(video.mediaUri), play: false);
       unawaited(_suppressSecondarySubtitles());
       unawaited(_preferTextSubtitleOnOpen());
       try {
         await (_player.platform as dynamic)?.setProperty('sub-auto', 'fuzzy');
       } catch (_) {}
+      final path = video.path;
       if (path != null) {
         unawaited(_loadSidecarSubtitles(path));
       }
     } catch (e, s) {
       reportNonFatal(e, s, during: 'opening a local video file');
-      if (!mounted) return;
+      unawaited(video.release());
+      if (!mounted) return false;
       trace('local file would not open', category: 'media', data: {'file': name});
       setState(() => _openFailedFor = name);
       _snack("We couldn't open that file. Try another copy, or a different file.");
       _updateReadiness();
-      return;
+      return false;
+    }
+    if (!mounted) {
+      unawaited(video.release());
+      return false;
     }
     trace('local file open issued', category: 'media', data: {'file': name});
+    final previous = _localVideo;
+    _localVideo = video;
+    if (previous != null && !identical(previous, video)) unawaited(previous.release());
     if (_player.state.duration != Duration.zero) {
       _duration = _player.state.duration;
     }
@@ -2398,11 +2499,56 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
       _sync?.updatePlaybackState('local', null);
     }
     if (_awaitingFirstSource) _resolveFirstSource();
-    unawaited(LocalMediaStore.instance.record(roomId: widget.roomId, name: name, path: path));
+    unawaited(
+      LocalMediaStore.instance.record(
+        roomId: widget.roomId,
+        name: name,
+        path: video.path,
+        reference: video.reference,
+      ),
+    );
+    unawaited(_rememberRecent(video));
     unawaited(_announceLocalFile(name));
     if (seekTo != null) unawaited(_seekOnceLoaded(seekTo, name));
     setState(() {});
     _updateReadiness();
+    return true;
+  }
+
+  /// Adds the open file to Recent (durable files only - Photos exports are
+  /// declined there) and arranges its thumbnail: one still, taken a couple of
+  /// seconds into the first real playback, only when the entry has none yet.
+  Future<void> _rememberRecent(LocalVideo video) async {
+    _thumbWait?.cancel();
+    _thumbWait = null;
+    _recentId = null;
+    final entry = await RecentVideos.instance.record(video);
+    if (entry == null || !mounted || !identical(_localVideo, video)) return;
+    _recentId = entry.id;
+    if (_player.state.duration > Duration.zero) {
+      unawaited(RecentVideos.instance.updateDuration(entry.id, _player.state.duration));
+    }
+    if (await RecentVideos.instance.thumbnailFile(entry.id) != null) return;
+    if (!mounted || !identical(_localVideo, video)) return;
+    _thumbWait = _player.stream.playing.where((playing) => playing).listen((_) {
+      _thumbWait?.cancel();
+      _thumbWait = null;
+      unawaited(_saveRecentThumbnail(entry.id, video));
+    });
+  }
+
+  Future<void> _saveRecentThumbnail(String id, LocalVideo video) async {
+    await Future<void>.delayed(const Duration(seconds: 2));
+    if (!mounted || !identical(_localVideo, video) || _mode != .local) return;
+    try {
+      final bytes = await _player.screenshot();
+      if (bytes != null && mounted && identical(_localVideo, video)) {
+        await RecentVideos.instance.saveThumbnail(id, bytes);
+      }
+    } catch (e) {
+      // Cosmetic: the shelf keeps its placeholder.
+      trace('recent thumbnail not saved', category: 'media', data: {'error': '$e'});
+    }
   }
 
   Future<void> _startStreamingSharedMedia(String fileName, {Duration? seekTo}) async {
@@ -2411,6 +2557,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
       if (!mounted || _ended) return;
       _isStreamingRemoteSharedMedia = true;
       _localFileName = fileName;
+      _recentId = null;
       _localLoadWatchdog?.cancel();
       _localLoadStalled = false;
       await _player.open(Media(dl.streamUrl.toString()), play: false);
@@ -2493,8 +2640,26 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
       );
       _resolveFirstSource();
       _idleSourceTimer?.cancel();
-      await _adoptLocalFile(uri: entry!.path, name: entry.name, path: entry.path, seekTo: held);
-      return;
+      var r = await entry!.reopen();
+      if (r.status == ResolveStatus.downloading) {
+        r = await LocalVideoAccess.instance.waitForDownload(r);
+      }
+      final reopened = r.video;
+      if (!mounted || _ended) {
+        await reopened?.release();
+        return;
+      }
+      if (reopened != null && r.isReady) {
+        await _adoptLocalVideo(reopened, seekTo: held);
+        return;
+      }
+      // The file moved, or the grant lapsed: fall through to the shared copy
+      // (if the host uploaded one); otherwise the gate's Locate button is it.
+      trace(
+        'remembered room file is unavailable',
+        category: 'room',
+        data: {'room_id': widget.roomId, 'file': entry.name, 'reason': r.reason?.name},
+      );
     }
 
     // Auto-stream shared media if room has ready shared media and local disk copy not found
@@ -2537,14 +2702,6 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
           'failures': _positionWriteFailures,
         },
       );
-    }
-  }
-
-  static int? _sizeOf(String path) {
-    try {
-      return File(path).lengthSync();
-    } catch (_) {
-      return null;
     }
   }
 
@@ -3893,6 +4050,8 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
       unawaited(setScreenAwake(false));
     }
     unawaited(_persistPosition());
+    _thumbWait?.cancel();
+    unawaited(_localVideo?.release());
     try {
       await RoomService.instance.leaveRoom(widget.roomId);
     } catch (e, s) {
@@ -4969,6 +5128,19 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
                         ? 'Choose a video instead'
                         : 'Use a YouTube link instead',
                     switchSourceShortLabel: _mode == .youtube ? 'Local file' : 'YouTube link',
+                    reopenName: _hostMustChoose && _mode == .local && _reopenOffered
+                        ? _lastRecent!.displayName
+                        : null,
+                    reopenAgo: _lastRecent == null
+                        ? null
+                        : formatAgoShort(_lastRecent!.lastOpened, DateTime.now()),
+                    onReopen: _reopenLastRecent,
+                    onPickPhotos: _hostMustChoose && _mode == .local && photosAvailable
+                        ? () => _pickVideo(autoStart: ChoiceSource.photos)
+                        : null,
+                    onPickFiles: _hostMustChoose && _mode == .local && photosAvailable
+                        ? () => _pickVideo(autoStart: ChoiceSource.files)
+                        : null,
                     onKick: _confirmKick,
                   ),
                 );

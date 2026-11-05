@@ -9,6 +9,8 @@ import 'package:synctogether/auth/webview_runtime.dart';
 import 'package:synctogether/av/av_settings_dialog.dart';
 import 'package:synctogether/av/device_preference_service.dart';
 import 'package:synctogether/player/chooser_dialog.dart';
+import 'package:synctogether/player/local_video_chooser.dart';
+import 'package:synctogether/player/media_file_types.dart';
 import 'package:synctogether/player/mode_selection_dialog.dart';
 import 'package:synctogether/player/subtitles/subtitle_style_dialog.dart';
 import 'package:synctogether/player/youtube_url_dialog.dart';
@@ -145,6 +147,7 @@ void main() {
       onStyle: () {},
     ),
   );
+  _localVideoChooser();
   opener('subtitle-style', (context) => showSubtitleStyleDialog(context));
   glass('shortcuts', (_) => const ShortcutsDialog(facecams: true), width: 520);
   glass('kick-member', (_) => const KickMemberDialog(displayName: _longName));
@@ -345,3 +348,75 @@ void _openOverflowMenu(BuildContext ctx) => showRoomOverflowMenu(
   onAssignHost: (_) {},
   onReportMember: (_) {},
 );
+
+/// Board 47: the chooser as a sheet, a tablet dialog, the desktop dialog and the
+/// phone-landscape two-pane panel - one set of cases, every device in the matrix.
+void _localVideoChooser() {
+  Finder entry(String name) => find.byKey(ValueKey('entry-$name'));
+
+  void checkEntries(WidgetTester tester, ScreenCase c, {required bool shelf}) {
+    final touch = c.platform == TargetPlatform.iOS || c.platform == TargetPlatform.android;
+    // The primary entries never fold into a menu and never lose their label.
+    expect(entry('files'), findsOneWidget);
+    expectShownWhole(tester, 'From Files');
+    if (touch) {
+      expect(entry('photos'), findsOneWidget, reason: 'Photos is offered on touch');
+      expectShownWhole(tester, 'From Photos');
+    } else {
+      expect(entry('photos'), findsNothing, reason: 'desktop has no photo library');
+    }
+    for (final e in [entry('files'), if (touch) entry('photos')]) {
+      expect(tester.getSize(e).height, greaterThanOrEqualTo(44), reason: '44 pt target');
+    }
+    if (shelf) {
+      for (final remove in find.byTooltip('Remove from Recent').evaluate()) {
+        final size = (remove.renderObject! as RenderBox).size;
+        expect(size.shortestSide, greaterThanOrEqualTo(44), reason: 'remove is a 44 pt target');
+      }
+      expect(find.text('Clear all'), findsOneWidget);
+    }
+  }
+
+  screenMatrix('dialog/local-video-chooser', (tester, c, s) async {
+    final services = await sampleChooserServices(c);
+    await pumpDialogOpener(tester, c, s, (ctx) => showLocalVideoChooser(ctx, services: services));
+    checkEntries(tester, c, shelf: true);
+    expect(
+      find.textContaining('File moved').evaluate().length,
+      1,
+      reason: 'the moved file is flagged',
+    );
+    // The shelf is long: it scrolls with the body, so the last row is reachable.
+    final last = find.text('Wrong Turn.mp4');
+    final inner = find.byType(ListView);
+    if (inner.evaluate().isNotEmpty) {
+      await tester.scrollUntilVisible(
+        last,
+        80,
+        scrollable: find.descendant(of: inner, matching: find.byType(Scrollable)),
+      );
+    } else {
+      await tester.ensureVisible(last);
+    }
+    await tester.pump(const Duration(milliseconds: 100));
+    await finishCase(tester);
+  });
+  screenMatrix('dialog/local-video-chooser-empty', (tester, c, s) async {
+    final services = await sampleChooserServices(c, empty: true);
+    await pumpDialogOpener(tester, c, s, (ctx) => showLocalVideoChooser(ctx, services: services));
+    checkEntries(tester, c, shelf: false);
+    expect(find.text('Nothing here yet'), findsOneWidget);
+    await finishCase(tester);
+  });
+  screenMatrix('dialog/local-video-chooser-not-a-video', (tester, c, s) async {
+    final services = await sampleChooserServices(c, pickFile: pickNotAVideo);
+    await pumpDialogOpener(tester, c, s, (ctx) => showLocalVideoChooser(ctx, services: services));
+    await tester.ensureVisible(entry('files'));
+    await tester.tap(entry('files'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.text(kNotAVideoMessage), findsOneWidget, reason: 'the banner explains the refusal');
+    checkEntries(tester, c, shelf: true);
+    await finishCase(tester);
+  });
+}

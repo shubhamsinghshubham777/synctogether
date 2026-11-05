@@ -1,16 +1,15 @@
 import 'dart:async';
 import '../ui/booth_icons.g.dart';
-import 'dart:io';
 
-import 'package:fast_file_picker/fast_file_picker.dart';
 import 'package:flutter/foundation.dart' show defaultTargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:go_router/go_router.dart';
 import 'package:material_symbols_icons/symbols.dart';
-import 'package:path/path.dart' as p;
 import 'package:window_manager/window_manager.dart';
-import 'package:synctogether/player/media_file_types.dart';
+import 'package:synctogether/player/local_video.dart';
+import 'package:synctogether/player/local_video_chooser.dart';
+import 'package:synctogether/player/recent_videos.dart';
 import 'package:synctogether/platform.dart';
 import 'package:synctogether/analytics.dart';
 import 'package:synctogether/app_router.dart';
@@ -78,7 +77,9 @@ class _LobbyScreenState extends State<LobbyScreen> with WindowListener {
   Timer? _myRoomsPollTimer;
   bool _fullscreen = false;
 
-  File? _stagedFile;
+  /// The pre-uploaded video, held (with any iOS security scope) until the room
+  /// is created or the staging is thrown away.
+  LocalVideo? _stagedVideo;
   StagedUploadSession? _stagedSession;
   StagedUploadSession? _activeStagingSession;
   CancellationToken? _stagingCancelToken;
@@ -142,7 +143,7 @@ class _LobbyScreenState extends State<LobbyScreen> with WindowListener {
 
   void _onRoomServiceChanged() {
     if (_roomExit.observe(inRoom: RoomService.instance.currentRoom != null)) {
-      if (mounted && (_stagedSession != null || _stagedFile != null)) {
+      if (mounted && (_stagedSession != null || _stagedVideo != null)) {
         setState(_clearStagedUploadState);
       }
       unawaited(_loadMyRooms());
@@ -181,6 +182,7 @@ class _LobbyScreenState extends State<LobbyScreen> with WindowListener {
     RoomService.instance.removeListener(_onRoomServiceChanged);
     ProfileService.instance.removeListener(_onProfileChanged);
     _nameController.dispose();
+    unawaited(_stagedVideo?.release());
     if (isDesktop) windowManager.removeListener(this);
     super.dispose();
   }
@@ -225,27 +227,24 @@ class _LobbyScreenState extends State<LobbyScreen> with WindowListener {
       return;
     }
 
-    final FastFilePickerPath? response;
+    final choice = await showLocalVideoChooser(context);
+    final video = choice?.video;
+    if (video == null) return;
+    final source = video.uploadSource();
+    final fileName = video.name;
+    final int fileSize;
     try {
-      response = await FastFilePicker.pickFile(acceptedTypeGroups: [kVideoTypeGroup]);
+      fileSize = video.sizeBytes ?? await source.length();
     } catch (e, s) {
-      reportNonFatal(e, s, during: 'picking staged video in lobby');
+      reportNonFatal(e, s, during: 'sizing a staged video in lobby');
+      unawaited(video.release());
+      if (mounted) _snack("Hmm, we can't read that video. Pick it again to try once more.");
       return;
     }
-    final path = response?.path;
-    if (path == null) return;
-    final file = File(path);
-    if (!file.existsSync()) return;
-    // The picker's filter is advisory (iOS Browse shows everything): refuse a non-video here.
-    final pickedName = file.uri.pathSegments.isNotEmpty ? file.uri.pathSegments.last : '';
-    if (!looksLikeVideoFile(pickedName)) {
-      trace('picked file is not a video', category: 'media', data: {'file': pickedName});
-      _snack(kNotAVideoMessage);
+    if (!mounted) {
+      unawaited(video.release());
       return;
     }
-
-    final fileSize = file.lengthSync();
-    final fileName = file.uri.pathSegments.isNotEmpty ? file.uri.pathSegments.last : null;
     final limits = EntitlementService.instance.limitsOrFallback;
     final maxFileBytes = limits.mediaSharingMaxSizeBytes;
     if (fileSize > maxFileBytes) {
@@ -263,6 +262,7 @@ class _LobbyScreenState extends State<LobbyScreen> with WindowListener {
           ),
         );
       }
+      unawaited(video.release());
       return;
     }
 
@@ -285,13 +285,22 @@ class _LobbyScreenState extends State<LobbyScreen> with WindowListener {
             ),
           );
         }
+        unawaited(video.release());
         return;
       }
     }
 
+    // Chosen and within limits: remember it, as in the room.
+    unawaited(RecentVideos.instance.record(video));
+    trace(
+      'staged video chosen',
+      category: 'media',
+      data: {'source': choice!.source.name, 'file': fileName, 'bytes': fileSize},
+    );
+    _releaseStaged();
     final cancelToken = CancellationToken();
     setState(() {
-      _stagedFile = file;
+      _stagedVideo = video;
       _stagingUpload = true;
       _stagingProgress = null;
       _stagedSession = null;
@@ -301,7 +310,7 @@ class _LobbyScreenState extends State<LobbyScreen> with WindowListener {
 
     try {
       final session = await _mediaSharingService.uploadStagedFile(
-        file: file,
+        source: source,
         cancelToken: cancelToken,
         onSessionCreated: (session) {
           if (mounted && _stagingCancelToken == cancelToken) {
@@ -329,10 +338,11 @@ class _LobbyScreenState extends State<LobbyScreen> with WindowListener {
         return;
       }
       reportNonFatal(e, s, during: 'staging media upload in lobby');
+      unawaited(video.release());
       if (mounted && _stagingCancelToken == cancelToken) {
         setState(() {
           _stagingUpload = false;
-          _stagedFile = null;
+          _stagedVideo = null;
           _stagedSession = null;
           _activeStagingSession = null;
           _stagingProgress = null;
@@ -353,8 +363,17 @@ class _LobbyScreenState extends State<LobbyScreen> with WindowListener {
     }
   }
 
-  void _clearStagedUploadState() {
-    _stagedFile = null;
+  /// Lets go of the staged video's platform access without touching the rest.
+  void _releaseStaged() {
+    unawaited(_stagedVideo?.release());
+    _stagedVideo = null;
+  }
+
+  /// Clears the staging state. [release] is false only for `_create`, which
+  /// still needs the handle to record the file against the new room.
+  void _clearStagedUploadState({bool release = true}) {
+    if (release) unawaited(_stagedVideo?.release());
+    _stagedVideo = null;
     _stagedSession = null;
     _activeStagingSession = null;
     _stagingUpload = false;
@@ -391,16 +410,16 @@ class _LobbyScreenState extends State<LobbyScreen> with WindowListener {
   Future<void> _create({
     bool isRetry = false,
     StagedUploadSession? retrySession,
-    File? retryFile,
+    LocalVideo? retryVideo,
   }) async {
     if (_stagingUpload) return;
 
     final session = retrySession ?? _stagedSession;
-    final file = retryFile ?? _stagedFile;
+    final video = retryVideo ?? _stagedVideo;
 
     setState(() {
       _creating = true;
-      _clearStagedUploadState();
+      _clearStagedUploadState(release: false);
     });
     var roomEndedForRetry = false;
     var retryWithoutUpload = false;
@@ -410,15 +429,18 @@ class _LobbyScreenState extends State<LobbyScreen> with WindowListener {
         durationMinutes: _durationMinutes,
         stagedId: session?.stagedId,
       );
-      if (file != null) {
+      if (video != null) {
         await LocalMediaStore.instance.record(
           roomId: room.id,
-          name: p.basename(file.path),
-          path: file.path,
+          name: video.name,
+          path: video.path,
+          reference: video.reference,
         );
+        // The room opens the file again through its own handle.
+        unawaited(video.release());
       }
       if (mounted) {
-        final path = file == null ? '${roomPath(room.id)}?dialog=media' : roomPath(room.id);
+        final path = video == null ? '${roomPath(room.id)}?dialog=media' : roomPath(room.id);
         context.go(path);
       }
     } catch (e, s) {
@@ -445,16 +467,16 @@ class _LobbyScreenState extends State<LobbyScreen> with WindowListener {
       if (!roomEndedForRetry && !retryWithoutUpload && mounted) {
         setState(() {
           _stagedSession = session;
-          _stagedFile = file;
+          _stagedVideo = video;
         });
       }
     } finally {
       if (mounted) setState(() => _creating = false);
     }
     if (roomEndedForRetry && mounted) {
-      await _create(isRetry: true, retrySession: session, retryFile: file);
+      await _create(isRetry: true, retrySession: session, retryVideo: video);
     } else if (retryWithoutUpload && mounted) {
-      await _create(isRetry: true, retryFile: file);
+      await _create(isRetry: true, retryVideo: video);
     }
   }
 
@@ -1632,8 +1654,8 @@ class _LobbyScreenState extends State<LobbyScreen> with WindowListener {
   }
 
   Widget _stagedMediaSection(bool compact) {
-    if (_stagedSession != null && _stagedFile != null) {
-      final fileName = p.basename(_stagedFile!.path);
+    if (_stagedSession != null && _stagedVideo != null) {
+      final fileName = _stagedVideo!.name;
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         decoration: BoxDecoration(
@@ -1672,8 +1694,8 @@ class _LobbyScreenState extends State<LobbyScreen> with WindowListener {
       );
     }
 
-    if (_stagingUpload && _stagedFile != null) {
-      final fileName = p.basename(_stagedFile!.path);
+    if (_stagingUpload && _stagedVideo != null) {
+      final fileName = _stagedVideo!.name;
       final fraction = _stagingProgress?.fraction ?? 0.0;
       final percent = (fraction * 100).toInt();
       final speedMb = ((_stagingProgress?.speedBps ?? 0) / (1024 * 1024)).toStringAsFixed(1);

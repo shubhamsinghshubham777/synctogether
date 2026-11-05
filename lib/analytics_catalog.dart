@@ -141,6 +141,14 @@ const kAnalyticsEvents = <AnalyticsEventDoc>[
     properties: ['kind (local file or YouTube)', 'room ID'],
   ),
   AnalyticsEventDoc(
+    event: 'local_video_chosen',
+    group: .rooms,
+    what: 'You picked a video on your device: from Photos, from Files, or from your Recent list.',
+    why:
+        'Whether the Photos and Recent shortcuts are used, or whether the plain file picker is enough.',
+    properties: ['where it came from (Photos, Files or Recent), never the file or its name'],
+  ),
+  AnalyticsEventDoc(
     event: 'playback_started',
     group: .rooms,
     what: 'Playback began in a room.',

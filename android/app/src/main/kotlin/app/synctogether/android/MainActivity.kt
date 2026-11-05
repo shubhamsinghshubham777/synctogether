@@ -19,6 +19,7 @@ class MainActivity : FlutterActivity() {
   @Volatile private var latestPeak = 0.0
   private var pendingStart: MethodChannel.Result? = null
   private var notificationRequestInFlight = false
+  private val photoPicker = PhotoPicker(this)
 
   override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
     super.configureFlutterEngine(flutterEngine)
@@ -39,6 +40,8 @@ class MainActivity : FlutterActivity() {
       }
     // Persistable SAF grants, stat and ranged reads for content:// picks.
     MediaAccess.register(flutterEngine.dartExecutor.binaryMessenger, applicationContext)
+    // "From Photos": the system photo picker, no permission.
+    photoPicker.register(flutterEngine.dartExecutor.binaryMessenger)
     MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "app.synctogether/background_call")
       .setMethodCallHandler { call, result ->
         when (call.method) {
@@ -101,6 +104,13 @@ class MainActivity : FlutterActivity() {
     pendingStart?.success(false)
     pendingStart = result
     requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), MIC_REQUEST)
+  }
+
+  @Deprecated("Deprecated in Java")
+  override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+    if (photoPicker.onActivityResult(requestCode, resultCode, data)) return
+    @Suppress("DEPRECATION")
+    super.onActivityResult(requestCode, resultCode, data)
   }
 
   override fun onRequestPermissionsResult(

@@ -1,6 +1,8 @@
 import Flutter
 import UIKit
 import AVFoundation
+import PhotosUI
+import UniformTypeIdentifiers
 
 @main
 @objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
@@ -18,6 +20,9 @@ import AVFoundation
     }
     if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "MediaAccessChannel") {
       MediaAccessChannel.register(with: registrar.messenger())
+    }
+    if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "PhotoPickerChannel") {
+      PhotoPickerChannel.register(with: registrar.messenger())
     }
     if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "MicLevelChannel") {
       MicLevelChannel.register(with: registrar.messenger())
@@ -228,5 +233,89 @@ enum MediaAccessChannel {
       return "downloading"
     }
     return "missing"
+  }
+}
+
+/// "From Photos": `PHPickerViewController` filtered to videos. It runs out of
+/// process, so the app is never granted library access and there is no prompt
+/// and no usage string. The provider's file is deleted when the completion
+/// returns, so the movie is exported once into a temp folder of ours. Dart side:
+/// lib/player/photo_picker.dart (channel `app.synctogether/photo_picker`).
+final class PhotoPickerChannel: NSObject, PHPickerViewControllerDelegate {
+  private static let shared = PhotoPickerChannel()
+  private var pending: FlutterResult?
+
+  static func register(with messenger: FlutterBinaryMessenger) {
+    let channel = FlutterMethodChannel(name: "app.synctogether/photo_picker", binaryMessenger: messenger)
+    channel.setMethodCallHandler { call, result in
+      guard call.method == "pickVideo" else { return result(FlutterMethodNotImplemented) }
+      shared.present(result: result)
+    }
+  }
+
+  private static var folder: URL {
+    URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("PhotosPicks", isDirectory: true)
+  }
+
+  /// Exports from earlier sessions are not worth keeping; a day is plenty for
+  /// anything still playing.
+  private static func sweep() {
+    let fm = FileManager.default
+    let cutoff = Date().addingTimeInterval(-86_400)
+    for url in (try? fm.contentsOfDirectory(at: folder, includingPropertiesForKeys: [.contentModificationDateKey])) ?? [] {
+      let modified = (try? url.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate
+      if let modified = modified, modified < cutoff { try? fm.removeItem(at: url) }
+    }
+  }
+
+  private func present(result: @escaping FlutterResult) {
+    pending?(nil)
+    pending = result
+    var config = PHPickerConfiguration(photoLibrary: .shared())
+    config.filter = .videos
+    config.selectionLimit = 1
+    // `.current` hands over the original bytes instead of transcoding.
+    config.preferredAssetRepresentationMode = .current
+    let picker = PHPickerViewController(configuration: config)
+    picker.delegate = self
+    guard let top = PhotoPickerChannel.topController() else {
+      pending = nil
+      return result(nil)
+    }
+    top.present(picker, animated: true)
+  }
+
+  private static func topController() -> UIViewController? {
+    let scene = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+      .first { $0.activationState == .foregroundActive } ?? UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first
+    var top = scene?.windows.first(where: { $0.isKeyWindow })?.rootViewController ?? scene?.windows.first?.rootViewController
+    while let presented = top?.presentedViewController { top = presented }
+    return top
+  }
+
+  func picker(_ picker: PHPickerViewController, didFinishPicking results: [PHPickerResult]) {
+    picker.dismiss(animated: true)
+    guard let reply = pending else { return }
+    pending = nil
+    guard let provider = results.first?.itemProvider else { return reply(nil) }
+    let type = UTType.movie.identifier
+    guard provider.hasItemConformingToTypeIdentifier(type) else { return reply(nil) }
+    PhotoPickerChannel.sweep()
+    provider.loadFileRepresentation(forTypeIdentifier: type) { url, error in
+      guard let url = url, error == nil else {
+        DispatchQueue.main.async { reply(nil) }
+        return
+      }
+      let fm = FileManager.default
+      let dir = PhotoPickerChannel.folder.appendingPathComponent(UUID().uuidString, isDirectory: true)
+      let target = dir.appendingPathComponent(url.lastPathComponent)
+      do {
+        try fm.createDirectory(at: dir, withIntermediateDirectories: true)
+        try fm.copyItem(at: url, to: target)
+        DispatchQueue.main.async { reply(["path": target.path, "name": target.lastPathComponent]) }
+      } catch {
+        DispatchQueue.main.async { reply(nil) }
+      }
+    }
   }
 }

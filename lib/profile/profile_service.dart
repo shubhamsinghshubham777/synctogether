@@ -74,7 +74,11 @@ class ProfileService extends ChangeNotifier {
             .select()
             .eq('user_id', uid)
             .maybeSingle();
-        _profile = Profile.fromJson({...row, ...?moderation});
+        _profile = Profile.fromJson({
+          ...row,
+          ...?moderation,
+          'auth_provider': _client.auth.currentUser?.appMetadata['provider'],
+        });
         notifyListeners();
         return _profile;
       }

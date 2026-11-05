@@ -2,6 +2,30 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:synctogether/profile/profile_models.dart';
 
 void main() {
+  group('Profile email note', () {
+    Profile withProvider(String? provider) =>
+        Profile(id: 'u', displayName: 'A', isGuest: false, authProvider: provider);
+
+    test('names the provider the account actually uses', () {
+      expect(withProvider('google').emailNote, contains('Google'));
+      expect(withProvider('apple').emailNote, contains('Apple'));
+      expect(withProvider('apple').emailNote, isNot(contains('Google')));
+      expect(withProvider('email').emailNote, isNot(contains('Google')));
+      expect(withProvider(null).emailNote, isNot(contains('Google')));
+    });
+
+    test('fromJson reads auth_provider', () {
+      final p = Profile.fromJson({
+        'id': 'u',
+        'display_name': 'A',
+        'is_guest': false,
+        'auth_provider': 'apple',
+      });
+      expect(p.authProvider, 'apple');
+      expect(p.copyWith(displayName: 'B').authProvider, 'apple');
+    });
+  });
+
   group('Profile Quota Helpers', () {
     test('formatBytes formats various byte sizes correctly', () {
       expect(Profile.formatBytes(-1), '∞ B');

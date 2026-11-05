@@ -1,4 +1,6 @@
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:synctogether/ui/booth_icons.g.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:synctogether/profile/entitlement_service.dart';
 import 'package:synctogether/profile/profile_models.dart';
@@ -56,6 +58,20 @@ void main() {
     // Whatever the width, the seat name never wraps by character.
     // (Only the phone layout has the membership card.)
     if (find.text('Free seat').evaluate().isNotEmpty) expectShownWhole(tester, 'Free seat');
+    // On a phone the header sits at the left edge (not centred) and the scroll area starts
+    // clear of it, so scrolled content never meets the back button.
+    final back = find.byIcon(BoothIcons.arrowBack);
+    if (c.size.width < 700 && back.evaluate().isNotEmpty) {
+      expect(tester.getTopLeft(back.first).dx, lessThan(80), reason: 'header must be left-aligned');
+      final scroll = find.byType(SingleChildScrollView);
+      if (scroll.evaluate().isNotEmpty && c.size.height > c.size.width) {
+        expect(
+          tester.getTopLeft(scroll.first).dy - tester.getBottomLeft(back.first).dy,
+          greaterThanOrEqualTo(8),
+          reason: 'scroll area must clear the header',
+        );
+      }
+    }
     await finishCase(tester);
   });
 

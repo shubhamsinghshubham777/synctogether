@@ -4,6 +4,7 @@ class Profile {
     required this.displayName,
     required this.isGuest,
     this.email,
+    this.authProvider,
     this.avatarUrl,
     this.createdAt,
     this.freeExtensionUsed = false,
@@ -23,6 +24,16 @@ class Profile {
   final String displayName;
   final bool isGuest;
   final String? email;
+
+  /// How this account signs in (`google`, `apple`, `email`), from the auth session.
+  final String? authProvider;
+
+  /// The line under the locked email row, naming where the address comes from.
+  String get emailNote => switch (authProvider) {
+    'google' => "Linked to your Google account, so it can't be changed.",
+    'apple' => "Linked to your Apple ID, so it can't be changed.",
+    _ => "This is the email you sign in with, so it can't be changed.",
+  };
   final String? avatarUrl;
   final DateTime? createdAt;
 
@@ -79,6 +90,7 @@ class Profile {
       displayName: json['display_name'] as String,
       isGuest: json['is_guest'] as bool,
       email: json['email'] as String?,
+      authProvider: json['auth_provider'] as String?,
       avatarUrl: json['avatar_url'] as String?,
       createdAt: json['created_at'] != null
           ? DateTime.tryParse(json['created_at'] as String)
@@ -123,6 +135,7 @@ class Profile {
       displayName: displayName ?? this.displayName,
       isGuest: isGuest,
       email: email,
+      authProvider: authProvider,
       avatarUrl: avatarUrl ?? this.avatarUrl,
       createdAt: createdAt,
       freeExtensionUsed: freeExtensionUsed ?? this.freeExtensionUsed,

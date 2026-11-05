@@ -30,6 +30,7 @@ import 'package:synctogether/profile/profile_models.dart';
 import 'package:synctogether/profile/profile_service.dart';
 import 'package:synctogether/rooms/moderation_service.dart';
 import 'package:synctogether/rooms/widgets/lobby_header.dart' show FirstFit;
+import 'package:synctogether/ui/scroll_fade.dart';
 import 'package:synctogether/ui/banners.dart';
 import 'package:synctogether/ui/buttons.dart';
 import 'package:synctogether/ui/cinema_marquee_bar.dart';
@@ -387,13 +388,25 @@ class _ProfileScreenState extends State<ProfileScreen> with WindowListener {
                 )
               else
                 Padding(
-                  padding: EdgeInsets.fromLTRB(gutter, 24, gutter, 0),
-                  child: _centred(640, _backHeader(size: 42)),
+                  padding: EdgeInsets.fromLTRB(gutter, 24, gutter, 14),
+                  child: _centred(
+                    640,
+                    // The header row is min-sized, and `_centred` shrink-wraps its child, so
+                    // without a full-width left-aligned box it floats in the middle.
+                    SizedBox(
+                      width: double.infinity,
+                      child: Align(alignment: .centerLeft, child: _backHeader(size: 42)),
+                    ),
+                  ),
                 ),
               Expanded(
-                child: SingleChildScrollView(
-                  padding: EdgeInsets.fromLTRB(gutter, 32, gutter, 56),
-                  child: _centred(640, _oneColumn(profile, nameSize: 44)),
+                // Content fades in under the header as it scrolls, like the lobby and leaderboard.
+                child: ScrollFadeEdge(
+                  height: 40,
+                  child: SingleChildScrollView(
+                    padding: EdgeInsets.fromLTRB(gutter, 18, gutter, 56),
+                    child: _centred(640, _oneColumn(profile, nameSize: 44)),
+                  ),
                 ),
               ),
             ],
@@ -521,13 +534,17 @@ class _ProfileScreenState extends State<ProfileScreen> with WindowListener {
       child: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
-            child: _backHeader(titleSize: 18),
+            padding: const EdgeInsets.fromLTRB(22, 10, 22, 12),
+            // A Column centres its children, and the header row is min-sized: pin it left.
+            child: Align(alignment: .centerLeft, child: _backHeader(titleSize: 18)),
           ),
           Expanded(
-            child: SingleChildScrollView(
-              padding: EdgeInsets.fromLTRB(22, 24, 22, 40 + MediaQuery.paddingOf(context).bottom),
-              child: profile.isGuest ? _oneColumn(profile, nameSize: 34) : _phoneColumn(profile),
+            child: ScrollFadeEdge(
+              height: 40,
+              child: SingleChildScrollView(
+                padding: EdgeInsets.fromLTRB(22, 14, 22, 40 + MediaQuery.paddingOf(context).bottom),
+                child: profile.isGuest ? _oneColumn(profile, nameSize: 34) : _phoneColumn(profile),
+              ),
             ),
           ),
         ],
@@ -543,8 +560,11 @@ class _ProfileScreenState extends State<ProfileScreen> with WindowListener {
       child: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-            child: _backHeader(iconSize: 19, size: 38, titleSize: 17),
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
+            child: Align(
+              alignment: .centerLeft,
+              child: _backHeader(iconSize: 19, size: 38, titleSize: 17),
+            ),
           ),
           Expanded(
             child: _twoColumns(
@@ -1248,10 +1268,7 @@ class _ProfileScreenState extends State<ProfileScreen> with WindowListener {
           subtitleStrong: true,
           trailing: Icon(BoothIcons.lock, size: 17, fill: 1, color: PTColors.white(0.35)),
         ),
-        Text(
-          "Linked to your Google account, so it can't be changed.",
-          style: PTText.finePrint.copyWith(color: PTColors.white(0.35)),
-        ),
+        Text(profile.emailNote, style: PTText.finePrint.copyWith(color: PTColors.white(0.35))),
         ..._passwordRows(profile),
       ],
     );

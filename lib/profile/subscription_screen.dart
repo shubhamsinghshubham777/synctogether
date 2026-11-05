@@ -13,6 +13,7 @@ import 'package:synctogether/profile/apple_iap_service.dart';
 import 'package:synctogether/profile/microsoft_iap_service.dart';
 import 'package:synctogether/profile/entitlement_service.dart';
 import 'package:synctogether/profile/profile_service.dart';
+import 'package:synctogether/ui/scroll_fade.dart';
 import 'package:synctogether/ui/banners.dart';
 import 'package:synctogether/ui/buttons.dart';
 import 'package:synctogether/ui/cinema_marquee_bar.dart';
@@ -273,58 +274,62 @@ class _SubscriptionScreenState extends State<SubscriptionScreen>
             )
           else
             Padding(
-              padding: EdgeInsets.fromLTRB(gutter, compact ? 10 : 24, gutter, 0),
+              padding: EdgeInsets.fromLTRB(gutter, compact ? 10 : 24, gutter, compact ? 12 : 16),
               child: _backHeader(compact: compact),
             ),
           Expanded(
             child: LayoutBuilder(
               builder: (context, constraints) {
                 final wide = constraints.maxWidth >= _twoColumnMin;
-                return SingleChildScrollView(
-                  padding: EdgeInsets.fromLTRB(
-                    gutter,
-                    compact ? 20 : 40,
-                    gutter,
-                    sticky ? 24 : 48 + MediaQuery.paddingOf(context).bottom,
-                  ),
-                  child: Center(
-                    child: ConstrainedBox(
-                      constraints: BoxConstraints(maxWidth: wide ? 1120 : 560),
-                      child: _celebrating
-                          ? _celebrationBody(compact: compact)
-                          : wide
-                          ? Row(
-                              crossAxisAlignment: .start,
-                              spacing: 72,
-                              children: [
-                                Expanded(child: _pitch(compact: false)),
-                                SizedBox(width: 380, child: _offer()),
-                              ],
-                            )
-                          : compact
-                          // Phones lead with the ticket - it is the thing
-                          // being sold - then the perks, as the board does.
-                          ? Column(
-                              crossAxisAlignment: .stretch,
-                              spacing: 24,
-                              children: [
-                                _pitch(compact: true, withComparison: false),
-                                _ticket(isPremium: EntitlementService.instance.isPremium),
-                                if (EntitlementService.instance.isPremium)
-                                  _heldChecks()
-                                else
-                                  _comparison(compact: true),
-                                _offer(sticky: sticky, withTicket: false),
-                              ],
-                            )
-                          : Column(
-                              crossAxisAlignment: .stretch,
-                              spacing: 36,
-                              children: [
-                                _pitch(compact: compact),
-                                _offer(sticky: sticky),
-                              ],
-                            ),
+                // Content fades in under the header as it scrolls, like the lobby and leaderboard.
+                return ScrollFadeEdge(
+                  height: 40,
+                  child: SingleChildScrollView(
+                    padding: EdgeInsets.fromLTRB(
+                      gutter,
+                      compact ? 14 : 28,
+                      gutter,
+                      sticky ? 24 : 48 + MediaQuery.paddingOf(context).bottom,
+                    ),
+                    child: Center(
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(maxWidth: wide ? 1120 : 560),
+                        child: _celebrating
+                            ? _celebrationBody(compact: compact)
+                            : wide
+                            ? Row(
+                                crossAxisAlignment: .start,
+                                spacing: 72,
+                                children: [
+                                  Expanded(child: _pitch(compact: false)),
+                                  SizedBox(width: 380, child: _offer()),
+                                ],
+                              )
+                            : compact
+                            // Phones lead with the ticket - it is the thing
+                            // being sold - then the perks, as the board does.
+                            ? Column(
+                                crossAxisAlignment: .stretch,
+                                spacing: 24,
+                                children: [
+                                  _pitch(compact: true, withComparison: false),
+                                  _ticket(isPremium: EntitlementService.instance.isPremium),
+                                  if (EntitlementService.instance.isPremium)
+                                    _heldChecks()
+                                  else
+                                    _comparison(compact: true),
+                                  _offer(sticky: sticky, withTicket: false),
+                                ],
+                              )
+                            : Column(
+                                crossAxisAlignment: .stretch,
+                                spacing: 36,
+                                children: [
+                                  _pitch(compact: compact),
+                                  _offer(sticky: sticky),
+                                ],
+                              ),
+                      ),
                     ),
                   ),
                 );

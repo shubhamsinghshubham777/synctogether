@@ -3,7 +3,6 @@ import '../ui/booth_icons.g.dart';
 import 'dart:io';
 
 import 'package:fast_file_picker/fast_file_picker.dart';
-import 'package:file_selector/file_selector.dart';
 import 'package:flutter/foundation.dart' show defaultTargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show Clipboard, ClipboardData;
@@ -11,6 +10,7 @@ import 'package:go_router/go_router.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:path/path.dart' as p;
 import 'package:window_manager/window_manager.dart';
+import 'package:synctogether/player/media_file_types.dart';
 import 'package:synctogether/platform.dart';
 import 'package:synctogether/analytics.dart';
 import 'package:synctogether/app_router.dart';
@@ -71,7 +71,8 @@ class _LobbyScreenState extends State<LobbyScreen> with WindowListener {
   bool _creating = false;
   bool _joining = false;
   int _codeShake = 0;
-  _PhonePanel _phonePanel = _PhonePanel.none;
+  // Phones always show one form: opening a room is the default, and the two buttons only switch.
+  _PhonePanel _phonePanel = _PhonePanel.open;
   String? _busyRoomId;
   bool _clearingEndedRooms = false;
   Timer? _myRoomsPollTimer;
@@ -224,10 +225,9 @@ class _LobbyScreenState extends State<LobbyScreen> with WindowListener {
       return;
     }
 
-    const videoTypeGroup = XTypeGroup(label: 'Videos', extensions: ['mp4', 'mkv']);
     final FastFilePickerPath? response;
     try {
-      response = await FastFilePicker.pickFile(acceptedTypeGroups: [videoTypeGroup]);
+      response = await FastFilePicker.pickFile(acceptedTypeGroups: [kVideoTypeGroup]);
     } catch (e, s) {
       reportNonFatal(e, s, during: 'picking staged video in lobby');
       return;
@@ -236,6 +236,13 @@ class _LobbyScreenState extends State<LobbyScreen> with WindowListener {
     if (path == null) return;
     final file = File(path);
     if (!file.existsSync()) return;
+    // The picker's filter is advisory (iOS Browse shows everything): refuse a non-video here.
+    final pickedName = file.uri.pathSegments.isNotEmpty ? file.uri.pathSegments.last : '';
+    if (!looksLikeVideoFile(pickedName)) {
+      trace('picked file is not a video', category: 'media', data: {'file': pickedName});
+      _snack(kNotAVideoMessage);
+      return;
+    }
 
     final fileSize = file.lengthSync();
     final fileName = file.uri.pathSegments.isNotEmpty ? file.uri.pathSegments.last : null;
@@ -1176,7 +1183,6 @@ class _LobbyScreenState extends State<LobbyScreen> with WindowListener {
   /// the room name and duration only when you are actually opening a room.
   Widget _compactActions() {
     final open = _phonePanel == _PhonePanel.open;
-    final join = _phonePanel == _PhonePanel.join;
     return Column(
       crossAxisAlignment: .stretch,
       children: [
@@ -1188,13 +1194,18 @@ class _LobbyScreenState extends State<LobbyScreen> with WindowListener {
           buttons: [
             PTButton(
               label: 'Open a room',
-              variant: open ? .primary : (join ? .secondary : .primary),
-              onPressed: () => setState(() => _phonePanel = open ? .none : .open),
+              variant: open ? .primary : .secondary,
+              // The chosen section cannot be collapsed: tapping it again is a no-op.
+              onPressed: () {
+                if (!open) setState(() => _phonePanel = .open);
+              },
             ),
             PTButton(
               label: 'Enter a code',
-              variant: join ? .primary : .secondary,
-              onPressed: () => setState(() => _phonePanel = join ? .none : .join),
+              variant: open ? .secondary : .primary,
+              onPressed: () {
+                if (open) setState(() => _phonePanel = .join);
+              },
             ),
           ],
         ),
@@ -1216,7 +1227,6 @@ class _LobbyScreenState extends State<LobbyScreen> with WindowListener {
               ),
             ),
             child: switch (_phonePanel) {
-              _PhonePanel.none => const SizedBox(key: ValueKey('none'), width: double.infinity),
               _PhonePanel.open => Padding(
                 key: const ValueKey('open'),
                 padding: const EdgeInsets.only(top: 18),
@@ -1873,7 +1883,7 @@ class _Eyebrow extends StatelessWidget {
   }
 }
 
-enum _PhonePanel { none, open, join }
+enum _PhonePanel { open, join }
 
 class _GuestLimitDialogBody extends StatelessWidget {
   const _GuestLimitDialogBody({

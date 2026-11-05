@@ -1,5 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:synctogether/ui/buttons.dart';
+import 'package:synctogether/ui/inputs.dart';
 import 'package:synctogether/mock/mock_dependencies.dart';
 import 'package:synctogether/rewards/rewards_service.dart';
 import 'package:synctogether/rooms/lobby_screen.dart';
@@ -68,6 +70,27 @@ void main() {
     // (Wide layouts show a form instead of these two buttons.)
     for (final label in ['Open a room', 'Enter a code']) {
       if (find.text(label).evaluate().isNotEmpty) expectShownWhole(tester, label);
+    }
+    // Phones: one form is always showing. Opening a room is the default, and the two buttons
+    // only switch between the forms - tapping the chosen one again must not collapse it.
+    final toJoin = find.text('Enter a code');
+    if (toJoin.evaluate().isNotEmpty) {
+      Future<void> tap(Finder f) async {
+        await tester.ensureVisible(f.first);
+        await tester.tap(f.first, warnIfMissed: false);
+        await tester.pump(const Duration(seconds: 2));
+        await tester.pump(); // the outgoing form is removed a frame after its fade ends
+      }
+
+      expect(find.text('Name your room'), findsOneWidget, reason: 'open form is the default');
+      await tap(
+        find.widgetWithText(PTButton, 'Open a room').first,
+      ); // the toggle, first in tree order
+      expect(find.text('Name your room'), findsOneWidget, reason: 'cannot collapse');
+      await tap(find.widgetWithText(PTButton, 'Enter a code'));
+      expect(find.byType(PTCodeInput), findsOneWidget);
+      await tap(find.widgetWithText(PTButton, 'Enter a code'));
+      expect(find.byType(PTCodeInput), findsOneWidget, reason: 'cannot collapse');
     }
     await finishCase(tester);
   });

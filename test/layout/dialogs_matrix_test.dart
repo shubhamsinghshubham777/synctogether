@@ -66,6 +66,7 @@ RoomMenuData _menuData() {
           userId: id,
           role: i == 0 ? 'host' : 'member',
           joinedAt: joined,
+          profile: Profile(id: id, displayName: i.isEven ? _longName : 'Sam $i', isGuest: false),
         ),
     ],
     present: [
@@ -263,20 +264,42 @@ void main() {
     (_) => ReactionPickerDialog(reactions: kAllReactions, assets: ReactionAssets()),
     width: 420,
   );
-  opener(
-    'room-overflow-menu',
-    (ctx) => showRoomOverflowMenu(
-      context: ctx,
-      data: ValueNotifier(_menuData()),
-      onCopyInvite: () {},
-      onLeave: () {},
-      onEndRoom: () {},
-      onExtendRoom: () {},
-      onReportConcern: () {},
-      onTransportLockChanged: (_) {},
-      onKick: (_) {},
-      onAssignHost: (_) {},
-      onReportMember: (_) {},
-    ),
-  );
+  // The roster folds its secondary controls behind a More button when the row
+  // runs out of room, but a member's name keeps ~8 characters of space at every
+  // size - the audit found it collapsing to "Wa..." and then to nothing.
+  screenMatrix('dialog/room-overflow-menu-roster', (tester, c, s) async {
+    await pumpDialogOpener(tester, c, s, _openOverflowMenu);
+    final minWidth = 14 * s * 0.6 * 8 * 0.9;
+    final names = find.byWidgetPredicate(
+      (w) =>
+          w is RichText &&
+          (w.text.toPlainText().startsWith('Sam ') ||
+              w.text.toPlainText().startsWith('Maximiliana')),
+      description: 'member name',
+    );
+    expect(names, findsNWidgets(6), reason: 'one name per member');
+    for (final name in names.evaluate()) {
+      expect(
+        (name.renderObject! as RenderBox).size.width,
+        greaterThanOrEqualTo(minWidth),
+        reason: 'the member name keeps room for ~8 characters',
+      );
+    }
+    await finishCase(tester);
+  });
+  opener('room-overflow-menu', _openOverflowMenu);
 }
+
+void _openOverflowMenu(BuildContext ctx) => showRoomOverflowMenu(
+  context: ctx,
+  data: ValueNotifier(_menuData()),
+  onCopyInvite: () {},
+  onLeave: () {},
+  onEndRoom: () {},
+  onExtendRoom: () {},
+  onReportConcern: () {},
+  onTransportLockChanged: (_) {},
+  onKick: (_) {},
+  onAssignHost: (_) {},
+  onReportMember: (_) {},
+);

@@ -7,6 +7,7 @@ import 'package:material_symbols_icons/symbols.dart';
 import 'package:synctogether/rooms/room_models.dart';
 import 'package:synctogether/rooms/widgets/readiness_overlay.dart';
 import 'package:synctogether/sync/sync_service.dart';
+import 'package:synctogether/ui/adaptive_action_bar.dart';
 import 'package:synctogether/ui/booth.dart';
 import 'package:synctogether/ui/buttons.dart';
 import 'package:synctogether/ui/glass.dart';
@@ -14,6 +15,7 @@ import 'package:synctogether/ui/identity.dart';
 import 'package:synctogether/ui/popover.dart';
 import 'package:synctogether/ui/pt_motion.dart';
 import 'package:synctogether/ui/pt_theme.dart';
+import 'package:synctogether/ui/responsive.dart';
 
 import '../../rewards/rewards_models.dart';
 
@@ -400,9 +402,11 @@ class _MemberRow extends StatelessWidget {
       duration: PTMotion.functional(context, PTMotion.state),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
-        child: Row(
-          spacing: 12,
-          children: [
+        child: AdaptiveActionBar(
+          spacing: 10,
+          // Avatar, name and the host tag are who this row is about: they never
+          // fold. The name takes what is left and is protected to ~8 characters.
+          pinned: [
             // Readiness reads off the ring (Cue once they have the room's
             // media open), the same ReadyRing the docked roster uses.
             ReadyRing(
@@ -421,7 +425,8 @@ class _MemberRow extends StatelessWidget {
                 frame: frame,
               ),
             ),
-            Expanded(
+            AdaptiveFlex(
+              minWidth: MediaQuery.textScalerOf(context).scale(14) * 0.6 * 8,
               child: Text.rich(
                 TextSpan(
                   text: member.displayName,
@@ -447,61 +452,105 @@ class _MemberRow extends StatelessWidget {
                 style: PTText.body.copyWith(fontSize: 14, fontWeight: .w500),
               ),
             ),
+            if (member.isHost && !blocked) const DialogTag('Host', tone: DialogTagTone.host),
+          ],
+          // Tags fold first, then the icons - lowest priority first.
+          foldable: [
             if (blocked)
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(PTRadius.control),
-                  border: Border.all(color: PTColors.rail),
-                ),
-                child: Text(
-                  'Blocked',
-                  style: PTText.finePrint.copyWith(fontSize: 11, color: PTColors.white(0.6)),
+              AdaptiveAction(
+                label: 'Blocked',
+                icon: BoothIcons.shield,
+                priority: -2,
+                inline: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(PTRadius.control),
+                    border: Border.all(color: PTColors.rail),
+                  ),
+                  child: Text(
+                    'Blocked',
+                    style: PTText.finePrint.copyWith(fontSize: 11, color: PTColors.white(0.6)),
+                  ),
                 ),
               )
             else if (presence != null && media.isSet)
-              _chip(context),
-            if (member.isHost && !blocked) const DialogTag('Host', tone: DialogTagTone.host),
-            if (premium && !blocked) const DialogTag('Patron', tone: DialogTagTone.premium),
+              AdaptiveAction(
+                label: 'Status',
+                value: ReadinessChipStyle.of(presence!, media).label,
+                icon: BoothIcons.check,
+                priority: -2,
+                inline: _chip(context),
+              ),
+            if (premium && !blocked)
+              const AdaptiveAction(
+                label: 'Patron',
+                icon: BoothIcons.crown,
+                priority: -1,
+                inline: DialogTag('Patron', tone: DialogTagTone.premium),
+              ),
             if (onAssignHost != null)
-              PTIconButton(
+              AdaptiveAction(
+                label: 'Make host',
                 icon: BoothIcons.star,
-                glass: false,
-                size: 30,
-                iconSize: 16,
-                tooltip: 'Make host',
-                onPressed: onAssignHost,
+                priority: 2,
+                onTap: onAssignHost,
+                inline: _iconAction(context, BoothIcons.star, 'Make host', onAssignHost),
               ),
             if (blocked && onUnblock != null)
-              PTIconButton(
+              AdaptiveAction(
+                label: 'Unblock ${member.displayName}',
                 icon: Symbols.person_add_rounded,
-                glass: false,
-                size: 30,
-                iconSize: 16,
-                tooltip: 'Unblock ${member.displayName}',
-                onPressed: onUnblock,
+                priority: 1,
+                onTap: onUnblock,
+                inline: _iconAction(
+                  context,
+                  Symbols.person_add_rounded,
+                  'Unblock ${member.displayName}',
+                  onUnblock,
+                ),
               )
             else if (onReport != null)
-              PTIconButton(
+              AdaptiveAction(
+                label: 'Report or block ${member.displayName}',
                 icon: BoothIcons.flag,
-                glass: false,
-                size: 30,
-                iconSize: 16,
-                tooltip: 'Report or block ${member.displayName}',
-                onPressed: onReport,
+                priority: 1,
+                onTap: onReport,
+                inline: _iconAction(
+                  context,
+                  BoothIcons.flag,
+                  'Report or block ${member.displayName}',
+                  onReport,
+                ),
               ),
             if (onKick != null)
-              PTIconButton(
+              AdaptiveAction(
+                label: 'Show ${member.displayName} out',
                 icon: BoothIcons.personRemove,
-                glass: false,
-                size: 30,
-                iconSize: 16,
-                tooltip: 'Show ${member.displayName} out',
-                onPressed: onKick,
+                priority: 3,
+                danger: true,
+                onTap: onKick,
+                inline: _iconAction(
+                  context,
+                  BoothIcons.personRemove,
+                  'Show ${member.displayName} out',
+                  onKick,
+                ),
               ),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _iconAction(BuildContext context, IconData icon, String tooltip, VoidCallback? onTap) {
+    return PTIconButton(
+      icon: icon,
+      glass: false,
+      size: 30,
+      iconSize: 16,
+      // Hover text belongs to a pointer; the bar labels it for screen readers.
+      tooltip: inputOf(context) == .pointer ? tooltip : null,
+      onPressed: onTap,
     );
   }
 

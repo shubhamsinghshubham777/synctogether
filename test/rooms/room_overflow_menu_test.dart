@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:synctogether/rooms/room_models.dart';
@@ -182,6 +183,9 @@ void main() {
     testWidgets('displays Make host button when self can assign host and invokes callback on tap', (
       tester,
     ) async {
+      // Tooltips are attached on pointer input only (touch has no hover), and
+      // `flutter test` defaults to Android.
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
       RoomMember? assignedMember;
       final data = ValueNotifier<RoomMenuData?>(
         RoomMenuData(
@@ -254,6 +258,7 @@ void main() {
 
       expect(assignedMember, isNotNull);
       expect(assignedMember?.userId, 'user-member');
+      debugDefaultTargetPlatformOverride = null;
     });
 
     testWidgets('does not display Make host button when self cannot assign host', (tester) async {

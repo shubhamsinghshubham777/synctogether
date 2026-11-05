@@ -20,6 +20,9 @@ const bool kDemoMode = bool.fromEnvironment('DEMO_MODE', defaultValue: false);
 
 /// Measured extents of the mini stack's parts, for fitting tiles to a slot.
 const double kMiniTileExtent = 58;
+
+/// The larger mini tile (136 x 77), for a slot with room for two of them.
+const double kMiniTileExtentLarge = 77;
 const double kMiniPillExtent = 30;
 const double kMiniGap = 6;
 
@@ -52,7 +55,11 @@ class FacecamRail extends StatefulWidget {
     this.now,
     this.showTrialEnded = false,
     this.onKeepFaces,
+    this.miniLarge = false,
   });
+
+  /// [FacecamLayout.miniStackRight] only: draw 77 px tiles instead of 58 px.
+  final bool miniLarge;
 
   final LiveKitService av;
   final List<PresentMember> present;
@@ -127,13 +134,14 @@ class _FacecamRailState extends State<FacecamRail> {
   /// pill instead of tiles scrolled out of sight behind the bar.
   int _tilesThatFit(double height, int total, int extras) {
     if (!height.isFinite) return widget.maxTiles;
+    final tile = widget.miniLarge ? kMiniTileExtentLarge : kMiniTileExtent;
     final spent = extras * (kMiniPillExtent + kMiniGap);
     var fit = 1;
     for (var k = widget.maxTiles; k > 1; k--) {
       final shown = k.clamp(0, total);
       final needed =
           spent +
-          shown * kMiniTileExtent +
+          shown * tile +
           (shown - 1) * kMiniGap +
           (total > shown ? kMiniGap + kMiniPillExtent : 0);
       if (needed <= height) {
@@ -206,6 +214,7 @@ class _FacecamRailState extends State<FacecamRail> {
                 // as a moment of connecting rather than an error.
                 joining: joining && member.userId == widget.selfId,
                 compact: widget.layout != .railLeft,
+                large: widget.miniLarge && widget.layout == .miniStackRight,
                 showNames: widget.showNames,
               ),
             ),
@@ -285,9 +294,12 @@ class _FacecamTile extends StatelessWidget {
     required this.av,
     this.joining = false,
     required this.compact,
+    this.large = false,
     required this.showNames,
   });
 
+  /// A compact tile drawn taller (77 px) when its slot has the room.
+  final bool large;
   final bool joining;
   final PresentMember member;
   final bool isSelf;
@@ -330,7 +342,7 @@ class _FacecamTile extends StatelessWidget {
     final micOff = _micOff(participant);
     final speaking = participant?.isSpeaking ?? (isMockOrDemo && member.userId == 'user-sarah');
 
-    final height = compact ? 58.0 : 112.0;
+    final height = large ? kMiniTileExtentLarge : (compact ? 58.0 : 112.0);
     const radius = PTRadius.control;
 
     // The highest-value AV micro: this is how you know who just laughed. A
@@ -370,7 +382,7 @@ class _FacecamTile extends StatelessWidget {
                   child: PTAvatar(
                     userId: member.userId,
                     displayName: member.displayName,
-                    size: compact ? 24 : 40,
+                    size: large ? 32 : (compact ? 24 : 40),
                     premium: premium,
                     frame: frame,
                   ),

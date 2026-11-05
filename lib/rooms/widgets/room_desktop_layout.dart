@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:synctogether/ui/cinema_marquee_bar.dart';
@@ -212,7 +214,7 @@ class _CollapsibleBarState extends State<_CollapsibleBar> {
 }
 
 /// The desktop and landscape tablet roomy layout: full-bleed video, floating chrome, docked chat.
-class RoomRoomyLayout extends StatelessWidget {
+class RoomRoomyLayout extends StatefulWidget {
   const RoomRoomyLayout({
     required this.videoSurface,
     required this.topActions,
@@ -259,99 +261,129 @@ class RoomRoomyLayout extends StatelessWidget {
   final bool fullscreen;
 
   @override
+  State<RoomRoomyLayout> createState() => _RoomRoomyLayoutState();
+}
+
+class _RoomRoomyLayoutState extends State<RoomRoomyLayout> {
+  final _stackKey = GlobalKey();
+
+  /// Height of the reaction strip + control bar stack. On touch the bar is
+  /// taller than the desktop one (44px targets), so the docked chat sizes its
+  /// bottom inset from this instead of a fixed number.
+  double _stackHeight = 0;
+
+  void _measureStack() {
+    final box = _stackKey.currentContext?.findRenderObject() as RenderBox?;
+    if (box == null || !box.hasSize) return;
+    if ((box.size.height - _stackHeight).abs() > 0.5 && mounted) {
+      setState(() => _stackHeight = box.size.height);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    WidgetsBinding.instance.addPostFrameCallback((_) => _measureStack());
     final isMac = defaultTargetPlatform == TargetPlatform.macOS;
     final isWindows = defaultTargetPlatform == TargetPlatform.windows;
-    final topBarLeft = (isMac && !fullscreen && !touch)
+    final topBarLeft = (isMac && !widget.fullscreen && !widget.touch)
         ? (CinemaMarqueeBar.macOsTrafficLightInset + 2.0)
         : 16.0;
-    final showWindowsButtons = isWindows && !fullscreen && !touch;
+    final showWindowsButtons = isWindows && !widget.fullscreen && !widget.touch;
     final topBarRight = showWindowsButtons ? 146.0 : 16.0;
-    final topHiddenOffset = (fullscreen || !isMac || touch) ? 20.0 : 48.0;
-    final facecamTop = controlsVisible ? 84.0 : topHiddenOffset;
-    final camsPillTop = controlsVisible ? 84.0 : topHiddenOffset;
-    final bannerTop = controlsVisible ? 90.0 : topHiddenOffset;
-    final bannerLeft = hasAv ? 240.0 : ((isMac && !fullscreen && !touch) ? 80.0 : 24.0);
+    final topHiddenOffset = (widget.fullscreen || !isMac || widget.touch) ? 20.0 : 48.0;
+    final facecamTop = widget.controlsVisible ? 84.0 : topHiddenOffset;
+    final camsPillTop = widget.controlsVisible ? 84.0 : topHiddenOffset;
+    final bannerTop = widget.controlsVisible ? 90.0 : topHiddenOffset;
+    final bannerLeft = widget.hasAv
+        ? 240.0
+        : ((isMac && !widget.fullscreen && !widget.touch) ? 80.0 : 24.0);
 
     final stack = Stack(
       children: [
-        Positioned.fill(child: videoSurface),
+        Positioned.fill(child: widget.videoSurface),
         Positioned.fill(
           child: SafeArea(
             child: Stack(
               children: [
                 AnimatedPositioned(
                   duration: PTMotion.functional(context, PTMotion.state),
-                  curve: controlsVisible ? PTMotion.enter : PTMotion.exit,
+                  curve: widget.controlsVisible ? PTMotion.enter : PTMotion.exit,
                   top: 14,
                   left: topBarLeft,
                   right: topBarRight,
-                  child: overlayControls(topActions, fromTop: true),
+                  child: widget.overlayControls(widget.topActions, fromTop: true),
                 ),
                 if (showWindowsButtons)
                   Positioned(top: 0, right: 0, child: WindowsCaptionButtons(height: 48)),
                 AnimatedPositioned(
-                  duration: chatMotion,
-                  curve: chatOpen ? Curves.easeOutCubic : Curves.easeInCubic,
+                  duration: widget.chatMotion,
+                  curve: widget.chatOpen ? Curves.easeOutCubic : Curves.easeInCubic,
                   top: bannerTop,
                   left: bannerLeft,
-                  right: chatOpen ? 332 : (hasAv ? 240 : 24),
+                  right: widget.chatOpen ? 332 : (widget.hasAv ? 240 : 24),
                   child: Align(
                     alignment: Alignment.topCenter,
                     child: ConstrainedBox(
                       constraints: const BoxConstraints(maxWidth: 560),
-                      child: bannerStack,
+                      child: widget.bannerStack,
                     ),
                   ),
                 ),
-                if (facecamRail != null)
+                if (widget.facecamRail != null)
                   AnimatedPositioned(
                     duration: PTMotion.functional(context, PTMotion.state),
-                    curve: controlsVisible ? PTMotion.enter : PTMotion.exit,
+                    curve: widget.controlsVisible ? PTMotion.enter : PTMotion.exit,
                     top: facecamTop,
                     left: 24,
-                    child: facecamRail!,
+                    child: widget.facecamRail!,
                   ),
-                if (showCamsPill != null)
+                if (widget.showCamsPill != null)
                   AnimatedPositioned(
                     duration: PTMotion.functional(context, PTMotion.state),
-                    curve: controlsVisible ? PTMotion.enter : PTMotion.exit,
+                    curve: widget.controlsVisible ? PTMotion.enter : PTMotion.exit,
                     top: camsPillTop,
                     left: 24,
-                    child: showCamsPill!,
+                    child: widget.showCamsPill!,
                   ),
-                if (chatRevealed != null)
+                if (widget.chatRevealed != null)
                   AnimatedPositioned(
                     duration: PTMotion.functional(context, PTMotion.state),
-                    curve: controlsVisible ? PTMotion.enter : PTMotion.exit,
-                    top: controlsVisible ? 70.0 : 20.0,
+                    curve: widget.controlsVisible ? PTMotion.enter : PTMotion.exit,
+                    top: widget.controlsVisible ? 70.0 : 20.0,
                     right: 16,
-                    bottom: controlsVisible ? 84.0 : 20.0,
+                    bottom: widget.controlsVisible
+                        ? (widget.touch ? math.max(84.0, 14 + _stackHeight + 12) : 84.0)
+                        : 20.0,
                     width: 300,
-                    child: chatRevealed!,
+                    child: widget.chatRevealed!,
                   ),
-                if (chatDisplaced != null)
+                if (widget.chatDisplaced != null)
                   AnimatedPositioned(
                     duration: PTMotion.functional(context, PTMotion.state),
-                    curve: controlsVisible ? PTMotion.enter : PTMotion.exit,
+                    curve: widget.controlsVisible ? PTMotion.enter : PTMotion.exit,
                     left: 24,
-                    bottom: controlsVisible ? (reactOpen ? 224.0 : 160.0) : 24.0,
+                    bottom: widget.controlsVisible ? (widget.reactOpen ? 224.0 : 160.0) : 24.0,
                     width: 340,
-                    child: chatDisplaced!,
+                    child: widget.chatDisplaced!,
                   ),
                 Positioned(
                   bottom: 14,
                   left: 16,
                   right: 16,
-                  child: overlayControls(
+                  child: widget.overlayControls(
                     Column(
                       mainAxisSize: MainAxisSize.min,
-                      children: [reactionStrip, const SizedBox(height: 12), controlBar],
+                      key: _stackKey,
+                      children: [
+                        widget.reactionStrip,
+                        const SizedBox(height: 12),
+                        widget.controlBar,
+                      ],
                     ),
                     fromTop: false,
                   ),
                 ),
-                Positioned(bottom: 14, right: 16, child: showControlsButton),
+                Positioned(bottom: 14, right: 16, child: widget.showControlsButton),
               ],
             ),
           ),
@@ -359,10 +391,12 @@ class RoomRoomyLayout extends StatelessWidget {
       ],
     );
 
-    if (touch) return stack;
+    if (widget.touch) return stack;
     return MouseRegion(
-      onHover: (_) => onMouseMove(),
-      cursor: (controlsVisible || cursorVisible) ? MouseCursor.defer : SystemMouseCursors.none,
+      onHover: (_) => widget.onMouseMove(),
+      cursor: (widget.controlsVisible || widget.cursorVisible)
+          ? MouseCursor.defer
+          : SystemMouseCursors.none,
       child: stack,
     );
   }

@@ -28,7 +28,11 @@ import 'package:synctogether/rooms/widgets/reaction_strip.dart';
 import 'package:synctogether/rooms/widgets/room_chat_panel.dart';
 import 'package:synctogether/rooms/widgets/room_control_bar.dart';
 import 'package:synctogether/sync/sync_service.dart';
+import 'package:synctogether/ui/booth_icons.g.dart';
 import 'package:synctogether/ui/buttons.dart';
+import 'package:synctogether/ui/glass.dart';
+import 'package:synctogether/ui/identity.dart';
+import 'package:synctogether/ui/inputs.dart';
 
 import '../support/screen_matrix.dart';
 import '../sync/fakes.dart';
@@ -352,23 +356,21 @@ void main() {
           await tester.pump(const Duration(milliseconds: 400));
         }
         final visibleBottom = c.size.height - c.keyboard;
-        await tester.tap(find.byTooltip('React (R)'));
-        await tester.pump();
-        await tester.pump(const Duration(milliseconds: 600));
+        await _tapReact(tester);
         final play = tester.getRect(find.byType(PTPlayButton));
         expect(play.bottom, lessThanOrEqualTo(visibleBottom), reason: 'play under keyboard');
-        // Not clipped by the scroll area it sits in.
-        final scroll = tester.getRect(
-          find.ancestor(of: find.byType(PTPlayButton), matching: find.byType(Scrollable)).first,
+        // The transport is pinned, never inside a scroll area it could be
+        // scrolled out of; the strip opens whole above it.
+        expect(
+          find.ancestor(of: find.byType(PTPlayButton), matching: find.byType(Scrollable)),
+          findsNothing,
         );
-        expect(scroll.top, lessThanOrEqualTo(play.top + 0.5), reason: 'play clipped (top)');
-        expect(scroll.bottom, greaterThanOrEqualTo(play.bottom - 0.5), reason: 'play clipped');
         final strip = find.byType(ReactionStrip);
         expect(strip, findsOneWidget);
         final sr = tester.getRect(strip);
         expect(sr.height, greaterThan(20));
-        expect(scroll.bottom, greaterThanOrEqualTo(sr.bottom - 0.5), reason: 'reactions clipped');
-        expect(scroll.top, lessThanOrEqualTo(sr.top + 0.5), reason: 'reactions clipped (top)');
+        expect(sr.bottom, lessThanOrEqualTo(play.top + 0.5), reason: 'strip overlaps the bar');
+        expect(sr.top, greaterThanOrEqualTo(0));
         await _finish(tester);
       } finally {
         debugDefaultTargetPlatformOverride = null;
@@ -429,6 +431,32 @@ void main() {
     }
   });
 
+  // The docked chat is a floating panel above the control stack, so it has to
+  // leave room for that stack - which is taller on touch (44px targets).
+  group('landscape tablet and desktop: docked chat', () {
+    for (final name in ['ipad-land', 'desktop-min', 'desktop', 'desktop-wide']) {
+      final c = kScreenMatrix.firstWhere((c) => c.name == name);
+      testWidgets('$name chat open keeps its input clear of the control bar', (tester) async {
+        try {
+          await _pumpRoom(tester, c, 1.0, chatOpen: true, chat: mockChatMessagesList);
+          final bar = tester.getRect(find.byType(RoomControlBar));
+          final panel = chatPanelRect(tester);
+          expect(panel.overlaps(bar), isFalse, reason: 'chat $panel covers bar $bar');
+          final input = tester.getRect(
+            find.descendant(
+              of: find.byType(RoomChatPanel).first,
+              matching: find.byType(EditableText),
+            ),
+          );
+          expect(input.overlaps(bar), isFalse, reason: 'chat input $input under bar $bar');
+          await _finish(tester);
+        } finally {
+          debugDefaultTargetPlatformOverride = null;
+        }
+      });
+    }
+  });
+
   testWidgets('phone -> tablet keeps the same video surface', (tester) async {
     final phone = kScreenMatrix.firstWhere((c) => c.name == 'phone');
     try {
@@ -446,23 +474,292 @@ void main() {
     }
   });
 
-  for (final width in [360.0, 390.0]) {
-    testWidgets('phone control bar renders 1:1 at $width with every control', (tester) async {
+  // Board 46's forms, drawn in a real room: which controls a portrait phone's
+  // bar still shows inline at each width. Targets stay 44/52 (nothing scales).
+  for (final entry in {
+    332.0: 'F5',
+    360.0: 'F5',
+    390.0: 'F4',
+    412.0: 'F4',
+    436.0: 'F3',
+    480.0: 'F3',
+  }.entries) {
+    testWidgets('portrait bar at ${entry.key} is ${entry.value}, unscaled', (tester) async {
       try {
-        await _pumpRoom(tester, ScreenCase('phone-$width', Size(width, 800), .iOS), 1.0, av: true);
+        await _pumpRoom(
+          tester,
+          ScreenCase('phone-${entry.key}', Size(entry.key, 800), .iOS),
+          1.0,
+          av: true,
+        );
         final bar = find.byType(RoomControlBar);
         expect(bar, findsOneWidget);
         // Rects are global, so a scaled-down row shows up as smaller targets.
         Rect rectOf(Finder f) => tester.getRect(find.descendant(of: bar, matching: f).first);
-        expect(rectOf(find.byTooltip('Mic on (D)')).width, closeTo(44, 0.5));
         expect(rectOf(find.byType(PTPlayButton)).width, closeTo(52, 0.5));
+        Finder inBar(String tooltip) =>
+            find.descendant(of: bar, matching: find.byTooltip(tooltip)).hitTestable();
+        final more = _barMore();
+        expect(more.hitTestable(), findsOneWidget, reason: 'every portrait form has folded');
+        expect(tester.getRect(more).width, lessThanOrEqualTo(44.5));
+        // Never in the bar once folded; the source group goes first of all.
         expect(find.descendant(of: bar, matching: find.byTooltip('Subtitles')), findsNothing);
+        expect(find.descendant(of: bar, matching: find.byTooltip('Back 10 seconds')), findsNothing);
+        final mic = inBar('Mic on (D)');
+        final react = inBar('React (R)');
+        switch (entry.value) {
+          case 'F5':
+            expect(mic, findsNothing);
+            expect(react, findsNothing);
+          case 'F4':
+            expect(mic, findsOneWidget);
+            expect(rectOf(find.byTooltip('Mic on (D)')).width, closeTo(44, 0.5));
+            expect(react, findsNothing);
+          case 'F3':
+            expect(mic, findsOneWidget);
+            expect(react, findsNothing);
+        }
+        // The scrubber and play are never folded.
+        expect(find.descendant(of: bar, matching: find.byType(PTSlider)), findsOneWidget);
         await _finish(tester);
       } finally {
         debugDefaultTargetPlatformOverride = null;
       }
     });
   }
+
+  /// The seek bar and play/pause, hittable and inside the visible window.
+  void expectTransportReachable(WidgetTester tester, ScreenCase c) {
+    final bar = find.byType(RoomControlBar);
+    expect(bar, findsOneWidget, reason: '${c.name}: no control bar');
+    final play = find.descendant(of: bar, matching: find.byType(PTPlayButton));
+    final seek = find.descendant(of: bar, matching: find.byType(PTSlider)).first;
+    expect(play.hitTestable(), findsOneWidget, reason: '${c.name}: play/pause not hittable');
+    expect(seek.hitTestable(), findsOneWidget, reason: '${c.name}: seek bar not hittable');
+    final visible = Rect.fromLTWH(0, 0, c.size.width, c.size.height - c.keyboard);
+    for (final f in [play, seek]) {
+      final r = tester.getRect(f);
+      expect(
+        visible.contains(r.topLeft) && visible.contains(r.bottomRight),
+        isTrue,
+        reason: '${c.name}: $r outside $visible',
+      );
+    }
+  }
+
+  screenMatrix('room transport reachable, chat closed', (tester, c, s) async {
+    await _pumpRoom(tester, c, s);
+    expectTransportReachable(tester, c);
+    await _finish(tester);
+  });
+
+  screenMatrix('room transport reachable, chat open', (tester, c, s) async {
+    await _pumpRoom(tester, c, s, playing: true, chatOpen: true, chat: mockChatMessagesList);
+    // A keyboard-up landscape chat takes the bar's slot until it is dismissed;
+    // everywhere else the transport stays.
+    final keyboardLandscape = c.keyboard > 0 && c.size.width > c.size.height;
+    if (!keyboardLandscape) expectTransportReachable(tester, c);
+    await _finish(tester);
+  });
+
+  screenMatrix(
+    'room transport reachable with facecams and the reaction strip open',
+    (tester, c, s) async {
+      await _pumpRoom(tester, c, s, av: true, members: 6);
+      await _tapReact(tester);
+      expectTransportReachable(tester, c);
+      await _finish(tester);
+    },
+    cases: kScreenMatrix.where((c) => c.name.startsWith('phone') && c.keyboard == 0).toList(),
+  );
+
+  // Board 46, frames A-E, drawn in the real room: the form the landscape bar
+  // takes beside the chat, and the facecam rail beside both. The boards have no
+  // system insets, so these two windows have none either.
+  group('board 46: landscape forms and the rail', () {
+    const wide = ScreenCase('board-844x390', Size(844, 390), .iOS);
+    final se = kScreenMatrix.firstWhere((c) => c.name == 'phone-se-land');
+
+    Finder inline(String tooltip) => find
+        .descendant(of: find.byType(RoomControlBar), matching: find.byTooltip(tooltip))
+        .hitTestable();
+
+    Future<void> settle(WidgetTester tester) => tester.pump(const Duration(seconds: 1));
+
+    List<Rect> tileRects(WidgetTester tester) => [
+      for (var i = 0; i < tiles().evaluate().length; i++) tester.getRect(tiles().at(i)),
+    ];
+
+    void expectRailClear(WidgetTester tester, {required bool chatOpen}) {
+      final bar = tester.getRect(find.byType(RoomControlBar));
+      final chat = chatOpen ? chatPanelRect(tester) : null;
+      for (final tile in tileRects(tester)) {
+        expect(tile.overlaps(bar), isFalse, reason: 'tile $tile under the bar $bar');
+        if (chat != null) {
+          expect(tile.overlaps(chat), isFalse, reason: 'tile $tile under the chat $chat');
+          // Beside the chat: the rail's right edge is the chat width + 12 in.
+          expect(tile.right, lessThanOrEqualTo(chat.left - 12 + 0.5), reason: 'rail hugs chat');
+        }
+      }
+      final pill = find.textContaining('+').hitTestable();
+      for (var i = 0; i < pill.evaluate().length; i++) {
+        final r = tester.getRect(pill.at(i));
+        expect(r.overlaps(bar), isFalse, reason: '+N under the bar');
+        if (chat != null) expect(r.overlaps(chat), isFalse, reason: '+N under the chat');
+      }
+    }
+
+    screenMatrix(
+      'board 46 A: chat closed -> F1, two tiles and +N',
+      (tester, c, s) async {
+        await _pumpRoom(tester, wide, 1.0, av: true, members: 6);
+        await settle(tester);
+        expect(tester.getSize(find.byType(RoomControlBar)).height, 112);
+        expect(inline('Switch source'), findsOneWidget);
+        expect(inline('Back 10 seconds'), findsOneWidget);
+        expect(_barMore(), findsNothing);
+        expect(tiles(), findsNWidgets(2));
+        for (final r in tileRects(tester)) {
+          expect(r.size, const Size(104, 58));
+        }
+        expect(find.text('+4'), findsOneWidget);
+        expectRailClear(tester, chatOpen: false);
+        await _finish(tester);
+      },
+      cases: [wide],
+      textScales: [1.0],
+    );
+
+    screenMatrix(
+      'board 46 B: chat open -> F3, two large tiles left of the chat',
+      (tester, c, s) async {
+        await _pumpRoom(
+          tester,
+          wide,
+          1.0,
+          av: true,
+          members: 6,
+          chatOpen: true,
+          chat: mockChatMessagesList,
+        );
+        await settle(tester);
+        expect(tester.getSize(find.byType(RoomControlBar)).height, 64);
+        expect(tester.getSize(find.byType(RoomControlBar)).width, closeTo(442, 1));
+        expect(inline('Mic on (D)'), findsOneWidget);
+        expect(inline('React (R)'), findsNothing);
+        expect(_barMore(), findsOneWidget);
+        expect(tiles(), findsNWidgets(2));
+        for (final r in tileRects(tester)) {
+          expect(r.size, const Size(136, 77));
+        }
+        expectRailClear(tester, chatOpen: true);
+        await _finish(tester);
+      },
+      cases: [wide],
+      textScales: [1.0],
+    );
+
+    screenMatrix(
+      'board 46 C: chat closed -> F2 by the height rule',
+      (tester, c, s) async {
+        await _pumpRoom(tester, se, 1.0, av: true, members: 6);
+        await settle(tester);
+        expect(tester.getSize(find.byType(RoomControlBar)).width, closeTo(555, 1));
+        expect(tester.getSize(find.byType(RoomControlBar)).height, 64);
+        expect(inline('React (R)'), findsOneWidget);
+        expect(inline('Switch source'), findsNothing);
+        expect(tiles(), findsNWidgets(2));
+        expectRailClear(tester, chatOpen: false);
+        await _finish(tester);
+      },
+      cases: [se],
+      textScales: [1.0],
+    );
+
+    screenMatrix(
+      'board 46 D and E: chat open -> F5, two small tiles, More lists all ten',
+      (tester, c, s) async {
+        await _pumpRoom(
+          tester,
+          c,
+          1.0,
+          av: true,
+          members: 6,
+          chatOpen: true,
+          chat: mockChatMessagesList,
+        );
+        await settle(tester);
+        final bar = tester.getRect(find.byType(RoomControlBar));
+        expect(bar.width, closeTo(332, 1));
+        expect(bar.height, 64);
+        expect(inline('Mic on (D)'), findsNothing);
+        expect(find.byType(PTPlayButton).hitTestable(), findsOneWidget);
+        expect(tiles(), findsNWidgets(2));
+        for (final r in tileRects(tester)) {
+          expect(r.size, const Size(104, 58));
+        }
+        expectRailClear(tester, chatOpen: true);
+        // E: the list, anchored above the bar, taller than nothing and shorter
+        // than the room above it.
+        await tester.tap(_barMore().hitTestable());
+        await tester.pump(const Duration(milliseconds: 400));
+        for (final label in [
+          'Microphone',
+          'Camera',
+          'React',
+          'Back 10 s',
+          'Forward 10 s',
+          'Source',
+          'Open file',
+          'Audio track',
+          'Subtitles',
+          'Hide controls',
+        ]) {
+          expect(find.text(label), findsOneWidget, reason: label);
+        }
+        final panel = tester.getRect(
+          find.ancestor(of: find.text('Source'), matching: find.byType(GlassPanel)).first,
+        );
+        expect(panel.height, closeTo(236, 2));
+        expect(panel.bottom, lessThanOrEqualTo(bar.top));
+        expect(panel.top, greaterThanOrEqualTo(16));
+        await _finish(tester);
+      },
+      cases: [se],
+      textScales: [1.0],
+    );
+
+    testWidgets('a short window at 2x text gives the chat the column and keeps the bar', (
+      tester,
+    ) async {
+      try {
+        await _pumpRoom(tester, se, 2.0, chatOpen: true, chat: mockChatMessagesList);
+        await settle(tester);
+        final bar = tester.getRect(find.byType(RoomControlBar));
+        expect(find.byType(PTPlayButton).hitTestable(), findsOneWidget);
+        expect(chatPanelRect(tester).overlaps(bar), isFalse);
+        await _finish(tester);
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
+      }
+    });
+
+    testWidgets('the invite code pill is hidden at 2x, and the room menu still copies it', (
+      tester,
+    ) async {
+      try {
+        await _pumpRoom(tester, se, 2.0);
+        await settle(tester);
+        expect(find.byType(RoomCodeChip), findsNothing);
+        await tester.tap(find.byTooltip('Room menu'));
+        await tester.pump(const Duration(milliseconds: 500));
+        expect(find.text('Copy invite link'), findsOneWidget);
+        await _finish(tester);
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
+      }
+    });
+  });
 
   /// Records the system-UI modes the room asks for.
   List<String> recordUiModes(WidgetTester tester) {
@@ -515,6 +812,26 @@ void main() {
 }
 
 _FakePlayer? _lastPlayer;
+
+/// The bar's own More button (the header carries a room-menu one with the
+/// same glyph).
+Finder _barMore() =>
+    find.descendant(of: find.byType(RoomControlBar), matching: find.byIcon(BoothIcons.moreHoriz));
+
+/// Opens the reaction strip: its key when the bar still shows one, otherwise
+/// its row in the bar's More list (react folds early on a narrow bar).
+Future<void> _tapReact(WidgetTester tester) async {
+  final key = find.byTooltip('React (R)').hitTestable();
+  if (key.evaluate().isNotEmpty) {
+    await tester.tap(key.first);
+  } else {
+    await tester.tap(_barMore().hitTestable());
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.tap(find.text('React').hitTestable().first);
+  }
+  await tester.pump();
+  await tester.pump(const Duration(milliseconds: 600));
+}
 
 Future<void> _playAndHideControls(WidgetTester tester) async {
   _lastPlayer!.playing.add(true);

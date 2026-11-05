@@ -4504,65 +4504,58 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
   // Build
   // ---------------------------------------------------------------------------
 
-  /// [secondary] false leaves out the source/file/track controls, which then
-  /// live in the overflow menu ([_narrowControlBar]).
-  /// [secondary] offers the chooser actions at all; [compact] is the touch
-  /// bar, the only one that also carries source, file and hide - the desktop
-  /// and tablet bars keep to the boards and leave those to the room menu.
-  RoomControlBarActions _controlActionsFor({
-    required bool secondary,
-    bool docked = false,
-    bool compact = false,
-  }) => RoomControlBarActions(
-    onPlayPause: _playPause,
-    onSeek: _seek,
-    onSkip: _skip,
-    onMicToggle: (v) => _toggleFacecam('mic', v),
-    onCamToggle: (v) => _toggleFacecam('cam', v),
-    onCamLocked:
-        (canSellPremium &&
-            _av?.canPublishCamera == false &&
-            !_startingVideoTrial &&
-            !EntitlementService.instance.isPremium)
-        ? () => context.push('/lobby/subscribe?source=camera_lock')
-        : null,
-    onVoiceLocked: _voiceLocked ? _explainVoiceLock : null,
-    voiceLockedTooltip: _voiceLockedTooltip,
-    onMicDeviceSelect: isDesktop && _av != null ? _showMicDeviceSelector : null,
-    onCamDeviceSelect: isDesktop && _av != null ? _showCamDeviceSelector : null,
-    onAudioOutputSelect: isDesktop && _mode == .local && _av != null
-        ? _showAudioOutputDeviceSelector
-        : null,
-    audioOutputDisabledTooltip: isDesktop && _mode == .youtube
-        ? 'Audio output selection is unavailable for YouTube'
-        : null,
-    onAudioTracks: !secondary || !(compact || docked || _floatingBarIsWide)
-        ? null
-        : _mode == .local
-        ? () => _showTrackChooser(subtitles: false)
-        : null,
-    onSubtitles: !secondary
-        ? null
-        : _mode == .local
-        ? () => _showTrackChooser(subtitles: true)
-        : (_mode == .youtube && _youtubeController != null)
-        ? _showYouTubeCaptionChooser
-        : null,
-    // D1: only the host chooses what the room watches. Members keep a picker
-    // purely to locate their own copy of the canonical file.
-    onSwitchSource: secondary && compact && (_sync?.isHost ?? false) ? _handleSwitchSource : null,
-    onOpenFile: secondary && compact && _mode == .local ? _pickVideo : null,
-    openFileTooltip: (_sync?.isHost ?? false)
-        ? 'Open file'
-        : 'Locate your copy of ${_canonicalMedia.name ?? 'the file'}',
-    onVolume: _setVolume,
-    onToggleMute: _toggleMute,
-    onReact: _sync != null ? _toggleReact : null,
-    // Narrow bars are the in-flow portrait ones, which never hide.
-    // A docked bar never hides, so it offers no hide button.
-    onHideControls: secondary && compact && !docked ? _toggleControlsVisible : null,
-    onFullscreenToggle: isDesktop ? _toggleFullscreen : null,
-  );
+  /// [compact] is the phone bar, the only one that also carries source, file
+  /// and hide - the desktop and tablet bars keep to the boards and leave those
+  /// to the room menu. What does not fit a bar folds into the bar's own More
+  /// list, so nothing is left out here for want of room.
+  RoomControlBarActions _controlActionsFor({bool docked = false, bool compact = false}) =>
+      RoomControlBarActions(
+        onPlayPause: _playPause,
+        onSeek: _seek,
+        onSkip: _skip,
+        onMicToggle: (v) => _toggleFacecam('mic', v),
+        onCamToggle: (v) => _toggleFacecam('cam', v),
+        onCamLocked:
+            (canSellPremium &&
+                _av?.canPublishCamera == false &&
+                !_startingVideoTrial &&
+                !EntitlementService.instance.isPremium)
+            ? () => context.push('/lobby/subscribe?source=camera_lock')
+            : null,
+        onVoiceLocked: _voiceLocked ? _explainVoiceLock : null,
+        voiceLockedTooltip: _voiceLockedTooltip,
+        onMicDeviceSelect: isDesktop && _av != null ? _showMicDeviceSelector : null,
+        onCamDeviceSelect: isDesktop && _av != null ? _showCamDeviceSelector : null,
+        onAudioOutputSelect: isDesktop && _mode == .local && _av != null
+            ? _showAudioOutputDeviceSelector
+            : null,
+        audioOutputDisabledTooltip: isDesktop && _mode == .youtube
+            ? 'Audio output selection is unavailable for YouTube'
+            : null,
+        onAudioTracks: !(compact || docked || _floatingBarIsWide)
+            ? null
+            : _mode == .local
+            ? () => _showTrackChooser(subtitles: false)
+            : null,
+        onSubtitles: _mode == .local
+            ? () => _showTrackChooser(subtitles: true)
+            : (_mode == .youtube && _youtubeController != null)
+            ? _showYouTubeCaptionChooser
+            : null,
+        // D1: only the host chooses what the room watches. Members keep a picker
+        // purely to locate their own copy of the canonical file.
+        onSwitchSource: compact && (_sync?.isHost ?? false) ? _handleSwitchSource : null,
+        onOpenFile: compact && _mode == .local ? _pickVideo : null,
+        openFileTooltip: (_sync?.isHost ?? false)
+            ? 'Open file'
+            : 'Locate your copy of ${_canonicalMedia.name ?? 'the file'}',
+        onVolume: _setVolume,
+        onToggleMute: _toggleMute,
+        onReact: _sync != null ? _toggleReact : null,
+        // A docked bar never hides, so it offers no hide button.
+        onHideControls: compact && !docked ? _toggleControlsVisible : null,
+        onFullscreenToggle: isDesktop ? _toggleFullscreen : null,
+      );
 
   @override
   Widget build(BuildContext context) {
@@ -5369,7 +5362,10 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     );
   }
 
-  Widget _controlBarAt(Duration position, {required bool compact, bool docked = false}) {
+  Widget _controlBarAt(Duration position, {required bool compact, bool docked = false}) =>
+      _barWidget(position, compact: compact, docked: docked);
+
+  RoomControlBar _barWidget(Duration position, {required bool compact, bool docked = false}) {
     return RoomControlBar(
       playing: _playing,
       position: position,
@@ -5381,11 +5377,8 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
       avAvailable: _av != null,
       camAvailable: (_av?.canPublishCamera ?? false) || _videoTrialOnOffer || _startingVideoTrial,
       camTrialMinutes: _videoTrialOnOffer ? kVideoTrialOfferMinutes : null,
-      actions: _controlActionsFor(
-        secondary: !_narrowControlBar(compact),
-        docked: docked,
-        compact: compact,
-      ),
+      actions: _controlActionsFor(docked: docked, compact: compact),
+      sourceTag: _mode == .local ? 'Local file' : 'YouTube',
       subtitleTag: _mode == .local ? shortTrackTag(_player.state.track.subtitle) : null,
       audioTag: _mode == .local ? shortTrackTag(_player.state.track.audio) : null,
       fullscreen: _fullscreen,
@@ -5400,23 +5393,17 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     );
   }
 
-  /// Below ~400 wide the compact bar would carry every source control and
-  /// scale the whole row down to fit, shrinking its 44pt touch targets. There
-  /// the secondary controls move to the overflow menu instead, so the bar
-  /// renders 1:1 ([_menuPlaybackActions]).
-  bool _narrowControlBar(bool compact) => compact && MediaQuery.sizeOf(context).width < 400;
-
   /// What the room menu carries beyond the board's own items: whatever the
-  /// current bar leaves out. The desktop and tablet bars never carry the
-  /// source and file pickers (the boards give them no key), the floating bar
-  /// has no audio key, and a narrow phone bar has none of them.
+  /// current bar never has a key for. The desktop and tablet bars never carry
+  /// the source and file pickers (the boards give them no key), and the
+  /// floating bar has no audio key. A phone bar carries all of them, folding
+  /// them into its own More list when it runs short of room.
   List<RoomMenuAction> _menuPlaybackActions() {
     final layout = layoutOf(context);
     final compact = layout != .desktop && layout != .tablet;
-    final a = _controlActionsFor(secondary: true, compact: true);
-    final narrow = _narrowControlBar(compact);
-    final pickersInMenu = !compact || narrow;
-    final audioInMenu = narrow || (!compact && layout != .desktop);
+    final a = _controlActionsFor(compact: true);
+    final pickersInMenu = !compact;
+    final audioInMenu = !compact && layout != .desktop;
     return [
       if (pickersInMenu && a.onSwitchSource != null)
         RoomMenuAction(icon: BoothIcons.youtube, label: 'Switch source', onTap: a.onSwitchSource!),
@@ -5432,8 +5419,6 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
           label: 'Audio track',
           onTap: a.onAudioTracks!,
         ),
-      if (narrow && a.onSubtitles != null)
-        RoomMenuAction(icon: BoothIcons.subtitles, label: 'Subtitles', onTap: a.onSubtitles!),
       // The phone header keeps to the board (no sharing square), so the
       // resting "share" action moves here.
       if (compact && _canOfferShareWithRoom)
@@ -5971,13 +5956,13 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
   }
 
   Widget _landscape() {
-    final window = MediaQuery.sizeOf(context);
     return RoomMobileLandscapeLayout(
       videoSurface: _skipZones(onTap: _toggleControlsVisible, child: _videoSurface()),
       topActionsBuilder: (keyboardMode) => _topActions(compact: true, chatToggle: !keyboardMode),
       bannerStack: _bannerStack(spacing: 8),
       reactionStrip: _reactionStrip(compact: true),
       controlBar: _controlBar(compact: true),
+      barCaps: _barWidget(_positionNotifier.value, compact: true).caps,
       showControlsButton: _showControlsButton(),
       controlsVisible: _controlsVisible,
       cursorVisible: _cursorVisible,
@@ -5985,22 +5970,23 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
       reactOpen: _reactOpen,
       onMouseMove: _onMouseMove,
       overlayControls: _overlayControls,
-      facecamRail: (_av != null && !_privacyHidden && _camsVisible)
-          ? _chatDisplaced(
-              FacecamRail(
-                av: _av!,
-                present: _visiblePresent,
-                premiumMembers: _premiumMembers,
-                memberFrames: _memberFrames,
-                selfId: _sync?.userId ?? '',
-                layout: .miniStackRight,
-                trialEndsAt: _trialChipEndsAt,
-                now: () => RoomService.instance.serverNow,
-                showTrialEnded: _videoTrialEndedNote,
-                onKeepFaces: _offersKeepFaces ? _keepFacesOn : null,
-                maxTiles: window.width < 740 ? 2 : 3,
-                showNames: _controlsVisible,
-              ),
+      facecamRailBuilder: (_av != null && !_privacyHidden && _camsVisible)
+          // Not displaced by the chat: it sits beside it (the layout moves its
+          // right edge to the chat's left, 12 px clear).
+          ? (plan) => FacecamRail(
+              av: _av!,
+              present: _visiblePresent,
+              premiumMembers: _premiumMembers,
+              memberFrames: _memberFrames,
+              selfId: _sync?.userId ?? '',
+              layout: .miniStackRight,
+              trialEndsAt: _trialChipEndsAt,
+              now: () => RoomService.instance.serverNow,
+              showTrialEnded: _videoTrialEndedNote,
+              onKeepFaces: _offersKeepFaces ? _keepFacesOn : null,
+              maxTiles: math.max(1, plan.tiles),
+              miniLarge: plan.large,
+              showNames: _controlsVisible,
             )
           : null,
       chatDisplacedOverlay: _overlayChat.isNotEmpty ? _chatDisplaced(_chatOverlay()) : null,

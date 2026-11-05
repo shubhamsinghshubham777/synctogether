@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
-"""Generate assets/sfx/splash.wav - the splash-screen logo sting.
+"""Generate assets/sfx/splash.wav - the audio-output test chime.
 
-Synthesised rather than recorded, for the same reason assets/icon/ is
-generated: the sound has to land *on* the splash animation, so its timing
-lives next to the numbers it must match. `IMPACT` below is the contract -
-lib/ui/splash_screen.dart plays this file at animation t=0 and lands the logo
-tile at the same offset.
+The app's splash screen is silent; this file (historical name) is played only
+by the speaker test in lib/av/av_settings_dialog.dart ("Test your mic and
+camera"). Synthesised rather than recorded, for the same reason assets/icon/
+is generated.
 
     python3 tool/generate_splash_sound.py
 
@@ -17,8 +16,7 @@ Stdlib only. Layers, in the order you hear them:
     0.30s  tail     feedback delay on the chime     -> room, then silence
 
 Tuning it means editing the layer functions and re-running - the .wav is build
-output, not a source file. Anything that replaces it has to keep its transient
-at IMPACT, or the logo's spring and the hit come apart.
+output, not a source file.
 """
 
 import math
@@ -29,7 +27,7 @@ import wave
 
 SR = 44100
 DURATION = 1.30
-IMPACT = 0.30  # keep in sync with _kImpact in lib/ui/splash_screen.dart
+IMPACT = 0.30  # seconds into the file where the hit lands
 
 OUT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "assets", "sfx", "splash.wav")
 

@@ -400,7 +400,7 @@ class _AvSettingsDialogContentState extends State<_AvSettingsDialogContent> {
       }
 
       final progress = elapsed.inMilliseconds / duration.inMilliseconds;
-      // Resonant splash chime envelope: attack peak around 15%, decaying with rhythmic bounce.
+      // Resonant output-test chime envelope: attack peak around 15%, decaying with rhythmic bounce.
       final envelope = (progress < 0.15) ? (progress / 0.15) : (1.0 - progress).clamp(0.0, 1.0);
       final bounce = (0.55 + 0.45 * (1 + (timer.tick % 4)) / 4.0);
       final peak = (envelope * bounce).clamp(0.0, 1.0);

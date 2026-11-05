@@ -2,8 +2,6 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import 'package:media_kit/media_kit.dart';
-import 'package:synctogether/diagnostics.dart';
 import 'package:synctogether/ui/logo.dart';
 import 'package:synctogether/ui/pt_motion.dart';
 import 'package:synctogether/ui/pt_theme.dart';
@@ -11,25 +9,18 @@ import 'package:synctogether/ui/pt_theme.dart';
 /// Total run: logo in, hold, cross-fade out.
 const _kTotal = Duration(milliseconds: 1800);
 
-/// The accent - the logo's spring reaches full overshoot here, and the sound's
-/// transient is cut to hit the same instant (`IMPACT` in
-/// tool/generate_splash_sound.py). Move one, move the other.
+/// The accent - the logo's spring reaches full overshoot here, the beat the eye
+/// reads as the hit. Under reduce-motion it is also the hold before the
+/// hand-off fade.
 const _kImpact = Duration(milliseconds: 300);
-
-/// Maximum time allowed for audio initialization, asset buffering, and active
-/// playback confirmation before falling back to silent animation.
-/// Keeps app startup responsive even if audio hardware is slow or unavailable.
-const _kAudioBudget = Duration(milliseconds: 3000);
-
-const _kSfx = 'asset:///assets/sfx/splash.wav';
 
 /// Underdamped spring settle: overshoots once by ~17%, undershoots a hair,
 /// done. [PTMotion.arrive]'s easeOutBack is the kit's overshoot curve, but it
 /// has to spend its whole interval on a single lean-back - a real spring can
 /// take the same time and still feel like it *lands* partway through, which is
-/// what lets the visual accent sit on the audio transient.
+/// what lets the visual accent land partway through.
 /// Its first and largest overshoot (~17%) peaks at π/frequency ≈ 0.273 of the
-/// interval - that fraction is the beat the ear reads as the hit, and it is
+/// interval - that fraction is the beat the eye reads as the hit, and it is
 /// what the tile's timing below is solved against.
 class _Spring extends Curve {
   const _Spring();
@@ -51,9 +42,9 @@ Interval _beat(int startMs, int endMs, Curve curve) =>
 
 /// The choreography, in milliseconds from t=0.
 ///
-/// Only the tile is timed to the audio: its spring peaks on [_kImpact]
+/// Only the tile is timed to the accent: its spring peaks on [_kImpact]
 /// (110 + 0.273 × 700 ≈ 300). Everything else trails it as follow-through, so
-/// the ear hears one hit and not three. Scale and opacity run on separate
+/// the eye reads one hit and not three. Scale and opacity run on separate
 /// intervals on purpose - a spring that faded over its whole travel would
 /// still be translucent at the moment it is supposed to land.
 final _tile = _beat(110, 810, _spring);
@@ -70,7 +61,7 @@ final _wordFade = _beat(210, 490, PTMotion.enter);
 final _prewarm = 950 / _kTotal.inMilliseconds;
 final _exit = _beat(1240, _kTotal.inMilliseconds, PTMotion.emphasized);
 
-/// Cold-start splash: holds the app back for one beat, plays the logo sting,
+/// Cold-start splash: holds the app back for one beat while the logo springs in,
 /// then cross-fades so the lobby's own entrance choreography plays into the
 /// gap rather than behind an opaque cover.
 ///
@@ -78,22 +69,9 @@ final _exit = _beat(1240, _kTotal.inMilliseconds, PTMotion.emphasized);
 /// redirects and the deep-link handler in main.dart all keep running
 /// underneath, so an invite link that arrives during the splash still lands.
 class PTSplash extends StatefulWidget {
-  const PTSplash({
-    super.key,
-    required this.child,
-    @visibleForTesting this.playerFactory,
-    @visibleForTesting this.mediaOverride,
-  });
+  const PTSplash({super.key, required this.child});
 
   final Widget child;
-
-  /// Optional factory for testing to inject a custom or mock [Player].
-  @visibleForTesting
-  final Player Function()? playerFactory;
-
-  /// Optional playable to override the default splash sound asset (e.g. in tests).
-  @visibleForTesting
-  final Playable? mediaOverride;
 
   @override
   State<PTSplash> createState() => _PTSplashState();
@@ -105,34 +83,23 @@ class _PTSplashState extends State<PTSplash> with SingleTickerProviderStateMixin
       if (status == AnimationStatus.completed) setState(() => _finished = true);
     });
 
-  Player? _sound;
-  Player? _loadingPlayer;
   bool _finished = false;
-  bool _disposed = false;
   Timer? _reducedMotionTimer;
 
   @override
   void initState() {
     super.initState();
-    unawaited(_run());
-  }
-
-  Future<void> _run() async {
-    // Wait until the audio asset is verified loaded and active playback has
-    // started so sound and visual animation begin in lockstep.
-    final player = await _prepareAudio();
-    if (!mounted || _disposed) {
-      _release(player);
-      return;
-    }
-    _sound = player;
-    _startAnimation();
+    // First frame is laid out before the clock starts, so the controller's
+    // first tick is not charged with initial build cost.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _startAnimation();
+    });
   }
 
   void _startAnimation() {
     if (reducedMotion(context)) {
-      // Decorative motion renders its end state; the sting still plays, and
-      // the hold gives it somewhere to land before the hand-off.
+      // Decorative motion renders its end state; the hold gives the logo
+      // somewhere to rest before the hand-off.
       _controller.value = _exit.begin;
       _reducedMotionTimer = Timer(_kImpact, () {
         if (mounted) _controller.forward();
@@ -142,99 +109,9 @@ class _PTSplashState extends State<PTSplash> with SingleTickerProviderStateMixin
     }
   }
 
-  /// Players this splash has already released. media_kit's `dispose` is not
-  /// idempotent - a second call throws `AssertionError('[Player] has been
-  /// disposed')` - and three paths can reach the same player: the splash being
-  /// torn down mid-load, the 3 s budget expiring (the abandoned load keeps
-  /// running and later hits its own `_disposed` branch), and `_run` finding
-  /// the splash gone. Identity set, since `Player` has no useful equality.
-  final Set<Player> _released = Set.identity();
-
-  /// True when [player] must not be touched any more.
-  bool _gone(Player player) => _disposed || _released.contains(player);
-
-  /// Disposes [player] exactly once; a no-op for null or an already released one.
-  void _release(Player? player) {
-    if (player == null || !_released.add(player)) return;
-    unawaited(
-      player.dispose().catchError((Object e, StackTrace s) {
-        reportNonFatal(e, s, during: 'releasing the splash sound player');
-      }),
-    );
-  }
-
-  Future<Player?> _prepareAudio() async {
-    Player? player;
-    try {
-      final p = widget.playerFactory?.call() ?? Player();
-      _loadingPlayer = p;
-      player = p;
-      final ready = await _startPlayback(p).timeout(_kAudioBudget);
-      _loadingPlayer = null;
-      return ready;
-    } catch (e, s) {
-      _loadingPlayer = null;
-      _release(player);
-      if (e is! TimeoutException) {
-        reportNonFatal(e, s, during: 'loading the splash sound');
-      }
-      return null;
-    }
-  }
-
-  Future<Player?> _startPlayback(Player player) async {
-    if (_gone(player)) {
-      _release(player);
-      return null;
-    }
-
-    await player.setVolume(75);
-    if (_gone(player)) {
-      _release(player);
-      return null;
-    }
-
-    final media = widget.mediaOverride ?? Media(_kSfx);
-    await player.open(media, play: false);
-    if (_gone(player)) {
-      _release(player);
-      return null;
-    }
-
-    // Wait until media_kit demuxes and buffers the asset.
-    if (player.state.duration <= Duration.zero) {
-      final d = await player.stream.duration.firstWhere(
-        (d) => d > Duration.zero,
-        orElse: () => Duration.zero,
-      );
-      if (_gone(player) || d <= Duration.zero) {
-        _release(player);
-        return null;
-      }
-    }
-
-    // Trigger playback and wait for confirmation that the audio engine
-    // has actively started playing before releasing the visual animation.
-    await player.play();
-    if (!player.state.playing) {
-      final playing = await player.stream.playing.firstWhere((p) => p, orElse: () => false);
-      if (_gone(player) || !playing) {
-        _release(player);
-        return null;
-      }
-    }
-
-    return player;
-  }
-
   @override
   void dispose() {
-    _disposed = true;
     _reducedMotionTimer?.cancel();
-    // The splash outlives the 1.30 s sting, so this never clips a tail.
-    _release(_sound);
-    _release(_loadingPlayer);
-    _loadingPlayer = null;
     _controller.dispose();
     super.dispose();
   }

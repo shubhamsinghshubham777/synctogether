@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import '../../ui/booth_icons.g.dart';
 import 'package:material_symbols_icons/symbols.dart';
@@ -56,6 +58,11 @@ class ReadinessOverlay extends StatelessWidget {
     required this.onKick,
     this.onStartWithout,
     this.startWithoutLabel,
+    this.onPickSource,
+    this.pickSourceLabel = 'Choose a video',
+    this.onSwitchSource,
+    this.switchSourceLabel = 'Use a YouTube link instead',
+    this.switchSourceShortLabel = 'YouTube link',
     this.compact = false,
     this.chromeInsets = EdgeInsets.zero,
     this.reveal = 1,
@@ -77,6 +84,17 @@ class ReadinessOverlay extends StatelessWidget {
 
   final VoidCallback? onStartWithout;
   final String? startWithoutLabel;
+
+  /// Host only, in a room with nothing set: the way out of the empty state.
+  /// Null for everyone else, who just wait (no dead-end button).
+  final VoidCallback? onPickSource;
+  final String pickSourceLabel;
+
+  /// The other source. Dropped in the dense form - the room menu carries
+  /// "Switch source" there - so the one button that matters always fits.
+  final VoidCallback? onSwitchSource;
+  final String switchSourceLabel;
+  final String switchSourceShortLabel;
   final bool compact;
 
   /// The part of the video box covered by floating chrome; the card centres
@@ -93,19 +111,44 @@ class ReadinessOverlay extends StatelessWidget {
     // The scrim is full-bleed; the card keeps clear of whatever system insets
     // reach it (none, once a parent SafeArea has consumed them) and of the
     // floating chrome.
-    final padding =
-        EdgeInsets.all(compact ? 12 : 24) + MediaQuery.paddingOf(context) + chromeInsets;
+    final system = MediaQuery.paddingOf(context);
+    final roomy = EdgeInsets.all(compact ? 12 : 24) + system + chromeInsets;
     return LayoutBuilder(
       builder: (context, box) {
+        // Tightest: a short window or big text leaves a sliver once the chrome
+        // is subtracted. The empty state's button is the one thing that must
+        // stay reachable, so the headline (the button names the job), the
+        // panel's breathing room give way, and the system insets overlap the
+        // chrome's rather than adding to it.
+        final tight = onPickSource != null && box.maxHeight - roomy.vertical < 130;
+        final padding = tight
+            ? EdgeInsets.fromLTRB(
+                system.left + chromeInsets.left + 4,
+                math.max(system.top, chromeInsets.top) + 4,
+                system.right + chromeInsets.right + 4,
+                math.max(system.bottom, chromeInsets.bottom) + 4,
+              )
+            : roomy;
         // Dense: the video box is a phone's strip (or the chrome leaves little
         // of it). A roster that could never show cannot be the reason the
         // buttons scroll out of reach - it lives in the member list anyway.
         final room = box.maxHeight - padding.vertical;
         final dense = room < 300;
-        // Side-by-side buttons only while both labels fit whole.
+        // Side-by-side buttons only while both labels fit whole; the empty
+        // state's pair has longer labels, so it asks for more.
+        final needed = onPickSource != null ? 340.0 : 330.0;
         final sideBySide =
-            box.maxWidth - padding.horizontal >= MediaQuery.textScalerOf(context).scale(330);
-        return _build(context, t, padding, dense, sideBySide, room < 200 ? 2 : 3, () => row++);
+            box.maxWidth - padding.horizontal >= MediaQuery.textScalerOf(context).scale(needed);
+        return _build(
+          context,
+          t,
+          padding,
+          dense,
+          sideBySide,
+          room < 200 ? 2 : 3,
+          () => row++,
+          tight: tight,
+        );
       },
     );
   }
@@ -117,9 +160,25 @@ class ReadinessOverlay extends StatelessWidget {
     bool dense,
     bool sideBySide,
     int headlineLines,
-    int Function() nextRow,
-  ) {
+    int Function() nextRow, {
+    bool tight = false,
+  }) {
     final actions = [
+      if (onPickSource != null)
+        PTButton(
+          label: pickSourceLabel,
+          icon: pickSourceLabel.contains('YouTube') ? BoothIcons.youtube : BoothIcons.file,
+          expand: true,
+          onPressed: onPickSource,
+        ),
+      // Dense and narrow, or tight: the room menu carries "Switch source".
+      if (onPickSource != null && onSwitchSource != null && !tight && (!dense || sideBySide))
+        PTButton(
+          label: dense ? switchSourceShortLabel : switchSourceLabel,
+          variant: .secondary,
+          expand: true,
+          onPressed: onSwitchSource,
+        ),
       if (onLocateFile != null)
         PTButton(
           // Just the action - the headline directly above already names the
@@ -152,45 +211,46 @@ class ReadinessOverlay extends StatelessWidget {
               baseColor: PTColors.surfaceBase,
               borderColor: PTColors.white(0.14 * t),
               shadow: false,
-              padding: EdgeInsets.all(compact ? 18 : 24),
+              padding: EdgeInsets.all(tight ? 8 : (compact ? 18 : 24)),
               child: Opacity(
                 opacity: t,
                 child: Column(
                   mainAxisSize: .min,
                   crossAxisAlignment: .stretch,
-                  spacing: compact ? 14 : 18,
+                  spacing: tight ? 0 : (compact ? 14 : 18),
                   children: [
-                    Row(
-                      crossAxisAlignment: .start,
-                      spacing: 12,
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.only(top: 1),
-                          child: Icon(
-                            Symbols.hourglass_top_rounded,
-                            size: compact ? 19 : 22,
-                            color: PTColors.textAccent,
-                          ),
-                        ),
-                        Expanded(
-                          child: Text(
-                            headline,
-                            maxLines: dense ? headlineLines : null,
-                            overflow: dense ? .ellipsis : null,
-                            // Media names run long ("Movie.2005.1080p.BluRay…"), and
-                            // at the headline size they turn the panel into a wall
-                            // of bold text. Step down once past a sentence or so.
-                            style: PTText.body.copyWith(
-                              fontSize: headline.length > 90
-                                  ? (compact ? 13 : 14)
-                                  : (compact ? 14.5 : 16),
-                              fontWeight: .w600,
-                              height: 1.4,
+                    if (!tight)
+                      Row(
+                        crossAxisAlignment: .start,
+                        spacing: 12,
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.only(top: 1),
+                            child: Icon(
+                              Symbols.hourglass_top_rounded,
+                              size: compact ? 19 : 22,
+                              color: PTColors.textAccent,
                             ),
                           ),
-                        ),
-                      ],
-                    ),
+                          Expanded(
+                            child: Text(
+                              headline,
+                              maxLines: dense ? headlineLines : null,
+                              overflow: dense ? .ellipsis : null,
+                              // Media names run long ("Movie.2005.1080p.BluRay…"), and
+                              // at the headline size they turn the panel into a wall
+                              // of bold text. Step down once past a sentence or so.
+                              style: PTText.body.copyWith(
+                                fontSize: headline.length > 90
+                                    ? (compact ? 13 : 14)
+                                    : (compact ? 14.5 : 16),
+                                fontWeight: .w600,
+                                height: 1.4,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     if (uploadProgressWidget != null) uploadProgressWidget!,
                     if (members.isNotEmpty && !dense)
                       Column(

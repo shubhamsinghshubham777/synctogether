@@ -33,13 +33,13 @@ enum BarControl {
 /// and volume stay longer) and shares [f3] -> [f5] below them.
 enum RoomBarForm {
   /// Two rows: seek on top, every control beneath it.
-  f1(112, 552),
+  f1(112, 560),
 
   /// One row; the source group and the skips have folded.
-  f2(64, 484),
+  f2(64, 492),
 
   /// ...and react.
-  f3(64, 436),
+  f3(64, 440),
 
   /// ...and the camera.
   f4(64, 388),
@@ -132,6 +132,10 @@ const _kInset = 24.0; // 1 px border + 11 px padding, either side
 const _kKey = 44.0;
 const _kPlay = 52.0;
 const _kGap = 4.0; // between keys in a group
+
+/// Between the outlined mic, camera and react squares: wide enough that three
+/// hairlined squares read as three buttons (a 4 px gap looked merged).
+const double kAvKeyGap = 8;
 const _kGroupGap = 12.0; // between groups on the one-row forms
 const _kSeekGap = 8.0; // time - seek - time
 const _kSeekFloor = 80.0; // the narrowest the scrubber is drawn
@@ -172,7 +176,7 @@ double subsKeyWidth(TextScaler scaler, String label) {
   return (width + 20).ceilToDouble();
 }
 
-double _group(int n, double each) => n == 0 ? 0 : n * each + (n - 1) * _kGap;
+double _group(int n, double each, [double gap = _kGap]) => n == 0 ? 0 : n * each + (n - 1) * gap;
 
 /// The width [form] needs for [caps] at [scaler]: what the board draws at 1.0
 /// text, growing with the time labels (and the SUBS key) at larger text.
@@ -184,7 +188,7 @@ double naturalWidth(RoomBarForm form, RoomBarCaps caps, TextScaler scaler) {
   final avCount = [BarControl.mic, BarControl.camera, BarControl.react].where(shown).length;
 
   if (form.twoRows) {
-    final left = _group(avCount, _kKey);
+    final left = _group(avCount, _kKey, kAvKeyGap);
     final skips = _kKey + _kPlay + _kKey + 2 * _kGap;
     final double right;
     if (caps.tablet) {
@@ -218,14 +222,14 @@ double naturalWidth(RoomBarForm form, RoomBarCaps caps, TextScaler scaler) {
       seek +
       _kGroupGap +
       _kPlay +
-      (avCount > 0 ? _kGroupGap + _group(avCount, _kKey) : 0) +
+      (avCount > 0 ? _kGroupGap + _group(avCount, _kKey, kAvKeyGap) : 0) +
       (foldedAny ? _kGroupGap + _kKey : 0);
 }
 
 /// The width at which [form] is first chosen: what it measures for the
 /// controls the bar actually carries. A guest's bar has no mic or camera, so
 /// its forms fit sooner than the board's full set. (The measured widths of F1
-/// to F5 with every control are exactly the board's 552/484/436/388/332.) The
+/// to F5 with every control are the board's 552/484/436/388/332 plus the wider 8 px av gap: 560/492/440/388/332.) The
 /// tablet forms keep the board's looser 580/470 where the measure is smaller.
 double thresholdOf(RoomBarForm form, RoomBarCaps caps, TextScaler scaler) {
   final measured = naturalWidth(form, caps, scaler);

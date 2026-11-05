@@ -33,6 +33,12 @@ enum FacecamLayout { railLeft, stripTop, miniStackRight }
 const kAvRestingMessage =
     "Facecams are full up right now. They'll switch on by themselves the moment there's room.";
 
+/// The compact tile's height, and the widest a strip tile may grow: a 16:9
+/// frame of that height. Four tiles on a phone are narrower than this and
+/// unaffected; a lone tile (or a wide tablet) stops here instead of stretching.
+const kStripTileHeight = 58.0;
+const kStripTileMaxWidth = kStripTileHeight * 16 / 9;
+
 /// Facecam tiles per present member: live video when the member publishes a
 /// cam track, avatar tile otherwise; self first with a brighter hairline, Signal ring while speaking.
 ///
@@ -245,7 +251,21 @@ class _FacecamRailState extends State<FacecamRail> {
                 ),
               if (widget.showTrialEnded)
                 VideoTrialEndedNote(onKeepFaces: widget.onKeepFaces, compact: true),
-              Row(spacing: 8, children: [for (final t in tiles) Expanded(child: t)]),
+              // Tiles share the row but never stretch past a 16:9 frame: one
+              // participant is one tile at its own size, not a banner across
+              // the screen with the face cropped away. Left-aligned, as drawn.
+              Row(
+                spacing: 8,
+                children: [
+                  for (final t in tiles)
+                    Flexible(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: kStripTileMaxWidth),
+                        child: t,
+                      ),
+                    ),
+                ],
+              ),
             ],
           ),
           .miniStackRight => SingleChildScrollView(
@@ -342,7 +362,7 @@ class _FacecamTile extends StatelessWidget {
     final micOff = _micOff(participant);
     final speaking = participant?.isSpeaking ?? (isMockOrDemo && member.userId == 'user-sarah');
 
-    final height = large ? kMiniTileExtentLarge : (compact ? 58.0 : 112.0);
+    final height = large ? kMiniTileExtentLarge : (compact ? kStripTileHeight : 112.0);
     const radius = PTRadius.control;
 
     // The highest-value AV micro: this is how you know who just laughed. A

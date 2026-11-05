@@ -59,13 +59,13 @@ void main() {
     final table = {
       900.0: RoomBarForm.f1,
       732.0: RoomBarForm.f1,
-      552.0: RoomBarForm.f1,
-      551.0: RoomBarForm.f2,
-      484.0: RoomBarForm.f2,
-      483.0: RoomBarForm.f3,
+      560.0: RoomBarForm.f1,
+      559.0: RoomBarForm.f2,
+      492.0: RoomBarForm.f2,
+      491.0: RoomBarForm.f3,
       442.0: RoomBarForm.f3,
-      436.0: RoomBarForm.f3,
-      435.0: RoomBarForm.f4,
+      440.0: RoomBarForm.f3,
+      439.0: RoomBarForm.f4,
       388.0: RoomBarForm.f4,
       387.0: RoomBarForm.f5,
       332.0: RoomBarForm.f5,
@@ -86,7 +86,7 @@ void main() {
       579.0: RoomBarForm.t1,
       470.0: RoomBarForm.t1,
       469.0: RoomBarForm.f3,
-      436.0: RoomBarForm.f3,
+      440.0: RoomBarForm.f3,
       420.0: RoomBarForm.f4,
       340.0: RoomBarForm.f5,
     };
@@ -100,8 +100,8 @@ void main() {
   test('larger text steps the ladder down earlier', () {
     // The icons never scale, but the time labels do (up to 1.3x), so the
     // one-row forms need more room and the same slot takes a later form.
-    expect(_pick(484), RoomBarForm.f2);
-    expect(_pick(484, scale: 2), isNot(RoomBarForm.f2));
+    expect(_pick(492), RoomBarForm.f2);
+    expect(_pick(492, scale: 2), isNot(RoomBarForm.f2));
     expect(
       thresholdOf(RoomBarForm.f2, _phone, const TextScaler.linear(2)),
       greaterThan(thresholdOf(RoomBarForm.f2, _phone, const TextScaler.linear(1))),
@@ -189,17 +189,20 @@ void main() {
     bool rail(double boxHeight, RoomBarForm f) =>
         railPlanFor(railSlotHeight(boxHeight, f)).holdsTwo;
 
-    test('667x375, chat closed: slot 555 fits F1, but F1 leaves one tile -> F2 (board C)', () {
-      expect(
-        pickBarForm(
-          slot: 555,
-          caps: _phone,
-          scaler: TextScaler.noScaling,
-          accepts: (f) => rail(375, f),
-        ),
-        RoomBarForm.f2,
-      );
-    });
+    test(
+      '667x375, chat closed: slot 555 would fit F1 but for the wider av gap, and F1 leaves one tile -> F2 (board C)',
+      () {
+        expect(
+          pickBarForm(
+            slot: 555,
+            caps: _phone,
+            scaler: TextScaler.noScaling,
+            accepts: (f) => rail(375, f),
+          ),
+          RoomBarForm.f2,
+        );
+      },
+    );
 
     test('844x390, chat closed: F1 leaves a 172 slot, two tiles -> F1 (board A)', () {
       expect(

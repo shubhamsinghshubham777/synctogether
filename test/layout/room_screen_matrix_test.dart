@@ -19,6 +19,8 @@ import 'package:synctogether/av/livekit_service.dart';
 import 'package:synctogether/mock/mock_dependencies.dart';
 import 'package:synctogether/profile/entitlement_service.dart';
 import 'package:synctogether/profile/profile_service.dart';
+import 'package:synctogether/player/mode_selection_dialog.dart';
+import 'package:synctogether/player/youtube_url_dialog.dart';
 import 'package:synctogether/rooms/room_dependencies.dart';
 import 'package:synctogether/rooms/room_models.dart';
 import 'package:synctogether/rooms/room_screen.dart';
@@ -134,23 +136,40 @@ Room _room({DateTime? expiresAt, String uploadState = 'none'}) => Room(
   avLevel: .video,
 );
 
-List<RoomMember> _roomMembers(int n) => [
+/// A room with nothing chosen yet: the host's empty state.
+Room _emptyRoom() => Room(
+  id: 'room-1',
+  code: 'X7K9P2',
+  name: 'Friday Horror Club',
+  createdBy: 'user-alex',
+  createdAt: DateTime.now().subtract(const Duration(minutes: 30)),
+  durationMinutes: 120,
+  expiresAt: DateTime.now().add(const Duration(minutes: 90)),
+  maxMembers: 8,
+  avLevel: .video,
+);
+
+/// Who holds the host role: the viewer (`user-alex`), or - when [selfHost] is
+/// false - the second member, leaving the viewer as an ordinary member.
+String _roleOf(int i, bool selfHost) => (selfHost ? i == 0 : i == 1) ? 'host' : 'member';
+
+List<RoomMember> _roomMembers(int n, {bool selfHost = true}) => [
   for (var i = 0; i < n; i++)
     RoomMember(
       roomId: 'room-1',
       userId: i == 0 ? 'user-alex' : 'u$i',
-      role: i == 0 ? 'host' : 'member',
+      role: _roleOf(i, selfHost),
       joinedAt: DateTime.now().subtract(Duration(minutes: 60 - i)),
       profile: mockCurrentProfile,
     ),
 ];
 
-List<Map<String, dynamic>> _presence(int n, {required bool allReady}) => [
+List<Map<String, dynamic>> _presence(int n, {required bool allReady, bool selfHost = true}) => [
   for (var i = 0; i < n; i++)
     {
       'user_id': i == 0 ? 'user-alex' : 'u$i',
       'display_name': i == 0 ? 'Alex Rivers' : (i.isOdd ? _longName : 'Sam $i'),
-      'role': i == 0 ? 'host' : 'member',
+      'role': _roleOf(i, selfHost),
       'joined_at': DateTime.now().subtract(Duration(minutes: 60 - i)).toIso8601String(),
       'ready_status': allReady || i % 3 == 0 ? 'ready' : (i.isOdd ? 'loading' : 'selecting'),
       'loaded_file_name': allReady || i % 3 == 0 ? _file : (i % 3 == 2 ? 'Other_File.mp4' : null),
@@ -173,6 +192,8 @@ Future<_Harness> _pumpRoom(
   bool chatOpen = false,
   bool av = false,
   List<ChatMessage> chat = const [],
+  bool selfHost = true,
+  bool remembered = true,
 }) async {
   final h = _Harness();
   _lastPlayer = h.player;
@@ -182,13 +203,14 @@ Future<_Harness> _pumpRoom(
   final dir = Directory('${Directory.systemTemp.path}/room_matrix')..createSync(recursive: true);
   final copy = File('${dir.path}/$_file')..writeAsStringSync('');
   SharedPreferences.setMockInitialValues({
-    _kLocalMediaKey: jsonEncode({
-      'room-1': {
-        'name': _file,
-        'path': copy.path,
-        'touched_at': DateTime.now().millisecondsSinceEpoch,
-      },
-    }),
+    if (remembered)
+      _kLocalMediaKey: jsonEncode({
+        'room-1': {
+          'name': _file,
+          'path': copy.path,
+          'touched_at': DateTime.now().millisecondsSinceEpoch,
+        },
+      }),
   });
   ProfileService.instance = MockProfileService();
   EntitlementService.instance = MockEntitlementService();
@@ -196,12 +218,12 @@ Future<_Harness> _pumpRoom(
   RoomService.instance = rooms;
   mockMembersList
     ..clear()
-    ..addAll(_roomMembers(members));
+    ..addAll(_roomMembers(members, selfHost: selfHost));
   h.backend
     ..chatHistory = chat
     ..roomRow = r
     ..membership = MembershipRow(
-      role: 'host',
+      role: selfHost ? 'host' : 'member',
       joinedAt: DateTime.now().subtract(const Duration(minutes: 60)),
     );
   SyncService.defaultBackendOverride = h.backend;
@@ -247,9 +269,9 @@ Future<_Harness> _pumpRoom(
   );
   final channel = h.backend.channelInUse;
   channel.emitStatus(.subscribed);
-  channel.syncPresence(_presence(members, allReady: allReady));
+  channel.syncPresence(_presence(members, allReady: allReady, selfHost: selfHost));
   await tester.pump();
-  if (allReady) {
+  if (allReady && r.mediaDuration != null) {
     h.player.state = h.player.state.copyWith(duration: r.mediaDuration);
     h.player.duration.add(r.mediaDuration!);
     h.player.position.add(const Duration(minutes: 42, seconds: 7));
@@ -268,6 +290,11 @@ Future<void> _finish(WidgetTester tester) async {
   await finishCase(tester);
   await tester.pump(const Duration(seconds: 11));
 }
+
+Finder tiles() => find.descendant(
+  of: find.byType(FacecamRail),
+  matching: find.byWidgetPredicate((w) => w.runtimeType.toString() == '_FacecamTile'),
+);
 
 void main() {
   setUp(() => _VideoProbe.mounts = 0);
@@ -310,6 +337,96 @@ void main() {
     await _finish(tester);
   });
 
+  /// Pumps the host-less-room case: nothing chosen yet, the picker already
+  /// dismissed (the way a user who backs out of the chooser lands here).
+  Future<void> pumpEmptyRoom(
+    WidgetTester tester,
+    ScreenCase c,
+    double s, {
+    bool host = true,
+  }) async {
+    await _pumpRoom(
+      tester,
+      c,
+      s,
+      room: _emptyRoom(),
+      members: 2,
+      selfHost: host,
+      remembered: false,
+    );
+    final dialog = find.byType(ModeSelectionDialog);
+    if (dialog.evaluate().isNotEmpty) {
+      Navigator.of(tester.element(dialog)).pop();
+    }
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.pump(const Duration(seconds: 1));
+  }
+
+  screenMatrix('room empty state, host', (tester, c, s) async {
+    await pumpEmptyRoom(tester, c, s);
+    final pick = find.text('Choose a video');
+    expect(pick, findsOneWidget, reason: '${c.name} x$s: no way to choose');
+    expect(pick.hitTestable(), findsOneWidget, reason: '${c.name} x$s: choose button not hittable');
+    final visible = Rect.fromLTWH(0, 0, c.size.width, c.size.height - c.keyboard);
+    final r = tester.getRect(find.ancestor(of: pick, matching: find.byType(PTButton)));
+    expect(
+      visible.contains(r.topLeft) && visible.contains(r.bottomRight),
+      isTrue,
+      reason: '${c.name} x$s: $r outside $visible',
+    );
+    expectShownWhole(tester, 'Choose a video');
+    await _finish(tester);
+  }, cases: kScreenMatrix.where((c) => c.keyboard == 0).toList());
+
+  screenMatrix(
+    'room empty state, member sees no dead-end button',
+    (tester, c, s) async {
+      await pumpEmptyRoom(tester, c, s, host: false);
+      expect(find.textContaining('Waiting for the host'), findsOneWidget);
+      expect(find.text('Choose a video'), findsNothing);
+      expect(find.text('Use a YouTube link instead'), findsNothing);
+      await _finish(tester);
+    },
+    textScales: [1.0],
+    cases: kScreenMatrix.where((c) => c.keyboard == 0).toList(),
+  );
+
+  testWidgets('empty state: the host can switch source from the overlay', (tester) async {
+    final c = kScreenMatrix.firstWhere((c) => c.name == 'phone');
+    try {
+      await pumpEmptyRoom(tester, c, 1.0);
+      final other = find.text('YouTube link');
+      expect(other, findsOneWidget);
+      await tester.tap(other);
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(find.byType(YouTubeUrlDialog), findsOneWidget);
+      Navigator.of(tester.element(find.byType(YouTubeUrlDialog))).pop();
+      await tester.pump(const Duration(milliseconds: 500));
+      await _finish(tester);
+    } finally {
+      debugDefaultTargetPlatformOverride = null;
+    }
+  });
+
+  // One participant is one tile at a 16:9 frame, never a banner across the
+  // screen with the face cropped away.
+  screenMatrix(
+    'room facecam strip, one participant',
+    (tester, c, s) async {
+      await _pumpRoom(tester, c, s, av: true, members: 1);
+      final all = tiles();
+      expect(all, findsOneWidget, reason: '${c.name} x$s: expected a single tile');
+      final r = tester.getRect(all);
+      expect(r.width / r.height, inInclusiveRange(1.5, 2.0), reason: '${c.name} x$s: $r');
+      expect(r.width, lessThanOrEqualTo(kStripTileMaxWidth + 0.5));
+      await _finish(tester);
+    },
+    textScales: [1.0, 2.0],
+    cases: kScreenMatrix.where((c) {
+      return c.name.startsWith('phone') && c.size.height > c.size.width && c.keyboard == 0;
+    }).toList(),
+  );
+
   screenMatrix('room stacked banners', (tester, c, s) async {
     final h = await _pumpRoom(
       tester,
@@ -337,11 +454,6 @@ void main() {
       debugDefaultTargetPlatformOverride = null;
     }
   });
-
-  Finder tiles() => find.descendant(
-    of: find.byType(FacecamRail),
-    matching: find.byWidgetPredicate((w) => w.runtimeType.toString() == '_FacecamTile'),
-  );
 
   Rect chatPanelRect(WidgetTester tester) => tester.getRect(find.byType(RoomChatPanel).first);
 
@@ -760,6 +872,91 @@ void main() {
       }
     });
   });
+
+  // The outlined mic, camera and react squares read as three buttons: equal
+  // gaps between neighbours, never the ~1 px that merged two hairlines.
+  for (final variant in ['camera on', 'camera locked', 'video trial tag']) {
+    screenMatrix(
+      'phone bar left keys evenly spaced, $variant',
+      (tester, c, s) async {
+        // Both the case's own width (portrait forms keep two keys or fewer)
+        // and a wide slot, where mic, camera and react are all inline.
+        for (final width in [c.size.width, 600.0]) {
+          await pumpAtSize(
+            tester,
+            Scaffold(
+              body: OverflowBox(
+                alignment: Alignment.topLeft,
+                minWidth: width,
+                maxWidth: width,
+                child: SizedBox(
+                  width: width,
+                  child: RoomControlBar(
+                    playing: true,
+                    position: const Duration(minutes: 42),
+                    duration: const Duration(hours: 2, minutes: 49),
+                    volume: 0.7,
+                    micOn: false,
+                    camOn: variant == 'camera on',
+                    avAvailable: true,
+                    camAvailable: variant != 'camera locked',
+                    camTrialMinutes: variant == 'video trial tag' ? 10 : null,
+                    compact: true,
+                    actions: RoomControlBarActions(
+                      onPlayPause: () {},
+                      onSeek: (_) {},
+                      onSkip: (_) {},
+                      onMicToggle: (_) {},
+                      onCamToggle: (_) {},
+                      onCamLocked: () {},
+                      onAudioTracks: () {},
+                      onSubtitles: () {},
+                      onSwitchSource: () {},
+                      onOpenFile: () {},
+                      onVolume: (_) {},
+                      onToggleMute: () {},
+                      onReact: () {},
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            c,
+            textScale: s,
+          );
+          await tester.pump(const Duration(milliseconds: 300));
+          final keys = <Rect>[];
+          for (final element
+              in find
+                  .descendant(of: find.byType(RoomControlBar), matching: find.byType(PTIconButton))
+                  .evaluate()) {
+            final tip = (element.widget as PTIconButton).tooltip ?? '';
+            if (tip.startsWith('Mic') ||
+                tip.startsWith('Camera') ||
+                tip.startsWith('Try video') ||
+                tip.startsWith('Video facecams') ||
+                tip.startsWith('React')) {
+              keys.add(tester.getRect(find.byWidget(element.widget)));
+            }
+          }
+          keys.sort((a, b) => a.left.compareTo(b.left));
+          if (width >= 600) expect(keys, hasLength(3), reason: '${c.name} wide slot');
+          for (final k in keys) {
+            expect(k.width, 44, reason: 'touch target stays 44');
+          }
+          final gaps = [for (var i = 1; i < keys.length; i++) keys[i].left - keys[i - 1].right];
+          for (final gap in gaps) {
+            expect(gap, greaterThanOrEqualTo(6), reason: '${c.name} $variant gaps $gaps');
+            expect(gap, closeTo(gaps.first, 0.01), reason: '${c.name} $variant gaps $gaps');
+          }
+        }
+        await finishCase(tester);
+      },
+      cases: kScreenMatrix.where((c) => c.name.startsWith('phone')).toList(),
+      textScales: [1.0, 2.0],
+      checkInsets: false,
+    );
+  }
 
   /// Records the system-UI modes the room asks for.
   List<String> recordUiModes(WidgetTester tester) {

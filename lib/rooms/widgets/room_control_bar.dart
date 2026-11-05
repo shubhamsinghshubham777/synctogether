@@ -771,11 +771,13 @@ class _RoomControlBarState extends State<RoomControlBar> with SingleTickerProvid
       Color? activeColor,
       double iconSize = 22,
       double spin = 0,
+      bool outlined = false,
     }) => PTIconButton(
       icon: icon,
       active: active,
       activeColor: activeColor,
       glass: false,
+      outlined: outlined,
       color: active ? null : PTColors.fgDim,
       borderRadius: control,
       iconSize: iconSize,
@@ -787,7 +789,7 @@ class _RoomControlBarState extends State<RoomControlBar> with SingleTickerProvid
     Widget locked(IconData icon, String tooltip, VoidCallback? onPressed) => Stack(
       alignment: Alignment.center,
       children: [
-        key(icon: icon, tooltip: tooltip, onPressed: onPressed),
+        key(icon: icon, tooltip: tooltip, onPressed: onPressed, outlined: true),
         const Positioned(bottom: 6, right: 6, child: _PremiumLock()),
       ],
     );
@@ -818,6 +820,7 @@ class _RoomControlBarState extends State<RoomControlBar> with SingleTickerProvid
         inline: _DeviceMenu(
           onMenu: a.onMicDeviceSelect,
           child: key(
+            outlined: true,
             icon: BoothIcons.mic,
             active: on,
             activeColor: PTColors.ember,
@@ -842,6 +845,7 @@ class _RoomControlBarState extends State<RoomControlBar> with SingleTickerProvid
           inline: _DeviceMenu(
             onMenu: a.onCamDeviceSelect,
             child: key(
+              outlined: true,
               icon: BoothIcons.videocam,
               active: on,
               activeColor: PTColors.ember,
@@ -884,6 +888,7 @@ class _RoomControlBarState extends State<RoomControlBar> with SingleTickerProvid
         // The Mobile room board draws the touch bar's react key as a face;
         // the pointer bars keep the heart.
         inline: key(
+          outlined: true,
           icon: BoothIcons.mood,
           active: widget.reactOpen,
           tooltip: widget.reactOpen ? 'Close reactions (R)' : 'React (R)',
@@ -1123,8 +1128,8 @@ class _RoomControlBarState extends State<RoomControlBar> with SingleTickerProvid
       for (final id in ids)
         if (!form.folded.contains(id) && controls.containsKey(id)) controls[id]!.inline,
     ];
-    Widget group(Iterable<Widget> keys) =>
-        Row(mainAxisSize: .min, spacing: 4, children: keys.toList());
+    Widget group(Iterable<Widget> keys, {double gap = 4}) =>
+        Row(mainAxisSize: .min, spacing: gap, children: keys.toList());
 
     final labelWidth = timeLabelWidth(scaler, hours: caps.hourLabels);
     final play = PTPlayButton(
@@ -1166,7 +1171,7 @@ class _RoomControlBarState extends State<RoomControlBar> with SingleTickerProvid
           SizedBox(height: 44, child: _seekGroup(labelWidth)),
           _ThreeUp(
             height: 52,
-            left: group(av),
+            left: group(av, gap: kAvKeyGap),
             center: group([
               ...shown(const [BarControl.skipBack]),
               play,
@@ -1182,7 +1187,7 @@ class _RoomControlBarState extends State<RoomControlBar> with SingleTickerProvid
         children: [
           Expanded(child: _seekGroup(labelWidth)),
           play,
-          if (av.isNotEmpty) group(av),
+          if (av.isNotEmpty) group(av, gap: kAvKeyGap),
           ?more,
         ],
       );

@@ -23,6 +23,7 @@ import 'package:synctogether/av/livekit_service.dart';
 import 'package:synctogether/av/video_trial.dart';
 import 'package:synctogether/diagnostics.dart';
 import 'package:synctogether/platform.dart';
+import 'package:synctogether/player/media_file_types.dart';
 import 'package:synctogether/player/mode_selection_dialog.dart';
 import 'package:synctogether/player/subtitles/subtitle_applier.dart';
 import 'package:synctogether/player/track_label.dart';
@@ -1999,28 +2000,36 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
 
   Future<void> _handleSwitchSource() async {
     if (_mode == .local) {
-      _isYouTubeUrlDialogOpen = true;
-      _updateReadiness();
-      final url = await showGlassDialog<String>(
-        context: context,
-        width: 440,
-        builder: (_) => const YouTubeUrlDialog(),
-      );
-      _isYouTubeUrlDialogOpen = false;
-      _updateReadiness();
-      if (url != null && mounted) await _handleModeSwitch(.youtube, url);
+      await _promptYouTubeLink();
     } else {
       await _handleModeSwitch(.local, null);
     }
   }
 
+  /// The YouTube link dialog, then the switch for the whole room.
+  Future<void> _promptYouTubeLink() async {
+    _isYouTubeUrlDialogOpen = true;
+    _updateReadiness();
+    final url = await showGlassDialog<String>(
+      context: context,
+      width: 440,
+      builder: (_) => const YouTubeUrlDialog(),
+    );
+    _isYouTubeUrlDialogOpen = false;
+    _updateReadiness();
+    if (url != null && mounted) await _handleModeSwitch(.youtube, url);
+  }
+
+  /// Whether the readiness overlay should offer the host a way to choose: the
+  /// room has nothing set yet, so the gate is waiting on *us*.
+  bool get _hostMustChoose => (_sync?.isHost ?? false) && !_canonicalMedia.isSet;
+
   Future<void> _pickVideo() async {
-    const videoTypeGroup = XTypeGroup(label: 'Videos', extensions: ['mp4', 'mkv']);
     _isFilePickerOpen = true;
     _updateReadiness();
     final FastFilePickerPath? response;
     try {
-      response = await FastFilePicker.pickFile(acceptedTypeGroups: [videoTypeGroup]);
+      response = await FastFilePicker.pickFile(acceptedTypeGroups: [kVideoTypeGroup]);
     } finally {
       _isFilePickerOpen = false;
     }
@@ -2030,6 +2039,14 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
       return;
     }
     final name = _basename(response!);
+    // The picker's filter is advisory (iOS Browse shows everything): refuse a
+    // non-video here, before anything about the room changes.
+    if (!looksLikeVideoFile(name)) {
+      trace('picked file is not a video', category: 'media', data: {'file': name});
+      _updateReadiness();
+      if (mounted) _snack(kNotAVideoMessage);
+      return;
+    }
     final path = response.path;
     trace(
       'local file picked',
@@ -4912,6 +4929,15 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
                         : null,
                     onStartWithout: _canStartWithout ? _startWithoutStragglers : null,
                     startWithoutLabel: _startWithoutLabel,
+                    onPickSource: _hostMustChoose
+                        ? (_mode == .youtube ? _promptYouTubeLink : _pickVideo)
+                        : null,
+                    pickSourceLabel: _mode == .youtube ? 'Paste a YouTube link' : 'Choose a video',
+                    onSwitchSource: _hostMustChoose ? _handleSwitchSource : null,
+                    switchSourceLabel: _mode == .youtube
+                        ? 'Choose a video instead'
+                        : 'Use a YouTube link instead',
+                    switchSourceShortLabel: _mode == .youtube ? 'Local file' : 'YouTube link',
                     onKick: _confirmKick,
                   ),
                 );

@@ -136,12 +136,12 @@ void main() {
   group('phone bar: the form each width picks', () {
     // width -> (form, labels folded into More)
     final forms = <double, (String, List<String>)>{
+      600: ('F1', const []),
       560: ('F1', const []),
-      552: ('F1', const []),
       520: ('F2', _all.sublist(3)),
-      484: ('F2', _all.sublist(3)),
+      492: ('F2', _all.sublist(3)),
       460: ('F3', _all.sublist(2)),
-      436: ('F3', _all.sublist(2)),
+      440: ('F3', _all.sublist(2)),
       410: ('F4', _all.sublist(1)),
       388: ('F4', _all.sublist(1)),
       360: ('F5', _all),

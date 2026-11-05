@@ -34,6 +34,7 @@ import 'package:synctogether/rooms/widgets/ended_room_dialog.dart';
 import 'package:synctogether/rooms/widgets/extend_room_dialog.dart';
 import 'package:synctogether/rooms/widgets/lobby_header.dart';
 import 'package:synctogether/rooms/widgets/my_rooms_section.dart';
+import 'package:synctogether/ui/panel_switcher.dart';
 import 'package:synctogether/ui/banners.dart';
 import 'package:synctogether/ui/booth.dart';
 import 'package:synctogether/ui/cinema_marquee_bar.dart';
@@ -1231,36 +1232,21 @@ class _LobbyScreenState extends State<LobbyScreen> with WindowListener {
             ),
           ],
         ),
-        // The chosen form unfolds under the buttons: size and cross-fade run
-        // together, so the page grows into the form rather than jumping.
-        AnimatedSize(
-          duration: PTMotion.functional(context, PTMotion.panel),
-          curve: PTMotion.emphasized,
-          alignment: .topCenter,
-          child: AnimatedSwitcher(
-            duration: PTMotion.functional(context, PTMotion.state),
-            switchInCurve: PTMotion.enter,
-            switchOutCurve: PTMotion.exit,
-            transitionBuilder: (child, animation) => FadeTransition(
-              opacity: animation,
-              child: SlideTransition(
-                position: Tween(begin: const Offset(0, -0.04), end: Offset.zero).animate(animation),
-                child: child,
-              ),
+        // The chosen form unfolds under the buttons: the old one clears, the height tweens and
+        // the new one fades in as one motion (see PTPanelSwitcher).
+        PTPanelSwitcher(
+          child: switch (_phonePanel) {
+            _PhonePanel.open => Padding(
+              key: const ValueKey('open'),
+              padding: const EdgeInsets.only(top: 18),
+              child: _openForm(compact: true),
             ),
-            child: switch (_phonePanel) {
-              _PhonePanel.open => Padding(
-                key: const ValueKey('open'),
-                padding: const EdgeInsets.only(top: 18),
-                child: _openForm(compact: true),
-              ),
-              _PhonePanel.join => Padding(
-                key: const ValueKey('join'),
-                padding: const EdgeInsets.only(top: 18),
-                child: _joinForm(compact: true),
-              ),
-            },
-          ),
+            _PhonePanel.join => Padding(
+              key: const ValueKey('join'),
+              padding: const EdgeInsets.only(top: 18),
+              child: _joinForm(compact: true),
+            ),
+          },
         ),
       ],
     );

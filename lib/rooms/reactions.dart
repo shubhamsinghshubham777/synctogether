@@ -16,8 +16,27 @@ class PTReaction {
 
   String get asset => 'assets/emoji/$codepoint.json';
 
+  /// Where in the animation the static preview is drawn (0..1). Frame 0 of
+  /// Noto's animations is often an entrance pose - a bare cone, an empty
+  /// canvas, a neutral face - so a still taken there misrepresents the emoji.
+  double get stillProgress => kReactionStillProgress[codepoint] ?? 0;
+
   String get cdnUrl => 'https://fonts.gstatic.com/s/e/notoemoji/latest/$codepoint/lottie.json';
 }
+
+/// Representative still frame per asset, chosen by eye from a contact sheet of
+/// every animation at 0.0, 0.1 ... 1.0 (most read best at 0). Keyed by
+/// codepoint; anything absent renders at 0. `test/rooms/reaction_still_test.dart`
+/// renders the bundled set and fails if a chosen frame is blank.
+const kReactionStillProgress = <String, double>{
+  '1f389': 0.3, // party popper: frame 0 is a tilted bare cone, no confetti
+  '1f62d': 0.5, // sobbing: frame 0 has no tears yet
+  '1f631': 0.4, // scream: frame 0 is a hands-on-cheeks neutral face
+  '1f64c': 0.4, // hands up: frame 0 is empty
+  '1f923': 0.8, // rolling: frame 0 is tilted mid-roll
+  '1f92f': 0.3, // mind blown: frame 0 is a neutral face
+  '1fae0': 0.2, // melting: frame 0 is already a puddle
+};
 
 const kReactions = <PTReaction>[
   PTReaction(emoji: '💖', codepoint: '1f496', label: 'Love it'),

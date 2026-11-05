@@ -71,6 +71,40 @@ void main() {
     await EmojiPrefs.instance.clear();
   });
 
+  group('layout', () {
+    for (final width in [280.0, 320.0, 360.0, 430.0, 600.0, 820.0]) {
+      testWidgets('grid spans the panel with equal left and right padding @ $width', (
+        tester,
+      ) async {
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: Align(
+                alignment: Alignment.topLeft,
+                child: SizedBox(
+                  width: width,
+                  height: 420,
+                  child: EmojiPicker(onPick: (_) {}),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        final panel = tester.getRect(find.byType(EmojiPicker));
+        final cells = [
+          for (final e in find.byType(EmojiCell).evaluate())
+            tester.getRect(find.byWidget(e.widget)),
+        ].where((r) => r.bottom > panel.top && r.top < panel.bottom).toList();
+        expect(cells, isNotEmpty);
+        final first = cells.map((r) => r.left).reduce((a, b) => a < b ? a : b);
+        final last = cells.map((r) => r.right).reduce((a, b) => a > b ? a : b);
+        expect(first - panel.left, closeTo(panel.right - last, 0.01), reason: 'symmetric padding');
+        expect(first - panel.left, lessThanOrEqualTo(8), reason: 'no dead gutter');
+      });
+    }
+  });
+
   group('quick bar', () {
     testWidgets('starts on the default seven, and a tap inserts without sending', (tester) async {
       final sent = await _pump(tester);

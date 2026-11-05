@@ -215,12 +215,20 @@ class _ReactionCellState extends State<_ReactionCell> with SingleTickerProviderS
                         ),
                       )
                     : play == null
-                    ? RawLottie(composition: composition, progress: 0, fit: .contain)
+                    ? RawLottie(
+                        composition: composition,
+                        progress: widget.reaction.stillProgress,
+                        fit: .contain,
+                      )
                     : AnimatedBuilder(
                         animation: play,
+                        // Settles back on the still rather than freezing on
+                        // the animation's last frame.
                         builder: (context, _) => RawLottie(
                           composition: composition,
-                          progress: play.value,
+                          progress: play.status == AnimationStatus.forward
+                              ? play.value
+                              : widget.reaction.stillProgress,
                           fit: .contain,
                         ),
                       ),
@@ -356,6 +364,9 @@ class _LockedMoreCellState extends State<_LockedMoreCell> {
   }
 }
 
+/// Narrowest a picker cell may get; the 50px hit area inside it never shrinks.
+const kReactionPickerMinCell = 54.0;
+
 class ReactionPickerDialog extends StatefulWidget {
   const ReactionPickerDialog({super.key, required this.reactions, required this.assets});
 
@@ -393,18 +404,36 @@ class _ReactionPickerDialogState extends State<ReactionPickerDialog> {
             ),
           ],
         ),
-        Wrap(
-          spacing: 4,
-          runSpacing: 4,
-          children: [
-            for (final reaction in widget.reactions)
-              _ReactionCell(
-                reaction: reaction,
-                composition: widget.assets.of(reaction),
-                size: 40,
-                onTap: () => Navigator.of(context).pop(reaction),
-              ),
-          ],
+        SizedBox(
+          width: double.infinity,
+          child: LayoutBuilder(
+            builder: (context, box) {
+              // Equal cells that fill the dialog's width: the column count
+              // follows the width, the cell stretches to share the slack, and
+              // a short last row centres instead of hugging the left edge.
+              final columns = (box.maxWidth ~/ kReactionPickerMinCell).clamp(1, 8);
+              final cell = box.maxWidth / columns;
+              return Wrap(
+                alignment: .center,
+                children: [
+                  for (final reaction in widget.reactions)
+                    SizedBox(
+                      key: ValueKey('reaction-cell-${reaction.codepoint}'),
+                      width: cell,
+                      height: cell,
+                      child: Center(
+                        child: _ReactionCell(
+                          reaction: reaction,
+                          composition: widget.assets.of(reaction),
+                          size: 40,
+                          onTap: () => Navigator.of(context).pop(reaction),
+                        ),
+                      ),
+                    ),
+                ],
+              );
+            },
+          ),
         ),
       ],
     );

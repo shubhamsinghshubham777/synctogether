@@ -264,6 +264,41 @@ void main() {
     (_) => ReactionPickerDialog(reactions: kAllReactions, assets: ReactionAssets()),
     width: 420,
   );
+  // The grid spreads evenly over the dialog: equal touch-sized cells, the first
+  // row flush with both edges of the content box (no dead strip on one side).
+  screenMatrix('dialog/reaction-picker-grid', (tester, c, s) async {
+    await pumpGlassDialog(
+      tester,
+      c,
+      s,
+      (_) => ReactionPickerDialog(reactions: kAllReactions, assets: ReactionAssets()),
+      width: 420,
+    );
+    final wrap = tester.getRect(
+      find.descendant(of: find.byType(ReactionPickerDialog), matching: find.byType(Wrap)),
+    );
+    final cells = [
+      for (final r in kAllReactions)
+        tester.getRect(find.byKey(ValueKey('reaction-cell-${r.codepoint}'), skipOffstage: false)),
+    ];
+    final first = cells.first;
+    expect(first.width, greaterThanOrEqualTo(44), reason: 'touch target');
+    for (final cell in cells) {
+      expect(cell.width, closeTo(first.width, 0.01), reason: "one consistent cell size");
+      expect(cell.height, closeTo(first.height, 0.01));
+      expect(cell.left, greaterThanOrEqualTo(wrap.left - 0.01));
+      expect(cell.right, lessThanOrEqualTo(wrap.right + 0.01));
+    }
+    final row = cells.where((r) => (r.top - first.top).abs() < 0.01).toList();
+    expect(row.map((r) => r.left).reduce((a, b) => a < b ? a : b), closeTo(wrap.left, 0.01));
+    expect(row.map((r) => r.right).reduce((a, b) => a > b ? a : b), closeTo(wrap.right, 0.01));
+    // The short last row is centred, not left-hugging.
+    final lastRow = cells.where((r) => (r.top - cells.last.top).abs() < 0.01).toList();
+    final gapL = lastRow.first.left - wrap.left;
+    final gapR = wrap.right - lastRow.last.right;
+    expect(gapL, closeTo(gapR, 0.01), reason: 'symmetric left/right inner padding');
+    await finishCase(tester);
+  });
   // The roster folds its secondary controls behind a More button when the row
   // runs out of room, but a member's name keeps ~8 characters of space at every
   // size - the audit found it collapsing to "Wa..." and then to nothing.

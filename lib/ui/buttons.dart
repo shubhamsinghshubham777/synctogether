@@ -772,7 +772,13 @@ const _googleGreen = Color(0xFF34A853);
 /// top, nearest the content it acts on (see [_stackOrder]). Side by side
 /// the buttons share the width equally, exactly as `Expanded` did before.
 class PTButtonBar extends StatelessWidget {
-  const PTButtonBar({super.key, required this.buttons, this.spacing = 12, this.alignEnd = false});
+  const PTButtonBar({
+    super.key,
+    required this.buttons,
+    this.spacing = 12,
+    this.alignEnd = false,
+    this.keepOrder = false,
+  });
 
   final List<PTButton> buttons;
 
@@ -781,6 +787,11 @@ class PTButtonBar extends StatelessWidget {
   /// `expand: false`.
   final bool alignEnd;
   final double spacing;
+
+  /// Stack in the given order instead of moving the primary to the top: for
+  /// buttons whose primary flips on tap (the lobby's open / enter pair), where
+  /// a reorder would make them swap places under the finger.
+  final bool keepOrder;
 
   /// The width [button] needs to show its label on one line with its icons.
   static double _needed(BuildContext context, PTButton button) {
@@ -829,7 +840,7 @@ class PTButtonBar extends StatelessWidget {
           mainAxisSize: .min,
           crossAxisAlignment: .stretch,
           spacing: spacing * 0.75,
-          children: _stackOrder(),
+          children: keepOrder ? buttons : _stackOrder(),
         );
       },
     );

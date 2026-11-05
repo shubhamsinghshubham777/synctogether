@@ -29,6 +29,7 @@ import 'package:synctogether/profile/media_quota_dialog.dart';
 import 'package:synctogether/profile/profile_models.dart';
 import 'package:synctogether/profile/profile_service.dart';
 import 'package:synctogether/rooms/moderation_service.dart';
+import 'package:synctogether/rooms/widgets/lobby_header.dart' show FirstFit;
 import 'package:synctogether/ui/banners.dart';
 import 'package:synctogether/ui/buttons.dart';
 import 'package:synctogether/ui/cinema_marquee_bar.dart';
@@ -683,59 +684,124 @@ class _ProfileScreenState extends State<ProfileScreen> with WindowListener {
           ),
         ),
         const SizedBox(height: 22),
-        _enter(
-          1,
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  'WATCHING · $badges ${badges == 1 ? 'BADGE' : 'BADGES'}',
-                  style: PTText.label,
-                ),
-              ),
-              PTPressable(
-                onTap: () => context.go('/lobby/leaderboard'),
-                // 44pt tall: this is a touch layout.
-                child: Container(
-                  height: 44,
-                  color: Colors.transparent,
-                  child: Row(
-                    mainAxisSize: .min,
-                    spacing: 6,
-                    children: [
-                      const Icon(BoothIcons.trophy, size: 16, color: PTColors.fg),
-                      Text('Leaderboard', style: PTText.body.copyWith(fontWeight: .w600)),
-                      Icon(BoothIcons.chevronRight, size: 18, color: PTColors.white(0.6)),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
+        _enter(1, _badgesLine(badges)),
         const SizedBox(height: 14),
-        _enter(
-          2,
-          Row(
-            crossAxisAlignment: .start,
-            spacing: 16,
-            children: [
-              Expanded(
-                child: _numeral(
-                  '$streak',
-                  'day streak',
-                  color: streak > 0 ? PTColors.ember : PTColors.fg,
-                ),
-              ),
-              Expanded(child: _numeral(formatWatchHours(rewards.totals.watched), 'watched')),
-              Expanded(child: _numeral('${rewards.totals.coWatchers}', 'watched with')),
-            ],
-          ),
-        ),
+        _enter(2, _statRow(streak, rewards)),
         const SizedBox(height: 20),
         _enter(3, _membershipCard(isPrem)),
         const SizedBox(height: 12),
         _settingsColumn(profile, withSeat: false),
+      ],
+    );
+  }
+
+  /// The badge count and the Leaderboard link: one row while the label fits
+  /// whole beside the link, else the link first with the label under it. The
+  /// label never breaks mid-word.
+  Widget _badgesLine(int badges) {
+    final label = Text(
+      'WATCHING · $badges ${badges == 1 ? 'BADGE' : 'BADGES'}',
+      style: PTText.label,
+    );
+    final link = PTPressable(
+      onTap: () => context.go('/lobby/leaderboard'),
+      // 44pt tall: this is a touch layout.
+      child: Container(
+        height: 44,
+        color: Colors.transparent,
+        child: Row(
+          mainAxisSize: .min,
+          spacing: 6,
+          children: [
+            const Icon(BoothIcons.trophy, size: 16, color: PTColors.fg),
+            Text('Leaderboard', style: PTText.body.copyWith(fontWeight: .w600)),
+            Icon(BoothIcons.chevronRight, size: 18, color: PTColors.white(0.6)),
+          ],
+        ),
+      ),
+    );
+    return FirstFit(
+      children: [
+        Row(
+          mainAxisSize: .min,
+          mainAxisAlignment: .spaceBetween,
+          spacing: 12,
+          children: [label, link],
+        ),
+        Column(mainAxisSize: .min, crossAxisAlignment: .start, children: [link, label]),
+      ],
+    );
+  }
+
+  /// Streak, watched and watched-with as one row of three at natural label
+  /// width; when that does not fit, a 2-up grid, so no label breaks mid-word.
+  Widget _statRow(int streak, RewardState rewards) {
+    final cells = [
+      _numeral('$streak', 'day streak', color: streak > 0 ? PTColors.ember : PTColors.fg),
+      _numeral(formatWatchHours(rewards.totals.watched), 'watched'),
+      _numeral('${rewards.totals.coWatchers}', 'watched with'),
+    ];
+    return FirstFit(
+      children: [
+        Row(
+          mainAxisSize: .min,
+          mainAxisAlignment: .spaceBetween,
+          crossAxisAlignment: .start,
+          children: cells,
+        ),
+        Column(
+          mainAxisSize: .min,
+          crossAxisAlignment: .stretch,
+          spacing: 14,
+          children: [
+            Row(
+              crossAxisAlignment: .start,
+              spacing: 16,
+              children: [
+                Expanded(child: cells[0]),
+                Expanded(child: cells[1]),
+              ],
+            ),
+            Row(
+              crossAxisAlignment: .start,
+              spacing: 16,
+              children: [
+                Expanded(child: cells[2]),
+                const Spacer(),
+              ],
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  /// The seat name with its caption beside it; when the caption will not fit
+  /// beside the whole title, it drops under it. The title never wraps.
+  Widget _membershipTitle(bool isPrem) {
+    final title = Text(
+      isPrem ? 'Patron seat' : 'Free seat',
+      style: PTText.cardHeading.copyWith(fontSize: 20, color: isPrem ? PTColors.premium : null),
+    );
+    final caption = Text(
+      isPrem ? '16 seats · video · 24h' : '8 seats · voice · 4h',
+      style: PTText.caption.copyWith(fontWeight: .w400),
+    );
+    return FirstFit(
+      children: [
+        Row(
+          mainAxisSize: .min,
+          mainAxisAlignment: .spaceBetween,
+          crossAxisAlignment: .end,
+          spacing: 10,
+          children: [title, caption],
+        ),
+        Column(
+          mainAxisSize: .min,
+          crossAxisAlignment: .start,
+          spacing: 4,
+          children: [title, caption],
+        ),
       ],
     );
   }
@@ -753,31 +819,14 @@ class _ProfileScreenState extends State<ProfileScreen> with WindowListener {
         spacing: 12,
         children: [
           Text('MEMBERSHIP', style: PTText.label),
-          Row(
-            crossAxisAlignment: .end,
-            spacing: 10,
-            children: [
-              Expanded(
-                child: Text(
-                  isPrem ? 'Patron seat' : 'Free seat',
-                  style: PTText.cardHeading.copyWith(
-                    fontSize: 20,
-                    color: isPrem ? PTColors.premium : null,
-                  ),
-                ),
-              ),
-              Text(
-                isPrem ? '16 seats · video · 24h' : '8 seats · voice · 4h',
-                style: PTText.caption.copyWith(fontWeight: .w400),
-              ),
-            ],
-          ),
+          _membershipTitle(isPrem),
           if (isPrem || canSellPremium)
             PTButton(
               label: isPrem ? 'Manage' : 'Get a Patron seat',
               variant: isPrem ? .secondary : .primary,
               icon: isPrem ? BoothIcons.arrowForward : BoothIcons.crown,
               height: 48,
+              maxLines: 2,
               onPressed: () => context.go('/lobby/subscribe?source=profile'),
             ),
         ],

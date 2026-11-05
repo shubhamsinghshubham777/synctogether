@@ -64,6 +64,11 @@ void main() {
     RoomService.instance = _EmptyRoomService();
     await pumpAtSize(tester, const LobbyScreen(), c, textScale: s);
     await tester.pump(const Duration(milliseconds: 1500)); // entrance choreography
+    // The primary actions never truncate: they stack when side by side won't fit.
+    // (Wide layouts show a form instead of these two buttons.)
+    for (final label in ['Open a room', 'Enter a code']) {
+      if (find.text(label).evaluate().isNotEmpty) expectShownWhole(tester, label);
+    }
     await finishCase(tester);
   });
 

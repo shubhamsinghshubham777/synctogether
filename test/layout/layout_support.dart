@@ -1,10 +1,35 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:synctogether/rewards/rewards_models.dart';
 import 'package:synctogether/rewards/rewards_service.dart';
 import 'package:synctogether/ui/glass.dart';
 
 import '../support/screen_matrix.dart';
+
+/// Asserts every on-screen Text matching [text] shows whole: no ellipsis and
+/// no wrapped line (a one-word label that wraps broke mid-word).
+void expectShownWhole(WidgetTester tester, String text) {
+  final finder = find.text(text);
+  expect(finder, findsAtLeastNWidgets(1), reason: '"$text" missing');
+  var checked = 0;
+  for (final element in finder.evaluate()) {
+    final paragraph = element.renderObject! as RenderParagraph;
+    // A FirstFit candidate that lost was never laid out at the real width.
+    if (paragraph.debugNeedsLayout) continue;
+    checked++;
+    expect(paragraph.didExceedMaxLines, isFalse, reason: '"$text" ellipsized');
+    final lines = paragraph.getBoxesForSelection(
+      TextSelection(baseOffset: 0, extentOffset: text.length),
+    );
+    expect(
+      lines.map((b) => b.top.round()).toSet().length,
+      1,
+      reason: '"$text" wrapped onto several lines',
+    );
+  }
+  expect(checked, greaterThan(0), reason: '"$text" never laid out');
+}
 
 /// Asserts no overflow and - inside a [screenMatrix] case that has not opted
 /// out - that every control respects the system insets, then unmounts so periodic timers (lobby polling,

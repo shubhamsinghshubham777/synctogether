@@ -35,6 +35,32 @@ import 'widgets/season_trophies.dart';
 /// unreachable and the middle is invisible. Circle is people you have actually
 /// shared a room with, which is the board that is winnable, and therefore the
 /// one worth telling somebody about.
+/// A header label that shows whole or not at all: the page's title is also
+/// the back button's neighbour, so when text scale or width leaves it less
+/// than its natural width it steps aside rather than ellipsizing.
+class _HeaderLabel extends StatelessWidget {
+  const _HeaderLabel(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final painter = TextPainter(
+          text: TextSpan(text: text, style: PTText.label),
+          textScaler: MediaQuery.textScalerOf(context),
+          textDirection: TextDirection.ltr,
+          maxLines: 1,
+        )..layout();
+        final fits = painter.width <= constraints.maxWidth;
+        painter.dispose();
+        return fits ? Text(text, maxLines: 1, style: PTText.label) : const SizedBox.shrink();
+      },
+    );
+  }
+}
+
 class LeaderboardScreen extends StatefulWidget {
   const LeaderboardScreen({super.key});
 
@@ -226,14 +252,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> with WindowListen
                     size: compact ? 44 : 42,
                     onPressed: () => context.go('/lobby'),
                   ),
-                  Expanded(
-                    child: Text(
-                      'LEADERBOARD',
-                      maxLines: 1,
-                      overflow: .ellipsis,
-                      style: PTText.label,
-                    ),
-                  ),
+                  const Expanded(child: _HeaderLabel('LEADERBOARD')),
                   // Consent, handle and frame all live in the profile.
                   TextButton(
                     onPressed: () => context.go('/lobby/profile'),

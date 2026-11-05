@@ -523,8 +523,40 @@ class _LoginScreenState extends State<LoginScreen> with WindowListener {
     required bool compactGuest,
   }) {
     final hasApple = AuthService.instance.isAppleSupported;
-    return Column(
+    return LayoutBuilder(
       key: const ValueKey('providers'),
+      builder: (context, constraints) => _providersColumn(
+        constraints.maxWidth,
+        buttonHeight: buttonHeight,
+        heading: heading,
+        compactGuest: compactGuest,
+        hasApple: hasApple,
+      ),
+    );
+  }
+
+  /// [full] while it shows on one line in a button [width] wide, else [short]:
+  /// a sign-in label never ellipsizes, it steps down to the provider's name.
+  String _fitLabel(double width, String full, String short, {double chrome = 80}) {
+    final painter = TextPainter(
+      text: TextSpan(text: full, style: PTText.buttonLabel),
+      textScaler: MediaQuery.textScalerOf(context),
+      textDirection: TextDirection.ltr,
+      maxLines: 1,
+    )..layout();
+    final fits = painter.width + chrome <= width;
+    painter.dispose();
+    return fits ? full : short;
+  }
+
+  Widget _providersColumn(
+    double width, {
+    required double buttonHeight,
+    required bool heading,
+    required bool compactGuest,
+    required bool hasApple,
+  }) {
+    return Column(
       mainAxisSize: .min,
       crossAxisAlignment: .stretch,
       spacing: 12,
@@ -542,19 +574,19 @@ class _LoginScreenState extends State<LoginScreen> with WindowListener {
         if (hasApple)
           _PaperSlab(
             child: AppleButton(
-              label: 'Continue with Apple',
+              label: _fitLabel(width, 'Continue with Apple', 'Apple'),
               loading: _appleLoading,
               onPressed: _anyLoading ? null : _signInWithApple,
             ),
           ),
         GoogleButton(
           outlined: true,
-          label: 'Continue with Google',
+          label: _fitLabel(width, 'Continue with Google', 'Google'),
           loading: _googleLoading,
           onPressed: _anyLoading ? null : _signInWithGoogle,
         ),
         PTButton(
-          label: 'Continue with email',
+          label: _fitLabel(width, 'Continue with email', 'Email'),
           icon: BoothIcons.mail,
           variant: .secondary,
           height: buttonHeight,
@@ -562,7 +594,7 @@ class _LoginScreenState extends State<LoginScreen> with WindowListener {
         ),
         if (compactGuest) ...[
           const SizedBox(height: 10),
-          _guestLink(),
+          _guestLink(width),
         ] else ...[
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 10),
@@ -650,8 +682,22 @@ class _LoginScreenState extends State<LoginScreen> with WindowListener {
     );
   }
 
+  /// The guest line's words, or "As guest" when "Continue as guest" and its
+  /// icon would not sit on one line in [width].
+  String _guestLinkLabel(double width) {
+    final painter = TextPainter(
+      text: TextSpan(text: 'Continue as guest', style: _guestLabel),
+      textScaler: MediaQuery.textScalerOf(context),
+      textDirection: TextDirection.ltr,
+      maxLines: 1,
+    )..layout();
+    final fits = painter.width + 30 <= width;
+    painter.dispose();
+    return fits ? 'Continue as guest' : 'As guest';
+  }
+
   /// Phones: the guest way in as an underlined line with its note beneath.
-  Widget _guestLink() {
+  Widget _guestLink(double width) {
     final enabled = !_anyLoading;
     return Column(
       mainAxisSize: .min,
@@ -674,7 +720,14 @@ class _LoginScreenState extends State<LoginScreen> with WindowListener {
                         ? const PTLoader(size: 16)
                         : Icon(BoothIcons.person, size: 20, color: PTColors.white(0.75)),
                   ),
-                  Flexible(child: Text('Continue as guest', style: _guestLabel)),
+                  Flexible(
+                    child: Text(
+                      _guestLinkLabel(width),
+                      maxLines: 1,
+                      overflow: .ellipsis,
+                      style: _guestLabel,
+                    ),
+                  ),
                 ],
               ),
             ),

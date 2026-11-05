@@ -1180,22 +1180,21 @@ class _LobbyScreenState extends State<LobbyScreen> with WindowListener {
     return Column(
       crossAxisAlignment: .stretch,
       children: [
-        Row(
+        // Side by side while both labels fit whole; stacked once either would
+        // not. These are the page's primary actions - they never fold away.
+        PTButtonBar(
           spacing: 10,
-          children: [
-            Expanded(
-              child: PTButton(
-                label: 'Open a room',
-                variant: open ? .primary : (join ? .secondary : .primary),
-                onPressed: () => setState(() => _phonePanel = open ? .none : .open),
-              ),
+          keepOrder: true,
+          buttons: [
+            PTButton(
+              label: 'Open a room',
+              variant: open ? .primary : (join ? .secondary : .primary),
+              onPressed: () => setState(() => _phonePanel = open ? .none : .open),
             ),
-            Expanded(
-              child: PTButton(
-                label: 'Enter a code',
-                variant: join ? .primary : .secondary,
-                onPressed: () => setState(() => _phonePanel = join ? .none : .join),
-              ),
+            PTButton(
+              label: 'Enter a code',
+              variant: join ? .primary : .secondary,
+              onPressed: () => setState(() => _phonePanel = join ? .none : .join),
             ),
           ],
         ),

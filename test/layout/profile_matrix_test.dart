@@ -53,6 +53,9 @@ void main() {
     EntitlementService.instance.setLimitsForTesting(TierLimits.fallback);
     await pumpAtSize(tester, const ProfileScreen(), c, textScale: s);
     await _settleStagger(tester);
+    // Whatever the width, the seat name never wraps by character.
+    // (Only the phone layout has the membership card.)
+    if (find.text('Free seat').evaluate().isNotEmpty) expectShownWhole(tester, 'Free seat');
     await finishCase(tester);
   });
 

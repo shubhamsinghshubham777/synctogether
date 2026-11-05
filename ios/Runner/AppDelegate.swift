@@ -16,6 +16,9 @@ import AVFoundation
     if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "SystemFontsChannel") {
       SystemFontsChannel.register(with: registrar.messenger())
     }
+    if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "MediaAccessChannel") {
+      MediaAccessChannel.register(with: registrar.messenger())
+    }
     if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "MicLevelChannel") {
       MicLevelChannel.register(with: registrar.messenger())
     }
@@ -140,5 +143,90 @@ enum MicLevelChannel {
     }
     self.engine = engine
     return true
+  }
+}
+
+/// Keeps picked videos readable. The document picker opens files IN PLACE, so a
+/// URL outside the app container needs `startAccessingSecurityScopedResource`
+/// for as long as the player holds it, and only a bookmark survives a relaunch.
+/// Also asks iCloud to download an evicted file. Dart side:
+/// lib/player/media_access.dart (channel `app.synctogether/media_access`).
+enum MediaAccessChannel {
+  static func register(with messenger: FlutterBinaryMessenger) {
+    let channel = FlutterMethodChannel(name: "app.synctogether/media_access", binaryMessenger: messenger)
+    channel.setMethodCallHandler { call, result in
+      let args = call.arguments as? [String: Any]
+      switch call.method {
+      case "startAccess":
+        guard let url = fileURL(args?["url"]) else { return result(false) }
+        result(url.startAccessingSecurityScopedResource())
+      case "stopAccess":
+        fileURL(args?["url"])?.stopAccessingSecurityScopedResource()
+        result(nil)
+      case "createBookmark":
+        guard let url = fileURL(args?["url"]) else { return result(nil) }
+        // Bookmarking a picked URL needs its scope open; a URL that never had
+        // one (inside our container) simply bookmarks.
+        let scoped = url.startAccessingSecurityScopedResource()
+        defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+        let data = try? url.bookmarkData(options: [], includingResourceValuesForKeys: nil, relativeTo: nil)
+        result(data?.base64EncodedString())
+      case "resolveBookmark":
+        result(resolve(args?["bookmark"] as? String))
+      case "ensureLocal":
+        result(ensureLocal(path: args?["path"] as? String))
+      default:
+        result(FlutterMethodNotImplemented)
+      }
+    }
+  }
+
+  /// A `file://` string, or a bare path, as a file URL.
+  private static func fileURL(_ raw: Any?) -> URL? {
+    guard let s = raw as? String, !s.isEmpty else { return nil }
+    if s.hasPrefix("file:"), let u = URL(string: s) { return u }
+    return URL(fileURLWithPath: s)
+  }
+
+  /// Resolves AND starts access on the result; the caller stops it later.
+  private static func resolve(_ b64: String?) -> [String: Any]? {
+    guard let b64 = b64, let data = Data(base64Encoded: b64) else { return nil }
+    var stale = false
+    guard let url = try? URL(resolvingBookmarkData: data, options: [], relativeTo: nil, bookmarkDataIsStale: &stale)
+    else { return nil }
+    let scoped = url.startAccessingSecurityScopedResource()
+    var out: [String: Any] = ["url": url.absoluteString, "path": url.path]
+    if stale,
+      let fresh = try? url.bookmarkData(options: [], includingResourceValuesForKeys: nil, relativeTo: nil)
+    {
+      out["refreshedBookmark"] = fresh.base64EncodedString()
+    }
+    // Resolving a bookmark whose file is gone still returns a URL; Dart checks.
+    _ = scoped
+    return out
+  }
+
+  /// "local", "downloading" (an iCloud fetch was started or is running) or "missing".
+  private static func ensureLocal(path: String?) -> String {
+    guard let path = path else { return "missing" }
+    let url = URL(fileURLWithPath: path)
+    let fm = FileManager.default
+    if fm.fileExists(atPath: path) {
+      let keys: Set<URLResourceKey> = [.isUbiquitousItemKey, .ubiquitousItemDownloadingStatusKey]
+      if let v = try? url.resourceValues(forKeys: keys), v.isUbiquitousItem == true,
+        v.ubiquitousItemDownloadingStatus == .notDownloaded
+      {
+        try? fm.startDownloadingUbiquitousItem(at: url)
+        return "downloading"
+      }
+      return "local"
+    }
+    // The legacy evicted form: `.Name.mkv.icloud` next to where the file was.
+    let placeholder = url.deletingLastPathComponent().appendingPathComponent("." + url.lastPathComponent + ".icloud")
+    if fm.fileExists(atPath: placeholder.path) {
+      try? fm.startDownloadingUbiquitousItem(at: url)
+      return "downloading"
+    }
+    return "missing"
   }
 }

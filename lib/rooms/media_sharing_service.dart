@@ -2,12 +2,11 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:math';
 
-import 'package:mime/mime.dart';
-import 'package:path/path.dart' as p;
 import 'package:synctogether/av/background_call.dart';
 import 'package:synctogether/diagnostics.dart';
 import 'package:synctogether/profile/profile_models.dart';
 import 'package:synctogether/rooms/local_media_store.dart';
+import 'package:synctogether/rooms/upload_source.dart';
 import 'package:synctogether/sync/sync_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -270,13 +269,15 @@ class MediaSharingService {
 
   Future<UploadSession> uploadFile({
     required String roomId,
-    required File file,
+    File? file,
+    UploadSource? source,
     void Function(UploadProgress progress)? onProgress,
     SyncService? syncService,
   }) async {
-    final fileSize = await file.length();
-    final fileName = p.basename(file.path);
-    final contentType = lookupMimeType(file.path) ?? 'video/mp4';
+    final src = _sourceOf(file, source);
+    final fileSize = await src.length();
+    final fileName = src.name;
+    final contentType = src.contentType;
 
     await ScreenAwake.hold('upload');
 
@@ -302,7 +303,7 @@ class MediaSharingService {
       roomId: roomId,
       uploadId: uploadId,
       r2Key: r2Key,
-      filePath: file.path,
+      filePath: src.reference,
       fileSize: fileSize,
       partSizeBytes: partSizeBytes,
       totalParts: totalParts,
@@ -313,15 +314,23 @@ class MediaSharingService {
 
     return _executeUploadPipeline(
       session: session,
-      file: file,
+      source: src,
       onProgress: onProgress,
       syncService: syncService,
     );
   }
 
+  /// Exactly one of [file] (desktop, iOS) or [source] (any platform, and the
+  /// only option for an Android `content://` pick - `LocalVideo.uploadSource()`).
+  static UploadSource _sourceOf(File? file, UploadSource? source) {
+    assert((file == null) != (source == null), 'pass exactly one of file or source');
+    return source ?? FileUploadSource(file!);
+  }
+
   Future<UploadSession> resumeUpload({
     required String roomId,
-    required File file,
+    File? file,
+    UploadSource? source,
     void Function(UploadProgress progress)? onProgress,
     SyncService? syncService,
   }) async {
@@ -330,6 +339,7 @@ class MediaSharingService {
       return uploadFile(
         roomId: roomId,
         file: file,
+        source: source,
         onProgress: onProgress,
         syncService: syncService,
       );
@@ -361,7 +371,7 @@ class MediaSharingService {
 
     return _executeUploadPipeline(
       session: session,
-      file: file,
+      source: _sourceOf(file, source),
       onProgress: onProgress,
       syncService: syncService,
     );
@@ -369,7 +379,7 @@ class MediaSharingService {
 
   Future<UploadSession> _executeUploadPipeline({
     required UploadSession session,
-    required File file,
+    required UploadSource source,
     void Function(UploadProgress progress)? onProgress,
     SyncService? syncService,
   }) async {
@@ -451,7 +461,7 @@ class MediaSharingService {
           final request = await client.putUrl(presignedUrl);
           request.contentLength = slice.length;
 
-          final stream = file.openRead(slice.startOffset, slice.endOffset);
+          final stream = source.openRead(slice.startOffset, slice.endOffset);
           await request.addStream(stream);
 
           final response = await request.close().timeout(const Duration(seconds: 60));
@@ -527,15 +537,17 @@ class MediaSharingService {
   }
 
   Future<StagedUploadSession> uploadStagedFile({
-    required File file,
+    File? file,
+    UploadSource? source,
     Duration? duration,
     void Function(UploadProgress)? onProgress,
     void Function(StagedUploadSession session)? onSessionCreated,
     CancellationToken? cancelToken,
   }) async {
-    final fileName = p.basename(file.path);
-    final fileSize = await file.length();
-    final mime = lookupMimeType(file.path) ?? 'video/mp4';
+    final src = _sourceOf(file, source);
+    final fileName = src.name;
+    final fileSize = await src.length();
+    final mime = src.contentType;
 
     await ScreenAwake.hold('upload');
 
@@ -632,7 +644,7 @@ class MediaSharingService {
           final request = await client.putUrl(presignedUrl);
           request.contentLength = slice.length;
 
-          final stream = file.openRead(slice.startOffset, slice.endOffset);
+          final stream = src.openRead(slice.startOffset, slice.endOffset);
           await request.addStream(stream);
 
           final response = await request.close().timeout(const Duration(seconds: 60));

@@ -37,6 +37,8 @@ class MainActivity : FlutterActivity() {
           else -> result.notImplemented()
         }
       }
+    // Persistable SAF grants, stat and ranged reads for content:// picks.
+    MediaAccess.register(flutterEngine.dartExecutor.binaryMessenger, applicationContext)
     MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "app.synctogether/background_call")
       .setMethodCallHandler { call, result ->
         when (call.method) {

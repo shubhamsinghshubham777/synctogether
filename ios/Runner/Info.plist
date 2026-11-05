@@ -84,8 +84,12 @@
 	<array>
 		<string>audio</string>
 	</array>
-	<!-- mkv and webm have no system UTI on iOS; without these the document
-	     picker (which filters by UTI only) greys such files out. -->
+	<!-- The document picker filters by UTI only, and a clean iPhone has no
+	     system type for these containers (mkv/webm/vob/divx/...), so without a
+	     declaration their files are greyed out. Each type conforms to
+	     public.movie; lib/player/media_file_types.dart lists the same
+	     identifiers and test/player/media_file_types_test.dart keeps the two in
+	     step. Imported, not exported: the app owns none of these formats. -->
 	<key>UTImportedTypeDeclarations</key>
 	<array>
 		<dict>
@@ -124,6 +128,238 @@
 				</array>
 				<key>public.mime-type</key>
 				<string>video/webm</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>UTTypeIdentifier</key>
+			<string>org.matroska.mka</string>
+			<key>UTTypeDescription</key>
+			<string>Matroska audio</string>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.audio</string>
+			</array>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>public.filename-extension</key>
+				<array>
+					<string>mka</string>
+				</array>
+				<key>public.mime-type</key>
+				<string>audio/x-matroska</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>UTTypeIdentifier</key>
+			<string>app.synctogether.video.vob</string>
+			<key>UTTypeDescription</key>
+			<string>DVD video object</string>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.movie</string>
+			</array>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>public.filename-extension</key>
+				<array>
+					<string>vob</string>
+				</array>
+			</dict>
+		</dict>
+		<dict>
+			<key>UTTypeIdentifier</key>
+			<string>app.synctogether.video.divx</string>
+			<key>UTTypeDescription</key>
+			<string>DivX video</string>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.movie</string>
+			</array>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>public.filename-extension</key>
+				<array>
+					<string>divx</string>
+					<string>xvid</string>
+				</array>
+				<key>public.mime-type</key>
+				<string>video/divx</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>UTTypeIdentifier</key>
+			<string>app.synctogether.video.realmedia</string>
+			<key>UTTypeDescription</key>
+			<string>RealMedia video</string>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.movie</string>
+			</array>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>public.filename-extension</key>
+				<array>
+					<string>rm</string>
+					<string>rmvb</string>
+				</array>
+				<key>public.mime-type</key>
+				<string>application/vnd.rn-realmedia</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>UTTypeIdentifier</key>
+			<string>app.synctogether.video.mxf</string>
+			<key>UTTypeDescription</key>
+			<string>MXF video</string>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.movie</string>
+			</array>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>public.filename-extension</key>
+				<array>
+					<string>mxf</string>
+				</array>
+				<key>public.mime-type</key>
+				<string>application/mxf</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>UTTypeIdentifier</key>
+			<string>app.synctogether.video.ogm</string>
+			<key>UTTypeDescription</key>
+			<string>Ogg media</string>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.movie</string>
+			</array>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>public.filename-extension</key>
+				<array>
+					<string>ogm</string>
+				</array>
+			</dict>
+		</dict>
+		<dict>
+			<key>UTTypeIdentifier</key>
+			<string>app.synctogether.video.nut</string>
+			<key>UTTypeDescription</key>
+			<string>NUT video</string>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.movie</string>
+			</array>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>public.filename-extension</key>
+				<array>
+					<string>nut</string>
+				</array>
+			</dict>
+		</dict>
+		<dict>
+			<key>UTTypeIdentifier</key>
+			<string>app.synctogether.video.wtv</string>
+			<key>UTTypeDescription</key>
+			<string>Windows recorded TV</string>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.movie</string>
+			</array>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>public.filename-extension</key>
+				<array>
+					<string>wtv</string>
+				</array>
+			</dict>
+		</dict>
+		<dict>
+			<key>UTTypeIdentifier</key>
+			<string>app.synctogether.video.evo</string>
+			<key>UTTypeDescription</key>
+			<string>HD DVD video</string>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.movie</string>
+			</array>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>public.filename-extension</key>
+				<array>
+					<string>evo</string>
+				</array>
+			</dict>
+		</dict>
+		<dict>
+			<key>UTTypeIdentifier</key>
+			<string>app.synctogether.video.y4m</string>
+			<key>UTTypeDescription</key>
+			<string>YUV4MPEG video</string>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.movie</string>
+			</array>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>public.filename-extension</key>
+				<array>
+					<string>y4m</string>
+				</array>
+			</dict>
+		</dict>
+		<dict>
+			<key>UTTypeIdentifier</key>
+			<string>app.synctogether.video.mod</string>
+			<key>UTTypeDescription</key>
+			<string>Camcorder MOD video</string>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.movie</string>
+			</array>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>public.filename-extension</key>
+				<array>
+					<string>mod</string>
+				</array>
+			</dict>
+		</dict>
+		<dict>
+			<key>UTTypeIdentifier</key>
+			<string>app.synctogether.video.mpegts</string>
+			<key>UTTypeDescription</key>
+			<string>MPEG transport stream</string>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.movie</string>
+			</array>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>public.filename-extension</key>
+				<array>
+					<string>trp</string>
+					<string>tp</string>
+				</array>
+			</dict>
+		</dict>
+		<dict>
+			<key>UTTypeIdentifier</key>
+			<string>app.synctogether.video.dat</string>
+			<key>UTTypeDescription</key>
+			<string>VCD video</string>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.movie</string>
+			</array>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>public.filename-extension</key>
+				<array>
+					<string>dat</string>
+				</array>
 			</dict>
 		</dict>
 	</array>

@@ -5,6 +5,8 @@ import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:synctogether/rooms/local_media_store.dart';
 import 'package:synctogether/rooms/media_sharing_service.dart';
+import 'package:synctogether/rooms/upload_source.dart';
+import '../player/fake_media_access.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class _MockHttpClient implements HttpClient {
@@ -303,6 +305,56 @@ void main() {
         expect(progressEvents.last.fraction, 1.0);
       },
     );
+
+    test('uploads from a content:// source (no File) and records the uri in the session', () async {
+      final fake = FakeMediaAccess()..content = Uint8List(12 * 1024 * 1024);
+      final uploaded = <int, int>{};
+      final service = MediaSharingService(
+        mediaStore: mediaStore,
+        edgeFunctionCaller: (action, body) async => switch (action) {
+          'initiate' => {
+            'uploadId': 'u',
+            'r2Key': 'k',
+            'partSizeBytes': 10 * 1024 * 1024,
+            'totalParts': 2,
+          },
+          'part-urls' => {
+            'parts': [
+              for (final n in (body['partNumbers'] as List).cast<int>())
+                {'partNumber': n, 'url': 'https://r2.example.com/upload?part=$n'},
+            ],
+          },
+          'complete' => {'success': true},
+          _ => throw UnimplementedError(action),
+        },
+        httpClientFactory: () => _MockHttpClient((url, method) async {
+          final n = int.parse(url.queryParameters['part']!);
+          return _MockHttpClientRequest(
+            uri: url,
+            method: method,
+            responseBuilder: (req) async {
+              uploaded[n] = req.contentLength;
+              return _MockHttpClientResponse(
+                statusCode: 200,
+                headersMap: {HttpHeaders.etagHeader: '"e$n"'},
+              );
+            },
+          );
+        }),
+      );
+      final session = await service.uploadFile(
+        roomId: 'r1',
+        source: ContentUriUploadSource(
+          uri: 'content://docs/document/video%3A7',
+          name: 'Movie.mkv',
+          platform: fake,
+          knownSize: 12 * 1024 * 1024,
+        ),
+      );
+      expect(uploaded, {1: 10 * 1024 * 1024, 2: 2 * 1024 * 1024});
+      expect(session.filePath, 'content://docs/document/video%3A7');
+      expect(fake.log.where((l) => l.startsWith('read:')), hasLength(4));
+    });
 
     test('crash recovery lists parts from R2, resumes missing parts, and completes', () async {
       await mediaStore.saveUploadSession(

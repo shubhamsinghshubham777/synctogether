@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:synctogether/diagnostics.dart';
+import 'package:synctogether/player/local_video.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 const _kStoreKey = 'pt.local_media_by_room';
@@ -70,32 +71,56 @@ class UploadSession {
   };
 }
 
+/// What this device remembers for a room: the video's display name plus how to
+/// open it again. [path] is what `Media()` is opened with - a filesystem path,
+/// or the `content://` URI on Android (kept in this field so existing call
+/// sites keep working). [reference] is the richer, durable handle (iOS bookmark,
+/// persisted SAF URI); null on entries written before it existed.
 class LocalMediaEntry {
-  const LocalMediaEntry({required this.name, required this.path, required this.touchedAt});
+  const LocalMediaEntry({
+    required this.name,
+    required this.path,
+    required this.touchedAt,
+    this.reference,
+  });
 
   final String name;
   final String path;
   final DateTime touchedAt;
+  final VideoReference? reference;
 
   factory LocalMediaEntry.fromJson(Map<String, dynamic> json) => LocalMediaEntry(
     name: json['name'] as String,
     path: json['path'] as String,
     touchedAt: DateTime.fromMillisecondsSinceEpoch((json['touched_at'] as num?)?.toInt() ?? 0),
+    reference: VideoReference.fromJson(json['ref']),
   );
 
   Map<String, Object?> toJson() => {
     'name': name,
     'path': path,
     'touched_at': touchedAt.millisecondsSinceEpoch,
+    if (reference != null) 'ref': reference!.toJson(),
   };
 
+  /// Synchronous best guess for the auto-reopen decision. A `content://` URI
+  /// cannot be probed synchronously, so it is optimistically true: the real
+  /// answer comes from [reopen], and a failed open falls into the existing
+  /// "couldn't open that file" path.
   bool get fileStillExists {
+    if (reference is ContentUriReference) return true;
     try {
       return File(path).existsSync();
     } catch (_) {
       return false;
     }
   }
+
+  /// Open the remembered file with the access it needs (security scope, SAF
+  /// grant). Prefer this over `File(path)` on mobile. The caller owns
+  /// `result.video.release()`.
+  Future<ResolveResult> reopen({LocalVideoAccess? access}) =>
+      (access ?? LocalVideoAccess.instance).reopen(reference ?? PathReference(path), name: name);
 }
 
 class LocalMediaStore {
@@ -218,11 +243,19 @@ class LocalMediaStore {
     required String roomId,
     required String name,
     required String? path,
+    VideoReference? reference,
     DateTime? now,
   }) async {
-    if (path == null || path.isEmpty) return;
+    // A content:// pick has no path: it is remembered through its reference.
+    final openPath = (path == null || path.isEmpty) ? reference?.mediaUri : path;
+    if (openPath == null || openPath.isEmpty) return;
     final entries = Map<String, LocalMediaEntry>.from(await _read());
-    entries[roomId] = LocalMediaEntry(name: name, path: path, touchedAt: now ?? DateTime.now());
+    entries[roomId] = LocalMediaEntry(
+      name: name,
+      path: openPath,
+      touchedAt: now ?? DateTime.now(),
+      reference: reference,
+    );
     await _write(_capped(entries));
   }
 

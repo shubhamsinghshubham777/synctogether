@@ -462,10 +462,13 @@ class SyncService {
 
   ReadyStatus _readyStatus = .none;
   String? _loadedFileName;
+  Duration? _loadedDuration;
+  String? _confirmedMedia;
   bool _privacyMode = false;
 
   ReadyStatus get readyStatus => _readyStatus;
   String? get loadedFileName => _loadedFileName;
+  Duration? get loadedDuration => _loadedDuration;
   bool get privacyMode => _privacyMode;
 
   static const kPresenceMaxCalls = 4;
@@ -489,6 +492,10 @@ class SyncService {
       'joined_at': (_membershipJoinedAt ?? _presenceJoinedFallback).toIso8601String(),
       'ready_status': _readyStatus.wire,
       'loaded_file_name': _loadedFileName,
+      // Optional on the wire: older clients ignore both keys, and a peer that
+      // sends neither is simply judged on its file name.
+      'loaded_duration_ms': _loadedDuration?.inMilliseconds,
+      'confirmed_media': _confirmedMedia,
       'privacy_mode': _privacyMode,
     }, (payload) => _channel?.track(payload));
   }
@@ -515,18 +522,52 @@ class SyncService {
   ///
   /// The pair is announced as a whole: omitting [loadedFileName] clears it, so
   /// pass it on every call where a file is open.
-  void retrackReadiness(ReadyStatus status, {String? loadedFileName}) {
+  void retrackReadiness(ReadyStatus status, {String? loadedFileName, Duration? loadedDuration}) {
     _hasLocalReadiness = true;
-    if (_readyStatus == status && _loadedFileName == loadedFileName) return;
+    if (_readyStatus == status &&
+        _loadedFileName == loadedFileName &&
+        _loadedDuration == loadedDuration) {
+      return;
+    }
     trace(
       _readyStatus == status
           ? 'readiness ${status.wire}, file changed'
           : 'readiness ${_readyStatus.wire} -> ${status.wire}',
       category: 'gate',
-      data: {'file': loadedFileName},
+      data: {'file': loadedFileName, 'duration_ms': loadedDuration?.inMilliseconds},
     );
     _readyStatus = status;
+    // "Same movie" was said about one file; a different file starts over.
+    if (_loadedFileName != loadedFileName) _confirmedMedia = null;
     _loadedFileName = loadedFileName;
+    _loadedDuration = loadedDuration;
+    _trackPresence();
+    if (_hasPresenceSynced) {
+      _presenceController.add(_effectivePresentMembers);
+      _evaluateGate();
+    }
+    _checkSelfGateSatisfaction();
+  }
+
+  /// "This is the same movie": the member vouches for their own file against
+  /// the room's current canonical media. Rides on presence like readiness, so
+  /// every client (and whichever one is authority) reaches the same verdict,
+  /// and it is keyed to the media row so the next pick voids it.
+  void confirmSameMedia() {
+    if (!_canonicalMedia.isSet || _loadedFileName == null) return;
+    final key = gateMediaKey(_canonicalMedia);
+    if (_confirmedMedia == key) return;
+    trace(
+      'member confirmed their file is the room media',
+      category: 'gate',
+      data: {
+        'file': _loadedFileName,
+        'room_file': _canonicalMedia.name,
+        'duration_ms': _loadedDuration?.inMilliseconds,
+        'room_duration_ms': _canonicalMedia.duration?.inMilliseconds,
+      },
+    );
+    _confirmedMedia = key;
     _trackPresence();
     if (_hasPresenceSynced) {
       _presenceController.add(_effectivePresentMembers);
@@ -551,9 +592,23 @@ class SyncService {
   /// the canonical media arrive from different directions (presence vs. the
   /// `rooms` row) and in either order, so both paths funnel through here.
   void _checkSelfGateSatisfaction() {
-    final satisfies = _canonicalMedia.isSet && memberSatisfiesGate(_selfPresence);
+    final self = _selfPresence;
+    final satisfies = _canonicalMedia.isSet && memberSatisfiesGate(self);
     if (satisfies == _selfSatisfiesGate) return;
     _selfSatisfiesGate = satisfies;
+    if (_canonicalMedia.kind == .local) {
+      trace(
+        satisfies ? 'our file matches the room media' : 'our file no longer matches the room media',
+        category: 'gate',
+        data: {
+          'match': logic.gateMatchOf(self, _canonicalMedia)?.name,
+          'file': self.loadedFileName,
+          'room_file': _canonicalMedia.name,
+          'duration_ms': self.loadedDuration?.inMilliseconds,
+          'room_duration_ms': _canonicalMedia.duration?.inMilliseconds,
+        },
+      );
+    }
     if (satisfies) _resyncRoomPosition();
   }
 
@@ -1200,6 +1255,8 @@ class SyncService {
     joinedAt: _membershipJoinedAt ?? _presenceJoinedFallback,
     readyStatus: _readyStatus,
     loadedFileName: _loadedFileName,
+    loadedDuration: _loadedDuration,
+    confirmedMedia: _confirmedMedia,
     privacyMode: _privacyMode,
   );
 

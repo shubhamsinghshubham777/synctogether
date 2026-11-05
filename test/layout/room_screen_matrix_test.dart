@@ -11,6 +11,7 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:media_kit/media_kit.dart';
@@ -25,6 +26,7 @@ import 'package:synctogether/rooms/room_dependencies.dart';
 import 'package:synctogether/rooms/room_models.dart';
 import 'package:synctogether/rooms/room_screen.dart';
 import 'package:synctogether/rooms/room_service.dart';
+import 'package:synctogether/rooms/widgets/emoji_picker.dart';
 import 'package:synctogether/rooms/widgets/facecam_rail.dart';
 import 'package:synctogether/rooms/widgets/reaction_strip.dart';
 import 'package:synctogether/rooms/widgets/room_chat_panel.dart';
@@ -50,6 +52,14 @@ class _FakePlayer implements Player {
   final playing = StreamController<bool>.broadcast();
   final position = StreamController<Duration>.broadcast();
   final duration = StreamController<Duration>.broadcast();
+
+  /// Makes `open` throw, the way a file the decoder cannot read does.
+  bool failOpen = false;
+
+  @override
+  Future<void> open(Playable playable, {bool play = true}) async {
+    if (failOpen) throw StateError('could not open');
+  }
 
   @override
   PlayerState state = const PlayerState();
@@ -194,8 +204,10 @@ Future<_Harness> _pumpRoom(
   List<ChatMessage> chat = const [],
   bool selfHost = true,
   bool remembered = true,
+  bool openFails = false,
 }) async {
   final h = _Harness();
+  h.player.failOpen = openFails;
   _lastPlayer = h.player;
   final r = room ?? _room();
   // A remembered copy of the room's file, so the room reopens it on entry and
@@ -228,7 +240,9 @@ Future<_Harness> _pumpRoom(
     );
   SyncService.defaultBackendOverride = h.backend;
   LiveKitService.isConfiguredOverride = av;
-  LiveKitService.isMockMode = av;
+  // Mock AV also fakes an opened file; a room whose open fails must resume the
+  // real way, so the mock only turns on once it has tried.
+  LiveKitService.isMockMode = av && !openFails;
   // Phone cases hold the screen awake while playing; answer the pigeon call.
   tester.binding.defaultBinaryMessenger.setMockMessageHandler(
     'dev.flutter.pigeon.wakelock_plus_platform_interface.WakelockPlusApi.toggle',
@@ -268,6 +282,7 @@ Future<_Harness> _pumpRoom(
     textScale: scale,
   );
   final channel = h.backend.channelInUse;
+  if (av && openFails) LiveKitService.isMockMode = true;
   channel.emitStatus(.subscribed);
   channel.syncPresence(_presence(members, allReady: allReady, selfHost: selfHost));
   await tester.pump();
@@ -278,6 +293,9 @@ Future<_Harness> _pumpRoom(
   }
   if (playing) h.player.playing.add(true);
   await tester.pump(const Duration(milliseconds: 500));
+  // The failed open is reported (as it is in production); it is the premise of
+  // the case, not a finding of it.
+  if (openFails) tester.takeException();
   return h;
 }
 
@@ -287,8 +305,10 @@ Future<void> _finish(WidgetTester tester) async {
   // Let entrances (roster stagger, banner slides) land before the capture, so
   // the screenshot is the settled screen rather than a mid-animation frame.
   await tester.pump(const Duration(seconds: 2));
+  if (_lastPlayer?.failOpen ?? false) tester.takeException();
   await finishCase(tester);
   await tester.pump(const Duration(seconds: 11));
+  if (_lastPlayer?.failOpen ?? false) tester.takeException();
 }
 
 Finder tiles() => find.descendant(
@@ -1005,6 +1025,210 @@ void main() {
     } finally {
       debugDefaultTargetPlatformOverride = null;
     }
+  });
+
+  group('busy portrait room with the soft keyboard', () {
+    // Exactly what a TestFlight recording showed: the host's file would not
+    // open, our camera is on, the reaction strip is open, one chat bubble and
+    // the keyboard up.
+    final busyCases = [
+      kScreenMatrix.firstWhere((c) => c.name == 'phone-keyboard'),
+      kScreenMatrix.firstWhere((c) => c.name == 'phone-android-keyboard'),
+      const ScreenCase(
+        'phone-small-keyboard',
+        Size(320, 568),
+        .iOS,
+        padding: EdgeInsets.only(top: 20),
+        keyboard: 260,
+      ),
+    ];
+
+    Future<_Harness> pumpBusy(WidgetTester tester, ScreenCase c, double s) async {
+      final h = await _pumpRoom(
+        tester,
+        c,
+        s,
+        av: true,
+        members: 4,
+        allReady: false,
+        selfHost: false,
+        openFails: true,
+        chat: [mockChatMessagesList.first],
+      );
+      // Open the reaction strip with the keyboard down, then raise it - the
+      // order a person does it in.
+      tester.view
+        ..viewInsets = FakeViewPadding.zero
+        ..padding = FakeViewPadding(
+          left: c.padding.left,
+          top: c.padding.top,
+          right: c.padding.right,
+          bottom: c.padding.bottom,
+        );
+      await tester.pump(const Duration(milliseconds: 400));
+      await _tapReact(tester);
+      tester.view
+        ..viewInsets = FakeViewPadding(bottom: c.keyboard)
+        ..padding = FakeViewPadding(
+          left: c.padding.left,
+          top: c.padding.top,
+          right: c.padding.right,
+          bottom: (c.padding.bottom - c.keyboard).clamp(0, double.infinity),
+        );
+      await tester.showKeyboard(find.byType(EditableText).first);
+      // Past the "couldn't open that file" toast, which is its own transient
+      // layer over the room.
+      await tester.pump(const Duration(seconds: 6));
+      return h;
+    }
+
+    screenMatrix(
+      'transport and composer stay clear of the keyboard',
+      (tester, c, s) async {
+        await pumpBusy(tester, c, s);
+        final visible = Rect.fromLTWH(0, 0, c.size.width, c.size.height - c.keyboard);
+        final bar = find.byType(RoomControlBar);
+        expect(bar, findsOneWidget);
+        for (final f in [
+          find.descendant(of: bar, matching: find.byType(PTPlayButton)),
+          find.descendant(of: bar, matching: find.byType(PTSlider)).first,
+        ]) {
+          expect(f.hitTestable(), findsOneWidget, reason: '${c.name}: transport not hittable');
+          final r = tester.getRect(f);
+          expect(visible.inflate(0.5).contains(r.topLeft), isTrue, reason: '${c.name}: $r');
+          expect(visible.inflate(0.5).contains(r.bottomRight), isTrue, reason: '${c.name}: $r');
+        }
+        // Whatever keys the bar still shows are whole.
+        for (final tip in ['React (R)', 'Mute', 'Camera']) {
+          for (final e in find.byTooltip(RegExp(tip)).evaluate()) {
+            final r = tester.getRect(find.byElementPredicate((x) => x == e));
+            if (r.height <= 0) continue;
+            expect(r.bottom, lessThanOrEqualTo(visible.bottom + 0.5), reason: '$tip clipped');
+          }
+        }
+        // The newest chat bubble is whole: nothing of the list clips it.
+        final panel = tester.getRect(find.byType(RoomChatPanel).first);
+        final bubble = find.textContaining('Audio and video are locked in');
+        expect(bubble, findsOneWidget);
+        final b = tester.getRect(bubble);
+        expect(b.top, greaterThanOrEqualTo(panel.top - 0.5), reason: 'newest bubble clipped');
+        expect(b.bottom, lessThanOrEqualTo(panel.bottom + 0.5));
+        // The composer is under the bar and above the keyboard.
+        final input = tester.getRect(find.byType(EditableText).first);
+        expect(input.bottom, lessThanOrEqualTo(visible.bottom + 0.5));
+        expect(input.top, greaterThanOrEqualTo(tester.getRect(bar).bottom - 0.5));
+        await _finish(tester);
+      },
+      cases: busyCases,
+      textScales: const [1.0, 1.5],
+    );
+
+    testWidgets('the header folds away with the keyboard instead of cutting', (tester) async {
+      final c = kScreenMatrix.firstWhere((c) => c.name == 'phone-keyboard');
+      try {
+        await _pumpRoom(
+          tester,
+          c,
+          1.0,
+          av: true,
+          allReady: false,
+          selfHost: false,
+          openFails: true,
+          chat: [mockChatMessagesList.first],
+        );
+        // Start from keyboard down.
+        tester.view
+          ..viewInsets = FakeViewPadding.zero
+          ..padding = FakeViewPadding(top: c.padding.top, bottom: c.padding.bottom);
+        await tester.pump(const Duration(milliseconds: 600));
+        // The chat's top edge sits under everything the header pushes.
+        final video = find.byType(RoomChatPanel);
+        final before = tester.getRect(video).top;
+        // The keyboard starts to rise: one frame in, the picture may not have
+        // jumped by the header's whole height.
+        tester.view
+          ..viewInsets = const FakeViewPadding(bottom: 24)
+          ..padding = FakeViewPadding(top: c.padding.top);
+        await tester.pump(const Duration(milliseconds: 16));
+        final moved = (tester.getRect(video).top - before).abs();
+        expect(moved, lessThan(25), reason: 'the header cut away in one frame ($moved px)');
+        // And it does go: collapsed once the motion has run.
+        tester.view
+          ..viewInsets = FakeViewPadding(bottom: c.keyboard)
+          ..padding = FakeViewPadding(top: c.padding.top);
+        await tester.pump(const Duration(milliseconds: 600));
+        expect(tester.getRect(video).top, lessThan(before - 30));
+        // Hidden means out of reach, not just out of sight.
+        expect(find.byTooltip('Room menu').hitTestable(), findsNothing);
+        await _finish(tester);
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
+      }
+    });
+
+    testWidgets('emoji picker and keyboard are never on screen together', (tester) async {
+      final c = kScreenMatrix.firstWhere((c) => c.name == 'phone-keyboard');
+      try {
+        await pumpBusy(tester, c, 1.0);
+        final composerTop = tester.getRect(find.byType(EditableText).first).top;
+        await tester.tap(find.byTooltip(RegExp('Emoji')).first);
+        // The OS slides the keyboard away over ~250 ms.
+        for (var k = 336.0; k >= 0; k -= 56) {
+          tester.view.viewInsets = FakeViewPadding(bottom: k);
+          tester.view.padding = FakeViewPadding(bottom: k == 0 ? 34 : 0);
+          await tester.pump(const Duration(milliseconds: 16));
+          final picker = find.byType(EmojiPicker);
+          if (picker.evaluate().isNotEmpty) {
+            // The picker is revealed through its clip: that is what shows.
+            final clip = find.ancestor(of: picker.first, matching: find.byType(ClipRect)).first;
+            final box = tester.renderObject<RenderBox>(clip);
+            final revealed = (box as RenderClipRect).clipper!.getClip(box.size);
+            final top = box.localToGlobal(Offset.zero).dy;
+            expect(
+              top + revealed.height,
+              lessThanOrEqualTo(c.size.height - k + 0.5),
+              reason: 'picker overlaps the keyboard at $k',
+            );
+          }
+          expect(
+            tester.getRect(find.byType(EditableText).first).top,
+            closeTo(composerTop, 1),
+            reason: 'composer jumped during the hand-off at $k',
+          );
+        }
+        await tester.pump(const Duration(milliseconds: 400));
+        expect(find.text('SMILEYS & EMOTION').hitTestable(), findsOneWidget);
+        await _finish(tester);
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
+      }
+    });
+  });
+
+  group('a file that failed to open', () {
+    testWidgets('offers a different video, not the same bad copy', (tester) async {
+      final c = kScreenMatrix.firstWhere((c) => c.name == 'phone');
+      try {
+        await _pumpRoom(tester, c, 1.0, allReady: false, selfHost: false, openFails: true);
+        expect(find.text('Choose a different video'), findsOneWidget);
+        expect(find.textContaining('Locate'), findsNothing);
+        await _finish(tester);
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
+      }
+    });
+
+    testWidgets('a member who simply lacks the file still gets Locate copy', (tester) async {
+      final c = kScreenMatrix.firstWhere((c) => c.name == 'phone');
+      try {
+        await _pumpRoom(tester, c, 1.0, allReady: false, selfHost: false, remembered: false);
+        expect(find.textContaining('Locate'), findsOneWidget);
+        expect(find.text('Choose a different video'), findsNothing);
+        await _finish(tester);
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
+      }
+    });
   });
 }
 

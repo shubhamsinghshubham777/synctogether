@@ -268,17 +268,6 @@ void main() {
         expect(memberSatisfiesGate(member, _localMedia), isFalse);
       });
 
-      test('the file comparison is exact, not case- or whitespace-insensitive', () {
-        expect(
-          memberSatisfiesGate(_member('a', ready: .ready, file: 'Movie.mkv'), _localMedia),
-          isFalse,
-        );
-        expect(
-          memberSatisfiesGate(_member('a', ready: .ready, file: 'movie.mkv '), _localMedia),
-          isFalse,
-        );
-      });
-
       test('ready with no file at all does not satisfy local media', () {
         expect(memberSatisfiesGate(_member('a', ready: .ready), _localMedia), isFalse);
       });

@@ -1,6 +1,7 @@
 import 'dart:async';
 import '../../ui/booth_icons.g.dart';
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
@@ -44,6 +45,51 @@ const _kCounterFrom = 450;
 const _kSendExtent = 42.0;
 const _kComposerGap = 10.0;
 
+/// The soft keyboard's tallest height in the current orientation - what the
+/// inline emoji picker takes over. Not the latest reading, which shrinks as the
+/// keyboard slides away, exactly when the picker is sized from it. Shared by the
+/// room (which reserves the picker's strip) and the chat panel (which draws it),
+/// so both agree to the pixel.
+class SoftKeyboardMemory {
+  double _tallest = 0;
+  double _bottomSafe = 0;
+  bool _landscape = false;
+
+  /// What the picker is worth when no keyboard has ever shown.
+  static const double fallback = 280;
+
+  /// Reads [view]'s live keyboard height (logical px), remembering the tallest.
+  double observe(ui.FlutterView view) {
+    final landscape = view.physicalSize.width > view.physicalSize.height;
+    if (landscape != _landscape) {
+      _landscape = landscape;
+      _tallest = 0;
+    }
+    final live = view.viewInsets.bottom / view.devicePixelRatio;
+    if (live > _tallest) _tallest = live;
+    _bottomSafe = view.viewPadding.bottom / view.devicePixelRatio;
+    return live;
+  }
+
+  /// Whether a soft keyboard has ever shown: with none (a hardware keyboard),
+  /// there is nothing for the picker to trade places with.
+  bool get hasKeyboard => _tallest > 0;
+
+  /// The full strip the picker and the keyboard trade between them.
+  double get pickerStrip => _tallest > 0 ? _tallest : fallback;
+
+  /// The picker's own height once the keyboard is gone: the strip less the
+  /// bottom inset a `SafeArea` above already keeps clear.
+  double get pickerBody => math.max(0.0, pickerStrip - _bottomSafe);
+
+  /// How much of that strip the picker holds while the keyboard is [live] tall:
+  /// the two always add up to one strip, so nothing above moves in the swap.
+  /// The home indicator / nav bar counts as occupied once the keyboard is
+  /// gone: it is inside the keyboard's height while that is up, and a
+  /// `SafeArea` above takes it back when it leaves.
+  double pickerShown(double live) => math.max(0.0, pickerStrip - math.max(live, _bottomSafe));
+}
+
 class RoomChatPanel extends StatefulWidget {
   const RoomChatPanel({
     super.key,
@@ -63,6 +109,8 @@ class RoomChatPanel extends StatefulWidget {
     this.premiumMembers = const {},
     this.memberFrames = const {},
     this.draftController,
+    this.onInlinePickerChanged,
+    this.keyboardMemory,
   });
 
   final SyncService sync;
@@ -82,6 +130,16 @@ class RoomChatPanel extends StatefulWidget {
   /// the theatre breakpoint) rebuilds the tree around it. Null: the panel owns
   /// its own and the draft dies with it.
   final TextEditingController? draftController;
+
+  /// Told when the touch emoji picker takes over (or hands back) the soft
+  /// keyboard's place, so the room can treat it exactly like a keyboard that is
+  /// up - the header stays collapsed through the hand-off instead of popping
+  /// back for the frames in between.
+  final ValueChanged<bool>? onInlinePickerChanged;
+
+  /// Shared with the room when it reserves the picker's strip; the panel keeps
+  /// its own otherwise.
+  final SoftKeyboardMemory? keyboardMemory;
 
   /// Embedded (mobile portrait) skips its own panel shell + close button.
   final bool embedded;
@@ -137,8 +195,13 @@ class _RoomChatPanelState extends State<RoomChatPanel> {
   bool _pickerIconHovered = false;
   Timer? _hoverOpen;
   Timer? _hoverClose;
-  double _keyboardHeight = 0;
-  Size _panelSize = Size.zero;
+  late final _kbMemory = widget.keyboardMemory ?? SoftKeyboardMemory();
+
+  /// Touch: the picker stays mounted while the keyboard rises back over it, so
+  /// the two trade the same strip of screen instead of the picker vanishing
+  /// first and the composer dropping for the frames before the keyboard lands.
+  bool _pickerLinger = false;
+  Timer? _lingerTimer;
   int _limitShake = 0;
 
   /// Snapshot, not a live read: refreshed when the panel mounts (it remounts
@@ -231,6 +294,13 @@ class _RoomChatPanelState extends State<RoomChatPanel> {
     _typingDebounce?.cancel();
     _hoverOpen?.cancel();
     _hoverClose?.cancel();
+    _lingerTimer?.cancel();
+    // The room treats the picker as a keyboard; whatever unmounts the panel
+    // must not leave it believing one is still up.
+    if (_pickerOpen || _pickerLinger) {
+      final told = widget.onInlinePickerChanged;
+      WidgetsBinding.instance.addPostFrameCallback((_) => told?.call(false));
+    }
     if (_ownsController) _controller.dispose();
     _scrollController.dispose();
     _inputFocus.dispose();
@@ -274,32 +344,55 @@ class _RoomChatPanelState extends State<RoomChatPanel> {
     _hoverOpen?.cancel();
     _hoverClose?.cancel();
     if (_touch) {
-      // The picker takes the keyboard's place rather than stacking on it.
+      // The picker takes the keyboard's place rather than stacking on it: it
+      // grows exactly as the keyboard leaves (see [_inlinePickerShown]).
+      _lingerTimer?.cancel();
       _inputFocus.unfocus();
     } else {
       _pickerPortal.show();
     }
     setState(() {
       _pickerOpen = true;
+      _pickerLinger = false;
       _pickerPinned = pinned;
     });
+    if (_touch) widget.onInlinePickerChanged?.call(true);
   }
 
-  void _closePicker() {
+  /// [keyboardFollows]: touch, and the field is about to take focus back, so
+  /// the picker lingers while the keyboard rises into its place.
+  void _closePicker({bool keyboardFollows = false}) {
     _hoverOpen?.cancel();
     _hoverClose?.cancel();
     if (!_pickerOpen) return;
     _pickerPortal.hide();
+    final linger = _touch && keyboardFollows && _kbMemory.hasKeyboard;
     setState(() {
       _pickerOpen = false;
       _pickerPinned = false;
+      _pickerLinger = linger;
     });
+    if (linger) {
+      _lingerTimer?.cancel();
+      // The keyboard normally lands well inside this; the timer is for a
+      // device that never raises one (a hardware keyboard on a tablet).
+      _lingerTimer = Timer(PTMotion.panel + PTMotion.hover, _endLinger);
+    } else if (_touch) {
+      widget.onInlinePickerChanged?.call(false);
+    }
+  }
+
+  void _endLinger() {
+    _lingerTimer?.cancel();
+    if (!mounted || !_pickerLinger) return;
+    setState(() => _pickerLinger = false);
+    widget.onInlinePickerChanged?.call(false);
   }
 
   void _togglePicker() {
     if (_pickerOpen && (_pickerPinned || _touch)) {
-      _closePicker();
       // Touch: hand the keyboard back, which is why they closed it.
+      _closePicker(keyboardFollows: true);
       _inputFocus.requestFocus();
     } else {
       _openPicker(pinned: true);
@@ -386,20 +479,37 @@ class _RoomChatPanelState extends State<RoomChatPanel> {
     // header gives way first rather than pushing the field off the bottom.
     final content = LayoutBuilder(
       builder: (context, constraints) {
-        _panelSize = constraints.biggest;
         // The panel resizes as the keyboard rises, so this builder sees it.
         // Read from the View: the Scaffold strips insets from what we inherit.
         final view = View.of(context);
-        final keyboard = view.viewInsets.bottom / view.devicePixelRatio;
-        if (keyboard > 0) _keyboardHeight = keyboard;
+        final keyboard = _kbMemory.observe(view);
+        // The keyboard is back over the picker: it has nothing left to hold.
+        if (_pickerLinger && keyboard >= _kbMemory.pickerStrip - 0.5) {
+          WidgetsBinding.instance.addPostFrameCallback((_) => _endLinger());
+        }
+        final inline = _touch && (_pickerOpen || _pickerLinger);
+        // Phone portrait: while a keyboard or the picker holds the lower half,
+        // the roster strip is the first thing to go, so one chat bubble and the
+        // composer always fit. Decided on the inset, not on the panel's height
+        // (which changes every frame of the slide and would flicker it).
+        final inputUp = widget.embedded && (keyboard > 0 || inline);
+        // What the list and composer have, with the picker's changing slice
+        // taken out. The panel grows by exactly what the picker takes while the
+        // keyboard leaves, so judging "does the quick bar fit" on the raw
+        // height would flip it mid-swap and shift the composer by its height.
+        final avail = inline
+            ? constraints.maxHeight - _kbMemory.pickerShown(keyboard)
+            : constraints.maxHeight;
         return _content(
           // An inline picker needs the room more than the header does.
-          showHeader: constraints.maxHeight >= (_pickerOpen && _touch ? 480 : 240),
-          tight: constraints.maxHeight < 200,
+          showHeader: !inputUp && constraints.maxHeight >= (inline ? 480 : 240),
+          denseList: inputUp || (widget.embedded && avail < 300),
+          pickerHeight: inline ? _kbMemory.pickerBody : null,
+          keyboard: keyboard,
+          tight: avail < 200,
           // The field and header grow with the text scale; the bar does not,
           // so the room it needs before appearing grows with them.
-          quickBar:
-              constraints.maxHeight >= 300 + 90 * (MediaQuery.textScalerOf(context).scale(1) - 1),
+          quickBar: avail >= 300 + 90 * (MediaQuery.textScalerOf(context).scale(1) - 1),
         );
       },
     );
@@ -417,7 +527,14 @@ class _RoomChatPanelState extends State<RoomChatPanel> {
     return GlassPanel(radius: PTRadius.panel, baseColor: PTColors.surfaceBase, child: content);
   }
 
-  Widget _content({required bool showHeader, required bool tight, required bool quickBar}) {
+  Widget _content({
+    required bool showHeader,
+    required bool denseList,
+    required double? pickerHeight,
+    required double keyboard,
+    required bool tight,
+    required bool quickBar,
+  }) {
     return Column(
       children: [
         if (showHeader && widget.roster != null)
@@ -464,7 +581,13 @@ class _RoomChatPanelState extends State<RoomChatPanel> {
         // exact on the first frame, which measuring a GlobalKey never is.
         Expanded(
           child: CustomMultiChildLayout(
-            delegate: _ComposerLayout(picker: _pickerOpen && _touch ? _inlinePickerHeight() : null),
+            // The picker is whatever the keyboard has left of its strip: the
+            // two always add up to one keyboard's height, so nothing above
+            // moves while they trade places.
+            delegate: _ComposerLayout(
+              picker: pickerHeight == null ? null : _kbMemory.pickerShown(keyboard),
+              body: pickerHeight ?? 0,
+            ),
             children: [
               LayoutId(
                 id: _ComposerSlot.list,
@@ -474,6 +597,8 @@ class _RoomChatPanelState extends State<RoomChatPanel> {
                     physics: const ChatScrollPhysics(),
                     padding: _spare
                         ? const EdgeInsets.symmetric(horizontal: 14, vertical: 12)
+                        : denseList
+                        ? const EdgeInsets.symmetric(horizontal: 14, vertical: 8)
                         : const EdgeInsets.all(20),
                     // The typing slot is always present so it can collapse rather than
                     // pop; its own gap lives inside it, which is why the separator
@@ -481,7 +606,7 @@ class _RoomChatPanelState extends State<RoomChatPanel> {
                     itemCount: widget.messages.length + 1,
                     separatorBuilder: (_, index) => index == widget.messages.length - 1
                         ? const SizedBox.shrink()
-                        : SizedBox(height: _spare ? 10 : 14),
+                        : SizedBox(height: _spare || denseList ? 10 : 14),
                     itemBuilder: (context, index) {
                       if (index == widget.messages.length) {
                         return _typingRow();
@@ -513,7 +638,11 @@ class _RoomChatPanelState extends State<RoomChatPanel> {
                   child: _composer(tight: tight, quickBar: quickBar),
                 ),
               ),
-              if (_pickerOpen && _touch) LayoutId(id: _ComposerSlot.picker, child: _inlinePicker()),
+              if (pickerHeight != null)
+                LayoutId(
+                  id: _ComposerSlot.picker,
+                  child: _inlinePicker(_kbMemory.pickerShown(keyboard)),
+                ),
             ],
           ),
         ),
@@ -760,7 +889,7 @@ class _RoomChatPanelState extends State<RoomChatPanel> {
     // Touch: tapping the field brings the keyboard back, so the inline picker
     // makes way for it.
     onTap: () {
-      if (_touch && _pickerOpen) _closePicker();
+      if (_touch && _pickerOpen) _closePicker(keyboardFollows: true);
     },
     // The default `onEditingComplete` unfocuses on submit; `_send`
     // owns focus instead. `onSubmitted` still fires after it.
@@ -892,22 +1021,18 @@ class _RoomChatPanelState extends State<RoomChatPanel> {
     );
   }
 
-  /// Touch: in the keyboard's place, at the keyboard's last height so the
-  /// composer does not jump between the two.
-  /// Touch: the keyboard's last height, so the composer does not jump between
-  /// the two; capped so the list keeps a share. [_ComposerLayout] trims it
-  /// further if the composer leaves less.
-  double _inlinePickerHeight() {
-    final wanted = _keyboardHeight > 0 ? _keyboardHeight : 280.0;
-    return math.min(wanted, _panelSize.height * 0.6) + MediaQuery.paddingOf(context).bottom;
-  }
-
-  Widget _inlinePicker() => Container(
-    padding: EdgeInsets.only(bottom: MediaQuery.paddingOf(context).bottom),
-    decoration: BoxDecoration(
-      border: Border(top: BorderSide(color: PTColors.white(0.08))),
+  /// The picker is laid out at the height it will settle at and revealed from
+  /// the top, [shown] tall, as the keyboard leaves: a slide in, with nothing
+  /// re-laid-out per frame. The clip also stops hits below the reveal.
+  Widget _inlinePicker(double shown) => ClipRect(
+    clipper: _RevealClip(shown),
+    child: Container(
+      padding: EdgeInsets.only(bottom: MediaQuery.paddingOf(context).bottom),
+      decoration: BoxDecoration(
+        border: Border(top: BorderSide(color: PTColors.white(0.08))),
+      ),
+      child: EmojiPicker(prefs: _emoji, onPick: _insert, onCustomize: () => _customize(0)),
     ),
-    child: EmojiPicker(prefs: _emoji, onPick: _insert, onCustomize: () => _customize(0)),
   );
 
   Widget _typingRow() {
@@ -1296,8 +1421,23 @@ class _PlaySharedVideoButtonState extends State<_PlaySharedVideoButton> {
 /// near the bottom.
 enum _ComposerSlot { list, composer, picker }
 
+class _RevealClip extends CustomClipper<Rect> {
+  const _RevealClip(this.shown);
+
+  final double shown;
+
+  @override
+  Rect getClip(Size size) => Rect.fromLTWH(0, 0, size.width, math.min(shown, size.height));
+
+  @override
+  bool shouldReclip(_RevealClip old) => old.shown != shown;
+}
+
 class _ComposerLayout extends MultiChildLayoutDelegate {
-  _ComposerLayout({required this.picker});
+  _ComposerLayout({required this.picker, required this.body});
+
+  /// The picker's height once the keyboard has left (before trimming).
+  final double body;
 
   /// The inline picker's wanted height, or null when it is not shown.
   final double? picker;
@@ -1315,9 +1455,12 @@ class _ComposerLayout extends MultiChildLayoutDelegate {
     var pickerHeight = 0.0;
     if (picker != null) {
       pickerHeight = math.max(0.0, math.min(picker!, size.height - composer - _minList));
+      // Laid out at what it settles at: the area without the picker's slice,
+      // less the composer and the list's least, capped at its own body.
+      final settled = math.max(0.0, math.min(body, size.height - picker! - composer - _minList));
       layoutChild(
         _ComposerSlot.picker,
-        BoxConstraints.tightFor(width: width, height: pickerHeight),
+        BoxConstraints.tightFor(width: width, height: math.max(settled, pickerHeight)),
       );
     }
     final list = math.max(0.0, size.height - composer - pickerHeight);
@@ -1328,7 +1471,8 @@ class _ComposerLayout extends MultiChildLayoutDelegate {
   }
 
   @override
-  bool shouldRelayout(_ComposerLayout oldDelegate) => oldDelegate.picker != picker;
+  bool shouldRelayout(_ComposerLayout oldDelegate) =>
+      oldDelegate.picker != picker || oldDelegate.body != body;
 }
 
 /// Refuses an edit that would take the message past the server's codepoint

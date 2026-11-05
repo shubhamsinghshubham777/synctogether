@@ -136,6 +136,10 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
   /// Remounting is cheap; losing a half-typed message is not.
   final _chatDraft = TextEditingController();
 
+  /// The chat's inline emoji picker holds the soft keyboard's place (touch).
+  bool _chatPickerUp = false;
+  final _keyboardMemory = SoftKeyboardMemory();
+
   /// Whether the system bars are hidden for immersive playback; see
   /// [_wantsImmersive].
   bool _immersive = false;
@@ -2354,6 +2358,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
   }) async {
     _localLoadWatchdog?.cancel();
     _localLoadStalled = false;
+    _openFailedFor = null;
     _isStreamingRemoteSharedMedia = false;
     _bufferPosition = null;
     try {
@@ -2369,6 +2374,8 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     } catch (e, s) {
       reportNonFatal(e, s, during: 'opening a local video file');
       if (!mounted) return;
+      trace('local file would not open', category: 'media', data: {'file': name});
+      setState(() => _openFailedFor = name);
       _snack("We couldn't open that file. Try another copy, or a different file.");
       _updateReadiness();
       return;
@@ -2655,6 +2662,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     if (_localLoadStalled) return;
     _localLoadStalled = true;
     _localLoadWatchdog?.cancel();
+    setState(() => _openFailedFor = _localFileName);
     _snack("We couldn't open that file. Try another copy, or a different file.");
   }
 
@@ -2758,6 +2766,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     _sync?.retrackReadiness(
       _computeReadiness(),
       loadedFileName: _mode == .local ? _localFileName : null,
+      loadedDuration: _mode == .local && _duration > Duration.zero ? _duration : null,
     );
     _syncGateReveal();
   }
@@ -2838,6 +2847,23 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
       _ytBufferReady = true;
       _updateReadiness();
     });
+  }
+
+  /// We are ready with a file the room does not recognise as its movie (name
+  /// and length both differ). Offered as a way out, never a wall: the member
+  /// can vouch for their copy, which the whole room then honours.
+  bool get _suspectWrongFile {
+    final sync = _sync;
+    if (sync == null || _mode != .local || !_canonicalMedia.isSet) return false;
+    if (_canonicalMedia.kind != .local || _canonicalMedia.name == null) return false;
+    if (_localFileName == null || _duration == Duration.zero) return false;
+    final self = _present.where((m) => m.userId == sync.userId).firstOrNull;
+    return self != null && self.isReady && !sync.memberSatisfiesGate(self);
+  }
+
+  void _confirmSameMovie() {
+    _sync?.confirmSameMedia();
+    setState(() {});
   }
 
   /// The old "different file loaded" banner is gone - the readiness overlay
@@ -3176,6 +3202,15 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     );
   }
 
+  /// The file this device tried and failed to open (it would not decode, or
+  /// never reported a length). Offering "Locate copy" for that same file again
+  /// is a dead end, so while it is the room's file the overlay's primary action
+  /// is to choose a different video instead.
+  String? _openFailedFor;
+
+  bool get _selfFileFailed =>
+      _openFailedFor != null && _openFailedFor == _canonicalMedia.name && _mode == .local;
+
   bool get _selfBlocksGate {
     final sync = _sync;
     if (sync == null) return false;
@@ -3185,14 +3220,8 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
 
   bool get _allMembersLocallyReady {
     if (_present.length <= 1) return false;
-    final canonicalName = _canonicalMedia.name;
-    if (canonicalName == null) return false;
-    for (final member in _present) {
-      if (!member.isReady || member.loadedFileName != canonicalName) {
-        return false;
-      }
-    }
-    return true;
+    if (_canonicalMedia.name == null) return false;
+    return _present.every((m) => memberSatisfiesGate(m, _canonicalMedia));
   }
 
   /// Plain-language "who are we waiting on, and for what".
@@ -3209,6 +3238,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
 
     final others = blockers.where((m) => m.userId != sync?.userId).toList();
     if (others.isEmpty) {
+      if (_selfFileFailed) return "We couldn't open $what.";
       return _canonicalMedia.kind == .local ? 'Load $what to join in.' : 'Getting $what ready…';
     }
     // The wrong-file case only reads well for a single person; past that,
@@ -4927,6 +4957,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
                     onLocateFile: _selfBlocksGate && _canonicalMedia.kind == .local
                         ? _pickVideo
                         : null,
+                    openFailed: _selfFileFailed,
                     onStartWithout: _canStartWithout ? _startWithoutStragglers : null,
                     startWithoutLabel: _startWithoutLabel,
                     onPickSource: _hostMustChoose
@@ -5100,6 +5131,27 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
             showActivity: true,
             title: 'Reconnecting…',
             subtitle: 'Hang tight, getting you back in sync.',
+          ),
+        ),
+      if (_suspectWrongFile)
+        PTEntrance(
+          key: const ValueKey('wrong-file-suspect'),
+          offset: -8,
+          duration: PTMotion.state,
+          child: PTBanner(
+            kind: .warning,
+            icon: Symbols.difference_rounded,
+            title: 'Is this the same movie?',
+            subtitle:
+                '${_roomFile?.name ?? 'The room\'s video'} looks different from your '
+                '$_localFileName. If it is the same film, you can join anyway.',
+            trailing: PTButton(
+              label: 'Same movie',
+              variant: .secondary,
+              height: 38,
+              expand: false,
+              onPressed: _confirmSameMovie,
+            ),
           ),
         ),
       if (_durationDrifts)
@@ -5324,6 +5376,12 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     final sync = _sync!;
     return RoomChatPanel(
       draftController: _chatDraft,
+      keyboardMemory: _keyboardMemory,
+      onInlinePickerChanged: embedded
+          ? (up) {
+              if (mounted && _chatPickerUp != up) setState(() => _chatPickerUp = up);
+            }
+          : null,
       sync: sync,
       messages: _visibleMessages,
       premiumMembers: _premiumMembers,
@@ -5946,18 +6004,22 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
   /// Phone portrait, and (with [roomy]) tablet portrait: video pinned top,
   /// everything else stacked below it as real layout.
   Widget _portrait({bool roomy = false}) {
-    final keyboardUp = MediaQuery.viewInsetsOf(context).bottom > 0;
+    // The inline emoji picker takes the keyboard's place, so it counts: the
+    // header would otherwise pop back for the frames between the two.
+    // Reading the MediaQuery inset is what rebuilds this on every frame of the
+    // keyboard's slide; the memory reads the same value from the View.
+    final keyboardUp = MediaQuery.viewInsetsOf(context).bottom > 0 || _chatPickerUp;
+    final liveKeyboard = _keyboardMemory.observe(View.of(context));
     final gutter = roomy ? 24.0 : (MediaQuery.sizeOf(context).width < 380 ? 10.0 : 14.0);
     return RoomMobilePortraitLayout(
       roomy: roomy,
       keyboardUp: keyboardUp,
-      header: keyboardUp
-          ? const SizedBox.shrink()
-          : _portraitHeader(
-              padding: roomy
-                  ? const EdgeInsets.fromLTRB(16, 10, 16, 10)
-                  : const EdgeInsets.fromLTRB(6, 4, 6, 8),
-            ),
+      chatFloorExtra: _chatPickerUp ? _keyboardMemory.pickerShown(liveKeyboard) : 0,
+      header: _portraitHeader(
+        padding: roomy
+            ? const EdgeInsets.fromLTRB(16, 10, 16, 10)
+            : const EdgeInsets.fromLTRB(6, 4, 6, 8),
+      ),
       videoSurface: _skipZones(child: _videoSurface()),
       facecamStrip: (_av != null && !_privacyHidden && _camsVisible) ? _facecamStrip() : null,
       reactionStrip: _reactionStrip(compact: !roomy),

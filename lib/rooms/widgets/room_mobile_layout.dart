@@ -254,8 +254,14 @@ class RoomMobilePortraitLayout extends StatelessWidget {
     this.facecamStrip,
     this.roomy = false,
     this.keyboardUp = false,
+    this.chatFloorExtra = 0,
     super.key,
   });
+
+  /// Height the chat keeps on top of its floor: the inline emoji picker's strip
+  /// while it holds the keyboard's place. Reserved here, above the chat, so the
+  /// picture and strips give way exactly as they did for the keyboard.
+  final double chatFloorExtra;
 
   /// Whether the soft keyboard is up. Passed in rather than read here: the
   /// Scaffold above consumes the bottom view inset, so by this point it is 0.
@@ -276,9 +282,12 @@ class RoomMobilePortraitLayout extends StatelessWidget {
 
     return SafeArea(
       child: RoomPortraitStack(
-        chatFloor: floorScaler(context).scale(160),
+        chatFloor: floorScaler(context).scale(160) + chatFloorExtra,
         children: [
-          if (!keyboardUp) RoomPortraitSlot(role: .header, child: header),
+          RoomPortraitSlot(
+            role: .header,
+            child: _Collapse(collapsed: keyboardUp, child: header),
+          ),
           RoomPortraitSlot(role: .video, child: videoSurface),
           if (facecamStrip != null)
             RoomPortraitSlot(
@@ -302,6 +311,41 @@ class RoomMobilePortraitLayout extends StatelessWidget {
           ),
           RoomPortraitSlot(role: .chat, child: embeddedChat),
         ],
+      ),
+    );
+  }
+}
+
+/// Folds [child] away to nothing (and back) over [PTMotion.state].
+///
+/// The portrait room hides its header while the soft keyboard or the inline
+/// emoji picker holds the lower half. Removing it outright moved everything
+/// beneath it by its whole height in a single frame, on top of the keyboard's
+/// own slide; folding it makes one continuous motion of it. The header stays
+/// mounted (a mounted subtree costs nothing here - no per-frame work, one
+/// animation only when the state flips), but while folded it is out of focus,
+/// out of semantics and, being zero tall, out of hit testing.
+class _Collapse extends StatelessWidget {
+  const _Collapse({required this.collapsed, required this.child});
+
+  final bool collapsed;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween(end: collapsed ? 0.0 : 1.0),
+      duration: PTMotion.functional(context, PTMotion.state),
+      curve: PTMotion.enter,
+      child: child,
+      builder: (context, t, child) => ExcludeFocus(
+        excluding: t < 0.01,
+        child: ExcludeSemantics(
+          excluding: t < 0.01,
+          child: ClipRect(
+            child: Align(alignment: .topCenter, heightFactor: t, child: child),
+          ),
+        ),
       ),
     );
   }

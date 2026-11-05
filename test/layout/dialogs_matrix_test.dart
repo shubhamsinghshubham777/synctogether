@@ -18,6 +18,7 @@ import 'package:synctogether/profile/profile_models.dart';
 import 'package:synctogether/profile/profile_service.dart';
 import 'package:synctogether/rewards/rewards_logic.dart';
 import 'package:synctogether/rewards/rewards_service.dart';
+import 'package:synctogether/rewards/widgets/badge_catalog_dialog.dart';
 import 'package:synctogether/rewards/widgets/recap_card.dart';
 import 'package:synctogether/rewards/widgets/shared_recaps_dialog.dart';
 import 'package:synctogether/rooms/reactions.dart';
@@ -228,6 +229,12 @@ void main() {
     ),
   );
   opener('shared-recaps', (ctx) => showSharedRecapsDialog(ctx));
+  opener('badge-catalog', (ctx) => showBadgeCatalog(ctx, sampleBadgesState));
+  // Opened from an earned tile: that badge's row is marked and scrolled to.
+  opener(
+    'badge-catalog-focus',
+    (ctx) => showBadgeCatalog(ctx, sampleBadgesState, focusId: 'double_feature'),
+  );
   opener(
     'recap',
     (ctx) => showRecapDialog(

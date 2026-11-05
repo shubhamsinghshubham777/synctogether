@@ -30,6 +30,8 @@ class PresentMember {
     this.avatarUrl,
     this.readyStatus = .none,
     this.loadedFileName,
+    this.loadedDuration,
+    this.confirmedMedia,
     this.privacyMode = false,
   });
 
@@ -46,6 +48,14 @@ class PresentMember {
   /// Basename this member actually has open, for the "they have `weird.mp4`" copy.
   final String? loadedFileName;
 
+  /// Length of that file as this member's player reports it. Absent from older
+  /// clients, which then fall back to the name alone.
+  final Duration? loadedDuration;
+
+  /// [gateMediaKey] of the canonical media this member told us "this is the
+  /// same movie" about. Tied to one media row, so a new pick voids it.
+  final String? confirmedMedia;
+
   final bool privacyMode;
 
   bool get isHost => role == 'host';
@@ -59,6 +69,8 @@ class PresentMember {
     avatarUrl: avatarUrl,
     readyStatus: readyStatus,
     loadedFileName: loadedFileName,
+    loadedDuration: loadedDuration,
+    confirmedMedia: confirmedMedia,
     privacyMode: value,
   );
 }
@@ -123,12 +135,140 @@ const kChatMaxCodepoints = 500;
 
 bool chatLengthOk(String text) => text.runes.length <= kChatMaxCodepoints;
 
-/// `ready` only means "something is open" - the name comparison is the gate's
-/// job, which is what lets the UI tell "still loading" apart from "loaded the
-/// wrong thing".
+/// How far two copies of a film may differ in length and still be one film.
+///
+/// +-1.5 s covers what containers legitimately disagree on for identical
+/// content: mkv/webm report the segment duration from the last cluster, mp4
+/// from the longest track (audio padding of an AAC priming frame is ~21-46 ms,
+/// but a trailing silent or subtitle-only track can add a second), and avi is
+/// derived from frame count / frame rate. A PAL speed-up (24 to 25 fps, ~4%) is
+/// minutes on a feature, so it is far outside this and needs the name to agree.
+const kGateDurationTolerance = Duration(milliseconds: 1500);
+
+/// Why a member's file was accepted for the room's canonical media.
+enum GateMatch { exactName, sameTitle, sameLength, confirmed }
+
+const _kVideoExtensions = {
+  'mkv', 'mp4', 'm4v', 'mov', 'avi', 'webm', 'wmv', 'flv', 'ts', 'm2ts', 'mts', //
+  'mpg', 'mpeg', '3gp', 'ogv', 'vob', 'divx', 'asf', 'f4v', 'rmvb',
+};
+
+const _kQualityTags = {
+  '360p', '480p', '540p', '576p', '720p', '1080p', '1440p', '2160p', '4k', '8k', //
+  'uhd', 'hd', 'fhd', 'bluray', 'bdrip', 'brrip', 'bdremux', 'remux', 'webrip', //
+  'webdl', 'hdrip', 'dvdrip', 'hdtv', 'x264', 'x265', 'h264', 'h265', 'hevc', //
+  'avc', 'xvid', 'aac', 'ac3', 'eac3', 'dts', 'ddp5', 'atmos', 'flac', '10bit', //
+  '8bit', 'hdr', 'hdr10', 'sdr', 'proper', 'repack', 'extended', 'unrated', //
+  'remastered', 'yify', 'yts', 'rarbg', 'amzn', 'dsnp', 'hmax', //
+};
+
+final _kEpisodeMarker = RegExp(
+  r'^(s\d{1,2}e\d{1,3}|\d{1,2}x\d{1,3}|e\d{1,3}|ep\d{1,3}|cd\d|part\d)$',
+);
+
+/// What survives of a file name once the things that vary between copies of
+/// the same film are removed. [title] is what is compared; [year] only
+/// vetoes a match when both sides state one and they differ (a remake); and
+/// [markers] (episode / part numbers) are never stripped and veto the length
+/// signal, because two episodes of one show routinely run the same length.
+typedef MediaStem = ({String title, String? year, Set<String> markers});
+
+MediaStem mediaStem(String fileName) {
+  var name = fileName.trim().toLowerCase();
+  final dot = name.lastIndexOf('.');
+  if (dot > 0 && _kVideoExtensions.contains(name.substring(dot + 1))) {
+    name = name.substring(0, dot);
+  }
+  // A re-download's "Movie (1)" suffix is the same file, not a different one.
+  name = name.replaceFirst(RegExp(r'\s*\(\d{1,2}\)\s*$'), '');
+  // Hyphenated or dotted compound tags must survive the separator split, as
+  // must audio layouts like 5.1.
+  name = name
+      .replaceAll(RegExp(r'web[\s._-]?dl'), 'webdl')
+      .replaceAll(RegExp(r'blu[\s._-]?ray'), 'bluray')
+      .replaceAllMapped(RegExp(r'(?<!\d)([257])[.]([01])(?!\d)'), (m) => '${m[1]}x${m[2]}audio');
+  final tokens = name.split(RegExp(r'[\s._\-\[\](){}+,;:]+')).where((t) => t.isNotEmpty).toList();
+  String? year;
+  final markers = <String>{};
+  final title = <String>[];
+  for (final t in tokens) {
+    if (_kEpisodeMarker.hasMatch(t)) {
+      markers.add(t);
+      title.add(t);
+    } else if (RegExp(r'^(19|20)\d{2}$').hasMatch(t) && tokens.length > 1) {
+      year ??= t;
+    } else if ((_kQualityTags.contains(t) || RegExp(r'^[257]x[01]audio$').hasMatch(t)) &&
+        tokens.length > 1) {
+      // quality / source / codec noise
+    } else {
+      title.add(t);
+    }
+  }
+  // "1917" or "2012" are titles, not release years: a name that is nothing but
+  // a year keeps it.
+  if (title.isEmpty && year != null) return (title: year, year: null, markers: markers);
+  return (title: title.join(' '), year: year, markers: markers);
+}
+
+/// Whether two file names plausibly name the same film.
+bool sameMediaTitle(String a, String b) {
+  final x = mediaStem(a);
+  final y = mediaStem(b);
+  if (x.title.isEmpty || x.title != y.title) return false;
+  return x.year == null || y.year == null || x.year == y.year;
+}
+
+/// Key a member's "this is the same movie" confirmation is tied to.
+String gateMediaKey(RoomMedia media) =>
+    '${media.updatedAt?.millisecondsSinceEpoch ?? 0}:${media.name}';
+
+/// Whether [loaded] is within [kGateDurationTolerance] of [canonical]. False
+/// when either side is unknown - an absent length is never evidence.
+bool durationsAgree(Duration? loaded, Duration? canonical) =>
+    loaded != null &&
+    canonical != null &&
+    loaded > Duration.zero &&
+    canonical > Duration.zero &&
+    (loaded - canonical).abs() <= kGateDurationTolerance;
+
+/// The rule that decides whether a member's local file counts as the room's
+/// film, or null when it does not. Pure and shared by every client, so the room
+/// agrees on who is holding the gate.
+///
+///  1. exact name (every client that ever existed)
+///  2. same normalised title (case, extension, separators, year and quality
+///     tags ignored) - a name the user chose, so it settles it
+///  3. length within [kGateDurationTolerance] - for renamed or provider-mangled
+///     copies, unless both names carry different episode/part markers
+///  4. the member said so ([PresentMember.confirmedMedia])
+///
+/// Differing on all of these is "not ready"; the member is never trapped, as 4
+/// is always one tap away.
+GateMatch? gateMatchOf(PresentMember member, RoomMedia media) {
+  final loaded = member.loadedFileName;
+  final canonical = media.name;
+  if (loaded != null && canonical != null) {
+    if (loaded == canonical) return GateMatch.exactName;
+    if (sameMediaTitle(loaded, canonical)) return GateMatch.sameTitle;
+    if (durationsAgree(member.loadedDuration, media.duration)) {
+      final a = mediaStem(loaded).markers;
+      final b = mediaStem(canonical).markers;
+      final conflict = a.isNotEmpty && b.isNotEmpty && !(a.length == b.length && a.containsAll(b));
+      if (!conflict) return GateMatch.sameLength;
+    }
+  }
+  if (member.confirmedMedia != null && member.confirmedMedia == gateMediaKey(media)) {
+    return GateMatch.confirmed;
+  }
+  return null;
+}
+
+/// `ready` only means "something is open" - the match is the gate's job, which
+/// is what lets the UI tell "still loading" apart from "loaded the wrong
+/// thing".
 bool memberSatisfiesGate(PresentMember member, RoomMedia media) {
   if (!member.isReady) return false;
-  if (media.kind == .local && member.loadedFileName != media.name) return false;
+  if (media.kind == .local) return gateMatchOf(member, media) != null;
   return true;
 }
 
@@ -277,6 +417,11 @@ List<PresentMember> mergePresence(
       joinedAt: DateTime.tryParse(p['joined_at'] as String? ?? '') ?? clock(),
       readyStatus: ReadyStatus.fromWire(p['ready_status'] as String?),
       loadedFileName: p['loaded_file_name'] as String?,
+      loadedDuration: switch (p['loaded_duration_ms']) {
+        final num ms when ms > 0 => Duration(milliseconds: ms.toInt()),
+        _ => null,
+      },
+      confirmedMedia: p['confirmed_media'] as String?,
       privacyMode: private,
     );
     final existing = byUser[uid];

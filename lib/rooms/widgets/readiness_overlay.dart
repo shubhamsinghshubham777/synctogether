@@ -25,7 +25,7 @@ class ReadinessChipStyle {
   /// A member who is "ready" but holding the wrong file reads as a problem, not
   /// as progress - the gate treats them the same way.
   static ReadinessChipStyle of(PresentMember member, RoomMedia media) {
-    if (media.kind == .local && member.isReady && member.loadedFileName != media.name) {
+    if (media.kind == .local && member.isReady && gateMatchOf(member, media) == null) {
       return ReadinessChipStyle(
         'Wrong file · ${member.loadedFileName ?? 'nothing'}',
         PTColors.danger,
@@ -56,6 +56,7 @@ class ReadinessOverlay extends StatelessWidget {
     required this.selfIsHost,
     required this.onLocateFile,
     required this.onKick,
+    this.openFailed = false,
     this.onStartWithout,
     this.startWithoutLabel,
     this.onPickSource,
@@ -80,6 +81,10 @@ class ReadinessOverlay extends StatelessWidget {
 
   /// Null unless *we* are the one who needs to find their copy.
   final VoidCallback? onLocateFile;
+
+  /// The file we have already tried to open would not. Pointing at the same
+  /// copy again goes nowhere, so the action becomes choosing a different video.
+  final bool openFailed;
   final void Function(PresentMember member)? onKick;
 
   final VoidCallback? onStartWithout;
@@ -183,7 +188,9 @@ class ReadinessOverlay extends StatelessWidget {
         PTButton(
           // Just the action - the headline directly above already names the
           // file, and release names are long enough to swamp the panel.
-          label: dense ? 'Locate copy' : 'Locate your copy',
+          label: openFailed
+              ? 'Choose a different video'
+              : (dense ? 'Locate copy' : 'Locate your copy'),
           icon: BoothIcons.file,
           expand: true,
           onPressed: onLocateFile,

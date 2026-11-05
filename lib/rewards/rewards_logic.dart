@@ -73,6 +73,65 @@ Achievement? nextAchievement(List<Achievement> achievements, Map<String, int> me
   return best;
 }
 
+/// "14 more badges to earn". Counts only what the shelf can name: secrets that
+/// are still locked are not part of it.
+String badgesToEarnLabel(int count) => '$count more badge${count == 1 ? '' : 's'} to earn';
+
+/// The badges still to earn, closest first, secrets left out. The sort is by
+/// progress and falls back to the catalogue's own order, spelt out by index
+/// because `List.sort` is not stable.
+List<Achievement> badgesToEarn(List<Achievement> achievements, Map<String, int> metrics) {
+  final open = [
+    for (final (i, a) in achievements.indexed)
+      if (!a.unlocked && !a.isSecret) (i, a),
+  ];
+  open.sort((x, y) {
+    final byProgress = achievementProgress(
+      y.$2,
+      metrics,
+    ).compareTo(achievementProgress(x.$2, metrics));
+    return byProgress != 0 ? byProgress : x.$1.compareTo(y.$1);
+  });
+  return [for (final entry in open) entry.$2];
+}
+
+/// Metrics the server counts in seconds, which read as time rather than as a
+/// bare six-digit number.
+const _kSecondMetrics = {'total_seconds', 'longest_session_seconds'};
+
+/// "6 of 10", or "1h 52m of 4h". Null for a one-step badge, where the rule
+/// already says everything a counter would.
+String? badgeProgressLabel(Achievement achievement, Map<String, int> metrics) {
+  if (achievement.threshold <= 1) return null;
+  final have = metrics[achievement.metric] ?? 0;
+  if (_kSecondMetrics.contains(achievement.metric)) {
+    final target = formatWatchTime(Duration(seconds: achievement.threshold));
+    if (have <= 0) return '0 of $target';
+    return '${formatWatchTime(Duration(seconds: have))} of $target';
+  }
+  return '$have of ${achievement.threshold}';
+}
+
+/// "12 Aug 2026", in the viewer's own calendar day.
+String formatBadgeDate(DateTime when) {
+  const months = [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
+  ];
+  final local = when.toLocal();
+  return '${local.day} ${months[local.month - 1]} ${local.year}';
+}
+
 String rankOrdinal(int rank) {
   if (rank <= 0) return '-';
   final mod100 = rank % 100;

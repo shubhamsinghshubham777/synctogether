@@ -42,6 +42,7 @@ Achievement achievement(
 );
 
 void main() {
+  badgeCatalogTests();
   group('streak multiplier', () {
     test('bands match the server, which is what the board publishes', () {
       expect(streakMultiplier(0), 1.00);
@@ -346,6 +347,75 @@ void main() {
         sessionWorthRecapping(length: kRecapMinimumLength, peakMembers: 2, isGuest: false),
         isTrue,
       );
+    });
+  });
+}
+
+Achievement _a(
+  String id, {
+  String metric = 'x',
+  int threshold = 10,
+  bool unlocked = false,
+  RewardGrade grade = RewardGrade.bronze,
+}) => Achievement(
+  id: id,
+  title: id,
+  description: '$id rule',
+  icon: 'bolt',
+  grade: grade,
+  metric: metric,
+  threshold: threshold,
+  unlocked: unlocked,
+);
+
+void badgeCatalogTests() {
+  group('badgesToEarnLabel', () {
+    test('pluralises', () {
+      expect(badgesToEarnLabel(14), '14 more badges to earn');
+      expect(badgesToEarnLabel(1), '1 more badge to earn');
+    });
+  });
+
+  group('badgesToEarn', () {
+    test('is closest first, ties in catalogue order, with no secrets and nothing earned', () {
+      final list = badgesToEarn(
+        [
+          _a('far', threshold: 100),
+          _a('done', unlocked: true),
+          _a('tie1', threshold: 20),
+          _a('secret', grade: RewardGrade.secret),
+          _a('near'),
+          _a('tie2', threshold: 20),
+        ],
+        const {'x': 8},
+      );
+      expect([for (final a in list) a.id], ['near', 'tie1', 'tie2', 'far']);
+    });
+  });
+
+  group('badgeProgressLabel', () {
+    test('counts plain metrics', () {
+      expect(badgeProgressLabel(_a('a'), const {'x': 6}), '6 of 10');
+      expect(badgeProgressLabel(_a('a'), const {}), '0 of 10');
+    });
+
+    test('reads seconds metrics as time', () {
+      final marathon = _a('m', metric: 'longest_session_seconds', threshold: 14400);
+      expect(badgeProgressLabel(marathon, const {'longest_session_seconds': 6720}), '1h 52m of 4h');
+      expect(badgeProgressLabel(marathon, const {}), '0 of 4h');
+      final century = _a('c', metric: 'total_seconds', threshold: 360000);
+      expect(badgeProgressLabel(century, const {'total_seconds': 32700}), '9h 5m of 100h');
+    });
+
+    test('has nothing to count for a one-step badge', () {
+      expect(badgeProgressLabel(_a('a', threshold: 1), const {}), isNull);
+    });
+  });
+
+  group('formatBadgeDate', () {
+    test('is day, month, year', () {
+      expect(formatBadgeDate(DateTime(2026, 8, 12, 12)), '12 Aug 2026');
+      expect(formatBadgeDate(DateTime(2026, 1, 3, 12)), '3 Jan 2026');
     });
   });
 }

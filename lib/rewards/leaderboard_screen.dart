@@ -241,8 +241,10 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> with WindowListen
           else
             Padding(
               padding: compact
-                  ? const EdgeInsets.fromLTRB(20, 10, 20, 0)
-                  : const EdgeInsets.fromLTRB(48, 28, 48, 0),
+                  // The bottom padding is the gap the scroll area starts below, so
+                  // content running under the header never meets the back button.
+                  ? const EdgeInsets.fromLTRB(20, 10, 20, 12)
+                  : const EdgeInsets.fromLTRB(48, 28, 48, 14),
               child: Row(
                 spacing: 14,
                 children: [
@@ -267,10 +269,11 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> with WindowListen
             ),
           Expanded(
             child: ScrollFadeEdge(
+              height: 40,
               child: SingleChildScrollView(
                 padding: EdgeInsets.fromLTRB(
                   gutter,
-                  compact ? 18 : 28,
+                  compact ? 14 : 22,
                   gutter,
                   48 + MediaQuery.paddingOf(context).bottom,
                 ),

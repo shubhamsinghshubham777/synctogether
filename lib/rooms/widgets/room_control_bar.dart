@@ -1057,6 +1057,8 @@ class _RoomControlBarState extends State<RoomControlBar> with SingleTickerProvid
         .fullscreen,
         label: widget.fullscreen ? 'Exit fullscreen' : 'Fullscreen',
         icon: widget.fullscreen ? BoothIcons.fullscreenExit : BoothIcons.fullscreen,
+        // A phone's fullscreen is a turn, not a window: say so.
+        value: widget.compact ? 'Turn to landscape' : null,
         onTap: a.onFullscreenToggle,
         inline: key(
           icon: widget.fullscreen ? BoothIcons.fullscreenExit : BoothIcons.fullscreen,

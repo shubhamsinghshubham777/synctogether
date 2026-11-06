@@ -3649,6 +3649,27 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     }
   }
 
+  /// Phone fullscreen: turn the picture to landscape. The lock only lasts for
+  /// the turn; once the app is landscape the device is free to rotate again,
+  /// so physically turning the phone back still wins.
+  Future<void> _turnToLandscape() async {
+    trace('phone fullscreen', category: 'room', data: {'room_id': widget.roomId});
+    try {
+      await SystemChrome.setPreferredOrientations(const [
+        DeviceOrientation.landscapeLeft,
+        DeviceOrientation.landscapeRight,
+      ]);
+      await Future<void>.delayed(const Duration(seconds: 1));
+      await SystemChrome.setPreferredOrientations(const [
+        DeviceOrientation.portraitUp,
+        DeviceOrientation.landscapeLeft,
+        DeviceOrientation.landscapeRight,
+      ]);
+    } catch (e, s) {
+      reportNonFatal(e, s, during: 'turning the phone for fullscreen');
+    }
+  }
+
   Future<void> _exitFullscreen() async {
     if (!isDesktop || _togglingFullscreen) return;
     _togglingFullscreen = true;
@@ -4892,7 +4913,16 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
         onReact: _sync != null ? _toggleReact : null,
         // A docked bar never hides, so it offers no hide button.
         onHideControls: compact && !docked ? _toggleControlsVisible : null,
-        onFullscreenToggle: isDesktop ? _toggleFullscreen : null,
+        // Desktop toggles the window; a phone has no window to fill, so in
+        // portrait its fullscreen turns the picture to landscape (board 46,
+        // More), which already goes immersive. Landscape is that state, so it
+        // offers nothing (and keeps the More list short enough for its slot);
+        // tablets are big enough as they are.
+        onFullscreenToggle: isDesktop
+            ? _toggleFullscreen
+            : compact && layoutOf(context) == PTLayout.portrait
+            ? _turnToLandscape
+            : null,
       );
 
   @override

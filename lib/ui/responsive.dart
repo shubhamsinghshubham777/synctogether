@@ -1,8 +1,10 @@
+import 'dart:math' as math;
 import 'dart:ui' show DisplayFeature, DisplayFeatureState, DisplayFeatureType;
 
 import 'package:flutter/material.dart';
 
 import '../platform.dart';
+import 'display_regions.dart';
 import 'pt_theme.dart';
 
 /// Layout classes. Two questions decide it - how much room there is, and what
@@ -110,8 +112,9 @@ List<Rect> panesOf(Size size, PTFold fold) {
 /// coordinates, e.g. the button a dialog opened from) picks the pane that holds
 /// it; without one the rule is: the larger pane, the first when they match; and
 /// in a tabletop the lower one - the half on the table, within reach - unless
-/// the fold sits so low that it is under [kMinLowerPaneHeight].
-Rect primaryPaneOf(Size size, PTFold fold, {Offset? anchor}) {
+/// the fold sits so low - or the [keyboard] covers so much of it - that it is
+/// under [kMinLowerPaneHeight] tall.
+Rect primaryPaneOf(Size size, PTFold fold, {Offset? anchor, double keyboard = 0}) {
   final panes = panesOf(size, fold);
   if (panes.length == 1) return panes.single;
   if (anchor != null) {
@@ -119,7 +122,14 @@ Rect primaryPaneOf(Size size, PTFold fold, {Offset? anchor}) {
       if (p.contains(anchor)) return p;
     }
   }
-  if (fold.axis == .horizontal && panes.last.height >= kMinLowerPaneHeight) return panes.last;
+  if (fold.axis == .horizontal) {
+    // The soft keyboard covers the bottom of the window, so the lower pane's
+    // usable height is what it leaves; a lower pane the keyboard has mostly
+    // taken is no place for a dialog.
+    final lower = panes.last;
+    if (lower.height - keyboard >= kMinLowerPaneHeight) return lower;
+    return lower.height - keyboard > panes.first.height ? lower : panes.first;
+  }
   final a = panes.first.width * panes.first.height;
   final b = panes.last.width * panes.last.height;
   return b > a + 1 ? panes.last : panes.first;
@@ -140,21 +150,34 @@ class PTPane extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final mq = MediaQuery.of(context);
-    final window = mq.size;
-    return Padding(
-      padding: EdgeInsets.fromLTRB(
-        rect.left,
-        rect.top,
-        window.width - rect.right,
-        window.height - rect.bottom,
-      ),
-      child: _PaneOrigin(
-        origin: rect.topLeft,
-        child: MediaQuery(
-          data: mq.removeDisplayFeatures(rect).copyWith(size: rect.size),
-          child: child,
-        ),
-      ),
+    // Measured against the box actually given, not the window: a Scaffold
+    // shrinks its body for the soft keyboard, and a pane above the keyboard
+    // (a tabletop's upper half) must keep its size when only the lower one
+    // loses height to it.
+    return LayoutBuilder(
+      builder: (context, box) {
+        final w = box.hasBoundedWidth ? box.maxWidth : mq.size.width;
+        final h = box.hasBoundedHeight ? box.maxHeight : mq.size.height;
+        final size = Size(
+          math.max(0, math.min(rect.width, w - rect.left)),
+          math.max(0, math.min(rect.height, h - rect.top)),
+        );
+        return Padding(
+          padding: EdgeInsets.fromLTRB(
+            rect.left,
+            rect.top,
+            math.max(0, w - rect.right),
+            math.max(0, h - rect.bottom),
+          ),
+          child: _PaneOrigin(
+            origin: rect.topLeft,
+            child: MediaQuery(
+              data: mq.removeDisplayFeatures(rect).copyWith(size: size),
+              child: child,
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -179,13 +202,22 @@ class _PaneOrigin extends InheritedWidget {
 /// or not a fold splits the window, so a fold opening or closing resizes the
 /// screen instead of remounting it (half-typed fields survive).
 class PTHingeSafe extends StatelessWidget {
-  const PTHingeSafe({super.key, required this.child});
+  const PTHingeSafe({super.key, required this.child, this.twoPaneBook = false});
 
   final Widget child;
 
+  /// The screen lays itself out in both panes of a vertical fold (the lobby,
+  /// board 56): it is handed the whole window then, and reads `foldOf` itself.
+  /// A horizontal fold, a hinge-less window and every other screen are as ever.
+  final bool twoPaneBook;
+
   @override
   Widget build(BuildContext context) {
-    final pane = primaryPaneOf(MediaQuery.sizeOf(context), foldOf(context));
+    final size = MediaQuery.sizeOf(context);
+    final fold = foldOf(context);
+    final pane = twoPaneBook && fold.axis == .vertical
+        ? Offset.zero & size
+        : primaryPaneOf(size, fold);
     return ColoredBox(
       color: PTColors.canvas,
       child: PTPane(rect: pane, child: child),
@@ -196,7 +228,7 @@ class PTHingeSafe extends StatelessWidget {
 /// Kept as the `MaterialApp.builder` hook (and the tests' wrapper) so the app
 /// has one place to install app-wide layout policy.
 Widget buildResponsiveWrapper(BuildContext context, Widget? child) =>
-    child ?? const SizedBox.shrink();
+    DisplayRegionsHost(child: child ?? const SizedBox.shrink());
 
 /// Chooses the per-layout builder. Fallbacks: tablet→desktop→landscape→portrait,
 /// desktop→landscape→portrait, landscape→desktop→portrait.

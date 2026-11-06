@@ -168,7 +168,12 @@ Future<T?> showGlassDialog<T>({
   // one-column screen (or by [anchor]), and handed over as the route's anchor.
   final navContext = Navigator.of(context, rootNavigator: true).context;
   final landing = foldOf(navContext).isSplit
-      ? primaryPaneOf(MediaQuery.sizeOf(navContext), foldOf(navContext), anchor: anchor)
+      ? primaryPaneOf(
+          MediaQuery.sizeOf(navContext),
+          foldOf(navContext),
+          anchor: anchor,
+          keyboard: MediaQuery.viewInsetsOf(navContext).bottom,
+        )
       : null;
 
   // Judged on the pane the dialog lands in, in the page and in its transition

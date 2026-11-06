@@ -2,6 +2,7 @@ import 'dart:ui' show DisplayFeature, DisplayFeatureState, DisplayFeatureType;
 
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:synctogether/ui/display_regions.dart';
 import 'package:synctogether/ui/responsive.dart';
 
 void main() {
@@ -86,11 +87,152 @@ void main() {
       expect(primaryPaneOf(size, low).top, 0);
     });
 
+    test('a keyboard that covers most of the lower pane moves a dialog up', () {
+      const size = Size(669, 951);
+      final f = fold(
+        const Rect.fromLTWH(0, 455.5, 669, 40),
+        type: .fold,
+        state: .postureHalfOpened,
+      );
+      expect(primaryPaneOf(size, f).top, 495.5);
+      expect(primaryPaneOf(size, f, keyboard: 336).top, 0);
+      expect(primaryPaneOf(size, f, keyboard: 100).top, 495.5);
+    });
+
     test('an anchor picks the pane that holds it', () {
       const size = Size(1110, 720);
       final f = fold(const Rect.fromLTWH(540, 0, 30, 720));
       expect(primaryPaneOf(size, f, anchor: const Offset(900, 100)).left, 570);
       expect(primaryPaneOf(size, f, anchor: const Offset(100, 100)).left, 0);
+    });
+  });
+
+  // The payloads below are what the iPhone Duo simulator (Xcode 27.1, iOS 27.1)
+  // actually sent for each posture, in the order it sent them.
+  group('iPhone Duo reserved regions', () {
+    const camera = {
+      'kind': 'occlusion',
+      'active': true,
+      'left': 29.3,
+      'top': 29.3,
+      'width': 37.0,
+      'height': 37.0,
+    };
+
+    PTFold fold(List<Map<Object?, Object?>> regions) =>
+        foldFromFeatures(featuresFromRegions(regions));
+
+    test('closed outer display: camera and system bar are cutouts, not a hinge', () {
+      final features = featuresFromRegions([
+        camera,
+        {
+          'kind': 'occlusion',
+          'active': true,
+          'left': 0.0,
+          'top': 0.0,
+          'width': 82.0,
+          'height': 84.0,
+        },
+      ]);
+      expect(features, hasLength(2));
+      expect(features.every((f) => f.type == DisplayFeatureType.cutout), isTrue);
+      expect(foldFromFeatures(features).isSplit, isFalse);
+    });
+
+    test('open flat: an inactive 40 pt division divides nothing', () {
+      final f = fold([
+        {
+          'kind': 'occlusion',
+          'active': false,
+          'left': 677.3,
+          'top': 21.0,
+          'width': 58.0,
+          'height': 37.0,
+        },
+        {
+          'kind': 'occlusion',
+          'active': true,
+          'left': 867.0,
+          'top': 0.0,
+          'width': 84.0,
+          'height': 124.0,
+        },
+        {
+          'kind': 'division',
+          'active': false,
+          'left': 455.5,
+          'top': 0.0,
+          'width': 40.0,
+          'height': 669.0,
+        },
+      ]);
+      expect(f.isSplit, isFalse);
+    });
+
+    test('book-folded: the active division is a vertical fold with a 40 pt gap', () {
+      final f = fold([
+        {
+          'kind': 'occlusion',
+          'active': true,
+          'left': 867.0,
+          'top': 0.0,
+          'width': 84.0,
+          'height': 124.0,
+        },
+        {
+          'kind': 'division',
+          'active': true,
+          'left': 455.5,
+          'top': 0.0,
+          'width': 40.0,
+          'height': 669.0,
+        },
+      ]);
+      expect(f.axis, PTFoldAxis.vertical);
+      final panes = panesOf(const Size(951, 669), f);
+      expect(panes, [
+        const Rect.fromLTRB(0, 0, 455.5, 669),
+        const Rect.fromLTRB(495.5, 0, 951, 669),
+      ]);
+    });
+
+    test('tabletop: the active division is a horizontal fold', () {
+      final f = fold([
+        {
+          'kind': 'occlusion',
+          'active': true,
+          'left': 525.0,
+          'top': 0.0,
+          'width': 144.0,
+          'height': 82.0,
+        },
+        {
+          'kind': 'division',
+          'active': true,
+          'left': 0.0,
+          'top': 455.5,
+          'width': 669.0,
+          'height': 40.0,
+        },
+      ]);
+      expect(f.axis, PTFoldAxis.horizontal);
+      expect(primaryPaneOf(const Size(669, 951), f).top, 495.5);
+    });
+
+    test('a malformed or empty payload is no fold, never an error', () {
+      expect(featuresFromRegions(const []), isEmpty);
+      expect(
+        featuresFromRegions([
+          {'kind': 'division'},
+        ]),
+        isEmpty,
+      );
+      expect(
+        featuresFromRegions([
+          {'kind': 'something-new', 'active': true, 'width': 1.0, 'height': 1.0},
+        ]),
+        isEmpty,
+      );
     });
   });
 }

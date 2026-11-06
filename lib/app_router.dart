@@ -101,7 +101,8 @@ GoRouter buildRouter([Player? player]) {
       ),
       GoRoute(
         path: '/lobby',
-        pageBuilder: (context, state) => _fadeThrough(state, const LobbyScreen()),
+        pageBuilder: (context, state) =>
+            _fadeThrough(state, const LobbyScreen(), twoPaneBook: true),
         routes: [
           GoRoute(
             path: 'profile',
@@ -173,8 +174,17 @@ CustomTransitionPage<void> _page(
 
 /// Auth swaps the whole world, so login ⇄ lobby reads as a scene change rather
 /// than navigation: no directional slide at all.
-CustomTransitionPage<void> _fadeThrough(GoRouterState state, Widget child) {
-  return _page(state, PTHingeSafe(child: child), (context, animation, secondary, child) {
+CustomTransitionPage<void> _fadeThrough(
+  GoRouterState state,
+  Widget child, {
+  bool twoPaneBook = false,
+}) {
+  return _page(state, PTHingeSafe(twoPaneBook: twoPaneBook, child: child), (
+    context,
+    animation,
+    secondary,
+    child,
+  ) {
     return FadeTransition(
       opacity: CurvedAnimation(parent: animation, curve: PTMotion.enter),
       child: child,

@@ -27,6 +27,9 @@ import UniformTypeIdentifiers
     if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "MicLevelChannel") {
       MicLevelChannel.register(with: registrar.messenger())
     }
+    if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "DisplayRegionsChannel") {
+      DisplayRegionsChannel.register(with: registrar.messenger())
+    }
   }
 }
 
@@ -329,5 +332,93 @@ final class PhotoPickerChannel: NSObject, PHPickerViewControllerDelegate {
         DispatchQueue.main.async { reply(nil) }
       }
     }
+  }
+}
+
+/// iPhone Duo (iOS 27.1): the fold and any occluded area, as the OS reports
+/// them. Flutter's iOS embedder fills `MediaQuery.displayFeatures` with nothing,
+/// so this is the whole of the app's fold awareness on that device. Dart side:
+/// lib/ui/display_regions.dart (channel `app.synctogether/display_regions`).
+///
+/// A *division* region is the fold (it splits the display into usable areas);
+/// an *occlusion* region is an area the content cannot use (a hinge gap).
+/// Frames are in the Flutter view's coordinates, in points - Flutter's logical
+/// pixels. Below iOS 27.1, and on every device that does not fold, the list is
+/// empty and nothing here does anything.
+///
+/// Dart asks once (`get`) and is then pushed every change (`regions`): a
+/// zero-size probe view fills the Flutter view, and its `layoutSubviews` runs
+/// whenever the window changes shape - opening, closing, folding, rotating,
+/// Split View - which is when the regions can have changed.
+enum DisplayRegionsChannel {
+  private static var channel: FlutterMethodChannel?
+  private static var probe: RegionProbeView?
+  private static var last: [[String: Any]] = []
+
+  static func register(with messenger: FlutterBinaryMessenger) {
+    let channel = FlutterMethodChannel(name: "app.synctogether/display_regions", binaryMessenger: messenger)
+    self.channel = channel
+    channel.setMethodCallHandler { call, result in
+      guard call.method == "get" else { return result(FlutterMethodNotImplemented) }
+      attachProbe()
+      let regions = current()
+      last = regions
+      result(regions)
+    }
+  }
+
+  fileprivate static func flutterView() -> UIView? {
+    let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+    let scene = scenes.first { $0.activationState == .foregroundActive } ?? scenes.first
+    let window = scene?.windows.first(where: { $0.isKeyWindow }) ?? scene?.windows.first
+    return (window?.rootViewController as? FlutterViewController)?.view
+  }
+
+  private static func attachProbe() {
+    guard probe == nil, let host = flutterView() else { return }
+    let view = RegionProbeView(frame: host.bounds)
+    view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+    view.isUserInteractionEnabled = false
+    view.backgroundColor = .clear
+    host.addSubview(view)
+    probe = view
+  }
+
+  fileprivate static func current() -> [[String: Any]] {
+    guard #available(iOS 27.1, *), let view = flutterView() else { return [] }
+    var out: [[String: Any]] = []
+    let kinds: [(String, UIView.ReservedRegion.Kind)] = [("occlusion", .occlusion), ("division", .division)]
+    for (name, kind) in kinds {
+      for region in view.reservedRegions(kind: kind, options: [.includeInactive]) {
+        let f = region.frame
+        out.append([
+          "kind": name,
+          "active": region.isActive,
+          "left": f.minX, "top": f.minY, "width": f.width, "height": f.height,
+        ])
+      }
+    }
+    return out
+  }
+
+  /// Pushes the regions when they differ from what Dart last had.
+  fileprivate static func push() {
+    let regions = current()
+    guard !NSDictionary(dictionary: ["r": regions]).isEqual(to: ["r": last]) else { return }
+    last = regions
+    channel?.invokeMethod("regions", arguments: regions)
+  }
+}
+
+/// Zero-cost: no drawing, no touches. It exists only to be laid out.
+final class RegionProbeView: UIView {
+  override func layoutSubviews() {
+    super.layoutSubviews()
+    DisplayRegionsChannel.push()
+  }
+
+  override func didMoveToWindow() {
+    super.didMoveToWindow()
+    DisplayRegionsChannel.push()
   }
 }

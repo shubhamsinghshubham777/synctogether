@@ -2,3 +2,8 @@ include: package:flutter_lints/flutter.yaml
 
 formatter:
   page_width: 100
+
+analyzer:
+  exclude:
+    # Vendored packages keep their own lint rules; their style is not ours to fix.
+    - third_party/**

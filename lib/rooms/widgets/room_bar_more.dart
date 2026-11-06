@@ -73,10 +73,16 @@ class _RoomBarMoreButtonState extends State<RoomBarMoreButton> {
     late final PTPopoverHandle handle;
     handle = showPTPopover(
       context: context,
+      anchor: anchor.center,
       builder: (popoverContext) {
         final media = MediaQuery.of(popoverContext);
+        final origin = PTPane.originOf(popoverContext);
         return CustomSingleChildLayout(
-          delegate: _AboveBarDelegate(anchor: anchor, barTop: barTop, padding: media.padding),
+          delegate: _AboveBarDelegate(
+            anchor: anchor.shift(-origin),
+            barTop: barTop - origin.dy,
+            padding: media.padding,
+          ),
           child: Material(
             type: .transparency,
             child: GlassPanel(

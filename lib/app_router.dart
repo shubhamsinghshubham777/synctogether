@@ -22,6 +22,7 @@ import 'rooms/room_screen.dart';
 import 'rooms/room_service.dart';
 import 'ui/not_found_screen.dart';
 import 'ui/pt_motion.dart';
+import 'ui/responsive.dart';
 
 /// Profile, subscribe and rooms are *sub-routes* of the lobby, so the lobby is always the
 /// page beneath them in the navigator stack. That is what makes `go('/lobby')`
@@ -59,8 +60,9 @@ String locationForAppSchemeLink(Uri? current) {
 /// The page for a location no route matches, in place of go_router's generic
 /// "Page Not Found". Only the path is reported - never the query or fragment,
 /// which can carry auth tokens.
-Widget notFoundBuilder(BuildContext context, GoRouterState state) =>
-    NotFoundScreen(location: state.uri.path, onHome: () => context.go('/lobby'));
+Widget notFoundBuilder(BuildContext context, GoRouterState state) => PTHingeSafe(
+  child: NotFoundScreen(location: state.uri.path, onHome: () => context.go('/lobby')),
+);
 
 GoRouter buildRouter([Player? player]) {
   late final GoRouter router;
@@ -172,7 +174,7 @@ CustomTransitionPage<void> _page(
 /// Auth swaps the whole world, so login ⇄ lobby reads as a scene change rather
 /// than navigation: no directional slide at all.
 CustomTransitionPage<void> _fadeThrough(GoRouterState state, Widget child) {
-  return _page(state, child, (context, animation, secondary, child) {
+  return _page(state, PTHingeSafe(child: child), (context, animation, secondary, child) {
     return FadeTransition(
       opacity: CurvedAnimation(parent: animation, curve: PTMotion.enter),
       child: child,
@@ -204,7 +206,8 @@ CustomTransitionPage<void> _rise(GoRouterState state, Widget child) {
 /// pages, so the system back works the way the OS teaches it: iOS gets the
 /// edge swipe (CupertinoPage), Android its predictive back (MaterialPage).
 /// Desktop has no such gesture and keeps the short shared-axis fade.
-Page<void> _detail(GoRouterState state, Widget child) => _mobileOr(state, child, _sharedAxis);
+Page<void> _detail(GoRouterState state, Widget child) =>
+    _mobileOr(state, PTHingeSafe(child: child), _sharedAxis);
 
 /// The room also uses the platform page on mobile. Its `PopScope(canPop:
 /// false)` still owns the exit (it routes a back gesture through

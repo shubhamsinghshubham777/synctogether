@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'pt_motion.dart';
+import 'responsive.dart';
 
 /// A live handle on a popover opened by [showPTPopover].
 class PTPopoverHandle {
@@ -55,15 +56,22 @@ class PTPopoverHandle {
 /// Dismissed by a tap outside, Esc, or [PTPopoverHandle.close]. A system back
 /// gesture is the owner's to route: an overlay entry sits outside the page's
 /// `PopScope`, so the owner closes the handle there first.
+///
+/// On a folded window the panel area is one pane (the one holding [anchor] -
+/// the button this opened from, in window coordinates - else the usual
+/// [primaryPaneOf] rule), so a menu never crosses the hinge. The barrier still
+/// covers the whole window. [builder]'s `MediaQuery` is the pane's, and a
+/// window-space anchor rect is made pane-local with `PTPane.originOf`.
 PTPopoverHandle showPTPopover({
   required BuildContext context,
   required WidgetBuilder builder,
   double rise = 6,
+  Offset? anchor,
 }) {
   final handle = PTPopoverHandle._();
   final overlay = Overlay.of(context, rootOverlay: true);
   final entry = OverlayEntry(
-    builder: (_) => _PTPopoverHost(handle: handle, builder: builder, rise: rise),
+    builder: (_) => _PTPopoverHost(handle: handle, builder: builder, rise: rise, anchor: anchor),
   );
   handle._entry = entry;
   overlay.insert(entry);
@@ -71,8 +79,14 @@ PTPopoverHandle showPTPopover({
 }
 
 class _PTPopoverHost extends StatefulWidget {
-  const _PTPopoverHost({required this.handle, required this.builder, required this.rise});
+  const _PTPopoverHost({
+    required this.handle,
+    required this.builder,
+    required this.rise,
+    this.anchor,
+  });
 
+  final Offset? anchor;
   final PTPopoverHandle handle;
   final WidgetBuilder builder;
   final double rise;
@@ -159,7 +173,16 @@ class _PTPopoverHostState extends State<_PTPopoverHost> with SingleTickerProvide
                   offset: Offset(0, -widget.rise * (1 - _curve.value)),
                   child: child,
                 ),
-                child: RepaintBoundary(child: Builder(builder: widget.builder)),
+                child: RepaintBoundary(
+                  child: PTPane(
+                    rect: primaryPaneOf(
+                      MediaQuery.sizeOf(context),
+                      foldOf(context),
+                      anchor: widget.anchor,
+                    ),
+                    child: Builder(builder: widget.builder),
+                  ),
+                ),
               ),
             ),
           ),

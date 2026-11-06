@@ -588,11 +588,12 @@ class _MoreButtonState extends State<_MoreButton> {
     late final PTPopoverHandle handle;
     handle = showPTPopover(
       context: context,
+      anchor: anchor.center,
       builder: (popoverContext) {
         final media = MediaQuery.of(popoverContext);
         return CustomSingleChildLayout(
           delegate: _MenuDelegate(
-            anchor: anchor,
+            anchor: anchor.shift(-PTPane.originOf(popoverContext)),
             padding: media.padding.copyWith(
               bottom: math.max(media.padding.bottom, media.viewInsets.bottom),
             ),

@@ -794,7 +794,12 @@ class RoomMobileLandscapeLayout extends StatelessWidget {
   }
 }
 
-/// Splits the layout along a physical fold hinge.
+/// Splits the layout along a physical fold hinge: [first] before it, [second]
+/// after it, and the hinge rect itself left empty. Each pane is a [PTPane], so
+/// everything inside sees the pane's size and insets - the control bar picks
+/// its form from the pane's width, `SafeArea` trims only the edges the pane
+/// really shares with the window, and the hinge is not in either pane's
+/// display features. Fills the window (the room's body does).
 class RoomFoldSplit extends StatelessWidget {
   const RoomFoldSplit({required this.fold, required this.first, required this.second, super.key});
 
@@ -804,19 +809,14 @@ class RoomFoldSplit extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, box) {
-        final vertical = fold.axis == PTFoldAxis.vertical;
-        final extent = vertical ? box.maxWidth : box.maxHeight;
-        final start = (vertical ? fold.bounds.left : fold.bounds.top).clamp(0.0, extent);
-        final end = (vertical ? fold.bounds.right : fold.bounds.bottom).clamp(start, extent);
-        final children = [
-          SizedBox(width: vertical ? start : null, height: vertical ? null : start, child: first),
-          SizedBox(width: vertical ? end - start : null, height: vertical ? null : end - start),
-          Expanded(child: second),
-        ];
-        return vertical ? Row(children: children) : Column(children: children);
-      },
+    final panes = panesOf(MediaQuery.sizeOf(context), fold);
+    if (panes.length < 2) return first;
+    return Stack(
+      fit: .expand,
+      children: [
+        PTPane(rect: panes.first, child: first),
+        PTPane(rect: panes.last, child: second),
+      ],
     );
   }
 }

@@ -7,6 +7,7 @@ import 'buttons.dart';
 
 import 'pt_motion.dart';
 import 'pt_theme.dart';
+import 'responsive.dart';
 
 /// A projection booth panel: an opaque Seat surface with a hairline Rail border.
 ///
@@ -156,9 +157,26 @@ Future<T?> showGlassDialog<T>({
   bool sheetOnCompact = false,
   bool dimBackground = true,
   AlignmentGeometry alignment = Alignment.center,
+
+  /// A window position (e.g. the button this opened from) that picks which
+  /// pane of a folded window the dialog lands in; see [primaryPaneOf].
+  Offset? anchor,
 }) {
+  // Flutter's dialog route already confines the page to one pane of a folded
+  // window (`DisplayFeatureSubScreen`), but leaves `MediaQuery.size` at the
+  // window's. The pane this one lands in is picked by the same rule as every
+  // one-column screen (or by [anchor]), and handed over as the route's anchor.
+  final navContext = Navigator.of(context, rootNavigator: true).context;
+  final landing = foldOf(navContext).isSplit
+      ? primaryPaneOf(MediaQuery.sizeOf(navContext), foldOf(navContext), anchor: anchor)
+      : null;
+
+  // Judged on the pane the dialog lands in, in the page and in its transition
+  // alike - a 540 px pane of a wide dual screen is as compact as a phone.
   bool isSheet(BuildContext context) =>
-      sheetOnCompact && MediaQuery.sizeOf(context).width < kGlassSheetBreakpoint;
+      sheetOnCompact &&
+      primaryPaneOf(MediaQuery.sizeOf(context), foldOf(context), anchor: landing?.center).width <
+          kGlassSheetBreakpoint;
 
   return showGeneralDialog<T>(
     context: context,
@@ -166,7 +184,8 @@ Future<T?> showGlassDialog<T>({
     barrierLabel: 'dialog',
     barrierColor: dimBackground ? PTColors.barrier : PTColors.scrimClear,
     transitionDuration: PTMotion.panel,
-    pageBuilder: (context, _, _) {
+    anchorPoint: landing?.center,
+    pageBuilder: (context, _, _) => _paneMetrics((context) {
       final mq = MediaQuery.of(context);
       final sheet = isSheet(context);
       final bodyPadding = glassDialogPadding(padding, mq.size.width);
@@ -209,7 +228,7 @@ Future<T?> showGlassDialog<T>({
           ),
         ),
       );
-    },
+    }),
     transitionBuilder: (context, animation, _, child) {
       final curved = CurvedAnimation(
         parent: animation,
@@ -226,6 +245,21 @@ Future<T?> showGlassDialog<T>({
           : ScaleTransition(scale: Tween(begin: 0.96, end: 1.0).animate(curved), child: child);
       return FadeTransition(opacity: curved, child: moved);
     },
+  );
+}
+
+/// The dialog route has already confined [build]'s box to one pane, with that
+/// pane's insets; this hands the box's size to the page as its `MediaQuery`
+/// size, so the width-driven choices inside (sheet or dialog, paddings, a
+/// chooser's form) answer for the pane and not for the whole window. The
+/// scrim, outside the page, still covers the window. A window with no split
+/// is unchanged: the box is the window.
+Widget _paneMetrics(WidgetBuilder build) {
+  return LayoutBuilder(
+    builder: (context, box) => MediaQuery(
+      data: MediaQuery.of(context).copyWith(size: box.biggest),
+      child: Builder(builder: build),
+    ),
   );
 }
 

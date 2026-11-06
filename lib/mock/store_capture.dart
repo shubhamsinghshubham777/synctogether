@@ -67,7 +67,29 @@ const _kStoreDir = _kMacStore ? 'store/mac' : 'store';
 const _kStoreLogical = _kMacStore ? Size(1440, 900) : _kCaptureLogical;
 const _kStoreRatio = _kMacStore ? 2.0 : _kCaptureRatio;
 
+/// `STORE_TARGET=ios` (phone / iPhone Duo): the flow cannot screenshot the
+/// status bar, so it walks the demo routes and prints `[SHOT] <name>` once
+/// each has settled; `scripts/capture-ios-shots.sh` answers with
+/// `simctl io screenshot` (the real device frame, status bar included).
+Future<void> _runMobileStoreCapture(GoRouter router) async {
+  const shots = <(String, String)>[
+    ('1_lobby', '/lobby'),
+    ('2_room', '/lobby/room/demo-room-1'),
+    ('3_media_chooser', '/lobby/room/demo-room-1?dialog=media'),
+  ];
+  for (final (name, path) in shots) {
+    router.go(path);
+    await Future.delayed(const Duration(milliseconds: 3500));
+    // ignore: avoid_print
+    print('[SHOT] $name');
+    await Future.delayed(const Duration(milliseconds: 3500));
+  }
+  // ignore: avoid_print
+  print('[SHOT] done');
+}
+
 Future<void> runStoreCaptureFlow(BuildContext context, GoRouter router) async {
+  if (_kStoreTarget == 'ios') return _runMobileStoreCapture(router);
   // ignore: avoid_print
   print('[STORE CAPTURE] Starting automated store capture flow...');
 

@@ -1,7 +1,7 @@
 import 'dart:async';
 import '../ui/booth_icons.g.dart';
 
-import 'package:flutter/foundation.dart' show defaultTargetPlatform;
+import 'package:flutter/foundation.dart' show defaultTargetPlatform, visibleForTesting;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:go_router/go_router.dart';
@@ -1183,7 +1183,7 @@ class _LobbyScreenState extends State<LobbyScreen> with WindowListener {
     return Column(
       crossAxisAlignment: .stretch,
       children: [
-        _intro(child: const _Eyebrow()),
+        _intro(child: const LobbyEyebrow()),
         SizedBox(height: compact ? 10 : 14),
         _intro(
           delay: const Duration(milliseconds: 60),
@@ -1855,38 +1855,93 @@ class _LobbyScreenState extends State<LobbyScreen> with WindowListener {
   }
 }
 
+/// "FRI · 21:40 · GOOD EVENING, MAYA" - the kicker's text for [now] and the first name.
+@visibleForTesting
+String lobbyEyebrowText(DateTime now, String? name) {
+  const days = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
+  final part = now.hour < 5
+      ? 'LATE SHOW'
+      : now.hour < 12
+      ? 'GOOD MORNING'
+      : now.hour < 18
+      ? 'GOOD AFTERNOON'
+      : 'GOOD EVENING';
+  final time = '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
+  return '${days[now.weekday - 1]} · $time · $part${name == null ? '' : ', ${name.toUpperCase()}'}';
+}
+
 /// The lobby's kicker: day, time and a greeting in the mono label voice -
 /// "FRI · 21:40 · GOOD EVENING, MAYA". Subscribes to [ProfileService] itself so
 /// the name can't be captured in a scope that never rebuilds.
-class _Eyebrow extends StatelessWidget {
-  const _Eyebrow();
+///
+/// It keeps its own clock: one timer aimed at the next minute boundary (re-armed
+/// after each fire, so it cannot drift) plus a refresh on resume, because timers
+/// do not run while the app is backgrounded. Before this the time was read only
+/// when something else rebuilt the widget, so it sat minutes behind the system
+/// clock. Only this one Text rebuilds, once a minute.
+@visibleForTesting
+class LobbyEyebrow extends StatefulWidget {
+  const LobbyEyebrow({super.key, this.clock = DateTime.now});
 
-  static const _days = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
+  /// The time source; tests inject a controllable one.
+  final DateTime Function() clock;
+
+  @override
+  State<LobbyEyebrow> createState() => _LobbyEyebrowState();
+}
+
+class _LobbyEyebrowState extends State<LobbyEyebrow> with WidgetsBindingObserver {
+  Timer? _tick;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _arm();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _tick?.cancel();
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Timers pause in the background; the clock may be minutes (or a timezone) off.
+    if (state == AppLifecycleState.resumed && mounted) {
+      setState(() {});
+      _arm();
+    }
+  }
+
+  void _arm() {
+    _tick?.cancel();
+    final now = widget.clock();
+    // The next minute boundary, plus a beat so we land just after it.
+    final untilNext =
+        Duration(seconds: 60 - now.second, milliseconds: 100) -
+        Duration(milliseconds: now.millisecond);
+    _tick = Timer(untilNext, () {
+      if (!mounted) return;
+      setState(() {});
+      _arm();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
       listenable: ProfileService.instance,
       builder: (context, _) {
-        final now = DateTime.now();
         final name = ProfileService.instance.profile?.displayName.split(' ').first;
-        final part = now.hour < 5
-            ? 'LATE SHOW'
-            : now.hour < 12
-            ? 'GOOD MORNING'
-            : now.hour < 18
-            ? 'GOOD AFTERNOON'
-            : 'GOOD EVENING';
-        final time =
-            '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
         return AnimatedSwitcher(
           duration: PTMotion.functional(context, PTMotion.state),
-          layoutBuilder: (current, previous) => Stack(
-            alignment: Alignment.centerLeft,
-            children: [...previous, if (current != null) current],
-          ),
+          layoutBuilder: (current, previous) =>
+              Stack(alignment: Alignment.centerLeft, children: [...previous, ?current]),
           child: Text(
-            '${_days[now.weekday - 1]} · $time · $part${name == null ? '' : ', ${name.toUpperCase()}'}',
+            lobbyEyebrowText(widget.clock(), name),
             key: ValueKey(name),
             maxLines: 1,
             overflow: .ellipsis,

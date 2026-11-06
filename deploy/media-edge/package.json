@@ -1,0 +1,19 @@
+{
+  "name": "synctogether-media-edge",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Edge delivery for shared media: signed URLs, HTTP Range, chunk cache over an R2 bucket binding. Never modifies the object bytes.",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "deploy": "wrangler deploy"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "5.20261106.1",
+    "typescript": "5.9.3",
+    "vitest": "3.2.4",
+    "wrangler": "4.158.0"
+  }
+}

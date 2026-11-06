@@ -119,6 +119,15 @@ update public.app_settings
 | `free_tier_max_file_bytes` | 2 GB | Largest single file a free account may upload. |
 | `premium_max_file_bytes` | 10 GB | Same, for Premium. |
 
+**`media_edge`** (same table) switches stream delivery to the edge Worker:
+`{"enabled": false, "base_url": null}` ships off. With `enabled: true`, an https
+`base_url` and the `MEDIA_EDGE_SECRET` function secret, `download-url` returns a
+signed edge URL instead of the S3 presigned one; flip `enabled` back to `false`
+for an instant rollback; `chunk_bytes` (default 8 MiB, 4-32 MiB in 4 MiB
+steps) and `max_parallel` (default 4, 1-8) are returned to the client as
+`chunkBytes` / `maxParallel` hints (clamped server-side) (clients already holding an edge URL keep it until it
+expires). See [media-edge.md](media-edge.md).
+
 Changing either cap here is only half the job - `EntitlementService.mediaSharingMaxSizeBytes`
 inlines the same two numbers as a client-side pre-check, so an edit that is not
 mirrored there leaves the app refusing a file the server would have taken (or

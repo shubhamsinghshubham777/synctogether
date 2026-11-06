@@ -206,6 +206,9 @@ supabase functions deploy cleanup-r2
 >  where key = 'r2_cleanup';
 > ```
 
+> [!TIP]
+> **Optional: faster streaming with the edge Worker.** Members stream the host's file from your bucket's S3 endpoint, which is neither CDN-cached nor close to them. `deploy/media-edge/` is a small Cloudflare Worker that reads the same bucket through an R2 *binding* (no S3 keys in it), honours HTTP Range and caches 4 MiB chunks at the edge so the 2nd..Nth viewer never reaches R2. It never alters the file. It needs a Cloudflare account, a hostname on a zone you own and Workers Paid for a busy room (the Free plan's 10 ms CPU and 50-subrequest limits are tight). If you skip it nothing changes: with `MEDIA_EDGE_SECRET` unset or `app_settings.media_edge.enabled = false`, `download-url` returns the presigned S3 URL exactly as before. Setup and rollback: [media-edge.md](media-edge.md).
+
 `apple-iap` is only needed if you sell Premium through the Mac App Store (secrets `APPLE_BUNDLE_ID`, `APPLE_APP_APPLE_ID`); a self-hosted instance can skip it. `ms-iap` is the Microsoft Store equivalent (secrets `MS_STORE_TENANT_ID`, `MS_STORE_CLIENT_ID`, `MS_STORE_CLIENT_SECRET`, `MS_STORE_PRODUCT_IDS`), also optional.
 
 ---
@@ -336,6 +339,7 @@ In debug builds with no local values set, the client falls back to `http://127.0
 | `CF_R2_ACCESS_KEY_ID` | *No* | Cloudflare R2 / S3 access key |
 | `CF_R2_SECRET_ACCESS_KEY` | *No* | Cloudflare R2 / S3 secret key |
 | `CF_R2_BUCKET_NAME` | *No* | Cloudflare R2 bucket name |
+| `MEDIA_EDGE_SECRET` | *No* | HMAC secret shared with the optional media-edge Worker (see below). Unset = presigned S3 URLs, as before |
 | `APPLE_BUNDLE_ID` / `APPLE_APP_APPLE_ID` | *No* | Only for the `apple-iap` function (Mac App Store purchases) |
 | `MS_STORE_TENANT_ID` / `MS_STORE_CLIENT_ID` / `MS_STORE_CLIENT_SECRET` / `MS_STORE_PRODUCT_IDS` | *No* | Only for the `ms-iap` function (Microsoft Store purchases) |
 

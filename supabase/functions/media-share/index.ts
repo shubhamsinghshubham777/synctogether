@@ -11,6 +11,7 @@ import {
   UploadPartCommand,
 } from "npm:@aws-sdk/client-s3";
 import { getSignedUrl } from "npm:@aws-sdk/s3-request-presigner";
+import { buildEdgeUrl, resolveEdgeConfig } from "../_shared/media_edge.ts";
 
 const s3 = new S3Client({
   region: "auto",
@@ -731,6 +732,23 @@ async function handleDownloadUrl(userId: string, body: Record<string, unknown>):
   const ttlSeconds = Math.min(Math.max(3600, remainingSeconds + 7200), 86400);
 
   const fileName = room.media_name || "video.mp4";
+
+  // Optional edge delivery (deploy/media-edge): same TTL, same response shape. Any
+  // problem reading the flag falls through to the presigned S3 URL below.
+  const edge = await edgeConfig();
+  if (edge) {
+    const streamUrl = await buildEdgeUrl(edge, room.media_r2_key, ttlSeconds);
+    // chunkBytes / maxParallel are optional hints; older clients ignore them.
+    return json({
+      streamUrl,
+      fileName,
+      fileSize: room.media_file_size,
+      expiresIn: ttlSeconds,
+      chunkBytes: edge.chunkBytes,
+      maxParallel: edge.maxParallel,
+    });
+  }
+
   const safeAscii = fileName.replace(/[^\x20-\x7E]/g, "_").replace(/"/g, '\\"');
   const encodedUtf8 = encodeURIComponent(fileName);
   const contentDisposition = `inline; filename="${safeAscii}"; filename*=UTF-8''${encodedUtf8}`;
@@ -749,6 +767,17 @@ async function handleDownloadUrl(userId: string, body: Record<string, unknown>):
     fileSize: room.media_file_size,
     expiresIn: ttlSeconds,
   });
+}
+
+async function edgeConfig() {
+  const secret = Deno.env.get("MEDIA_EDGE_SECRET");
+  if (!secret) return null; // self-hosters and local dev: no query, no change
+  try {
+    const { data } = await supabaseAdmin.from("app_settings").select("value").eq("key", "media_edge").maybeSingle();
+    return resolveEdgeConfig(data?.value, secret);
+  } catch (_) {
+    return null;
+  }
 }
 
 function json(body: unknown, status = 200): Response {

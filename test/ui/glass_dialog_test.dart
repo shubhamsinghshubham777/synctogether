@@ -92,6 +92,37 @@ void main() {
     debugDefaultTargetPlatformOverride = null;
   });
 
+  testWidgets('a compact sheet follows a drag, snaps back short, dismisses past a third', (
+    tester,
+  ) async {
+    await _open(tester, _cases.first, sheetOnCompact: true);
+    final sheet = find.byKey(kGlassSheetKey);
+    final restTop = tester.getTopLeft(sheet).dy;
+    final grab = Offset(160, restTop + 10); // the drag handle
+
+    // A short, slow drag moves the sheet with the finger, then springs back.
+    var g = await tester.startGesture(grab);
+    await g.moveBy(const Offset(0, 30));
+    await g.moveBy(const Offset(0, 30));
+    await tester.pump();
+    expect(tester.getTopLeft(sheet).dy, greaterThan(restTop + 20));
+    await g.up();
+    await tester.pumpAndSettle();
+    expect(sheet, findsOneWidget);
+    expect(tester.getTopLeft(sheet).dy, restTop);
+
+    // Dragged well past a third of its height, it leaves.
+    g = await tester.startGesture(grab);
+    final step = tester.getSize(sheet).height * 0.25;
+    for (var i = 0; i < 3; i++) {
+      await g.moveBy(Offset(0, step));
+    }
+    await g.up();
+    await tester.pumpAndSettle();
+    expect(sheet, findsNothing);
+    debugDefaultTargetPlatformOverride = null;
+  });
+
   test('horizontal padding tightens below 400 wide', () {
     expect(glassDialogPadding(null, 390).left, 20);
     expect(glassDialogPadding(null, 400).left, 32);

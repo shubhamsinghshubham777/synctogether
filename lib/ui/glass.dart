@@ -277,14 +277,57 @@ Widget _paneMetrics(WidgetBuilder build) {
 @visibleForTesting
 const kGlassSheetKey = ValueKey('glass-sheet');
 
-class _GlassSheet extends StatelessWidget {
+class _GlassSheet extends StatefulWidget {
   const _GlassSheet({required this.mq, required this.body});
 
   final MediaQueryData mq;
   final Widget Function(EdgeInsets extra) body;
 
   @override
+  State<_GlassSheet> createState() => _GlassSheetState();
+}
+
+class _GlassSheetState extends State<_GlassSheet> with SingleTickerProviderStateMixin {
+  // Drag distance in px, animated back to 0 (snap) or out to the sheet's height
+  // (dismiss). Held as a controller value so only the Transform rebuilds.
+  late final AnimationController _drag = AnimationController.unbounded(vsync: this);
+  final _surface = GlobalKey();
+  bool _dismissing = false;
+
+  @override
+  void dispose() {
+    _drag.dispose();
+    super.dispose();
+  }
+
+  double get _height => (_surface.currentContext?.size?.height) ?? 400;
+
+  void _onUpdate(DragUpdateDetails d) {
+    if (_dismissing) return;
+    // Upward drag is resisted rather than lifting the sheet off its edge.
+    final next = _drag.value + d.delta.dy;
+    _drag.value = next < 0 ? next * 0.2 : next;
+  }
+
+  Future<void> _onEnd(DragEndDetails d) async {
+    if (_dismissing) return;
+    final v = d.primaryVelocity ?? 0;
+    final dismiss = v > 700 || (v > -300 && _drag.value > _height * 0.35);
+    final duration = PTMotion.functional(context, PTMotion.state);
+    if (!dismiss) {
+      await _drag.animateTo(0, duration: duration, curve: PTMotion.enter);
+      return;
+    }
+    _dismissing = true;
+    final navigator = Navigator.of(context);
+    await _drag.animateTo(_height, duration: duration, curve: PTMotion.exit);
+    if (navigator.mounted) navigator.pop();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final mq = widget.mq;
+    final body = widget.body;
     final keyboard = mq.viewInsets.bottom;
     final keyboardUp = keyboard > mq.viewPadding.bottom;
     return AnimatedPadding(
@@ -305,51 +348,60 @@ class _GlassSheet extends StatelessWidget {
           removeRight: true,
           child: Align(
             alignment: .bottomCenter,
-            child: Material(
-              type: .transparency,
-              child: Container(
-                key: kGlassSheetKey,
-                clipBehavior: Clip.antiAlias,
-                decoration: const BoxDecoration(
-                  color: PTColors.dialogGlassBase,
-                  borderRadius: BorderRadius.vertical(top: Radius.circular(PTRadius.panel)),
-                  border: Border(top: BorderSide(color: PTColors.rail)),
-                  boxShadow: [
-                    BoxShadow(color: PTColors.shadowSoft, blurRadius: 40, offset: Offset(0, -8)),
-                  ],
-                ),
-                child: Column(
-                  mainAxisSize: .min,
-                  children: [
-                    GestureDetector(
-                      behavior: HitTestBehavior.opaque,
-                      onVerticalDragEnd: (d) {
-                        if ((d.primaryVelocity ?? 0) > 300) Navigator.of(context).maybePop();
-                      },
-                      child: Padding(
-                        padding: const EdgeInsets.only(top: 8, bottom: 2),
-                        child: Center(
-                          child: Container(
-                            width: 36,
-                            height: 4,
-                            decoration: BoxDecoration(
-                              color: PTColors.rail,
-                              borderRadius: BorderRadius.circular(2),
+            child: AnimatedBuilder(
+              animation: _drag,
+              builder: (context, child) =>
+                  Transform.translate(offset: Offset(0, _drag.value), child: child),
+              child: GestureDetector(
+                key: _surface,
+                behavior: HitTestBehavior.translucent,
+                onVerticalDragUpdate: _onUpdate,
+                onVerticalDragEnd: _onEnd,
+                child: Material(
+                  type: .transparency,
+                  child: Container(
+                    key: kGlassSheetKey,
+                    clipBehavior: Clip.antiAlias,
+                    decoration: const BoxDecoration(
+                      color: PTColors.dialogGlassBase,
+                      borderRadius: BorderRadius.vertical(top: Radius.circular(PTRadius.panel)),
+                      border: Border(top: BorderSide(color: PTColors.rail)),
+                      boxShadow: [
+                        BoxShadow(
+                          color: PTColors.shadowSoft,
+                          blurRadius: 40,
+                          offset: Offset(0, -8),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      mainAxisSize: .min,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.only(top: 8, bottom: 2),
+                          child: Center(
+                            child: Container(
+                              width: 36,
+                              height: 4,
+                              decoration: BoxDecoration(
+                                color: PTColors.rail,
+                                borderRadius: BorderRadius.circular(2),
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                    ),
-                    Flexible(
-                      child: body(
-                        EdgeInsets.only(
-                          left: mq.viewPadding.left,
-                          right: mq.viewPadding.right,
-                          bottom: keyboardUp ? 0 : mq.viewPadding.bottom,
+                        Flexible(
+                          child: body(
+                            EdgeInsets.only(
+                              left: mq.viewPadding.left,
+                              right: mq.viewPadding.right,
+                              bottom: keyboardUp ? 0 : mq.viewPadding.bottom,
+                            ),
+                          ),
                         ),
-                      ),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
               ),
             ),

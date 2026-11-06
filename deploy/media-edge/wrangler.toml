@@ -13,9 +13,9 @@ bucket_name = "synctogether-media"
 
 # Serve from your own hostname (the zone must be on this Cloudflare account).
 # Uncomment and edit, or attach the domain in the dashboard.
-# [[routes]]
-# pattern = "media.example.com"
-# custom_domain = true
+[[routes]]
+pattern = "media.synctogether.app"
+custom_domain = true
 
 [vars]
 # Tunables (all optional; shown with their defaults).
@@ -27,15 +27,15 @@ bucket_name = "synctogether-media"
 # gigabit speed makes ~16 requests/s of 8 MiB chunks, so the defaults leave real headroom:
 # 600 per minute per token is about 5 GB/min, 1200 per minute per IP covers a shared NAT.
 # namespace_id is any integer unique on your account. Needs wrangler 4.36+.
-# [[ratelimits]]
-# name = "TOKEN_LIMITER"
-# namespace_id = "7001"
-# simple = { limit = 600, period = 60 }
-#
-# [[ratelimits]]
-# name = "IP_LIMITER"
-# namespace_id = "7002"
-# simple = { limit = 1200, period = 60 }
+[[ratelimits]]
+name = "TOKEN_LIMITER"
+namespace_id = "7001"
+simple = { limit = 600, period = 60 }
+
+[[ratelimits]]
+name = "IP_LIMITER"
+namespace_id = "7002"
+simple = { limit = 1200, period = 60 }
 
 # Usage counters (requests, status, HIT/MISS, bytes) in Workers Analytics Engine.
 # OFF by default: check Analytics Engine pricing before enabling (see docs/media-edge.md).

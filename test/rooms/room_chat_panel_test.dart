@@ -2,6 +2,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:synctogether/rooms/widgets/emoji_quick_bar.dart';
 import 'package:synctogether/rooms/widgets/room_chat_panel.dart';
 import 'package:synctogether/sync/sync_service.dart';
 
@@ -368,5 +369,41 @@ void main() {
     expect(scrollable.position.maxScrollExtent - scrollable.position.pixels, greaterThan(200));
 
     sync.dispose();
+  });
+
+  testWidgets('a quick-reaction bar hidden at mount unfolds when room appears', (tester) async {
+    final sync = _sync();
+    Widget app(double h) => MaterialApp(
+      home: Scaffold(
+        body: SizedBox(
+          width: 330,
+          height: h,
+          child: RoomChatPanel(
+            sync: sync,
+            messages: const [],
+            typingNames: const [],
+            watchingCount: 2,
+            onClose: () {},
+            onSend: (_) {},
+            onCopied: () {},
+          ),
+        ),
+      ),
+    );
+    await tester.pumpWidget(app(260));
+    await tester.pumpAndSettle();
+    expect(find.byType(EmojiQuickBar), findsNothing);
+    final slot = find.ancestor(of: find.byType(EmojiQuickBar), matching: find.byType(ClipRect));
+    await tester.pumpWidget(app(520));
+    await tester.pump();
+    final heights = <double>[];
+    for (var i = 0; i < 6; i++) {
+      await tester.pump(const Duration(milliseconds: 40));
+      heights.add(tester.getSize(slot).height);
+    }
+    expect(heights.toSet().length, greaterThan(2), reason: 'folds in over frames: $heights');
+    await tester.pumpAndSettle();
+    final full = tester.getSize(slot).height;
+    expect(heights.first, lessThan(full));
   });
 }

@@ -356,6 +356,44 @@ class _RoomChatPanelState extends State<RoomChatPanel> with SingleTickerProvider
     }
   }
 
+  // Touch: the list sits inside a [SelectionArea], whose own tap recogniser
+  // (it clears the selection) is deeper than, and so beats, the root's
+  // [TapToDismissKeyboard] in the gesture arena over the whole list - gaps and
+  // background included. So a tap there never reaches [EmptyTapHook]. A raw
+  // pointer [Listener] takes no part in the arena: it sees the tap whoever
+  // wins it, and a bubble marks its own pointer-down ([_ownTap]) so a tap on a
+  // message is left to selection.
+  Offset? _tapDown;
+  Duration? _tapDownAt;
+  bool _tapOnBubble = false;
+
+  Widget _ownTap(Widget child) => Listener(onPointerDown: (_) => _tapOnBubble = true, child: child);
+
+  Widget _emptyTapCatcher(Widget child) {
+    if (!_touch) return child;
+    return Listener(
+      onPointerDown: (e) {
+        // Bubbles (deeper) have already run; a second finger voids the tap.
+        _tapDown = _tapDown == null && !_tapOnBubble ? e.position : null;
+        _tapDownAt = e.timeStamp;
+      },
+      onPointerUp: (e) {
+        final down = _tapDown;
+        final quick = _tapDownAt != null && e.timeStamp - _tapDownAt! < kLongPressTimeout;
+        _tapDown = null;
+        _tapOnBubble = false;
+        if (down != null && quick && (e.position - down).distance < kTouchSlop) {
+          _closePickerFromEmptyTap();
+        }
+      },
+      onPointerCancel: (_) {
+        _tapDown = null;
+        _tapOnBubble = false;
+      },
+      child: child,
+    );
+  }
+
   /// A tap no one claimed: the same rule that closes the keyboard closes the
   /// picker, folding it, with the keyboard staying down.
   void _closePickerFromEmptyTap() {
@@ -649,42 +687,46 @@ class _RoomChatPanelState extends State<RoomChatPanel> with SingleTickerProvider
             children: [
               LayoutId(
                 id: _ComposerSlot.list,
-                child: SelectionArea(
-                  child: ListView.separated(
-                    controller: _scrollController,
-                    keyboardDismissBehavior: .onDrag,
-                    physics: const ChatScrollPhysics(),
-                    padding: _spare
-                        ? const EdgeInsets.symmetric(horizontal: 14, vertical: 12)
-                        : denseList
-                        ? const EdgeInsets.symmetric(horizontal: 14, vertical: 8)
-                        : const EdgeInsets.all(20),
-                    // The typing slot is always present so it can collapse rather than
-                    // pop; its own gap lives inside it, which is why the separator
-                    // before it is suppressed.
-                    itemCount: widget.messages.length + 1,
-                    separatorBuilder: (_, index) => index == widget.messages.length - 1
-                        ? const SizedBox.shrink()
-                        : SizedBox(height: _spare || denseList ? 10 : 14),
-                    itemBuilder: (context, index) {
-                      if (index == widget.messages.length) {
-                        return _typingRow();
-                      }
-                      final message = widget.messages[index];
-                      final bubble = _MessageRow(
-                        message: message,
-                        own: message.senderId == widget.sync.userId,
-                        premium: widget.premiumMembers.contains(message.senderId),
-                        frame: widget.memberFrames[message.senderId],
-                        onCopied: widget.onCopied,
-                        onPlaySharedVideo: widget.onPlaySharedVideo,
-                        onReport: widget.onReportMessage,
-                        spare: _spare,
-                      );
-                      final key = _keyOf(message);
-                      if (!_animated.add(key)) return bubble;
-                      return PTEntrance(duration: PTMotion.state, offset: 6, child: bubble);
-                    },
+                child: _emptyTapCatcher(
+                  SelectionArea(
+                    child: ListView.separated(
+                      controller: _scrollController,
+                      keyboardDismissBehavior: .onDrag,
+                      physics: const ChatScrollPhysics(),
+                      padding: _spare
+                          ? const EdgeInsets.symmetric(horizontal: 14, vertical: 12)
+                          : denseList
+                          ? const EdgeInsets.symmetric(horizontal: 14, vertical: 8)
+                          : const EdgeInsets.all(20),
+                      // The typing slot is always present so it can collapse rather than
+                      // pop; its own gap lives inside it, which is why the separator
+                      // before it is suppressed.
+                      itemCount: widget.messages.length + 1,
+                      separatorBuilder: (_, index) => index == widget.messages.length - 1
+                          ? const SizedBox.shrink()
+                          : SizedBox(height: _spare || denseList ? 10 : 14),
+                      itemBuilder: (context, index) {
+                        if (index == widget.messages.length) {
+                          return _typingRow();
+                        }
+                        final message = widget.messages[index];
+                        final bubble = _ownTap(
+                          _MessageRow(
+                            message: message,
+                            own: message.senderId == widget.sync.userId,
+                            premium: widget.premiumMembers.contains(message.senderId),
+                            frame: widget.memberFrames[message.senderId],
+                            onCopied: widget.onCopied,
+                            onPlaySharedVideo: widget.onPlaySharedVideo,
+                            onReport: widget.onReportMessage,
+                            spare: _spare,
+                          ),
+                        );
+                        final key = _keyOf(message);
+                        if (!_animated.add(key)) return bubble;
+                        return PTEntrance(duration: PTMotion.state, offset: 6, child: bubble);
+                      },
+                    ),
                   ),
                 ),
               ),

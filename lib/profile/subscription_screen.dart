@@ -21,6 +21,7 @@ import 'package:synctogether/ui/cinema_marquee_bar.dart';
 import 'package:synctogether/ui/glass.dart';
 import 'package:synctogether/ui/booth.dart';
 import 'package:synctogether/ui/loader.dart';
+import 'package:synctogether/ui/panel_switcher.dart';
 import 'package:synctogether/ui/pt_motion.dart';
 import 'package:synctogether/ui/pt_theme.dart';
 import 'package:synctogether/ui/responsive.dart';
@@ -633,31 +634,42 @@ class _SubscriptionScreenState extends State<SubscriptionScreen>
       spacing: 20,
       children: [
         if (withTicket) _ticket(isPremium: isPrem),
-        if (_verifying)
-          _panel(
-            Row(
-              mainAxisAlignment: .center,
-              spacing: 12,
-              children: [
-                const PTLoader(size: 20),
-                Flexible(
-                  child: Text(
-                    'Verifying your purchase…',
-                    style: PTText.body.copyWith(color: PTColors.textAccent),
+        // Verifying -> premium -> purchase options swap as one motion, not by
+        // popping each other's height in and out.
+        PTPanelSwitcher(
+          child: Column(
+            key: ValueKey(_verifying ? 'verifying' : (isPrem ? 'premium' : 'offer')),
+            crossAxisAlignment: .stretch,
+            spacing: 20,
+            children: [
+              if (_verifying)
+                _panel(
+                  Row(
+                    mainAxisAlignment: .center,
+                    spacing: 12,
+                    children: [
+                      const PTLoader(size: 20),
+                      Flexible(
+                        child: Text(
+                          'Verifying your purchase…',
+                          style: PTText.body.copyWith(color: PTColors.textAccent),
+                        ),
+                      ),
+                    ],
                   ),
-                ),
+                )
+              else if (isPrem)
+                _premiumStatusActions()
+              else ...[
+                if (!sticky) _purchaseActions(),
+                _reassurances(),
+                // The App Store offer carries its own links beside the price
+                // (3.1.2), and the sticky bar carries them on phones.
+                if (!_isAppleStore && !_isMicrosoftStore && !sticky) _legalLinks(),
               ],
-            ),
-          )
-        else if (isPrem)
-          _premiumStatusActions()
-        else ...[
-          if (!sticky) _purchaseActions(),
-          _reassurances(),
-          // The App Store offer carries its own links beside the price
-          // (3.1.2), and the sticky bar carries them on phones.
-          if (!_isAppleStore && !_isMicrosoftStore && !sticky) _legalLinks(),
-        ],
+            ],
+          ),
+        ),
       ],
     );
   }

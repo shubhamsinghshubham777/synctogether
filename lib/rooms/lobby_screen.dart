@@ -1646,7 +1646,20 @@ class _LobbyScreenState extends State<LobbyScreen> with WindowListener {
     );
   }
 
+  /// Picker row -> upload progress -> staged file: one coordinated swap, not
+  /// three heights popping over each other.
   Widget _stagedMediaSection(bool compact) {
+    final state = _stagedSession != null && _stagedVideo != null
+        ? 'staged'
+        : _stagingUpload && _stagedVideo != null
+        ? 'staging'
+        : 'pick';
+    return PTPanelSwitcher(
+      child: KeyedSubtree(key: ValueKey(state), child: _stagedMediaBody(compact)),
+    );
+  }
+
+  Widget _stagedMediaBody(bool compact) {
     if (_stagedSession != null && _stagedVideo != null) {
       final fileName = _stagedVideo!.name;
       return Container(

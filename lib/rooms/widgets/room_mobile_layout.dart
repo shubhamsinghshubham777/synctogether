@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart' show ValueListenable;
@@ -56,6 +57,9 @@ class _PortraitParentData extends ContainerBoxParentData<RenderBox> {
   /// and focus. A piece folding in or out is neither.
   bool shown = true;
 
+  /// The slot is on its way out: it folds away whatever the budget says.
+  bool retiring = false;
+
   /// Height of the visible slice while folding, null when whole.
   double? reveal;
 
@@ -65,15 +69,25 @@ class _PortraitParentData extends ContainerBoxParentData<RenderBox> {
 
 /// Tags a child of [RoomPortraitStack] with its role.
 class RoomPortraitSlot extends ParentDataWidget<_PortraitParentData> {
-  const RoomPortraitSlot({super.key, required this.role, required super.child});
+  const RoomPortraitSlot({
+    super.key,
+    required this.role,
+    required super.child,
+    this.retiring = false,
+  });
 
   final RoomPortraitRole role;
+
+  /// Folds the piece out even where it would fit; the owner unmounts it once
+  /// the fold has had time to finish.
+  final bool retiring;
 
   @override
   void applyParentData(RenderObject renderObject) {
     final data = renderObject.parentData! as _PortraitParentData;
-    if (data.role != role) {
+    if (data.role != role || data.retiring != retiring) {
       data.role = role;
+      data.retiring = retiring;
       renderObject.parent?.markNeedsLayout();
     }
   }
@@ -313,7 +327,9 @@ class RenderRoomPortraitStack extends RenderBox
       }
       box.layout(loose(natural), parentUsesSize: true);
       final h = box.size.height;
-      final fits = presence.target ? h <= target : h + kPortraitReturnMargin <= target;
+      final retiring = (box.parentData! as _PortraitParentData).retiring;
+      final fits =
+          !retiring && (presence.target ? h <= target : h + kPortraitReturnMargin <= target);
       presence.retarget(fits, animateIn: _laidOut);
       if (presence.target) target -= h;
       final e = presence.eased;
@@ -433,7 +449,7 @@ class RenderRoomPortraitStack extends RenderBox
 }
 
 /// The handheld and portrait tablet composition.
-class RoomMobilePortraitLayout extends StatelessWidget {
+class RoomMobilePortraitLayout extends StatefulWidget {
   const RoomMobilePortraitLayout({
     required this.header,
     required this.videoSurface,
@@ -474,40 +490,88 @@ class RoomMobilePortraitLayout extends StatelessWidget {
   final bool roomy;
 
   @override
+  State<RoomMobilePortraitLayout> createState() => _RoomMobilePortraitLayoutState();
+}
+
+class _RoomMobilePortraitLayoutState extends State<RoomMobilePortraitLayout> {
+  /// The facecam strip as it last was. Turning cams off removes the widget at
+  /// once, which would take the slot with it and pop the strip out of the
+  /// stack in one frame; it is kept (retiring) while the stack folds it away.
+  Widget? _lastStrip;
+  Timer? _drop;
+
+  @override
+  void dispose() {
+    _drop?.cancel();
+    super.dispose();
+  }
+
+  void _settleStrip(Widget? strip) {
+    if (strip != null) {
+      _drop?.cancel();
+      _drop = null;
+      _lastStrip = strip;
+    } else if (_lastStrip != null && _drop == null) {
+      // The fold runs PTMotion.state; the margin lets its last frame land.
+      final fold = PTMotion.functional(context, PTMotion.state);
+      _drop = Timer(fold + const Duration(milliseconds: 80), () {
+        _drop = null;
+        if (mounted) setState(() => _lastStrip = null);
+      });
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final gutter = roomy ? 24.0 : (MediaQuery.sizeOf(context).width < 380 ? 10.0 : 14.0);
+    final w = widget;
+    _settleStrip(w.facecamStrip);
+    final cams = w.facecamStrip ?? _lastStrip;
+    final gutter = w.roomy ? 24.0 : (MediaQuery.sizeOf(context).width < 380 ? 10.0 : 14.0);
 
     final floor = floorScaler(context).scale(160);
-    final reveal = chatFloorReveal;
+    final reveal = w.chatFloorReveal;
     final slots = <Widget>[
       RoomPortraitSlot(
+        key: const ValueKey(RoomPortraitRole.header),
         role: .header,
-        child: _Collapse(collapsed: keyboardUp, child: header),
+        child: _Collapse(collapsed: w.keyboardUp, child: w.header),
       ),
-      RoomPortraitSlot(role: .video, child: videoSurface),
-      if (facecamStrip != null)
+      RoomPortraitSlot(
+        key: const ValueKey(RoomPortraitRole.video),
+        role: .video,
+        child: w.videoSurface,
+      ),
+      if (cams != null)
         RoomPortraitSlot(
+          key: const ValueKey(RoomPortraitRole.cams),
           role: .cams,
-          child: Padding(padding: EdgeInsets.fromLTRB(gutter, 10, gutter, 6), child: facecamStrip!),
+          retiring: w.facecamStrip == null,
+          child: Padding(padding: EdgeInsets.fromLTRB(gutter, 10, gutter, 6), child: cams),
         ),
       RoomPortraitSlot(
+        key: const ValueKey(RoomPortraitRole.strip),
         role: .strip,
-        child: Padding(padding: EdgeInsets.fromLTRB(gutter, 0, gutter, 6), child: reactionStrip),
+        child: Padding(padding: EdgeInsets.fromLTRB(gutter, 0, gutter, 6), child: w.reactionStrip),
       ),
-      RoomPortraitSlot(role: .bar, child: controlBar),
+      RoomPortraitSlot(key: const ValueKey(RoomPortraitRole.bar), role: .bar, child: w.controlBar),
       RoomPortraitSlot(
+        key: const ValueKey(RoomPortraitRole.banners),
         role: .banners,
-        child: SingleChildScrollView(child: bannerStack),
+        child: SingleChildScrollView(child: w.bannerStack),
       ),
-      RoomPortraitSlot(role: .chat, child: embeddedChat),
+      RoomPortraitSlot(
+        key: const ValueKey(RoomPortraitRole.chat),
+        role: .chat,
+        child: w.embeddedChat,
+      ),
     ];
     return SafeArea(
       child: reveal == null
-          ? RoomPortraitStack(chatFloor: floor + chatFloorExtra, children: slots)
+          ? RoomPortraitStack(chatFloor: floor + w.chatFloorExtra, children: slots)
           : ValueListenableBuilder<double>(
               valueListenable: reveal,
               builder: (context, t, _) =>
-                  RoomPortraitStack(chatFloor: floor + chatFloorExtra * t, children: slots),
+                  RoomPortraitStack(chatFloor: floor + w.chatFloorExtra * t, children: slots),
             ),
     );
   }

@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import 'pt_motion.dart';
+import 'reveal.dart';
 import 'pt_theme.dart';
 
 class PTTextField extends StatefulWidget {
@@ -45,6 +46,10 @@ class PTTextField extends StatefulWidget {
 class _PTTextFieldState extends State<PTTextField> {
   final _focusNode = FocusNode();
 
+  /// The last error shown, kept so its line can fold away with its words
+  /// still in it once [PTTextField.errorText] clears.
+  String? _lastError;
+
   @override
   void initState() {
     super.initState();
@@ -60,6 +65,7 @@ class _PTTextFieldState extends State<PTTextField> {
   @override
   Widget build(BuildContext context) {
     final hasError = widget.errorText != null;
+    if (hasError) _lastError = widget.errorText;
     final borderColor = hasError
         ? PTColors.dangerBorder.withValues(alpha: 0.55)
         : _focusNode.hasFocus
@@ -68,9 +74,11 @@ class _PTTextFieldState extends State<PTTextField> {
 
     return Column(
       crossAxisAlignment: .start,
-      spacing: 7,
       children: [
-        if (widget.label != null) Text(widget.label!, style: PTText.caption),
+        if (widget.label != null) ...[
+          Text(widget.label!, style: PTText.caption),
+          const SizedBox(height: 7),
+        ],
         AnimatedContainer(
           duration: Durations.short2,
           decoration: BoxDecoration(
@@ -112,19 +120,27 @@ class _PTTextFieldState extends State<PTTextField> {
             ],
           ),
         ),
-        if (hasError)
-          Row(
-            spacing: 6,
-            children: [
-              const Icon(Symbols.error_rounded, size: 15, fill: 1, color: PTColors.danger),
-              Flexible(
-                child: Text(
-                  widget.errorText!,
-                  style: PTText.finePrint.copyWith(fontSize: 12.5, color: PTColors.danger),
+        // Folds in and out: the form beneath it follows, instead of jumping by
+        // a line.
+        PTReveal(
+          visible: hasError,
+          child: Padding(
+            // Inside the fold, so a hidden line leaves no gap behind.
+            padding: const EdgeInsets.only(top: 7),
+            child: Row(
+              spacing: 6,
+              children: [
+                const Icon(Symbols.error_rounded, size: 15, fill: 1, color: PTColors.danger),
+                Flexible(
+                  child: Text(
+                    _lastError ?? '',
+                    style: PTText.finePrint.copyWith(fontSize: 12.5, color: PTColors.danger),
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
+        ),
       ],
     );
   }

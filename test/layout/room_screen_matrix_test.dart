@@ -1585,6 +1585,95 @@ void main() {
     });
   });
 
+  group('empty-tap sweep', () {
+    testWidgets('every empty point of the chat area closes the picker; controls do not', (
+      tester,
+    ) async {
+      final c = kScreenMatrix.firstWhere((c) => c.name == 'phone');
+      try {
+        await _pumpRoom(
+          tester,
+          c,
+          1.0,
+          av: true,
+          allReady: false,
+          selfHost: false,
+          openFails: true,
+          chat: mockChatMessagesList.take(6).toList(),
+        );
+        await tester.pump(const Duration(seconds: 6));
+        Future<void> openPicker() async {
+          await tester.tap(find.byTooltip(RegExp('[Ee]moji')).first);
+          await tester.pump(const Duration(milliseconds: 600));
+          await tester.pump(const Duration(milliseconds: 600));
+          expect(find.byType(EmojiPicker), findsOneWidget);
+        }
+
+        await openPicker();
+        final pickerTop = tester.getTopLeft(find.byType(EmojiPicker)).dy;
+        final chat = tester.getRect(
+          find.descendant(of: find.byType(RoomChatPanel), matching: find.byType(ListView)).first,
+        );
+        final misses = <Offset>[];
+        for (var y = chat.top + 4; y < chat.bottom - 4; y += 24) {
+          for (var x = 6.0; x < c.size.width - 4; x += 24) {
+            final at = Offset(x, y);
+            // A message bubble is left to selection: a tap there is not empty.
+            if (find
+                .byWidgetPredicate((w) => w.runtimeType.toString() == '_MessageRow')
+                .evaluate()
+                .any((e) => tester.getRect(find.byWidget(e.widget)).contains(at))) {
+              continue;
+            }
+            // Anything a control or text sits under is not empty space.
+            final hit = tester.hitTestOnBinding(at);
+            final onControl = hit.path.any((e) {
+              final t = e.target;
+              return t is RenderParagraph ||
+                  t is RenderEditable ||
+                  t is RenderSemanticsGestureHandler && t.onTap != null && false;
+            });
+            if (onControl) continue;
+            await tester.tapAt(at);
+            await tester.pump(const Duration(milliseconds: 600));
+            await tester.pump(const Duration(milliseconds: 600));
+            if (find.byType(EmojiPicker).evaluate().isNotEmpty) {
+              misses.add(at);
+              continue;
+            }
+            if (find.byTooltip(RegExp('[Ee]moji')).evaluate().isEmpty) {
+              misses.add(Offset(-1, -1) + at);
+              break;
+            }
+            await tester.pump(const Duration(milliseconds: 600));
+            await tester.tap(find.byTooltip(RegExp('[Ee]moji')).first);
+            await tester.pump(const Duration(milliseconds: 600));
+            await tester.pump(const Duration(milliseconds: 600));
+            if (find.byType(EmojiPicker).evaluate().isEmpty) {
+              misses.add(Offset(-2, -2) + at);
+              break;
+            }
+          }
+        }
+        expect(misses, isEmpty, reason: 'taps that left the picker open');
+        // What is not empty keeps it open: the picker's surface, a bubble.
+        expect(pickerTop, greaterThan(chat.bottom - 1));
+        await tester.tapAt(tester.getCenter(find.byType(EmojiPicker)));
+        await tester.pump(const Duration(milliseconds: 600));
+        expect(find.byType(EmojiPicker), findsOneWidget, reason: 'a tap in the grid');
+        final bubble = tester.getCenter(
+          find.byWidgetPredicate((w) => w.runtimeType.toString() == '_MessageRow').first,
+        );
+        await tester.tapAt(bubble);
+        await tester.pump(const Duration(milliseconds: 600));
+        expect(find.byType(EmojiPicker), findsOneWidget, reason: 'a tap on a message');
+        await _finish(tester);
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
+      }
+    });
+  });
+
   group('a file that failed to open', () {
     testWidgets('offers a different video, not the same bad copy', (tester) async {
       final c = kScreenMatrix.firstWhere((c) => c.name == 'phone');

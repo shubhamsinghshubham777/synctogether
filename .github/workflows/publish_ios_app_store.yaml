@@ -30,7 +30,9 @@ concurrency:
 
 jobs:
   build-and-publish:
-    runs-on: macos-latest
+    # Xcode 27 preview image: the iPhone Duo reserved-region APIs (iOS 27.1 SDK)
+    # are not in the macos-26 image's Xcode 26.6, so the Archive step fails to compile.
+    runs-on: xcode-27
     timeout-minutes: 60
     outputs:
       app_version: ${{ steps.version.outputs.APP_VERSION }}

@@ -2781,6 +2781,10 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
       final native = _player.platform;
       if (native is NativePlayer) await native.setProperty(key, value);
     },
+    readOption: (key) async {
+      final native = _player.platform;
+      return native is NativePlayer ? await native.getProperty(key) : null;
+    },
     mpvCacheBps: () async {
       final native = _player.platform;
       if (native is! NativePlayer) return null;

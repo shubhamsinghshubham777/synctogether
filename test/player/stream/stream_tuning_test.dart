@@ -127,4 +127,32 @@ void main() {
       expect(DownloadUrlResult.parseMaxParallel(2.9), 2);
     });
   });
+
+  group('verifyLavfOptions', () {
+    test('reports both boxes healthy', () {
+      final v = verifyLavfOptions(
+        streamLavf: 'reconnect=1,reconnect_streamed=1,reconnect_delay_max=5',
+        demuxerLavf: 'protocol_whitelist=[file,http,https],segment_max_retry=5',
+      );
+      expect(v.reconnectApplied, isTrue);
+      expect(v.whitelistIntact, isTrue);
+    });
+
+    test('flags a libmpv that ignored the reconnect options', () {
+      final v = verifyLavfOptions(streamLavf: '', demuxerLavf: 'protocol_whitelist=[file]');
+      expect(v.reconnectApplied, isFalse);
+      expect(v.whitelistIntact, isTrue);
+    });
+
+    test('flags a replaced protocol whitelist', () {
+      final v = verifyLavfOptions(streamLavf: 'reconnect=1', demuxerLavf: 'reconnect=1');
+      expect(v.whitelistIntact, isFalse);
+    });
+
+    test('unreadable properties count as not applied', () {
+      final v = verifyLavfOptions(streamLavf: null, demuxerLavf: null);
+      expect(v.reconnectApplied, isFalse);
+      expect(v.whitelistIntact, isFalse);
+    });
+  });
 }

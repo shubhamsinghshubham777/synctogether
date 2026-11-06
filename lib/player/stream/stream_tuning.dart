@@ -103,3 +103,19 @@ int? requiredBitrateBps({required int? fileBytes, required Duration? duration}) 
   if (secs < 1) return null;
   return (fileBytes * 8 / secs).round();
 }
+
+/// What mpv reports back for the two lavf option boxes after the tuning went in.
+///
+/// The reconnect settings live in `stream-lavf-o` on purpose (media_kit owns
+/// `demuxer-lavf-o` for its protocol whitelist), so the only way to know the
+/// bundled libmpv honours them is to read them back. `reconnectApplied` is
+/// whether our options are present; `whitelistIntact` is whether media_kit's
+/// whitelist in the demuxer box is still there (we must never have replaced it).
+/// Either being false is a finding, not an error for the viewer.
+({bool reconnectApplied, bool whitelistIntact}) verifyLavfOptions({
+  required String? streamLavf,
+  required String? demuxerLavf,
+}) => (
+  reconnectApplied: (streamLavf ?? '').contains('reconnect=1'),
+  whitelistIntact: (demuxerLavf ?? '').contains('protocol_whitelist'),
+);

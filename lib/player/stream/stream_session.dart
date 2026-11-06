@@ -31,6 +31,7 @@ class SharedStreamSession {
     required this.cache,
     required this.device,
     required this.setOption,
+    this.readOption,
     required this.mpvCacheBps,
     required this.bufferedAhead,
     required this.remaining,
@@ -54,6 +55,10 @@ class SharedStreamSession {
 
   /// Applies one mpv property; failures are the caller's to swallow.
   final Future<void> Function(String key, String value) setOption;
+
+  /// Reads an mpv property back (null when unavailable); used only to verify that
+  /// the tuning took effect, once per opened stream.
+  final Future<String?> Function(String key)? readOption;
   final Future<double?> Function() mpvCacheBps;
 
   /// Seconds of media mpv already holds beyond the playhead, and how much of the
@@ -113,6 +118,7 @@ class SharedStreamSession {
     notice.resetForNewFile();
     _bitrateBps = requiredBitrateBps(fileBytes: dl.fileSize, duration: duration);
     await _applyOptions();
+    unawaited(_verifyOptions());
     Uri source = dl.streamUrl;
     if (_proxyEnabled()) {
       proxy = await StreamProxy.start(
@@ -236,6 +242,41 @@ class SharedStreamSession {
     proxy?.boost();
     unawaited(_applyOptions());
     trace('stream escalated silently', category: 'media', data: {'proxy': proxy != null});
+  }
+
+  /// Reads the lavf option boxes back and records whether our reconnect options
+  /// stuck and media_kit's protocol whitelist survived. Once per stream; never
+  /// blocks opening. Breadcrumb always; a non-fatal only when something is off,
+  /// so a bundled libmpv that ignores `stream-lavf-o` shows up in the dashboard.
+  Future<void> _verifyOptions() async {
+    final read = readOption;
+    if (read == null) return;
+    try {
+      final verdict = verifyLavfOptions(
+        streamLavf: await read('stream-lavf-o'),
+        demuxerLavf: await read('demuxer-lavf-o'),
+      );
+      trace(
+        'stream options verified',
+        category: 'media',
+        data: {
+          'reconnect_applied': verdict.reconnectApplied,
+          'whitelist_intact': verdict.whitelistIntact,
+        },
+      );
+      if (!verdict.reconnectApplied || !verdict.whitelistIntact) {
+        reportNonFatal(
+          StateError(
+            'stream options not as expected: reconnect=${verdict.reconnectApplied} '
+            'whitelist=${verdict.whitelistIntact}',
+          ),
+          StackTrace.current,
+          during: 'verifying the stream tuning',
+        );
+      }
+    } catch (_) {
+      trace('stream options could not be read back', category: 'media');
+    }
   }
 
   Future<void> _applyOptions() async {

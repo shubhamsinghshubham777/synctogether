@@ -24,12 +24,17 @@ void main() {
     expiresInSeconds: 3600,
   );
 
-  SharedStreamSession make({bool proxy = true, DateTime Function()? now}) => SharedStreamSession(
+  SharedStreamSession make({
+    bool proxy = true,
+    DateTime Function()? now,
+    Future<String?> Function(String key)? readOption,
+  }) => SharedStreamSession(
     roomId: 'r1',
     fetchUrl: () async => dl(),
     cache: MediaSharingCache(cacheDirectory: tmp),
     device: StreamDeviceClass.desktop,
     setOption: (k, v) async => applied[k] = v,
+    readOption: readOption,
     mpvCacheBps: () async => null,
     bufferedAhead: () => ahead,
     remaining: () => const Duration(minutes: 90),
@@ -143,6 +148,31 @@ void main() {
       expect(s.holdingForBuffer, isFalse);
       s.dispose();
       fa.flushMicrotasks();
+    });
+  });
+
+  group('option verification', () {
+    test('reads both lavf boxes back once per opened stream', () async {
+      final reads = <String>[];
+      final session = make(
+        proxy: false,
+        readOption: (k) async {
+          reads.add(k);
+          return k == 'stream-lavf-o' ? 'reconnect=1' : 'protocol_whitelist=[file,http]';
+        },
+      );
+      await session.start(dl());
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      expect(reads, containsAll(['stream-lavf-o', 'demuxer-lavf-o']));
+      await session.dispose();
+    });
+
+    test('an unreadable property never breaks opening', () async {
+      final session = make(proxy: false, readOption: (k) async => throw StateError('no'));
+      final uri = await session.start(dl());
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      expect(uri, dl().streamUrl);
+      await session.dispose();
     });
   });
 }

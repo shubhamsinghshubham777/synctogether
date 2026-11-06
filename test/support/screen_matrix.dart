@@ -106,6 +106,57 @@ final kScreenMatrix = <ScreenCase>[
     ],
   ),
   const ScreenCase('fold-cover', Size(344, 882), .android, padding: _androidGesture),
+  // Surface Duo-like dual screen, held like a book: two 540x720 panes with a
+  // 30 px vertical hinge between them.
+  const ScreenCase(
+    'duo-book',
+    Size(1110, 720),
+    .android,
+    padding: _androidGesture,
+    features: [
+      DisplayFeature(
+        bounds: Rect.fromLTWH(540, 0, 30, 720),
+        type: DisplayFeatureType.hinge,
+        state: DisplayFeatureState.postureFlat,
+      ),
+    ],
+  ),
+  // The same device turned a quarter: two panes stacked, a 30 px horizontal
+  // hinge between them.
+  const ScreenCase(
+    'duo-stacked',
+    Size(720, 1110),
+    .android,
+    padding: _androidGesture,
+    features: [
+      DisplayFeature(
+        bounds: Rect.fromLTWH(0, 540, 720, 30),
+        type: DisplayFeatureType.hinge,
+        state: DisplayFeatureState.postureFlat,
+      ),
+    ],
+  ),
+  // Pixel Fold inner display (1840x2208 px at ~2.2x), flat and continuous.
+  const ScreenCase('pixel-fold', Size(840, 1010), .android, padding: _androidGesture),
+  // A half-opened fold running top to bottom (a book held loosely): no gap,
+  // but the crease still separates two panes.
+  const ScreenCase(
+    'fold-halfopen-vertical',
+    Size(1080, 960),
+    .android,
+    padding: _androidGesture,
+    features: [
+      DisplayFeature(
+        bounds: Rect.fromLTWH(540, 0, 0, 960),
+        type: DisplayFeatureType.fold,
+        state: DisplayFeatureState.postureHalfOpened,
+      ),
+    ],
+  ),
+  // Flip-class: the unfolded inner screen is a tall phone; the cover is a
+  // small, nearly square display that runs apps on its own.
+  const ScreenCase('flip-unfolded', Size(412, 960), .android, padding: _androidGesture),
+  const ScreenCase('flip-cover', Size(360, 374), .android, padding: EdgeInsets.only(top: 24)),
   const ScreenCase('desktop-min', Size(900, 600), .macOS),
   const ScreenCase('desktop', Size(1440, 900), .macOS),
   const ScreenCase('desktop-wide', Size(2560, 1080), .windows),
@@ -122,7 +173,16 @@ Future<void> pumpAtSize(
   ScreenCase c, {
   double textScale = 1.0,
   bool wrapInApp = true,
+
+  /// Dresses [child] the way the router dresses every page but the room: in
+  /// [PTHingeSafe], so a hinge keeps it inside one pane.
+  bool singlePane = false,
+
+  /// Asserts nothing is cut by the hinge at `finishCase` without wrapping the
+  /// child (for pages, like dialogs, that confine themselves).
+  bool checkHinge = false,
 }) async {
+  _hingeCase = singlePane || checkHinge ? c : null;
   debugDefaultTargetPlatformOverride = c.platform;
   tester.view
     ..physicalSize = c.size
@@ -164,7 +224,7 @@ Future<void> pumpAtSize(
               context,
               TapToDismissKeyboard(child: page ?? const SizedBox.shrink()),
             ),
-            home: child,
+            home: singlePane ? PTHingeSafe(child: child) : child,
           )
         : child,
   );
@@ -183,6 +243,16 @@ void expectNoOverflow(WidgetTester tester) {
 }
 
 bool _insetCheckActive = false;
+
+/// Set while a [pumpAtSize] `singlePane` screen is up: `finishCase` then also
+/// asserts nothing is cut by the hinge.
+ScreenCase? _hingeCase;
+
+/// Runs the hinge check for a single-pane screen pumped by [pumpAtSize].
+void expectSinglePaneClearOfHinge(WidgetTester tester) {
+  final c = _hingeCase;
+  if (c != null) expectClearOfHinge(tester, c);
+}
 
 /// Whether the running [screenMatrix] case checks insets (the default; a case
 /// opts out with `checkInsets: false`). `finishCase` reads it.
@@ -380,6 +450,83 @@ Future<void> expectRespectsInsets(WidgetTester tester) async {
   expect(problems, isEmpty, reason: 'Inset violations:\n${problems.toSet().join('\n')}');
 }
 
+/// The rect a case's hinge or half-opened fold occupies, or null when nothing
+/// splits the window (a flat fold with no gap is a continuous display).
+Rect? hingeRectOf(ScreenCase c) {
+  final f = foldFromFeatures(c.features);
+  return f.isSplit ? f.bounds : null;
+}
+
+/// Whether [r] is cut by [hinge]: it overlaps a hinge that has a gap, or a
+/// zero-gap fold line runs through its interior.
+bool _cutsHinge(Rect r, Rect hinge) {
+  if (hinge.width > 0 && hinge.height > 0) return r.overlaps(hinge);
+  if (hinge.height >= hinge.width) {
+    return r.left < hinge.left - _eps && r.right > hinge.left + _eps && r.top < hinge.bottom;
+  }
+  return r.top < hinge.top - _eps && r.bottom > hinge.top + _eps && r.left < hinge.right;
+}
+
+/// The part of [r] a scroll viewport around [e] actually shows; scrolled-away
+/// content is clipped, so it is under nothing.
+Rect _clipToScroll(Element e, Rect r) {
+  final scrollable = Scrollable.maybeOf(e);
+  final box = scrollable?.context.findRenderObject();
+  if (box is! RenderBox || !box.hasSize) return r;
+  return r.intersect(_rectOf(box));
+}
+
+/// Asserts nothing a user can touch, and no text, is cut by the hinge: a
+/// control straddling it is half unreachable, a word under it half unreadable.
+/// Surfaces (video, backgrounds: anything covering a quarter of the window) are
+/// exempt - the video may not span the hinge either, but is judged by
+/// [expectInOnePane] instead.
+void expectClearOfHinge(WidgetTester tester, ScreenCase c) {
+  final hinge = hingeRectOf(c);
+  if (hinge == null) return;
+  final screen = Offset.zero & c.size;
+  final safe = safeRectOf(tester);
+  final problems = <String>[];
+  void check(String what, Rect r) {
+    if (r.width <= 0 || r.height <= 0) return;
+    if (_isFullBleed(r, screen, safe)) return;
+    if (_cutsHinge(r, hinge)) problems.add('$what at $r is cut by the hinge $hinge');
+  }
+
+  for (final e in find.byWidgetPredicate(_isInteractive, skipOffstage: true).evaluate()) {
+    final ro = e.renderObject;
+    if (ro is! RenderBox || !ro.attached || !ro.hasSize) continue;
+    if (e.findAncestorWidgetOfExactType<CompositedTransformFollower>() != null) continue;
+    check('${e.widget.runtimeType}', _clipToScroll(e, _rectOf(ro)));
+  }
+  for (final e in find.byType(RichText, skipOffstage: true).evaluate()) {
+    final ro = e.renderObject;
+    if (ro is! RenderBox || !ro.attached || !ro.hasSize) continue;
+    final text = (e.widget as RichText).text.toPlainText();
+    if (text.trim().isEmpty) continue;
+    final r = _clipToScroll(e, _rectOf(ro)).intersect(screen);
+    if (r.width <= 0 || r.height <= 0) continue;
+    check('text "$text"', r);
+  }
+  expect(problems, isEmpty, reason: '${c.name}: ${problems.toSet().join('\n')}');
+}
+
+/// Asserts [r] sits wholly inside one pane of [c]'s window.
+void expectInOnePane(Rect r, ScreenCase c, String what) {
+  final panes = panesOf(c.size, foldFromFeatures(c.features));
+  expect(
+    panes.any(
+      (p) =>
+          r.left >= p.left - _eps &&
+          r.right <= p.right + _eps &&
+          r.top >= p.top - _eps &&
+          r.bottom <= p.bottom + _eps,
+    ),
+    isTrue,
+    reason: '${c.name}: $what at $r is not inside a single pane of $panes',
+  );
+}
+
 final _captured = <FlutterErrorDetails>[];
 
 /// The summary plus the source location of the widget that caused it, so a
@@ -418,6 +565,7 @@ void screenMatrix(
           await body(tester, c, s);
         } finally {
           _insetCheckActive = false;
+          _hingeCase = null;
           _currentCase = null;
           FlutterError.onError = original;
           _captured.clear();

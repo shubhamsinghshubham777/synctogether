@@ -8,13 +8,13 @@ import 'layout_support.dart';
 
 void main() {
   screenMatrix('login/providers', (tester, c, s) async {
-    await pumpAtSize(tester, const LoginScreen(), c, textScale: s);
+    await pumpAtSize(tester, const LoginScreen(), c, textScale: s, singlePane: true);
     await tester.pump(const Duration(milliseconds: 1500)); // entrance choreography
     await finishCase(tester);
   });
 
   screenMatrix('login/email', (tester, c, s) async {
-    await pumpAtSize(tester, const LoginScreen(), c, textScale: s);
+    await pumpAtSize(tester, const LoginScreen(), c, textScale: s, singlePane: true);
     // Reaching the email view is not under test; its layout is.
     tester.takeException();
     // The label steps down to "Email" when the full one will not fit.

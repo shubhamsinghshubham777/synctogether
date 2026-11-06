@@ -30,7 +30,7 @@ void main() {
 
   screenMatrix('leaderboard/circle', (tester, c, s) async {
     RewardsService.instance = FakeRewardsService();
-    await pumpAtSize(tester, const LeaderboardScreen(), c, textScale: s);
+    await pumpAtSize(tester, const LeaderboardScreen(), c, textScale: s, singlePane: true);
     // The board arrives a frame after the first pump and deals its rows in;
     // capture the settled board, not the first frame of the stagger.
     await tester.pump(const Duration(milliseconds: 600));
@@ -43,7 +43,7 @@ void main() {
       fakeState: const RewardState(tier: 'guest'),
       rows: const [],
     );
-    await pumpAtSize(tester, const LeaderboardScreen(), c, textScale: s);
+    await pumpAtSize(tester, const LeaderboardScreen(), c, textScale: s, singlePane: true);
     // The board arrives a frame after the first pump and deals its rows in;
     // capture the settled board, not the first frame of the stagger.
     await tester.pump(const Duration(milliseconds: 600));
@@ -63,7 +63,7 @@ void main() {
         globalBoard: GlobalBoardStatus(open: true, participants: 340),
       ),
     );
-    await pumpAtSize(tester, const LeaderboardScreen(), c, textScale: s);
+    await pumpAtSize(tester, const LeaderboardScreen(), c, textScale: s, singlePane: true);
     await tester.pump(const Duration(milliseconds: 600));
     await tester.pump(const Duration(milliseconds: 400));
     for (final label in ['Your circle', 'Everyone', 'WEEK', 'MONTH', 'ALL TIME']) {
@@ -80,7 +80,7 @@ void main() {
   // at least 44 px square, wherever the layout puts it.
   screenMatrix('leaderboard/badges', (tester, c, s) async {
     RewardsService.instance = FakeRewardsService(fakeState: sampleBadgesState);
-    await pumpAtSize(tester, const LeaderboardScreen(), c, textScale: s);
+    await pumpAtSize(tester, const LeaderboardScreen(), c, textScale: s, singlePane: true);
     await tester.pump(const Duration(milliseconds: 600));
     await tester.pump(const Duration(milliseconds: 400));
     final tile = find.text('+10', skipOffstage: false);
@@ -97,7 +97,7 @@ void main() {
   // reaches the header - clear it too once scrolled right up under it.
   screenMatrix('leaderboard/header-clearance', (tester, c, s) async {
     RewardsService.instance = FakeRewardsService(fakeState: sampleBadgesState);
-    await pumpAtSize(tester, const LeaderboardScreen(), c, textScale: s);
+    await pumpAtSize(tester, const LeaderboardScreen(), c, textScale: s, singlePane: true);
     await tester.pump(const Duration(milliseconds: 600));
     await tester.pump(const Duration(milliseconds: 400));
     if (find.byType(CinemaMarqueeBar).evaluate().isEmpty) {

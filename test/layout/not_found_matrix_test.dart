@@ -11,6 +11,7 @@ void main() {
       NotFoundScreen(location: '/nope', onHome: () {}),
       c,
       textScale: s,
+      singlePane: true,
     );
     await tester.pump(const Duration(milliseconds: 500)); // entrance
     expect(find.text('Back to lobby'), findsOneWidget);

@@ -64,7 +64,7 @@ void main() {
 
   screenMatrix('lobby/empty', (tester, c, s) async {
     RoomService.instance = _EmptyRoomService();
-    await pumpAtSize(tester, const LobbyScreen(), c, textScale: s);
+    await pumpAtSize(tester, const LobbyScreen(), c, textScale: s, singlePane: true);
     await tester.pump(const Duration(milliseconds: 1500)); // entrance choreography
     // The primary actions never truncate: they stack when side by side won't fit.
     // (Wide layouts show a form instead of these two buttons.)
@@ -97,7 +97,7 @@ void main() {
 
   screenMatrix('lobby/full-rooms', (tester, c, s) async {
     RoomService.instance = _FullRoomService();
-    await pumpAtSize(tester, const LobbyScreen(), c, textScale: s);
+    await pumpAtSize(tester, const LobbyScreen(), c, textScale: s, singlePane: true);
     await tester.pump(const Duration(milliseconds: 1500));
     await finishCase(tester);
   });

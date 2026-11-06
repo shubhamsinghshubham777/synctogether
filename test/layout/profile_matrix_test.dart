@@ -53,7 +53,7 @@ void main() {
       ),
     );
     EntitlementService.instance.setLimitsForTesting(TierLimits.fallback);
-    await pumpAtSize(tester, const ProfileScreen(), c, textScale: s);
+    await pumpAtSize(tester, const ProfileScreen(), c, textScale: s, singlePane: true);
     await _settleStagger(tester);
     // Whatever the width, the seat name never wraps by character.
     // (Only the phone layout has the membership card.)
@@ -80,7 +80,7 @@ void main() {
       const Profile(id: 'guest-1', displayName: 'Guest-1234', isGuest: true),
     );
     EntitlementService.instance.setLimitsForTesting(_guestLimits);
-    await pumpAtSize(tester, const ProfileScreen(), c, textScale: s);
+    await pumpAtSize(tester, const ProfileScreen(), c, textScale: s, singlePane: true);
     await _settleStagger(tester);
     await finishCase(tester);
   });

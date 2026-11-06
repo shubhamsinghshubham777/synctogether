@@ -49,6 +49,7 @@ void main() {
       const SubscriptionScreen(appleStoreBuildOverride: false),
       c,
       textScale: s,
+      singlePane: true,
     );
     await _settle(tester);
     await finishCase(tester);
@@ -60,6 +61,7 @@ void main() {
       const SubscriptionScreen(appleStoreBuildOverride: true),
       c,
       textScale: s,
+      singlePane: true,
     );
     await _settle(tester);
     await finishCase(tester);

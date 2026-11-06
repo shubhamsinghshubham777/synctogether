@@ -44,6 +44,7 @@ void expectShownWhole(WidgetTester tester, String text) {
 Future<void> finishCase(WidgetTester tester) async {
   await captureScreenshot(tester);
   expectNoOverflow(tester);
+  expectSinglePaneClearOfHinge(tester);
   if (insetCheckActive) {
     await expectRespectsInsets(tester);
     expectNoOverflow(tester);
@@ -90,6 +91,7 @@ Future<void> pumpDialogOpener(
     ),
     c,
     textScale: textScale,
+    checkHinge: true,
   );
   // The opener itself is not under test.
   tester.takeException();

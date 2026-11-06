@@ -313,6 +313,7 @@ class _LoginScreenState extends State<LoginScreen> with WindowListener {
                         children: [
                           Expanded(
                             child: SingleChildScrollView(
+                              keyboardDismissBehavior: .onDrag,
                               padding: EdgeInsets.fromLTRB(
                                 gutter,
                                 short ? 32 : 56,
@@ -359,6 +360,7 @@ class _LoginScreenState extends State<LoginScreen> with WindowListener {
                             ),
                             child: Center(
                               child: SingleChildScrollView(
+                                keyboardDismissBehavior: .onDrag,
                                 padding: EdgeInsets.symmetric(
                                   horizontal: officeWidth >= 520 ? 64 : 48,
                                   vertical: 32,
@@ -411,6 +413,7 @@ class _LoginScreenState extends State<LoginScreen> with WindowListener {
                 Expanded(
                   child: Center(
                     child: SingleChildScrollView(
+                      keyboardDismissBehavior: .onDrag,
                       padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
                       child: Column(
                         mainAxisSize: .min,
@@ -446,6 +449,7 @@ class _LoginScreenState extends State<LoginScreen> with WindowListener {
           final showTicket = box.maxHeight >= 700;
           final slack = (box.maxHeight - (showTicket ? 800 : 640)) / 2;
           return SingleChildScrollView(
+            keyboardDismissBehavior: .onDrag,
             padding: EdgeInsets.symmetric(horizontal: phone ? 20 : 48),
             child: Center(
               child: ConstrainedBox(

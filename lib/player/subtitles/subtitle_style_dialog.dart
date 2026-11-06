@@ -87,7 +87,8 @@ class _SubtitleStyleSheetState extends State<SubtitleStyleSheet> {
     final picked = await showGlassDialog<_FontChoice>(
       context: context,
       width: 420,
-      scrollable: false,
+      // Scrolls as a whole when the screen (or the keyboard) leaves less room
+      // than the search box and list need.
       builder: (_) => _FontPicker(selected: _style.fontFamily),
     );
     if (picked == null) return;
@@ -624,7 +625,9 @@ class _FontPickerState extends State<_FontPicker> {
 
   @override
   Widget build(BuildContext context) {
-    final height = (MediaQuery.sizeOf(context).height * 0.55).clamp(200.0, 460.0);
+    // The soft keyboard takes its share first; what is left is what the list may use.
+    final media = MediaQuery.of(context);
+    final height = ((media.size.height - media.viewInsets.bottom) * 0.45).clamp(96.0, 460.0);
     return Column(
       mainAxisSize: .min,
       crossAxisAlignment: .stretch,
@@ -654,6 +657,7 @@ class _FontPickerState extends State<_FontPicker> {
                 ...all.where((f) => q.isEmpty || f.name.toLowerCase().contains(q)),
               ];
               return ListView.builder(
+                keyboardDismissBehavior: .onDrag,
                 itemCount: shown.length,
                 itemBuilder: (context, i) {
                   final f = shown[i];

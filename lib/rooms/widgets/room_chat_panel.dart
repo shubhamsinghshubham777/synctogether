@@ -594,6 +594,7 @@ class _RoomChatPanelState extends State<RoomChatPanel> {
                 child: SelectionArea(
                   child: ListView.separated(
                     controller: _scrollController,
+                    keyboardDismissBehavior: .onDrag,
                     physics: const ChatScrollPhysics(),
                     padding: _spare
                         ? const EdgeInsets.symmetric(horizontal: 14, vertical: 12)

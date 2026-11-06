@@ -173,7 +173,11 @@ Future<T?> showGlassDialog<T>({
       Widget body(EdgeInsets extra) {
         final p = bodyPadding + extra;
         return scrollable
-            ? SingleChildScrollView(padding: p, child: builder(context))
+            ? SingleChildScrollView(
+                keyboardDismissBehavior: .onDrag,
+                padding: p,
+                child: builder(context),
+              )
             : Padding(padding: p, child: builder(context));
       }
 

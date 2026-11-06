@@ -27,6 +27,7 @@ import 'package:synctogether/rooms/room_service.dart';
 import 'package:synctogether/tls.dart';
 import 'package:synctogether/ui/banners.dart';
 import 'package:synctogether/ui/pt_theme.dart';
+import 'package:synctogether/ui/keyboard_dismiss.dart';
 import 'package:synctogether/av/livekit_service.dart' show isTransientAvError;
 import 'package:synctogether/ui/responsive.dart';
 import 'package:synctogether/ui/splash_screen.dart';
@@ -299,7 +300,7 @@ class _MainAppState extends State<MainApp> with WidgetsBindingObserver {
                 child: UnlockToastHost(
                   stream: _unlocks,
                   onShown: _onBadgeShown,
-                  child: child ?? const SizedBox.shrink(),
+                  child: TapToDismissKeyboard(child: child ?? const SizedBox.shrink()),
                 ),
               ),
             ),

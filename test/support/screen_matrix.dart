@@ -11,6 +11,7 @@ import 'package:flutter/services.dart' show FontLoader, rootBundle;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:synctogether/ui/pt_theme.dart';
 import 'package:synctogether/ui/responsive.dart';
+import 'package:synctogether/ui/keyboard_dismiss.dart';
 
 /// One device shape for the layout matrix (`test/layout/`).
 class ScreenCase {
@@ -159,7 +160,10 @@ Future<void> pumpAtSize(
         ? MaterialApp(
             debugShowCheckedModeBanner: false,
             theme: buildPTTheme(),
-            builder: buildResponsiveWrapper,
+            builder: (context, page) => buildResponsiveWrapper(
+              context,
+              TapToDismissKeyboard(child: page ?? const SizedBox.shrink()),
+            ),
             home: child,
           )
         : child,

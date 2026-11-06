@@ -11,6 +11,14 @@ bool get isDesktop => !kIsWeb && _desktopPlatforms.contains(defaultTargetPlatfor
 /// manages updates.
 const isStoreBuild = bool.fromEnvironment('STORE_BUILD', defaultValue: false);
 
+/// True on iOS and Android, the platforms whose keyboard is on screen and
+/// closed by tapping away. Never true on desktop, where a click on empty space
+/// must leave focus alone (the room's keyboard shortcuts live on it).
+bool get isTouchPlatform =>
+    !kIsWeb &&
+    (defaultTargetPlatform == TargetPlatform.iOS ||
+        defaultTargetPlatform == TargetPlatform.android);
+
 /// True for the Mac App Store build (`--dart-define=STORE_BUILD=true`) and for
 /// **every** iOS build, since iOS has no distribution channel other than
 /// Apple's - a debug or TestFlight build must sell through StoreKit exactly

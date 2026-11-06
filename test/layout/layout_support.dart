@@ -378,3 +378,39 @@ Future<LocalVideoChooserServices> sampleChooserServices(
 /// A picker answer that is plainly not a video (the banner case).
 Future<FastFilePickerPath?> pickNotAVideo() async =>
     FastFilePickerPath.fromPath('notes.pdf', '/docs/notes.pdf');
+
+bool _editableFocused() =>
+    FocusManager.instance.primaryFocus?.context?.findAncestorWidgetOfExactType<EditableText>() !=
+    null;
+
+/// On a touch case, raises the keyboard on the first text field, then taps
+/// around the screen (above the keyboard) until some tap closes it: proves that
+/// *some* empty region of this layout answers a tap-away, whatever the
+/// screen's shape. Taps are tried from the top-left, which is empty chrome
+/// nearly everywhere, so the first or second usually does it. Desktop cases
+/// are skipped - a click on empty space must not move focus there.
+Future<void> expectTapAwayClosesKeyboard(WidgetTester tester, ScreenCase c, {Finder? field}) async {
+  if (c.platform != TargetPlatform.iOS && c.platform != TargetPlatform.android) return;
+  final target = field ?? find.byType(EditableText);
+  expect(target, findsAtLeastNWidgets(1), reason: 'no text field on screen');
+  Future<void> raise() async {
+    await tester.showKeyboard(target.first);
+    await tester.pump(const Duration(milliseconds: 400));
+  }
+
+  await raise();
+  expect(_editableFocused(), isTrue, reason: 'precondition: the field has focus');
+  final bottom = c.size.height - c.keyboard;
+  var tries = 0;
+  for (var y = 6.0; y < bottom; y += 44) {
+    for (var x = 6.0; x < c.size.width; x += 44) {
+      if (tries++ >= 60) fail('no tap on an empty region closed the keyboard');
+      await tester.tapAt(Offset(x, y));
+      await tester.pump(const Duration(milliseconds: 400));
+      if (!_editableFocused()) return;
+      if (target.evaluate().isEmpty) return; // the tap navigated away; focus went with it
+      await raise();
+    }
+  }
+  fail('no tap on an empty region closed the keyboard');
+}

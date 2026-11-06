@@ -404,6 +404,7 @@ class _ProfileScreenState extends State<ProfileScreen> with WindowListener {
                 child: ScrollFadeEdge(
                   height: 40,
                   child: SingleChildScrollView(
+                    keyboardDismissBehavior: .onDrag,
                     padding: EdgeInsets.fromLTRB(gutter, 18, gutter, 56),
                     child: _centred(640, _oneColumn(profile, nameSize: 44)),
                   ),
@@ -454,6 +455,7 @@ class _ProfileScreenState extends State<ProfileScreen> with WindowListener {
                   border: Border(right: BorderSide(color: PTColors.aisle)),
                 ),
                 child: SingleChildScrollView(
+                  keyboardDismissBehavior: .onDrag,
                   padding: const EdgeInsets.fromLTRB(56, 44, 40, 48),
                   child: Builder(
                     builder: (context) {
@@ -473,6 +475,7 @@ class _ProfileScreenState extends State<ProfileScreen> with WindowListener {
               ),
               Expanded(
                 child: SingleChildScrollView(
+                  keyboardDismissBehavior: .onDrag,
                   padding: const EdgeInsets.fromLTRB(40, 36, 56, 48),
                   child: LayoutBuilder(
                     builder: (context, box) {
@@ -542,6 +545,7 @@ class _ProfileScreenState extends State<ProfileScreen> with WindowListener {
             child: ScrollFadeEdge(
               height: 40,
               child: SingleChildScrollView(
+                keyboardDismissBehavior: .onDrag,
                 padding: EdgeInsets.fromLTRB(22, 14, 22, 40 + MediaQuery.paddingOf(context).bottom),
                 child: profile.isGuest ? _oneColumn(profile, nameSize: 34) : _phoneColumn(profile),
               ),
@@ -608,13 +612,18 @@ class _ProfileScreenState extends State<ProfileScreen> with WindowListener {
             SizedBox(
               width: identityWidth,
               child: SingleChildScrollView(
+                keyboardDismissBehavior: .onDrag,
                 padding: scrollPadding,
                 child: _identityColumn(profile, nameSize: nameSize),
               ),
             ),
             SizedBox(width: gap),
             Expanded(
-              child: SingleChildScrollView(padding: scrollPadding, child: _settingsColumn(profile)),
+              child: SingleChildScrollView(
+                keyboardDismissBehavior: .onDrag,
+                padding: scrollPadding,
+                child: _settingsColumn(profile),
+              ),
             ),
           ],
         ),

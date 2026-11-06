@@ -1034,6 +1034,7 @@ class _LobbyScreenState extends State<LobbyScreen> with WindowListener {
                   width: left,
                   child: ScrollFadeEdge(
                     child: SingleChildScrollView(
+                      keyboardDismissBehavior: .onDrag,
                       padding: const EdgeInsets.fromLTRB(56, 56, 44, 48),
                       child: _doColumn(headlineSize: width > 1280 ? 72 : 60),
                     ),
@@ -1043,6 +1044,7 @@ class _LobbyScreenState extends State<LobbyScreen> with WindowListener {
                 Expanded(
                   child: ScrollFadeEdge(
                     child: SingleChildScrollView(
+                      keyboardDismissBehavior: .onDrag,
                       padding: const EdgeInsets.fromLTRB(44, 48, 56, 48),
                       child: _haveColumn(),
                     ),
@@ -1081,6 +1083,7 @@ class _LobbyScreenState extends State<LobbyScreen> with WindowListener {
           Expanded(
             child: ScrollFadeEdge(
               child: SingleChildScrollView(
+                keyboardDismissBehavior: .onDrag,
                 padding: const EdgeInsets.fromLTRB(28, 40, 28, 48),
                 child: Center(
                   child: ConstrainedBox(
@@ -1111,6 +1114,7 @@ class _LobbyScreenState extends State<LobbyScreen> with WindowListener {
       child: ScrollFadeEdge(
         height: 48,
         child: SingleChildScrollView(
+          keyboardDismissBehavior: .onDrag,
           padding: EdgeInsets.fromLTRB(20, 10, 20, 40 + MediaQuery.paddingOf(context).bottom),
           child: Column(
             crossAxisAlignment: .stretch,
@@ -1145,6 +1149,7 @@ class _LobbyScreenState extends State<LobbyScreen> with WindowListener {
                     child: ScrollFadeEdge(
                       height: 40,
                       child: SingleChildScrollView(
+                        keyboardDismissBehavior: .onDrag,
                         padding: const EdgeInsets.only(bottom: 20),
                         child: _doColumn(headlineSize: 30, compact: true),
                       ),
@@ -1154,6 +1159,7 @@ class _LobbyScreenState extends State<LobbyScreen> with WindowListener {
                     child: ScrollFadeEdge(
                       height: 40,
                       child: SingleChildScrollView(
+                        keyboardDismissBehavior: .onDrag,
                         padding: const EdgeInsets.only(bottom: 20),
                         child: _haveColumn(compact: true),
                       ),

@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter/scheduler.dart' show Ticker;
 import 'package:synctogether/ui/pt_motion.dart';
 import 'package:synctogether/ui/responsive.dart';
 
@@ -46,7 +47,19 @@ enum RoomPortraitRole { header, video, cams, strip, bar, banners, chat }
 
 class _PortraitParentData extends ContainerBoxParentData<RenderBox> {
   RoomPortraitRole? role;
+
+  /// Drawn at all (fully or part way through a fold).
+  bool painted = true;
+
+  /// Settled and present: the only state in which it takes touches, semantics
+  /// and focus. A piece folding in or out is neither.
   bool shown = true;
+
+  /// Height of the visible slice while folding, null when whole.
+  double? reveal;
+
+  /// Opacity while folding.
+  double fade = 1;
 }
 
 /// Tags a child of [RoomPortraitStack] with its role.
@@ -80,32 +93,140 @@ class RoomPortraitSlot extends ParentDataWidget<_PortraitParentData> {
 /// that does not fit whole is hidden, not clipped; banners scroll in what is
 /// left. Only when the window cannot hold the header and the bar plus the
 /// chat floor does the chat give way - the bar still does not.
-class RoomPortraitStack extends MultiChildRenderObjectWidget {
-  const RoomPortraitStack({super.key, required this.chatFloor, required super.children});
+class RoomPortraitStack extends StatefulWidget {
+  const RoomPortraitStack({super.key, required this.chatFloor, required this.children});
 
   /// The least height the chat is given while anything above it can still give.
   final double chatFloor;
+  final List<Widget> children;
 
   @override
-  RenderObject createRenderObject(BuildContext context) => RenderRoomPortraitStack(chatFloor);
+  State<RoomPortraitStack> createState() => _RoomPortraitStackState();
+}
+
+class _RoomPortraitStackState extends State<RoomPortraitStack> with SingleTickerProviderStateMixin {
+  @override
+  Widget build(BuildContext context) => _PortraitStackRender(
+    vsync: this,
+    chatFloor: widget.chatFloor,
+    duration: PTMotion.functional(context, PTMotion.state),
+    children: widget.children,
+  );
+}
+
+class _PortraitStackRender extends MultiChildRenderObjectWidget {
+  const _PortraitStackRender({
+    required this.vsync,
+    required this.chatFloor,
+    required this.duration,
+    required super.children,
+  });
+
+  final TickerProvider vsync;
+  final double chatFloor;
+  final Duration duration;
+
+  @override
+  RenderObject createRenderObject(BuildContext context) =>
+      RenderRoomPortraitStack(vsync, chatFloor, duration);
 
   @override
   void updateRenderObject(BuildContext context, RenderRoomPortraitStack renderObject) {
-    renderObject.chatFloor = chatFloor;
+    renderObject
+      ..chatFloor = chatFloor
+      ..duration = duration;
   }
 }
+
+/// Eased 0..1 "how much of the piece is present" for one role.
+///
+/// [progress] moves linearly towards the target at 1/duration per second and
+/// [eased] shapes it, so reversing mid-fold continues from where it is (no jump)
+/// and a piece never moves backwards while its target holds.
+class _Presence {
+  double progress = 0;
+  bool target = false;
+  bool seeded = false;
+
+  double get eased => PTMotion.emphasized.transform(progress);
+  bool get settled => progress == (target ? 1.0 : 0.0);
+
+  /// True when [next] differs from the target already held. The first call
+  /// seeds: a piece present at mount does not animate in, one that joins a
+  /// stack that has already been laid out does.
+  bool retarget(bool next, {required bool animateIn}) {
+    if (!seeded) {
+      seeded = true;
+      target = next;
+      progress = next && !animateIn ? 1 : 0;
+      return next && animateIn;
+    }
+    if (next == target) return false;
+    target = next;
+    return true;
+  }
+
+  void advance(double step) {
+    progress = target ? math.min(1.0, progress + step) : math.max(0.0, progress - step);
+  }
+}
+
+/// Extra room (px) a hidden piece needs before it is brought back, over what it
+/// needs to stay. Decisions are made on target heights; this band keeps a budget
+/// that hovers at a threshold (the keyboard's slide and the header's fold both
+/// move it) from flipping the target back and forth.
+const double kPortraitReturnMargin = 8;
 
 class RenderRoomPortraitStack extends RenderBox
     with
         ContainerRenderObjectMixin<RenderBox, _PortraitParentData>,
         RenderBoxContainerDefaultsMixin<RenderBox, _PortraitParentData> {
-  RenderRoomPortraitStack(this._chatFloor);
+  RenderRoomPortraitStack(this._vsync, this._chatFloor, this._duration) {
+    _ticker = _vsync.createTicker(_tick);
+  }
+
+  final TickerProvider _vsync;
+  late final Ticker _ticker;
+  Duration _duration;
+  Duration _last = Duration.zero;
+  bool _laidOut = false;
+
+  /// The pieces that fold in and out, rather than appearing whole.
+  final _strip = _Presence();
+  final _cams = _Presence();
 
   double _chatFloor;
   set chatFloor(double v) {
     if (_chatFloor == v) return;
     _chatFloor = v;
     markNeedsLayout();
+  }
+
+  set duration(Duration v) {
+    if (_duration == v) return;
+    _duration = v;
+  }
+
+  void _tick(Duration elapsed) {
+    final dt = elapsed - _last;
+    _last = elapsed;
+    final step = _duration.inMicroseconds <= 0 ? 1.0 : dt.inMicroseconds / _duration.inMicroseconds;
+    _strip.advance(step);
+    _cams.advance(step);
+    if (_strip.settled && _cams.settled) _ticker.stop();
+    markNeedsLayout();
+  }
+
+  void _ensureTicking() {
+    if ((_strip.settled && _cams.settled) || _ticker.isActive) return;
+    _last = Duration.zero;
+    _ticker.start();
+  }
+
+  @override
+  void dispose() {
+    _ticker.dispose();
+    super.dispose();
   }
 
   @override
@@ -136,10 +257,25 @@ class RenderRoomPortraitStack extends RenderBox
     const natural = double.infinity;
 
     final heights = <RoomPortraitRole, double>{};
-    void place(RoomPortraitRole role, RenderBox? box, {required bool shown, required double h}) {
+    var semanticsChanged = false;
+    void place(
+      RoomPortraitRole role,
+      RenderBox? box, {
+      required bool shown,
+      required double h,
+      bool? painted,
+      double? reveal,
+      double fade = 1,
+    }) {
       if (box == null) return;
-      (box.parentData! as _PortraitParentData).shown = shown;
-      heights[role] = shown ? h : 0;
+      final data = box.parentData! as _PortraitParentData;
+      if (data.shown != shown) semanticsChanged = true;
+      data
+        ..shown = shown
+        ..painted = painted ?? shown
+        ..reveal = reveal
+        ..fade = fade;
+      heights[role] = h;
     }
 
     final header = _by(.header);
@@ -159,38 +295,60 @@ class RenderRoomPortraitStack extends RenderBox
     place(.header, header, shown: true, h: headerH);
     place(.bar, bar, shown: true, h: barH);
 
-    // What the chat can spare: everything under the header and the bar, minus
-    // the chat's own floor.
-    var budget = math.max(0.0, height - headerH - barH - _chatFloor);
+    // Two budgets. The target one decides what is present (on natural heights,
+    // as if every fold had finished); the live one is what is left to spend this
+    // frame once the folding pieces take their eased slice, so the chat never
+    // dips under its floor while one of them grows.
+    var target = math.max(0.0, height - headerH - barH - _chatFloor);
+    var live = target;
 
-    // A piece that must show whole or not at all.
-    void wholeOrHidden(RoomPortraitRole role) {
+    // A piece that folds whole in or out. Returns its allocated height.
+    void fold(RoomPortraitRole role, _Presence presence) {
       final box = _by(role);
-      if (box == null) return;
+      if (box == null) {
+        // Gone: when it returns it folds in rather than appearing whole.
+        presence.seeded = false;
+        return;
+      }
       box.layout(loose(natural), parentUsesSize: true);
-      final fits = box.size.height <= budget;
-      if (fits) budget -= box.size.height;
-      place(role, box, shown: fits, h: box.size.height);
+      final h = box.size.height;
+      final fits = presence.target ? h <= target : h + kPortraitReturnMargin <= target;
+      presence.retarget(fits, animateIn: _laidOut);
+      if (presence.target) target -= h;
+      final e = presence.eased;
+      final alloc = math.min(h * e, live);
+      live -= alloc;
+      final whole = alloc >= h - 0.01;
+      place(
+        role,
+        box,
+        shown: presence.target && whole,
+        painted: alloc > 0 || e > 0,
+        h: alloc,
+        reveal: whole ? null : alloc,
+        fade: e,
+      );
     }
 
-    wholeOrHidden(.strip);
+    fold(.strip, _strip);
 
     final video = _by(.video);
     if (video != null) {
       final ideal = width * 9 / 16;
-      final h = math.min(ideal, budget);
+      final h = math.min(ideal, live);
       video.layout(tight(h), parentUsesSize: true);
-      budget -= h;
+      target -= math.min(ideal, target);
+      live -= h;
       place(.video, video, shown: true, h: h);
     }
 
-    wholeOrHidden(.cams);
+    fold(.cams, _cams);
 
     final banners = _by(.banners);
     if (banners != null) {
-      banners.layout(loose(budget), parentUsesSize: true);
+      banners.layout(loose(live), parentUsesSize: true);
       final h = banners.size.height;
-      budget -= h;
+      live -= h;
       place(.banners, banners, shown: h > 0, h: h);
     }
 
@@ -209,13 +367,44 @@ class RenderRoomPortraitStack extends RenderBox
       (box.parentData! as _PortraitParentData).offset = Offset(0, y);
       y += heights[role] ?? 0;
     }
+
+    if (semanticsChanged) markNeedsSemanticsUpdate();
+    _laidOut = true;
+    _ensureTicking();
+  }
+
+  void _paintChild(PaintingContext context, RenderBox c, _PortraitParentData d, Offset origin) {
+    final at = d.offset + origin;
+    final reveal = d.reveal;
+    if (reveal == null && d.fade >= 1) {
+      context.paintChild(c, at);
+      return;
+    }
+    void clipped(PaintingContext ctx, Offset off) {
+      if (reveal == null) {
+        ctx.paintChild(c, off);
+      } else {
+        ctx.pushClipRect(
+          needsCompositing,
+          off,
+          Offset.zero & Size(size.width, reveal),
+          (ctx, off) => ctx.paintChild(c, off),
+        );
+      }
+    }
+
+    if (d.fade >= 1) {
+      clipped(context, at);
+    } else {
+      context.pushOpacity(at, (d.fade.clamp(0.0, 1.0) * 255).round(), clipped);
+    }
   }
 
   @override
   void paint(PaintingContext context, Offset offset) {
     for (var c = firstChild; c != null; c = childAfter(c)) {
       final data = c.parentData! as _PortraitParentData;
-      if (data.shown) context.paintChild(c, data.offset + offset);
+      if (data.painted) _paintChild(context, c, data, offset);
     }
   }
 

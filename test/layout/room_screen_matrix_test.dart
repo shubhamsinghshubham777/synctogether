@@ -1291,6 +1291,83 @@ void main() {
       textScales: const [1.0, 1.5],
     );
 
+    // The keyboard slides in and out frame by frame, the way the OS does it.
+    // Whatever the layout hides or shows on the way (strips, facecams, quick
+    // bar, header) must fold with it, never pop: no slot may change height by
+    // more than a keyboard step plus a fold's share in one 16 ms frame.
+    screenMatrix(
+      'keyboard open and close animates every slot without a pop',
+      (tester, c, s) async {
+        await pumpBusy(tester, c, s);
+        FakeViewPadding insets(double k) => FakeViewPadding(bottom: k);
+        Rect rect(Finder f) => tester.getRect(f.first);
+        final bar = find.byType(RoomControlBar);
+        final chat = find.byType(RoomChatPanel);
+        final input = find.byType(EditableText);
+        final play = find.descendant(of: bar, matching: find.byType(PTPlayButton));
+        const names = ['bar', 'chat', 'input'];
+        List<Rect> snap() => [rect(bar), rect(chat), rect(input)];
+        final settled = snap();
+        for (final k in [0, 1]) {
+          final from = k == 0 ? c.keyboard : 0.0;
+          final to = k == 0 ? 0.0 : c.keyboard;
+          var prev = snap();
+          const frames = 16;
+          for (var i = 1; i <= frames; i++) {
+            final inset = from + (to - from) * i / frames;
+            tester.view
+              ..viewInsets = insets(inset)
+              ..padding = FakeViewPadding(
+                top: c.padding.top,
+                bottom: inset > 0 ? 0 : c.padding.bottom,
+              );
+            await tester.pump(const Duration(milliseconds: 16));
+            final now = snap();
+            final step = c.keyboard / frames;
+            for (var j = 0; j < names.length; j++) {
+              final dh = (now[j].height - prev[j].height).abs();
+              expect(
+                dh,
+                lessThanOrEqualTo(step + 48),
+                reason: '${c.name} x$s: ${names[j]} height popped by $dh px at frame $i',
+              );
+              final dy = (now[j].top - prev[j].top).abs();
+              expect(
+                dy,
+                lessThanOrEqualTo(step + 90),
+                reason: '${c.name} x$s: ${names[j]} jumped by $dy px at frame $i',
+              );
+            }
+            expect(play.hitTestable(), findsOneWidget, reason: '${c.name}: transport lost');
+            prev = now;
+          }
+          // Folds started on the last frame run on their own clock.
+          for (var i = 0; i < 30; i++) {
+            await tester.pump(const Duration(milliseconds: 16));
+            final now = snap();
+            for (var j = 0; j < names.length; j++) {
+              expect(
+                (now[j].height - prev[j].height).abs(),
+                lessThanOrEqualTo(48),
+                reason: '${c.name} x$s: ${names[j]} popped while settling',
+              );
+            }
+            expect(play.hitTestable(), findsOneWidget);
+            prev = now;
+          }
+        }
+        // Back where it started, exactly as the unanimated layout puts it.
+        final now = snap();
+        for (var j = 0; j < names.length; j++) {
+          expect(now[j].height, closeTo(settled[j].height, 0.5), reason: names[j]);
+          expect(now[j].top, closeTo(settled[j].top, 0.5), reason: names[j]);
+        }
+        await _finish(tester);
+      },
+      cases: busyCases,
+      textScales: const [1.0, 1.5],
+    );
+
     testWidgets('the header folds away with the keyboard instead of cutting', (tester) async {
       final c = kScreenMatrix.firstWhere((c) => c.name == 'phone-keyboard');
       try {
@@ -1309,6 +1386,7 @@ void main() {
           ..viewInsets = FakeViewPadding.zero
           ..padding = FakeViewPadding(top: c.padding.top, bottom: c.padding.bottom);
         await tester.pump(const Duration(milliseconds: 600));
+        await tester.pump(const Duration(milliseconds: 600));
         // The chat's top edge sits under everything the header pushes.
         final video = find.byType(RoomChatPanel);
         final before = tester.getRect(video).top;
@@ -1324,6 +1402,8 @@ void main() {
         tester.view
           ..viewInsets = FakeViewPadding(bottom: c.keyboard)
           ..padding = FakeViewPadding(top: c.padding.top);
+        // Two frames: the first starts the strips' folds, the second runs them.
+        await tester.pump(const Duration(milliseconds: 600));
         await tester.pump(const Duration(milliseconds: 600));
         expect(tester.getRect(video).top, lessThan(before - 30));
         // Hidden means out of reach, not just out of sight.

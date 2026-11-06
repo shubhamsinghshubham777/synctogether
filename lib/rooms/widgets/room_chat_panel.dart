@@ -19,6 +19,7 @@ import 'package:synctogether/ui/identity.dart';
 import 'package:synctogether/ui/pt_motion.dart';
 import 'package:synctogether/ui/pt_theme.dart';
 import 'package:synctogether/ui/responsive.dart';
+import 'package:synctogether/ui/reveal.dart';
 
 import '../../rewards/rewards_models.dart';
 import 'emoji_picker.dart';
@@ -541,45 +542,13 @@ class _RoomChatPanelState extends State<RoomChatPanel> {
   }) {
     return Column(
       children: [
-        if (showHeader && widget.roster != null)
-          _rosterHeader(widget.roster!)
-        else if (showHeader)
-          // The Room at minimum window board: "Chat" and a mono head count on
-          // one Aisle-ruled line.
-          Container(
-            padding: EdgeInsets.fromLTRB(14, 12, widget.closable && !widget.embedded ? 8 : 14, 12),
-            decoration: const BoxDecoration(
-              border: Border(bottom: BorderSide(color: PTColors.aisle)),
-            ),
-            child: Row(
-              spacing: 10,
-              children: [
-                Expanded(
-                  child: Text(
-                    'Chat',
-                    maxLines: 1,
-                    overflow: .ellipsis,
-                    style: PTText.buttonLabel.copyWith(fontSize: 14),
-                  ),
-                ),
-                Text(
-                  '${widget.watchingCount} IN',
-                  maxLines: 1,
-                  style: PTText.label.copyWith(fontSize: 10, color: PTColors.fgMute),
-                ),
-                if (widget.closable && !widget.embedded)
-                  PTIconButton(
-                    icon: BoothIcons.close,
-                    glass: false,
-                    size: 30,
-                    iconSize: 18,
-                    color: PTColors.fgDim,
-                    tooltip: 'Close chat (C)',
-                    onPressed: widget.onClose,
-                  ),
-              ],
-            ),
-          ),
+        // Folds away (and back) rather than popping when a keyboard or the
+        // inline picker takes the lower half: the list and composer follow the
+        // eased height instead of jumping by the whole strip.
+        PTReveal(
+          visible: showHeader,
+          child: widget.roster != null ? _rosterHeader(widget.roster!) : _plainHeader(),
+        ),
         // One pass lays the composer out at its natural height, gives the
         // inline picker what is left of what it wants, and the list the rest -
         // exact on the first frame, which measuring a GlobalKey never is.
@@ -655,6 +624,45 @@ class _RoomChatPanelState extends State<RoomChatPanel> {
     );
   }
 
+  /// The Room at minimum window board: "Chat" and a mono head count on one
+  /// Aisle-ruled line.
+  Widget _plainHeader() {
+    return Container(
+      padding: EdgeInsets.fromLTRB(14, 12, widget.closable && !widget.embedded ? 8 : 14, 12),
+      decoration: const BoxDecoration(
+        border: Border(bottom: BorderSide(color: PTColors.aisle)),
+      ),
+      child: Row(
+        spacing: 10,
+        children: [
+          Expanded(
+            child: Text(
+              'Chat',
+              maxLines: 1,
+              overflow: .ellipsis,
+              style: PTText.buttonLabel.copyWith(fontSize: 14),
+            ),
+          ),
+          Text(
+            '${widget.watchingCount} IN',
+            maxLines: 1,
+            style: PTText.label.copyWith(fontSize: 10, color: PTColors.fgMute),
+          ),
+          if (widget.closable && !widget.embedded)
+            PTIconButton(
+              icon: BoothIcons.close,
+              glass: false,
+              size: 30,
+              iconSize: 18,
+              color: PTColors.fgDim,
+              tooltip: 'Close chat (C)',
+              onPressed: widget.onClose,
+            ),
+        ],
+      ),
+    );
+  }
+
   /// "IN THE ROOM · 4" over a row of seats. One line that scrolls sideways
   /// rather than wrapping: a sixteen-seat room must not eat the chat's height.
   Widget _rosterHeader(List<ChatRosterSeat> seats) {
@@ -724,11 +732,17 @@ class _RoomChatPanelState extends State<RoomChatPanel> {
           // way first; the picker button still reaches everything.
           // The full composer width, send column included, as every board
           // draws it.
-          if (quickBar)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: EmojiQuickBar(slots: _quickSlots, onPick: _insert, onCustomize: _customize),
+          // Flexible: while it folds away the composer may already be short
+          // of room for it, and it must give way rather than overflow.
+          Flexible(
+            child: PTReveal(
+              visible: quickBar,
+              child: Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: EmojiQuickBar(slots: _quickSlots, onPick: _insert, onCustomize: _customize),
+              ),
             ),
+          ),
           Row(
             // The send button stays on the last line as the composer grows.
             crossAxisAlignment: .end,
@@ -1422,7 +1436,11 @@ class _ComposerLayout extends MultiChildLayoutDelegate {
     final width = size.width;
     final composer = layoutChild(
       _ComposerSlot.composer,
-      BoxConstraints(minWidth: width, maxWidth: width, maxHeight: size.height),
+      // Unbounded: the header above may still be folding away while the panel
+      // is already at its floor. The composer then keeps its place against the
+      // bottom edge (the keyboard) and overlaps the header's last pixels,
+      // rather than overflowing or sinking below them.
+      BoxConstraints(minWidth: width, maxWidth: width),
     ).height;
     var pickerHeight = 0.0;
     if (picker != null) {
@@ -1438,8 +1456,8 @@ class _ComposerLayout extends MultiChildLayoutDelegate {
     final list = math.max(0.0, size.height - composer - pickerHeight);
     layoutChild(_ComposerSlot.list, BoxConstraints.tightFor(width: width, height: list));
     positionChild(_ComposerSlot.list, Offset.zero);
-    positionChild(_ComposerSlot.composer, Offset(0, list));
-    if (picker != null) positionChild(_ComposerSlot.picker, Offset(0, list + composer));
+    positionChild(_ComposerSlot.composer, Offset(0, size.height - composer - pickerHeight));
+    if (picker != null) positionChild(_ComposerSlot.picker, Offset(0, size.height - pickerHeight));
   }
 
   @override

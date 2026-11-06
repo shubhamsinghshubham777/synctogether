@@ -71,7 +71,9 @@ void main() {
       expect(v.mediaUri, movie.path);
       expect(v.sizeBytes, 2048);
       expect(v.origin, VideoOrigin.desktop);
-      expect(v.durable, isTrue);
+      // The fixture sits in the runner's temp dir, which is /tmp/ on Linux and
+      // so counts as temporary there; durability follows the path rule.
+      expect(v.durable, !isTemporaryPath(movie.path));
       expect(v.reference, isA<PathReference>());
       expect(v.uploadSource(), isA<FileUploadSource>());
       expect(fake.log, isEmpty, reason: 'no native calls on desktop');

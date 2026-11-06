@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart' show Ticker;
@@ -444,6 +445,7 @@ class RoomMobilePortraitLayout extends StatelessWidget {
     this.roomy = false,
     this.keyboardUp = false,
     this.chatFloorExtra = 0,
+    this.chatFloorReveal,
     super.key,
   });
 
@@ -451,6 +453,12 @@ class RoomMobilePortraitLayout extends StatelessWidget {
   /// while it holds the keyboard's place. Reserved here, above the chat, so the
   /// picture and strips give way exactly as they did for the keyboard.
   final double chatFloorExtra;
+
+  /// 0..1 share of [chatFloorExtra] currently held. The picker folds its strip
+  /// open and closed when there is no keyboard to trade places with, and the
+  /// floor follows it, so the picture and strips ease instead of snapping. Only
+  /// the stack rebuilds per frame (the slots below are built once); null = 1.
+  final ValueListenable<double>? chatFloorReveal;
 
   /// Whether the soft keyboard is up. Passed in rather than read here: the
   /// Scaffold above consumes the bottom view inset, so by this point it is 0.
@@ -469,38 +477,38 @@ class RoomMobilePortraitLayout extends StatelessWidget {
   Widget build(BuildContext context) {
     final gutter = roomy ? 24.0 : (MediaQuery.sizeOf(context).width < 380 ? 10.0 : 14.0);
 
-    return SafeArea(
-      child: RoomPortraitStack(
-        chatFloor: floorScaler(context).scale(160) + chatFloorExtra,
-        children: [
-          RoomPortraitSlot(
-            role: .header,
-            child: _Collapse(collapsed: keyboardUp, child: header),
-          ),
-          RoomPortraitSlot(role: .video, child: videoSurface),
-          if (facecamStrip != null)
-            RoomPortraitSlot(
-              role: .cams,
-              child: Padding(
-                padding: EdgeInsets.fromLTRB(gutter, 10, gutter, 6),
-                child: facecamStrip!,
-              ),
-            ),
-          RoomPortraitSlot(
-            role: .strip,
-            child: Padding(
-              padding: EdgeInsets.fromLTRB(gutter, 0, gutter, 6),
-              child: reactionStrip,
-            ),
-          ),
-          RoomPortraitSlot(role: .bar, child: controlBar),
-          RoomPortraitSlot(
-            role: .banners,
-            child: SingleChildScrollView(child: bannerStack),
-          ),
-          RoomPortraitSlot(role: .chat, child: embeddedChat),
-        ],
+    final floor = floorScaler(context).scale(160);
+    final reveal = chatFloorReveal;
+    final slots = <Widget>[
+      RoomPortraitSlot(
+        role: .header,
+        child: _Collapse(collapsed: keyboardUp, child: header),
       ),
+      RoomPortraitSlot(role: .video, child: videoSurface),
+      if (facecamStrip != null)
+        RoomPortraitSlot(
+          role: .cams,
+          child: Padding(padding: EdgeInsets.fromLTRB(gutter, 10, gutter, 6), child: facecamStrip!),
+        ),
+      RoomPortraitSlot(
+        role: .strip,
+        child: Padding(padding: EdgeInsets.fromLTRB(gutter, 0, gutter, 6), child: reactionStrip),
+      ),
+      RoomPortraitSlot(role: .bar, child: controlBar),
+      RoomPortraitSlot(
+        role: .banners,
+        child: SingleChildScrollView(child: bannerStack),
+      ),
+      RoomPortraitSlot(role: .chat, child: embeddedChat),
+    ];
+    return SafeArea(
+      child: reveal == null
+          ? RoomPortraitStack(chatFloor: floor + chatFloorExtra, children: slots)
+          : ValueListenableBuilder<double>(
+              valueListenable: reveal,
+              builder: (context, t, _) =>
+                  RoomPortraitStack(chatFloor: floor + chatFloorExtra * t, children: slots),
+            ),
     );
   }
 }

@@ -14,6 +14,26 @@ bool dismissEditableFocus() {
   return true;
 }
 
+/// What else an unclaimed tap closes besides the keyboard: the inline emoji
+/// picker, which stands in for it. At most one claimant at a time (one chat
+/// panel's picker); [TapToDismissKeyboard] fires it after the field unfocuses.
+/// Closing is the claimant's business - the picker folds shut, it does not pop.
+class EmptyTapHook {
+  EmptyTapHook._();
+
+  static VoidCallback? _active;
+
+  static void claim(VoidCallback callback) => _active = callback;
+
+  /// A no-op unless [callback] is the current claimant, so a stale release
+  /// never drops a newer panel's claim.
+  static void release(VoidCallback callback) {
+    if (_active == callback) _active = null;
+  }
+
+  static void fire() => _active?.call();
+}
+
 /// App-wide "tap empty space to close the keyboard", for touch platforms only.
 ///
 /// Rule: a tap that **no other gesture claims** unfocuses an editable field.
@@ -37,6 +57,13 @@ class TapToDismissKeyboard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (!isTouchPlatform) return child;
-    return GestureDetector(behavior: .translucent, onTap: dismissEditableFocus, child: child);
+    return GestureDetector(
+      behavior: .translucent,
+      onTap: () {
+        dismissEditableFocus();
+        EmptyTapHook.fire();
+      },
+      child: child,
+    );
   }
 }

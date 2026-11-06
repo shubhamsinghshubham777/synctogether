@@ -1453,6 +1453,138 @@ void main() {
     });
   });
 
+  group('inline emoji picker with no keyboard to trade places with', () {
+    // Tapping the chat smiley with the keyboard down (a hardware keyboard, the
+    // simulator, or after the user closed it). The picker's strip used to
+    // appear and vanish in one frame: the composer jumped a quarter of the
+    // screen and the picture resized at once. It now folds in and out.
+    final cases = [
+      kScreenMatrix.firstWhere((c) => c.name == 'phone'),
+      kScreenMatrix.firstWhere((c) => c.name == 'phone-android'),
+      kScreenMatrix.firstWhere((c) => c.name == 'phone-small'),
+    ];
+
+    screenMatrix(
+      'opens and closes by folding, not popping',
+      (tester, c, s) async {
+        await _pumpRoom(
+          tester,
+          c,
+          s,
+          av: true,
+          members: 4,
+          allReady: false,
+          selfHost: false,
+          openFails: true,
+          chat: [mockChatMessagesList.first],
+        );
+        await tester.pump(const Duration(seconds: 6));
+        final bar = find.byType(RoomControlBar);
+        final chat = find.byType(RoomChatPanel);
+        final input = find.byType(EditableText);
+        final play = find.descendant(of: bar, matching: find.byType(PTPlayButton));
+        Rect rect(Finder f) => tester.getRect(f.first);
+        List<Rect> snap() => [rect(bar), rect(chat), rect(input)];
+        final settled = snap();
+        // 16 ms frames: the fold is 250 ms, ~15 frames. The composer moves the
+        // picker's height (~280 px) in total, eased, so its fastest frame is
+        // ~1.5x the mean; a pop would be the whole strip in one.
+        const maxStep = 48.0;
+        var prevTop = rect(input).top;
+
+        void step(String phase, int i) {
+          final top = rect(input).top;
+          expect(
+            (top - prevTop).abs(),
+            lessThanOrEqualTo(maxStep),
+            reason: '${c.name} x$s: composer jumped by ${top - prevTop} px at $phase frame $i',
+          );
+          prevTop = top;
+          expect(play.hitTestable(), findsOneWidget, reason: '${c.name}: transport lost');
+          final picker = find.byType(EmojiPicker);
+          if (picker.evaluate().isNotEmpty) {
+            final clip = find.ancestor(of: picker.first, matching: find.byType(ClipRect)).first;
+            final box = tester.renderObject<RenderBox>(clip);
+            final shown = (box as RenderClipRect).clipper!.getClip(box.size).height;
+            final pickerTop = box.localToGlobal(Offset.zero).dy;
+            // The composer sits above whatever part of the picker is shown, and
+            // the picker never hangs off the screen.
+            expect(
+              rect(input).bottom,
+              lessThanOrEqualTo(pickerTop + 0.5),
+              reason: '${c.name} x$s: composer overlaps the picker at $phase frame $i',
+            );
+            expect(pickerTop + shown, lessThanOrEqualTo(c.size.height + 0.5));
+          }
+        }
+
+        await tester.tap(find.byTooltip(RegExp('[Ee]moji')).first);
+        for (var i = 1; i <= 40; i++) {
+          await tester.pump(const Duration(milliseconds: 16));
+          step('open', i);
+        }
+        // Open: the picker is whole, usable, and nothing is cut.
+        expect(find.text('SMILEYS & EMOTION').hitTestable(), findsOneWidget);
+        expect(play.hitTestable(), findsOneWidget);
+        expect(rect(input).top, lessThan(settled[2].top - 100), reason: 'composer made room');
+
+        await tester.tap(find.byTooltip(RegExp('[Ee]moji')).first);
+        for (var i = 1; i <= 40; i++) {
+          await tester.pump(const Duration(milliseconds: 16));
+          step('close', i);
+        }
+        expect(find.byType(EmojiPicker), findsNothing);
+        final now = snap();
+        for (var j = 0; j < now.length; j++) {
+          expect(now[j].height, closeTo(settled[j].height, 0.5), reason: 'item $j height');
+          expect(now[j].top, closeTo(settled[j].top, 0.5), reason: 'item $j top');
+        }
+        await _finish(tester);
+      },
+      cases: cases,
+      textScales: const [1.0, 1.5],
+    );
+
+    testWidgets('a tap on empty space folds the picker shut; a tap in its gaps does not', (
+      tester,
+    ) async {
+      final c = kScreenMatrix.firstWhere((c) => c.name == 'phone');
+      try {
+        await _pumpRoom(
+          tester,
+          c,
+          1.0,
+          av: true,
+          allReady: false,
+          selfHost: false,
+          openFails: true,
+          chat: [mockChatMessagesList.first],
+        );
+        await tester.pump(const Duration(seconds: 6));
+        await tester.tap(find.byTooltip(RegExp('[Ee]moji')).first);
+        // The first frame starts the fold's ticker, the second runs it.
+        await tester.pump(const Duration(milliseconds: 600));
+        await tester.pump(const Duration(milliseconds: 600));
+        expect(find.byType(EmojiPicker), findsOneWidget);
+        // The picker's own surface (its header strip) is not empty space.
+        await tester.tapAt(tester.getTopLeft(find.byType(EmojiPicker)) + const Offset(2, 2));
+        await tester.pump(const Duration(milliseconds: 600));
+        expect(find.byType(EmojiPicker), findsOneWidget, reason: 'closed by a tap on itself');
+        // Empty space: the room's header strip area beside the title.
+        await tester.tapAt(Offset(c.size.width - 2, c.padding.top + 2));
+        await tester.pump(const Duration(milliseconds: 40));
+        await tester.pump(const Duration(milliseconds: 40));
+        expect(find.byType(EmojiPicker), findsOneWidget, reason: 'it folds, it does not pop');
+        await tester.pump(const Duration(milliseconds: 600));
+        await tester.pump(const Duration(milliseconds: 600));
+        expect(find.byType(EmojiPicker), findsNothing);
+        await _finish(tester);
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
+      }
+    });
+  });
+
   group('a file that failed to open', () {
     testWidgets('offers a different video, not the same bad copy', (tester) async {
       final c = kScreenMatrix.firstWhere((c) => c.name == 'phone');

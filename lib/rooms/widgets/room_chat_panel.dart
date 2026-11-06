@@ -16,6 +16,7 @@ import 'package:synctogether/sync/sync_service.dart';
 import 'package:synctogether/ui/buttons.dart';
 import 'package:synctogether/ui/glass.dart';
 import 'package:synctogether/ui/identity.dart';
+import 'package:synctogether/ui/keyboard_dismiss.dart';
 import 'package:synctogether/ui/pt_motion.dart';
 import 'package:synctogether/ui/pt_theme.dart';
 import 'package:synctogether/ui/responsive.dart';
@@ -57,7 +58,18 @@ const _kComposerGap = 10.0;
 class SoftKeyboardMemory {
   double _tallest = 0;
   double _bottomSafe = 0;
+  double _live = 0;
   bool _landscape = false;
+
+  /// 0..1, how much of its strip the inline picker has unfolded when there is
+  /// no keyboard to trade places with (see [pickerShown]). 1 whenever it is
+  /// handed the keyboard's strip or not on screen. Written by the chat panel's
+  /// animation; the room reads it to give up the same height to the picture
+  /// progressively, so the two always agree to the pixel.
+  final pickerReveal = ValueNotifier<double>(1);
+
+  /// The keyboard's height at the last [observe].
+  double get live => _live;
 
   /// What the picker is worth when no keyboard has ever shown.
   static const double fallback = 280;
@@ -70,6 +82,7 @@ class SoftKeyboardMemory {
       _tallest = 0;
     }
     final live = view.viewInsets.bottom / view.devicePixelRatio;
+    _live = live;
     if (live > _tallest) _tallest = live;
     _bottomSafe = view.viewPadding.bottom / view.devicePixelRatio;
     return live;
@@ -92,6 +105,9 @@ class SoftKeyboardMemory {
   /// gone: it is inside the keyboard's height while that is up, and a
   /// `SafeArea` above takes it back when it leaves.
   double pickerShown(double live) => math.max(0.0, pickerStrip - math.max(live, _bottomSafe));
+
+  /// [pickerShown] as currently unfolded: the strip the picker holds right now.
+  double pickerHeld(double live) => pickerShown(live) * pickerReveal.value;
 }
 
 class RoomChatPanel extends StatefulWidget {
@@ -170,7 +186,7 @@ class RoomChatPanel extends StatefulWidget {
   State<RoomChatPanel> createState() => _RoomChatPanelState();
 }
 
-class _RoomChatPanelState extends State<RoomChatPanel> {
+class _RoomChatPanelState extends State<RoomChatPanel> with SingleTickerProviderStateMixin {
   late final _controller = widget.draftController ?? TextEditingController();
   late final _ownsController = widget.draftController == null;
   final _scrollController = ScrollController();
@@ -197,6 +213,18 @@ class _RoomChatPanelState extends State<RoomChatPanel> {
   /// first and the composer dropping for the frames before the keyboard lands.
   bool _pickerLinger = false;
   Timer? _lingerTimer;
+
+  /// Touch, no keyboard to trade with: the picker folds its strip in and out
+  /// over [PTMotion.panel] instead of appearing whole. 1 = fully unfolded. The
+  /// curved value is published on [SoftKeyboardMemory.pickerReveal]; a hand-off
+  /// from/to a keyboard pins it at 1 (the keyboard's own slide is the motion).
+  late final _reveal = AnimationController(vsync: this, value: 1)
+    ..addListener(_publishReveal)
+    ..addStatusListener(_onRevealStatus);
+
+  /// The picker is folding away with nothing taking its strip: still mounted
+  /// (and still reserved by the room) until the fold ends.
+  bool _pickerClosing = false;
   int _limitShake = 0;
 
   /// Snapshot, not a live read: refreshed when the panel mounts (it remounts
@@ -295,6 +323,46 @@ class _RoomChatPanelState extends State<RoomChatPanel> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _reveal.duration = PTMotion.functional(context, PTMotion.panel);
+  }
+
+  void _publishReveal() {
+    _kbMemory.pickerReveal.value = PTMotion.emphasized.transform(_reveal.value);
+  }
+
+  void _onRevealStatus(AnimationStatus status) {
+    if (status == AnimationStatus.dismissed && _pickerClosing) _finishClose();
+  }
+
+  /// The fold is over: nothing holds the strip any more.
+  void _finishClose() {
+    if (!_pickerClosing) return;
+    EmptyTapHook.release(_closePickerFromEmptyTap);
+    if (mounted) setState(() => _pickerClosing = false);
+    widget.onInlinePickerChanged?.call(false);
+  }
+
+  /// With no keyboard to hand the strip to (or from), fold it instead of
+  /// popping; with one up, or nothing unfolded, simply end.
+  void _endInline() {
+    if (_reveal.value > 0 && _kbMemory.live < 0.5) {
+      if (mounted) setState(() => _pickerClosing = true);
+      _reveal.reverse();
+    } else {
+      EmptyTapHook.release(_closePickerFromEmptyTap);
+      widget.onInlinePickerChanged?.call(false);
+    }
+  }
+
+  /// A tap no one claimed: the same rule that closes the keyboard closes the
+  /// picker, folding it, with the keyboard staying down.
+  void _closePickerFromEmptyTap() {
+    if (_pickerOpen && _touch) _closePicker();
+  }
+
+  @override
   void dispose() {
     _typingDebounce?.cancel();
     _hoverOpen?.cancel();
@@ -302,10 +370,12 @@ class _RoomChatPanelState extends State<RoomChatPanel> {
     _lingerTimer?.cancel();
     // The room treats the picker as a keyboard; whatever unmounts the panel
     // must not leave it believing one is still up.
-    if (_pickerOpen || _pickerLinger) {
+    if (_pickerOpen || _pickerLinger || _pickerClosing) {
       final told = widget.onInlinePickerChanged;
       WidgetsBinding.instance.addPostFrameCallback((_) => told?.call(false));
     }
+    EmptyTapHook.release(_closePickerFromEmptyTap);
+    _reveal.dispose();
     if (_ownsController) _controller.dispose();
     _scrollController.dispose();
     _inputFocus.dispose();
@@ -334,7 +404,8 @@ class _RoomChatPanelState extends State<RoomChatPanel> {
       widget.sync.broadcastTyping(false);
     }
     _emoji.noteSent(text);
-    _closePicker();
+    // The field keeps focus (below), so the keyboard rises into the strip.
+    _closePicker(keyboardFollows: _touch);
     setState(() => _quickSlots = _emoji.quickSlots());
     widget.onSend(text);
     // Keep the caret in the field for the next line - Enter would otherwise hand
@@ -352,13 +423,25 @@ class _RoomChatPanelState extends State<RoomChatPanel> {
       // The picker takes the keyboard's place rather than stacking on it: it
       // grows exactly as the keyboard leaves (see [_inlinePickerShown]).
       _lingerTimer?.cancel();
+      // A keyboard up trades its strip with the picker (no motion of ours);
+      // with none, the strip folds open. Reopening mid-fold carries on from
+      // where it is.
+      final onScreen = _pickerClosing || _pickerLinger || _pickerOpen;
+      if (_kbMemory.live > 0.5) {
+        _reveal.value = 1;
+      } else {
+        if (!onScreen) _reveal.value = 0;
+        _reveal.forward();
+      }
       _inputFocus.unfocus();
+      EmptyTapHook.claim(_closePickerFromEmptyTap);
     } else {
       _pickerPortal.show();
     }
     setState(() {
       _pickerOpen = true;
       _pickerLinger = false;
+      _pickerClosing = false;
       _pickerPinned = pinned;
     });
     if (_touch) widget.onInlinePickerChanged?.call(true);
@@ -383,7 +466,7 @@ class _RoomChatPanelState extends State<RoomChatPanel> {
       // device that never raises one (a hardware keyboard on a tablet).
       _lingerTimer = Timer(PTMotion.panel + PTMotion.hover, _endLinger);
     } else if (_touch) {
-      widget.onInlinePickerChanged?.call(false);
+      _endInline();
     }
   }
 
@@ -391,7 +474,8 @@ class _RoomChatPanelState extends State<RoomChatPanel> {
     _lingerTimer?.cancel();
     if (!mounted || !_pickerLinger) return;
     setState(() => _pickerLinger = false);
-    widget.onInlinePickerChanged?.call(false);
+    // The keyboard never came (or has landed over the picker).
+    _endInline();
   }
 
   void _togglePicker() {
@@ -492,7 +576,7 @@ class _RoomChatPanelState extends State<RoomChatPanel> {
         if (_pickerLinger && keyboard >= _kbMemory.pickerStrip - 0.5) {
           WidgetsBinding.instance.addPostFrameCallback((_) => _endLinger());
         }
-        final inline = _touch && (_pickerOpen || _pickerLinger);
+        final inline = _touch && (_pickerOpen || _pickerLinger || _pickerClosing);
         // Phone portrait: while a keyboard or the picker holds the lower half,
         // the roster strip is the first thing to go, so one chat bubble and the
         // composer always fit. Decided on the inset, not on the panel's height
@@ -560,6 +644,7 @@ class _RoomChatPanelState extends State<RoomChatPanel> {
             delegate: _ComposerLayout(
               picker: pickerHeight == null ? null : _kbMemory.pickerShown(keyboard),
               body: pickerHeight ?? 0,
+              reveal: _kbMemory.pickerReveal,
             ),
             children: [
               LayoutId(
@@ -615,7 +700,7 @@ class _RoomChatPanelState extends State<RoomChatPanel> {
               if (pickerHeight != null)
                 LayoutId(
                   id: _ComposerSlot.picker,
-                  child: _inlinePicker(_kbMemory.pickerShown(keyboard)),
+                  child: _inlinePicker(_kbMemory.pickerShown(keyboard), _kbMemory.pickerReveal),
                 ),
             ],
           ),
@@ -1010,16 +1095,35 @@ class _RoomChatPanelState extends State<RoomChatPanel> {
   /// The picker is laid out at the height it will settle at and revealed from
   /// the top, [shown] tall, as the keyboard leaves: a slide in, with nothing
   /// re-laid-out per frame. The clip also stops hits below the reveal.
-  Widget _inlinePicker(double shown) => ClipRect(
-    clipper: _RevealClip(shown),
-    child: Container(
-      padding: EdgeInsets.only(bottom: MediaQuery.paddingOf(context).bottom),
-      decoration: BoxDecoration(
-        border: Border(top: BorderSide(color: PTColors.white(0.08))),
+  ///
+  /// With no keyboard to trade with, [reveal] (0..1) unfolds the same strip
+  /// over [PTMotion.panel]: the clip grows (content is never rescaled), the
+  /// layout delegate hands the composer the same animated height, and the
+  /// picker takes no hits until it has settled. Only the clip rebuilds per
+  /// frame - the grid is built once.
+  Widget _inlinePicker(double shown, ValueListenable<double> reveal) {
+    // An opaque tap sink: a tap in the gaps of the grid must not count as
+    // "empty space" ([EmptyTapHook]) and close the picker under the finger.
+    final body = GestureDetector(
+      behavior: .opaque,
+      onTap: () {},
+      child: Container(
+        padding: EdgeInsets.only(bottom: MediaQuery.paddingOf(context).bottom),
+        decoration: BoxDecoration(
+          border: Border(top: BorderSide(color: PTColors.white(0.08))),
+        ),
+        child: EmojiPicker(prefs: _emoji, onPick: _insert, onCustomize: () => _customize(0)),
       ),
-      child: EmojiPicker(prefs: _emoji, onPick: _insert, onCustomize: () => _customize(0)),
-    ),
-  );
+    );
+    return ValueListenableBuilder<double>(
+      valueListenable: reveal,
+      child: body,
+      builder: (context, t, child) => IgnorePointer(
+        ignoring: t < 1 || _pickerClosing,
+        child: ClipRect(clipper: _RevealClip(shown * t), child: child),
+      ),
+    );
+  }
 
   Widget _typingRow() {
     final names = widget.typingNames;
@@ -1420,7 +1524,13 @@ class _RevealClip extends CustomClipper<Rect> {
 }
 
 class _ComposerLayout extends MultiChildLayoutDelegate {
-  _ComposerLayout({required this.picker, required this.body});
+  _ComposerLayout({required this.picker, required this.body, required this.reveal})
+    : super(relayout: reveal);
+
+  /// 0..1: how much of [picker] is unfolded (1 unless it opens or closes with
+  /// no keyboard to trade places with). Listened to, so the fold re-runs
+  /// layout alone, without rebuilding the list.
+  final ValueListenable<double> reveal;
 
   /// The picker's height once the keyboard has left (before trimming).
   final double body;
@@ -1444,7 +1554,10 @@ class _ComposerLayout extends MultiChildLayoutDelegate {
     ).height;
     var pickerHeight = 0.0;
     if (picker != null) {
-      pickerHeight = math.max(0.0, math.min(picker!, size.height - composer - _minList));
+      pickerHeight = math.max(
+        0.0,
+        math.min(picker! * reveal.value, size.height - composer - _minList),
+      );
       // Laid out at what it settles at: the area without the picker's slice,
       // less the composer and the list's least, capped at its own body.
       final settled = math.max(0.0, math.min(body, size.height - picker! - composer - _minList));
@@ -1462,7 +1575,7 @@ class _ComposerLayout extends MultiChildLayoutDelegate {
 
   @override
   bool shouldRelayout(_ComposerLayout oldDelegate) =>
-      oldDelegate.picker != picker || oldDelegate.body != body;
+      oldDelegate.picker != picker || oldDelegate.body != body || oldDelegate.reveal != reveal;
 }
 
 /// Refuses an edit that would take the message past the server's codepoint

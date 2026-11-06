@@ -6437,6 +6437,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
       roomy: roomy,
       keyboardUp: keyboardUp,
       chatFloorExtra: _chatPickerUp ? _keyboardMemory.pickerShown(liveKeyboard) : 0,
+      chatFloorReveal: _keyboardMemory.pickerReveal,
       header: _portraitHeader(
         padding: roomy
             ? const EdgeInsets.fromLTRB(16, 10, 16, 10)

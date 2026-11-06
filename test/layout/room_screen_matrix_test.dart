@@ -765,6 +765,20 @@ void main() {
     }
   }
 
+  // The keyboard-over-the-lower-half contract (see keyboardCoversLowerPane):
+  // the composer is on screen, wholly above the keyboard, and nothing overflowed.
+  void expectComposerAboveKeyboard(WidgetTester tester, ScreenCase c) {
+    final field = find.byType(EditableText).hitTestable();
+    expect(field, findsAtLeastNWidgets(1), reason: '${c.name}: composer not hittable');
+    final r = tester.getRect(field.first);
+    expect(
+      r.bottom,
+      lessThanOrEqualTo(c.size.height - c.keyboard + 0.5),
+      reason: '${c.name}: composer $r under the keyboard',
+    );
+    expect(r.top, greaterThanOrEqualTo(0), reason: '${c.name}: composer above the window');
+  }
+
   // Foldables: every posture that splits the window (book, dual screen,
   // tabletop, half-opened either way), at every text scale.
   final splitCases = kScreenMatrix.where((c) => hingeRectOf(c) != null).toList();
@@ -775,6 +789,10 @@ void main() {
     s,
   ) async {
     await _pumpRoom(tester, c, s, playing: true, chatOpen: true, chat: mockChatMessagesList);
+    if (keyboardCoversLowerPane(c)) {
+      expectComposerAboveKeyboard(tester, c);
+      return _finish(tester);
+    }
     expectTransportReachable(tester, c);
     final bar = find.byType(RoomControlBar);
     final play = tester.getRect(find.descendant(of: bar, matching: find.byType(PTPlayButton)));
@@ -788,6 +806,10 @@ void main() {
 
   screenMatrix('room on a fold: the empty-state card sits in one pane', (tester, c, s) async {
     await pumpEmptyRoom(tester, c, s);
+    if (keyboardCoversLowerPane(c)) {
+      expectComposerAboveKeyboard(tester, c);
+      return _finish(tester);
+    }
     final pick = find.text('Choose a video');
     expect(pick.hitTestable(), findsOneWidget, reason: '${c.name} x$s: choose button not hittable');
     expectInOnePane(tester.getRect(pick), c, 'Choose a video');
@@ -799,6 +821,10 @@ void main() {
     'room on a fold: a hinge keeps every pane on its own metrics',
     (tester, c, s) async {
       await _pumpRoom(tester, c, s, playing: true, chatOpen: true, chat: mockChatMessagesList);
+      if (keyboardCoversLowerPane(c)) {
+        expectComposerAboveKeyboard(tester, c);
+        return _finish(tester);
+      }
       final fold = foldFromFeatures(c.features);
       final panes = panesOf(c.size, fold);
       // The chat composer lives in the second pane; its MediaQuery must be that
@@ -909,6 +935,47 @@ void main() {
     });
   }
 
+  // The keyboard rising over a tabletop's lower half must not remount the chat:
+  // a remounted composer loses focus and the keyboard closes under the user's
+  // thumbs (found on a foldable emulator, invisible to every layout assertion).
+  // Same panel instance, same focused field, composer lifted above the keys.
+  testWidgets('a tabletop keeps the composer mounted and focused as the keyboard rises', (
+    tester,
+  ) async {
+    final base = kScreenMatrix.firstWhere((c) => c.name == 'android-fold-tabletop-keyboard');
+    final c = ScreenCase(
+      'tabletop-typing',
+      base.size,
+      base.platform,
+      padding: base.padding,
+      features: base.features,
+    );
+    try {
+      await _pumpRoom(tester, c, 1.0, playing: true, chatOpen: true, chat: mockChatMessagesList);
+      await tester.tap(find.byType(EditableText).hitTestable().first);
+      await tester.pump();
+      final panel = tester.state(find.byType(RoomChatPanel));
+      final focus = tester.widget<EditableText>(find.byType(EditableText).first).focusNode;
+      expect(focus.hasFocus, isTrue, reason: 'the tap focused the composer');
+      // The keyboard slides up over the lower half, frame by frame.
+      for (var i = 1; i <= 12; i++) {
+        tester.view.viewInsets = FakeViewPadding(bottom: 330.0 * i / 12);
+        await tester.pump(const Duration(milliseconds: 16));
+        expectNoOverflow(tester);
+        expect(tester.state(find.byType(RoomChatPanel)), same(panel), reason: 'remounted at $i');
+        expect(focus.hasFocus, isTrue, reason: 'focus lost at frame $i');
+      }
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(tester.state(find.byType(RoomChatPanel)), same(panel));
+      expect(focus.hasFocus, isTrue);
+      final field = tester.getRect(find.byType(EditableText).first);
+      expect(field.bottom, lessThanOrEqualTo(c.size.height - 330 + 0.5), reason: 'under the keys');
+      await _finish(tester);
+    } finally {
+      debugDefaultTargetPlatformOverride = null;
+    }
+  });
+
   // Inside one composition a resize is continuous: dragging a Split View handle
   // or an unfold animation across the deck's range moves the transport and chat
   // a few pixels a frame, never a pop.
@@ -983,7 +1050,7 @@ void main() {
 
   screenMatrix('room transport reachable, chat closed', (tester, c, s) async {
     await _pumpRoom(tester, c, s);
-    expectTransportReachable(tester, c);
+    if (!keyboardCoversLowerPane(c)) expectTransportReachable(tester, c);
     await _finish(tester);
   });
 
@@ -992,7 +1059,7 @@ void main() {
     // A keyboard-up landscape chat takes the bar's slot until it is dismissed;
     // everywhere else the transport stays.
     final keyboardLandscape = c.keyboard > 0 && c.size.width > c.size.height;
-    if (!keyboardLandscape) expectTransportReachable(tester, c);
+    if (!keyboardLandscape && !keyboardCoversLowerPane(c)) expectTransportReachable(tester, c);
     await _finish(tester);
   });
 

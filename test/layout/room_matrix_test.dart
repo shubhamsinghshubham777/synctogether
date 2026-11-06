@@ -65,7 +65,9 @@ final _actions = RoomControlBarActions(
   onFullscreenToggle: () {},
 );
 
-bool _compact(ScreenCase c) => c.size.shortestSide < 600;
+// Mirrors how the room judges it (RoomScreen: the picture's own box under 700
+// wide or 460 tall): a soft keyboard takes its height off the box.
+bool _compact(ScreenCase c) => c.size.shortestSide < 600 || c.size.height - c.keyboard < 460;
 
 // The landscape room enters chat keyboard mode whenever the keyboard is up
 // (the chat composer is the room's only text field) and removes the control

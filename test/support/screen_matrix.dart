@@ -265,6 +265,31 @@ final kScreenMatrix = <ScreenCase>[
       ),
     ],
   ),
+  // The foldable Android emulator's real numbers (7.6" Fold-in AVD: 1768x2208
+  // at 420 dpi), with the Gboard height it showed: the opened inner display
+  // with the keyboard up, and the half-opened one turned to a tabletop, where
+  // the keyboard covers the whole lower half.
+  const ScreenCase(
+    'android-fold-opened-keyboard',
+    Size(673, 841),
+    .android,
+    padding: _androidGesture,
+    keyboard: 330,
+  ),
+  const ScreenCase(
+    'android-fold-tabletop-keyboard',
+    Size(841, 673),
+    .android,
+    padding: _androidGesture,
+    keyboard: 330,
+    features: [
+      DisplayFeature(
+        bounds: Rect.fromLTWH(0, 336.5, 841, 0),
+        type: DisplayFeatureType.fold,
+        state: DisplayFeatureState.postureHalfOpened,
+      ),
+    ],
+  ),
   // Pixel Fold inner display (1840x2208 px at ~2.2x), flat and continuous.
   const ScreenCase('pixel-fold', Size(840, 1010), .android, padding: _androidGesture),
   // A half-opened fold running top to bottom (a book held loosely): no gap,
@@ -587,7 +612,19 @@ Future<void> expectRespectsInsets(WidgetTester tester) async {
 /// splits the window (a flat fold with no gap is a continuous display).
 Rect? hingeRectOf(ScreenCase c) {
   final f = foldFromFeatures(c.features);
-  return f.isSplit ? f.bounds : null;
+  if (!f.isSplit) return null;
+  return f.bounds;
+}
+
+/// Whether the case is a tabletop whose lower half the soft keyboard has
+/// covered (it leaves under [kMinLowerPaneHeight] of it): the room lifts the
+/// chat above the keys and the deck's controls step aside, so the transport and
+/// per-pane assertions give way to "the composer is visible above the keyboard".
+bool keyboardCoversLowerPane(ScreenCase c) {
+  final f = foldFromFeatures(c.features);
+  return f.axis == PTFoldAxis.horizontal &&
+      c.keyboard > 0 &&
+      c.size.height - c.keyboard - f.bounds.bottom < kMinLowerPaneHeight;
 }
 
 /// Whether [r] is cut by [hinge]: it overlaps a hinge that has a gap, or a

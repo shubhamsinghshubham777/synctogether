@@ -192,6 +192,30 @@ jobs:
             --apiIssuer "${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}"
           echo "Uploaded build ${{ steps.version.outputs.APP_VERSION }} (${BUILD_NUMBER}); it appears in TestFlight once processing finishes."
 
+      - name: Revoke development certificates this run created
+        if: always()
+        env:
+          ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+        run: |
+          # Automatic signing on a fresh runner has no development certificate,
+          # so xcodebuild mints an "Apple Development: Created via API" one on
+          # every run and never revokes it. Apple caps them, and at the cap the
+          # next Archive fails with "maximum number of certificates". These are
+          # disposable CI leftovers (named by the API, not by a person), so
+          # revoke them here; the filter leaves every human-made certificate.
+          # Best effort: a cleanup failure must never fail a build that shipped.
+          export ASC_PRIVATE_KEY_PATH="${ASC_AUTH_KEY_PATH:-}"
+          if [ ! -f "$ASC_PRIVATE_KEY_PATH" ]; then
+            echo "::notice::No API key on disk; skipping certificate cleanup."
+            exit 0
+          fi
+          brew install rudrankriyam/tap/asc >/dev/null 2>&1 || { echo "::warning::asc install failed; skipping certificate cleanup."; exit 0; }
+          IDS=$(asc certificates list --certificate-type DEVELOPMENT --display-name "Created via API" --paginate --output json | jq -r '.data[].id') || { echo "::warning::could not list certificates."; exit 0; }
+          for id in $IDS; do
+            asc certificates revoke --id "$id" --confirm >/dev/null && echo "Revoked CI development certificate $id" || echo "::warning::could not revoke $id"
+          done
+
       - name: Clean up temporary keychain and API keys
         if: always()
         run: |

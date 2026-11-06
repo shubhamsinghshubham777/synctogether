@@ -214,6 +214,20 @@ class _CollapsibleBarState extends State<_CollapsibleBar> {
 }
 
 /// The desktop and landscape tablet roomy layout: full-bleed video, floating chrome, docked chat.
+/// The facecam rail's footprint from the window's left edge: 24 in, 200 wide,
+/// and a 16 gap.
+const kRailReserve = 24.0 + 200.0 + 16.0;
+
+/// How much of the left of a [box] the picture must give up to stay clear of
+/// the facecam rail (touch roomy layouts). Zero when a 16:9 picture centred in
+/// [box] already leaves the rail's column free (tall windows, tablets);
+/// otherwise just enough to push the picture's left edge to the rail's, up to
+/// the whole column. Continuous in [box], so a resize never snaps the picture.
+double railClearance(Size box) {
+  final picture = math.min(box.width, box.height * 16 / 9);
+  return (2 * kRailReserve - (box.width - picture)).clamp(0.0, kRailReserve);
+}
+
 class RoomRoomyLayout extends StatefulWidget {
   const RoomRoomyLayout({
     required this.videoSurface,
@@ -300,7 +314,22 @@ class _RoomRoomyLayoutState extends State<RoomRoomyLayout> {
 
     final stack = Stack(
       children: [
-        Positioned.fill(child: widget.videoSurface),
+        // On touch the facecam rail's column is the rail's, not the picture's:
+        // the surface gives up exactly as much as the picture would otherwise
+        // run under it. The wrapper chain is the same either way, so the video
+        // never remounts when cams come and go.
+        Positioned.fill(
+          child: LayoutBuilder(
+            builder: (context, box) => AnimatedPadding(
+              duration: PTMotion.functional(context, PTMotion.state),
+              curve: PTMotion.enter,
+              padding: EdgeInsets.only(
+                left: widget.touch && widget.facecamRail != null ? railClearance(box.biggest) : 0,
+              ),
+              child: widget.videoSurface,
+            ),
+          ),
+        ),
         Positioned.fill(
           child: SafeArea(
             child: Stack(

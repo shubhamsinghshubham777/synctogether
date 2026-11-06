@@ -5783,11 +5783,12 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
       // The roomy composition (touch tablets, an unfolded iPhone Duo held
       // landscape) keeps its facecam rail down the left edge: 24 in, 200 wide.
       // On a window as narrow as the Duo's 951 pt the centred card would run
-      // under it, so the card gives that column up.
+      // under it, so the card gives that column up - less what the video
+      // surface itself already yields to the rail (see [railClearance]).
       final railLeft =
           layoutOf(context) == .tablet && _av != null && !_privacyHidden && _camsVisible;
       return EdgeInsets.only(
-        left: railLeft ? 24 + 200 + 16 : 0,
+        left: railLeft ? kRailReserve - railClearance(MediaQuery.sizeOf(context)) : 0,
         top: 76 * scale,
         bottom: 154 * scale,
       );

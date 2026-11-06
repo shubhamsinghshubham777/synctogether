@@ -28,6 +28,7 @@ import 'package:synctogether/rooms/room_models.dart';
 import 'package:synctogether/rooms/room_screen.dart';
 import 'package:synctogether/rooms/room_service.dart';
 import 'package:synctogether/rooms/widgets/emoji_picker.dart';
+import 'package:synctogether/rooms/widgets/room_desktop_layout.dart';
 import 'package:synctogether/rooms/widgets/facecam_rail.dart';
 import 'package:synctogether/rooms/widgets/reaction_strip.dart';
 import 'package:synctogether/rooms/widgets/readiness_overlay.dart';
@@ -970,9 +971,65 @@ void main() {
       expect(focus.hasFocus, isTrue);
       final field = tester.getRect(find.byType(EditableText).first);
       expect(field.bottom, lessThanOrEqualTo(c.size.height - 330 + 0.5), reason: 'under the keys');
+      // Typing never costs the picture: the chat is lifted below it, not over
+      // it, and the picture keeps a usable size (it letterboxes, never crops).
+      final picture = tester.getRect(
+        find.byWidgetPredicate((w) => w is AspectRatio && w.aspectRatio == 16 / 9).first,
+      );
+      final chat = tester.getRect(find.byType(RoomChatPanel).first);
+      expect(
+        picture.bottom,
+        lessThanOrEqualTo(chat.top + 0.5),
+        reason: 'the lifted chat covers the picture: $picture vs $chat',
+      );
+      expect(picture.height, greaterThanOrEqualTo(120), reason: "the picture shrank too far");
       await _finish(tester);
     } finally {
       debugDefaultTargetPlatformOverride = null;
+    }
+  });
+
+  // The facecam rail is a column of its own on touch: the picture letterboxes
+  // beside it instead of running under it, and gets the width back when the
+  // cams are hidden.
+  testWidgets('the roomy picture clears the facecam rail', (tester) async {
+    final c = kScreenMatrix.firstWhere((c) => c.name == 'iphone-duo-inner-land');
+    double surfaceLeft() {
+      final pad = find.descendant(
+        of: find.byType(RoomRoomyLayout),
+        matching: find.byType(AnimatedPadding),
+      );
+      return (tester.widget<AnimatedPadding>(pad.first).padding as EdgeInsets).left;
+    }
+
+    try {
+      await _pumpRoom(tester, c, 1.0, playing: true, av: true, members: 6);
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(surfaceLeft(), railClearance(c.size));
+      expect(surfaceLeft(), greaterThan(0), reason: '951 pt wide: the picture would run under it');
+      expect(tester.getRect(find.byType(FacecamRail).first).right, lessThanOrEqualTo(kRailReserve));
+      await _finish(tester);
+      await _pumpRoom(tester, c, 1.0, playing: true, members: 6);
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(surfaceLeft(), 0, reason: 'no rail, no reserve');
+      await _finish(tester);
+    } finally {
+      debugDefaultTargetPlatformOverride = null;
+    }
+  });
+
+  test('railClearance: just enough, never more than the column, continuous', () {
+    // A very wide, short window centres the picture clear of the rail already.
+    expect(railClearance(const Size(1600, 400)), 0);
+    expect(railClearance(const Size(1366, 1024)), kRailReserve);
+    expect(railClearance(const Size(951, 669)), kRailReserve);
+    // A very wide short window needs only part of it.
+    expect(railClearance(const Size(1000, 400)), closeTo(191, 1));
+    var prev = railClearance(const Size(1000, 300));
+    for (var h = 301.0; h <= 700; h++) {
+      final now = railClearance(Size(1000, h));
+      expect((now - prev).abs(), lessThan(4), reason: 'jump at height $h');
+      prev = now;
     }
   });
 

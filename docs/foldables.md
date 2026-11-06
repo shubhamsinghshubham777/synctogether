@@ -5,9 +5,9 @@ The app classifies the *window* and reads folds from `MediaQuery.displayFeatures
 | Posture | What the OS reports | What we render |
 |---|---|---|
 | Cover display (Flip 360x374, iPhone Duo closed 466x678) | a small window | phone room; under 420 tall, picture and transport only |
-| Unfolded, flat (Fold 882x1104, Pixel Fold, iPhone Duo inner 951x669 / 669x951) | one window, a flat or inactive fold | continuous display: roomy landscape, stacked portrait, or picture over a deck when near-square |
+| Unfolded, flat (Fold 882x1104, Pixel Fold, iPhone Duo inner 951x669 / 669x951) | one window, a flat or inactive fold | continuous display: roomy landscape (with facecams the picture sits beside the rail, not under it), stacked portrait, or picture over a deck when near-square |
 | Book / dual screen | Android: `hinge` or half-opened `fold`, vertical. iPhone Duo: an *active division* region | video left, chat right, nothing on the fold; the lobby spans both halves |
-| Tabletop / laptop | half-opened `fold`, horizontal (iPhone Duo: the inner display held portrait, division active) | picture in the upper pane, a two-column deck below; one-column screens use the lower pane |
+| Tabletop / laptop | half-opened `fold`, horizontal (iPhone Duo: the inner display held portrait, division active) | picture in the upper pane, a two-column deck below; one-column screens use the lower pane; with the keyboard up, chat lifts above it and the picture shrinks into the space over it, whole |
 
 Anything that is not the room or the lobby takes one pane (`PTHingeSafe`); dialogs and popovers land in the pane they opened from, or the one the keyboard has not covered.
 

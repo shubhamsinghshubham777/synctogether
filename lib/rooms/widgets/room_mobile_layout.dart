@@ -832,15 +832,22 @@ class RoomFoldSplit extends StatelessWidget {
     if (panes.length < 2) return first;
     return LayoutBuilder(
       builder: (context, box) {
+        var upper = panes.first;
         var lower = panes.last;
         if (liftSecond && fold.axis == PTFoldAxis.horizontal && box.hasBoundedHeight) {
-          final lifted = math.min(box.maxHeight, math.max(kDeckLiftedMin, box.maxHeight * 0.72));
+          final lifted = math.min(
+            box.maxHeight,
+            math.max(kDeckLiftedMin, box.maxHeight * kDeckLiftedShare),
+          );
           lower = Rect.fromLTRB(0, box.maxHeight - lifted, window.width, box.maxHeight);
+          // The picture gives way instead of being covered: it letterboxes
+          // (never cropped) into whatever the lifted pane leaves above it.
+          upper = Rect.fromLTRB(0, 0, window.width, lower.top);
         }
         return Stack(
           fit: StackFit.expand,
           children: [
-            PTPane(rect: panes.first, child: first),
+            PTPane(rect: upper, child: first),
             // Opaque, always: lifted over the picture the pane must not let it
             // show through the messages (and a wrapper that came and went with
             // the keyboard would remount the chat).
@@ -856,7 +863,11 @@ class RoomFoldSplit extends StatelessWidget {
 }
 
 /// The least height a lifted lower pane (see [RoomFoldSplit.liftSecond]) gets.
-const kDeckLiftedMin = 220.0;
+const kDeckLiftedMin = 180.0;
+
+/// The share of the space above the keyboard a lifted lower pane takes; the
+/// picture gets the rest, whole.
+const kDeckLiftedShare = 0.5;
 
 /// Portrait windows shorter than this are a cover display: picture and
 /// transport only, no chat (board 57).

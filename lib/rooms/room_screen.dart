@@ -2423,6 +2423,32 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     return null;
   }
 
+  /// The transient states (uploading, failed) as an icon, for a row too narrow
+  /// for their label; the label rides the tooltip. Null when neither applies.
+  Widget? _mediaSharingTransientIcon() {
+    if (_mode != .local || !(_sync?.isHost ?? false) || _localFileName == null) return null;
+    if (!(EntitlementService.instance.limits?.canShareMedia ?? false)) return null;
+    if (_uploadState == 'uploading' || _isUploadingSharedMedia) {
+      return PTIconButton(
+        icon: BoothIcons.cloudUpload,
+        size: 44,
+        iconSize: 20,
+        tooltip: 'Uploading ${(_uploadFraction * 100).toInt()}% - tap to cancel',
+        onPressed: _cancelMediaSharingUpload,
+      );
+    }
+    if (_uploadState == 'failed') {
+      return PTIconButton(
+        icon: BoothIcons.restore,
+        size: 44,
+        iconSize: 20,
+        tooltip: 'Upload failed - tap to retry',
+        onPressed: _retryLocalUpload,
+      );
+    }
+    return null;
+  }
+
   /// The resting media-sharing states as a header icon, for the portrait
   /// header where a pill costs a whole row. Null for the transient states
   /// (uploading, failed), whose label is the point.
@@ -5158,16 +5184,20 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
             child: IgnorePointer(
               child: ColoredBox(
                 color: PTColors.shadowSoft,
-                child: Center(
-                  child: Column(
-                    mainAxisSize: .min,
-                    children: [
-                      const PTLoader(size: 44),
-                      if (_awaitingFirstSource) ...[
-                        const SizedBox(height: 18),
-                        Text('Setting up the room…', style: PTText.caption),
+                // The caption gives way when the picture is too short for it (a
+                // cover display at large text): a spinner alone beats an overflow.
+                child: LayoutBuilder(
+                  builder: (context, box) => Center(
+                    child: Column(
+                      mainAxisSize: .min,
+                      children: [
+                        const PTLoader(size: 44),
+                        if (_awaitingFirstSource && box.maxHeight >= 130) ...[
+                          const SizedBox(height: 18),
+                          Text('Setting up the room…', style: PTText.caption),
+                        ],
                       ],
-                    ],
+                    ),
                   ),
                 ),
               ),
@@ -5739,7 +5769,17 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     }
     if (_chatEmbedded || !_controlsOverVideo) return EdgeInsets.zero;
     if (layoutOf(context) != .landscape) {
-      return EdgeInsets.only(top: 76 * scale, bottom: 154 * scale);
+      // The roomy composition (touch tablets, an unfolded iPhone Duo held
+      // landscape) keeps its facecam rail down the left edge: 24 in, 200 wide.
+      // On a window as narrow as the Duo's 951 pt the centred card would run
+      // under it, so the card gives that column up.
+      final railLeft =
+          layoutOf(context) == .tablet && _av != null && !_privacyHidden && _camsVisible;
+      return EdgeInsets.only(
+        left: railLeft ? 24 + 200 + 16 : 0,
+        top: 76 * scale,
+        bottom: 154 * scale,
+      );
     }
     // Phone landscape: the chat column and the rail hug the right edge of the
     // safe area (56 px in); the card stays left of whichever is showing.
@@ -5976,17 +6016,28 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
         // floated a lone chip over the video. The room pill (whose title
         // already ellipsizes) gives up width instead.
         Expanded(
-          child: Row(
-            spacing: 10,
-            children: [
-              Flexible(child: _roomPill(compact: compact)),
-              // Compact rows (phone landscape, fold panes) take the resting
-              // states as an icon; only the transient ones keep a label.
-              if (compact && _mediaSharingIcon() != null)
-                _mediaSharingIcon()!
-              else
-                ?_mediaSharingPill(compact: compact),
-            ],
+          child: LayoutBuilder(
+            builder: (context, box) {
+              // A narrow row (a 455 pt half of a folded iPhone Duo at large
+              // text) cannot carry a labelled pill beside the room pill: the
+              // transient state steps down to an icon with the label as its
+              // tooltip, rather than squeezing the room pill to nothing.
+              final narrow = compact && box.maxWidth < MediaQuery.textScalerOf(context).scale(320);
+              return Row(
+                spacing: 10,
+                children: [
+                  Flexible(child: _roomPill(compact: compact)),
+                  // Compact rows (phone landscape, fold panes) take the resting
+                  // states as an icon; only the transient ones keep a label.
+                  if (compact && _mediaSharingIcon() != null)
+                    _mediaSharingIcon()!
+                  else if (narrow && _mediaSharingTransientIcon() != null)
+                    _mediaSharingTransientIcon()!
+                  else
+                    ?_mediaSharingPill(compact: compact),
+                ],
+              );
+            },
           ),
         ),
         if (chatToggle) ...[
@@ -6291,7 +6342,64 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
   /// as real layout instead of covering it.
   Widget _tablet() {
     final size = MediaQuery.sizeOf(context);
-    return size.width > size.height ? _roomy(touch: true) : _portrait(roomy: true);
+    if (size.width > size.height) return _roomy(touch: true);
+    // Near-square (an unfolded Fold, a Pixel Fold): picture over a deck.
+    return size.height / size.width < kSquarishMaxAspect ? _squarish() : _portrait(roomy: true);
+  }
+
+  /// Near-square touch windows (board 54): the picture across the top at 16:9
+  /// (never more than half the height), the deck under it. Same pieces as the
+  /// tabletop's two halves, minus the fold.
+  Widget _squarish() {
+    final hasCams = _av != null && !_privacyHidden && _camsVisible;
+    final height = MediaQuery.sizeOf(context).height;
+    return Column(
+      children: [
+        ColoredBox(
+          color: PTColors.screenBg,
+          child: SafeArea(
+            bottom: false,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(maxHeight: height * 0.5),
+              child: Center(
+                child: AspectRatio(
+                  aspectRatio: 16 / 9,
+                  child: _skipZones(child: _videoSurface()),
+                ),
+              ),
+            ),
+          ),
+        ),
+        Expanded(
+          child: SafeArea(
+            top: false,
+            child: RoomDeck(
+              header: _portraitHeader(),
+              transport: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                child: Column(
+                  mainAxisSize: .min,
+                  children: [_reactionStrip(compact: true), _controlBar(compact: true)],
+                ),
+              ),
+              aside: [
+                _bannerStack(
+                  spacing: 10,
+                  inScroll: true,
+                  padding: const EdgeInsets.fromLTRB(14, 10, 14, 0),
+                ),
+                if (hasCams)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(14, 10, 14, 0),
+                    child: _facecamStrip(),
+                  ),
+              ],
+              chat: _embeddedChat(padding: EdgeInsets.zero),
+            ),
+          ),
+        ),
+      ],
+    );
   }
 
   /// The desktop composition: full-bleed video, floating chrome, docked chat.
@@ -6576,19 +6684,9 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
           ),
         ),
       ),
-      SafeArea(
-        top: false,
-        child: _aboveChat(
-          chat: _embeddedChat(),
-          children: [
-            _portraitHeader(),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 14),
-              child: Column(
-                mainAxisSize: .min,
-                children: [_reactionStrip(compact: true), _controlBar(compact: true)],
-              ),
-            ),
+      Builder(
+        builder: (context) {
+          final aside = [
             _bannerStack(
               spacing: 10,
               inScroll: true,
@@ -6596,8 +6694,31 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
             ),
             if (hasCams)
               Padding(padding: const EdgeInsets.fromLTRB(14, 10, 14, 0), child: _facecamStrip()),
-          ],
-        ),
+          ];
+          final transport = Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+            child: Column(
+              mainAxisSize: .min,
+              children: [_reactionStrip(compact: true), _controlBar(compact: true)],
+            ),
+          );
+          return SafeArea(
+            top: false,
+            // A wide lower half is two columns (board 54); a narrow one, a
+            // phone-sized stack.
+            child: deckFits(MediaQuery.sizeOf(context))
+                ? RoomDeck(
+                    header: _portraitHeader(),
+                    transport: transport,
+                    aside: aside,
+                    chat: _embeddedChat(padding: EdgeInsets.zero),
+                  )
+                : _aboveChat(
+                    chat: _embeddedChat(),
+                    children: [_portraitHeader(), transport, ...aside],
+                  ),
+          );
+        },
       ),
     );
   }

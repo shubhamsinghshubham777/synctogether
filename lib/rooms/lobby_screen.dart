@@ -811,11 +811,17 @@ class _LobbyScreenState extends State<LobbyScreen> with WindowListener {
                 EntitlementService.instance,
                 RewardsService.instance,
               ]),
-              builder: (context, _) => PTResponsive(
-                desktop: (_) => _desktop(),
-                portrait: (_) => _portrait(),
-                landscape: (_) => _landscape(),
-              ),
+              builder: (context, _) {
+                final fold = foldOf(context);
+                // A vertical fold (iPhone Duo book, a dual screen): what you
+                // can do on one half, what you have on the other (board 56).
+                if (!isDesktop && fold.axis == .vertical) return _book(fold);
+                return PTResponsive(
+                  desktop: (_) => _desktop(),
+                  portrait: (_) => _portrait(),
+                  landscape: (_) => _landscape(),
+                );
+              },
             ),
           ),
         ),
@@ -1104,6 +1110,43 @@ class _LobbyScreenState extends State<LobbyScreen> with WindowListener {
           ),
         ],
       ),
+    );
+  }
+
+  /// Both halves of a vertical fold, each laid out as the phone it is the size
+  /// of: the wordmark, account and the open/join forms on the first, the
+  /// tickets on the second. Nothing crosses the fold.
+  Widget _book(PTFold fold) {
+    final panes = panesOf(MediaQuery.sizeOf(context), fold);
+    Widget half(Rect rect, Widget Function(double bottom) body) => PTPane(
+      rect: rect,
+      child: Builder(
+        builder: (context) => SafeArea(
+          bottom: false,
+          child: ScrollFadeEdge(
+            height: 48,
+            child: SingleChildScrollView(
+              keyboardDismissBehavior: .onDrag,
+              padding: EdgeInsets.fromLTRB(20, 10, 20, 40 + MediaQuery.paddingOf(context).bottom),
+              child: body(MediaQuery.paddingOf(context).bottom),
+            ),
+          ),
+        ),
+      ),
+    );
+    return Stack(
+      fit: .expand,
+      children: [
+        half(
+          panes.first,
+          (_) => Column(
+            crossAxisAlignment: .stretch,
+            spacing: 22,
+            children: [_header(compact: true), _doColumn(headlineSize: 40, compact: true)],
+          ),
+        ),
+        half(panes.last, (_) => _haveColumn(compact: true)),
+      ],
     );
   }
 

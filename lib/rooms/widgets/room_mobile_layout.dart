@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart' show Ticker;
 import 'package:synctogether/ui/pt_motion.dart';
+import 'package:synctogether/ui/pt_theme.dart';
 import 'package:synctogether/ui/responsive.dart';
 
 import 'room_bar_form.dart';
@@ -528,8 +529,12 @@ class _RoomMobilePortraitLayoutState extends State<RoomMobilePortraitLayout> {
     final cams = w.facecamStrip ?? _lastStrip;
     final gutter = w.roomy ? 24.0 : (MediaQuery.sizeOf(context).width < 380 ? 10.0 : 14.0);
 
-    final floor = floorScaler(context).scale(160);
-    final reveal = w.chatFloorReveal;
+    // A window this short (the Flip's cover display, 360x374) cannot hold a
+    // readable chat under the picture and the transport; the picture and the
+    // transport win and chat is left to the big screen (board 57).
+    final cover = MediaQuery.sizeOf(context).height < kCoverMaxHeight;
+    final floor = cover ? 0.0 : floorScaler(context).scale(160);
+    final reveal = cover ? null : w.chatFloorReveal;
     final slots = <Widget>[
       RoomPortraitSlot(
         key: const ValueKey(RoomPortraitRole.header),
@@ -562,12 +567,12 @@ class _RoomMobilePortraitLayoutState extends State<RoomMobilePortraitLayout> {
       RoomPortraitSlot(
         key: const ValueKey(RoomPortraitRole.chat),
         role: .chat,
-        child: w.embeddedChat,
+        child: cover ? const SizedBox.shrink() : w.embeddedChat,
       ),
     ];
     return SafeArea(
       child: reveal == null
-          ? RoomPortraitStack(chatFloor: floor + w.chatFloorExtra, children: slots)
+          ? RoomPortraitStack(chatFloor: floor + (cover ? 0 : w.chatFloorExtra), children: slots)
           : ValueListenableBuilder<double>(
               valueListenable: reveal,
               builder: (context, t, _) =>
@@ -817,6 +822,82 @@ class RoomFoldSplit extends StatelessWidget {
         PTPane(rect: panes.first, child: first),
         PTPane(rect: panes.last, child: second),
       ],
+    );
+  }
+}
+
+/// Portrait windows shorter than this are a cover display: picture and
+/// transport only, no chat (board 57).
+const kCoverMaxHeight = 420.0;
+
+/// A pane or region at least this wide, and no taller than it is wide, has the
+/// room for [RoomDeck] (board 54): two columns beat a phone stack there.
+const kDeckMinWidth = 640.0;
+
+/// Windows (without a fold) whose height over width is under this lay the room
+/// out as picture-over-[RoomDeck] rather than a tall stack: the unfolded Fold
+/// (1.25) and Pixel Fold (1.2) qualify, iPad portrait (1.33 and up) keeps the
+/// stack, which has the height.
+const kSquarishMaxAspect = 1.3;
+
+/// Below this height the deck's controls column drops its header.
+const kDeckHeaderMinHeight = 260.0;
+
+/// Whether a region of [size] is a deck's shape: wide enough for two columns
+/// and not a tall one.
+bool deckFits(Size size) => size.width >= kDeckMinWidth && size.height <= size.width * 1.1;
+
+/// The lower half of a tabletop, or the part of a near-square window under the
+/// picture (board 54): the room's controls in one column, the room itself - the
+/// roster and chat - in the other. A wide, short space used as a phone stack
+/// left chat about 120 px; here it gets the whole height.
+///
+/// [header] and [transport] are pinned; [aside] (banners, facecams) scrolls
+/// beneath them so the transport can never be pushed off. The chat panel is not
+/// keyed, as everywhere else (its composer owns an overlay).
+class RoomDeck extends StatelessWidget {
+  const RoomDeck({
+    required this.header,
+    required this.transport,
+    required this.aside,
+    required this.chat,
+    super.key,
+  });
+
+  final Widget header;
+  final Widget transport;
+  final List<Widget> aside;
+  final Widget chat;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, box) {
+        final controls = (box.maxWidth * 0.48).clamp(340.0, 440.0);
+        return Row(
+          children: [
+            SizedBox(
+              width: controls,
+              child: Column(
+                children: [
+                  // Short (a tabletop's lower half with the keyboard up): the
+                  // room's name gives way to the transport, as the portrait
+                  // stack's header does under a keyboard.
+                  if (box.maxHeight >= kDeckHeaderMinHeight) header,
+                  transport,
+                  Expanded(
+                    child: SingleChildScrollView(
+                      child: Column(mainAxisSize: MainAxisSize.min, children: aside),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const VerticalDivider(width: 1, color: PTColors.aisle),
+            Expanded(child: chat),
+          ],
+        );
+      },
     );
   }
 }

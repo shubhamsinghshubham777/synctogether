@@ -48,6 +48,10 @@ class RoomPill extends StatelessWidget {
         room: room,
         compact: compact,
         showCode: !compact || box.maxWidth >= MediaQuery.textScalerOf(context).scale(250),
+        // Tighter still, the countdown goes too: the name and the sync dot are
+        // what the pill is for, and a row that cannot hold the rest must not
+        // overflow.
+        showCountdown: !compact || box.maxWidth >= MediaQuery.textScalerOf(context).scale(130),
         syncDotState: syncDotState,
         isHost: isHost,
         timeLeft: timeLeft,
@@ -69,6 +73,7 @@ class RoomPillBody extends StatelessWidget {
     required this.room,
     required this.compact,
     required this.showCode,
+    this.showCountdown = true,
     required this.syncDotState,
     required this.isHost,
     required this.timeLeft,
@@ -85,6 +90,7 @@ class RoomPillBody extends StatelessWidget {
   final Room room;
   final bool compact;
   final bool showCode;
+  final bool showCountdown;
   final SyncDotState syncDotState;
   final bool isHost;
   final Duration timeLeft;
@@ -138,49 +144,52 @@ class RoomPillBody extends StatelessWidget {
             color: isAdPlaying ? PTColors.notice : null,
             onPressed: onDebugToggleAd,
           ),
-        _countdownSlot(
-          compact: compact,
-          child: Tooltip(
-            message: isHost ? 'Extend room duration' : 'Time remaining',
-            child: MouseRegion(
-              cursor: isHost ? SystemMouseCursors.click : SystemMouseCursors.basic,
-              child: GestureDetector(
-                onTap: isHost && !isExtending ? onExtendRoom : null,
-                child: Row(
-                  mainAxisSize: .min,
-                  spacing: 6,
-                  children: [
-                    if (compact)
-                      PTPulse(
-                        enabled: timeLeft > Duration.zero && timeLeft <= const Duration(minutes: 1),
-                        low: 0.35,
-                        child: Icon(BoothIcons.schedule, size: 13, color: PTColors.white(0.7)),
-                      ),
-                    Flexible(
-                      child: AnimatedDefaultTextStyle(
-                        duration: PTMotion.functional(context, PTMotion.state),
-                        curve: PTMotion.enter,
-                        style: PTText.mono.copyWith(
-                          fontSize: 11,
-                          color: timeLeft > Duration.zero && timeLeft <= const Duration(minutes: 5)
-                              ? PTColors.warning
-                              : compact
-                              ? PTColors.white(0.7)
-                              : PTColors.fgDim,
+        if (showCountdown)
+          _countdownSlot(
+            compact: compact,
+            child: Tooltip(
+              message: isHost ? 'Extend room duration' : 'Time remaining',
+              child: MouseRegion(
+                cursor: isHost ? SystemMouseCursors.click : SystemMouseCursors.basic,
+                child: GestureDetector(
+                  onTap: isHost && !isExtending ? onExtendRoom : null,
+                  child: Row(
+                    mainAxisSize: .min,
+                    spacing: 6,
+                    children: [
+                      if (compact)
+                        PTPulse(
+                          enabled:
+                              timeLeft > Duration.zero && timeLeft <= const Duration(minutes: 1),
+                          low: 0.35,
+                          child: Icon(BoothIcons.schedule, size: 13, color: PTColors.white(0.7)),
                         ),
-                        child: Text(
-                          compact ? countdownLabel.replaceAll(' left', '') : countdownLabel,
-                          maxLines: 1,
-                          overflow: .ellipsis,
+                      Flexible(
+                        child: AnimatedDefaultTextStyle(
+                          duration: PTMotion.functional(context, PTMotion.state),
+                          curve: PTMotion.enter,
+                          style: PTText.mono.copyWith(
+                            fontSize: 11,
+                            color:
+                                timeLeft > Duration.zero && timeLeft <= const Duration(minutes: 5)
+                                ? PTColors.warning
+                                : compact
+                                ? PTColors.white(0.7)
+                                : PTColors.fgDim,
+                          ),
+                          child: Text(
+                            compact ? countdownLabel.replaceAll(' left', '') : countdownLabel,
+                            maxLines: 1,
+                            overflow: .ellipsis,
+                          ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),
           ),
-        ),
       ],
     );
 

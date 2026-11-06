@@ -3,6 +3,7 @@ import '../ui/booth_icons.g.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart' as rtc;
+import 'package:synctogether/av/camera_facing.dart';
 import 'package:synctogether/diagnostics.dart';
 import 'package:synctogether/ui/buttons.dart';
 import 'package:synctogether/ui/glass.dart';
@@ -328,6 +329,18 @@ class _CameraCaptureDialogState extends State<CameraCaptureDialog> {
     );
   }
 
+  bool _mirrorPreview() {
+    String? facing;
+    try {
+      final tracks = _stream?.getVideoTracks();
+      facing = tracks == null || tracks.isEmpty
+          ? null
+          : tracks.first.getSettings()['facingMode'] as String?;
+    } catch (_) {}
+    final label = _cameras.where((c) => c.deviceId == _selectedCameraId).firstOrNull?.label;
+    return shouldMirrorCamera(facingMode: facing, label: label);
+  }
+
   Widget _buildCameraPreview() {
     if (_initializing) {
       return const Center(child: PTLoader(size: 28));
@@ -337,7 +350,7 @@ class _CameraCaptureDialogState extends State<CameraCaptureDialog> {
     }
     return rtc.RTCVideoView(
       _renderer,
-      mirror: true,
+      mirror: _mirrorPreview(),
       objectFit: rtc.RTCVideoViewObjectFit.RTCVideoViewObjectFitCover,
     );
   }

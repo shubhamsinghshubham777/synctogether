@@ -8,6 +8,7 @@ import 'package:flutter/services.dart' show MethodChannel, MissingPluginExceptio
 import 'package:flutter_webrtc/flutter_webrtc.dart' as rtc;
 import 'package:livekit_client/livekit_client.dart' as lk;
 import 'package:media_kit/media_kit.dart';
+import 'package:synctogether/av/camera_facing.dart';
 import 'package:synctogether/av/device_preference_service.dart';
 import 'package:synctogether/av/livekit_service.dart';
 import 'package:synctogether/av/macos_audio_devices.dart';
@@ -672,6 +673,14 @@ class _AvSettingsDialogContentState extends State<_AvSettingsDialogContent> {
     );
   }
 
+  bool _mirrorPreview() {
+    String? facing;
+    try {
+      facing = _camTrack?.mediaStreamTrack.getSettings()['facingMode'] as String?;
+    } catch (_) {}
+    return shouldMirrorCamera(facingMode: facing, label: _selectedCam?.label);
+  }
+
   Widget _cameraPreview() {
     return Padding(
       padding: const EdgeInsets.only(top: 10),
@@ -686,7 +695,11 @@ class _AvSettingsDialogContentState extends State<_AvSettingsDialogContent> {
               border: Border.all(color: PTColors.rail),
             ),
             child: _camTesting && _camTrack != null
-                ? lk.VideoTrackRenderer(_camTrack!, fit: .cover, mirrorMode: .mirror)
+                ? lk.VideoTrackRenderer(
+                    _camTrack!,
+                    fit: .cover,
+                    mirrorMode: _mirrorPreview() ? .mirror : .off,
+                  )
                 : Center(
                     child: Column(
                       mainAxisSize: .min,

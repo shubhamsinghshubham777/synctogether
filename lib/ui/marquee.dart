@@ -25,8 +25,8 @@ class PTMarquee extends StatefulWidget {
     super.key,
     required this.style,
     this.textAlign = TextAlign.start,
-    this.pause = const Duration(milliseconds: 1600),
-    this.velocity = 38,
+    this.pause = const Duration(milliseconds: 2200),
+    this.velocity = 24,
     this.gap = 48,
   });
 
@@ -104,10 +104,20 @@ class _PTMarqueeState extends State<PTMarquee> with SingleTickerProviderStateMix
     final direction = Directionality.of(context);
     return LayoutBuilder(
       builder: (context, box) {
+        // Every copy, and the measurement, resolve the style the way `Text`
+        // does (the inherited default merged under ours) and share its height
+        // behaviour. A `RichText` given the bare style has different line
+        // metrics, and the second copy sat a pixel or two off the first - a
+        // jump in Y the moment it scrolled into view.
+        final defaults = DefaultTextStyle.of(context);
+        final effective = widget.style.inherit ? defaults.style.merge(widget.style) : widget.style;
+        final heightBehavior =
+            defaults.textHeightBehavior ?? DefaultTextHeightBehavior.maybeOf(context);
         final painter = TextPainter(
-          text: TextSpan(text: widget.text, style: widget.style),
+          text: TextSpan(text: widget.text, style: effective),
           textDirection: direction,
           textScaler: scaler,
+          textHeightBehavior: heightBehavior,
           maxLines: 1,
         )..layout();
         final width = painter.width;
@@ -132,7 +142,9 @@ class _PTMarqueeState extends State<PTMarquee> with SingleTickerProviderStateMix
           maxLines: 1,
           softWrap: false,
           textScaler: scaler,
-          text: TextSpan(text: widget.text, style: widget.style),
+          textHeightBehavior: heightBehavior,
+          textDirection: direction,
+          text: TextSpan(text: widget.text, style: effective),
         );
         final strip = RepaintBoundary(
           child: Row(

@@ -37,17 +37,17 @@ void main() {
     await tester.pump(); // the controller starts after layout
     await tester.pump();
     final start = _x(tester);
-    // Held at its start for the pause.
-    await tester.pump(const Duration(milliseconds: 1000));
+    // Held at its start for the pause (2.2 s).
+    await tester.pump(const Duration(milliseconds: 2000));
     expect(_x(tester), start);
-    // Then moving left, a few pixels a frame.
-    await tester.pump(const Duration(milliseconds: 1000));
+    // Then moving left, slowly: a fraction of a pixel a frame.
+    await tester.pump(const Duration(milliseconds: 1200));
     var prev = _x(tester);
     expect(prev, lessThan(start));
     for (var i = 0; i < 20; i++) {
       await tester.pump(const Duration(milliseconds: 16));
       final now = _x(tester);
-      expect(prev - now, lessThan(3), reason: 'no jump at frame $i');
+      expect(prev - now, lessThan(1), reason: 'no jump at frame $i');
       prev = now;
     }
     // It reaches the end of the first copy plus the gap and starts over.
@@ -86,6 +86,46 @@ void main() {
       );
     }
     expect(tester.takeException(), isNull);
+  });
+
+  // The second copy must sit exactly where the first does, vertically, however
+  // the surrounding text style is set up (a real app has a default text style
+  // with its own height), and nothing may move in Y over a whole loop.
+  testWidgets('both copies share one baseline and nothing moves in Y', (tester) async {
+    await tester.pumpWidget(
+      MediaQuery(
+        data: const MediaQueryData(),
+        child: Directionality(
+          textDirection: TextDirection.ltr,
+          child: DefaultTextStyle(
+            style: const TextStyle(fontSize: 20, height: 1.6, fontFamily: 'Ahem'),
+            child: Center(
+              child: SizedBox(
+                width: 160,
+                child: PTMarquee(_long, style: const TextStyle(fontSize: 14, fontFamily: 'Ahem')),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+    final first = find.text(_long);
+    final second = find.descendant(of: find.byType(PTMarquee), matching: find.byType(RichText));
+    final y0 = tester.getTopLeft(first).dy;
+    expect(tester.getTopLeft(second.last).dy, y0, reason: 'the copies differ in Y');
+    expect(tester.getSize(first).height, tester.getSize(second.last).height);
+    // Through a whole loop - hold, scroll, the second copy in view, the restart.
+    for (var i = 0; i < 400; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(tester.getTopLeft(first).dy, y0, reason: 'moved in Y at ${i * 100} ms');
+      expect(
+        tester.getTopLeft(second.last).dy,
+        y0,
+        reason: 'second copy moved in Y at ${i * 100} ms',
+      );
+    }
   });
 
   testWidgets('reduce-motion shows it still, ellipsized', (tester) async {

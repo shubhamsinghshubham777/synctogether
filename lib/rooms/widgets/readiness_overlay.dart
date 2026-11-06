@@ -593,24 +593,29 @@ class _WayButton extends StatelessWidget {
             borderRadius: BorderRadius.circular(PTRadius.control),
             border: Border.all(color: PTColors.rail),
           ),
-          child: Row(
-            mainAxisAlignment: .center,
-            spacing: 8,
-            children: [
-              if (icon != null) Icon(icon, size: 16, color: PTColors.primary),
-              Flexible(
-                child: Text(
-                  label,
-                  maxLines: 1,
-                  overflow: .ellipsis,
-                  style: PTText.body.copyWith(
-                    fontSize: 13.5,
-                    fontWeight: .w600,
-                    color: PTColors.fg,
+          // The glyph is the first thing to go when the key is too narrow for
+          // both (three of these share a card that a keyboard can squeeze).
+          child: LayoutBuilder(
+            builder: (context, box) => Row(
+              mainAxisAlignment: .center,
+              spacing: 8,
+              children: [
+                if (icon != null && box.maxWidth >= 96)
+                  Icon(icon, size: 16, color: PTColors.primary),
+                Flexible(
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: .ellipsis,
+                    style: PTText.body.copyWith(
+                      fontSize: 13.5,
+                      fontWeight: .w600,
+                      color: PTColors.fg,
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

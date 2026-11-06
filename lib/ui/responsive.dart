@@ -217,7 +217,7 @@ class PTHingeSafe extends StatelessWidget {
     final fold = foldOf(context);
     final pane = twoPaneBook && fold.axis == .vertical
         ? Offset.zero & size
-        : primaryPaneOf(size, fold);
+        : primaryPaneOf(size, fold, keyboard: MediaQuery.viewInsetsOf(context).bottom);
     return ColoredBox(
       color: PTColors.canvas,
       child: PTPane(rect: pane, child: child),

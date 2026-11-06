@@ -806,25 +806,57 @@ class RoomMobileLandscapeLayout extends StatelessWidget {
 /// really shares with the window, and the hinge is not in either pane's
 /// display features. Fills the window (the room's body does).
 class RoomFoldSplit extends StatelessWidget {
-  const RoomFoldSplit({required this.fold, required this.first, required this.second, super.key});
+  const RoomFoldSplit({
+    required this.fold,
+    required this.first,
+    required this.second,
+    this.liftSecond = false,
+    super.key,
+  });
 
   final PTFold fold;
   final Widget first;
   final Widget second;
 
+  /// A horizontal fold whose lower pane the soft keyboard has covered: the
+  /// second pane's rect is lifted to sit above the keyboard (over the first
+  /// pane's lower part) instead of being squeezed to the sliver the keyboard
+  /// leaves. Only geometry changes - the two panes stay where they are in the
+  /// tree, so nothing remounts and the composer keeps its focus.
+  final bool liftSecond;
+
   @override
   Widget build(BuildContext context) {
-    final panes = panesOf(MediaQuery.sizeOf(context), fold);
+    final window = MediaQuery.sizeOf(context);
+    final panes = panesOf(window, fold);
     if (panes.length < 2) return first;
-    return Stack(
-      fit: .expand,
-      children: [
-        PTPane(rect: panes.first, child: first),
-        PTPane(rect: panes.last, child: second),
-      ],
+    return LayoutBuilder(
+      builder: (context, box) {
+        var lower = panes.last;
+        if (liftSecond && fold.axis == PTFoldAxis.horizontal && box.hasBoundedHeight) {
+          final lifted = math.min(box.maxHeight, math.max(kDeckLiftedMin, box.maxHeight * 0.72));
+          lower = Rect.fromLTRB(0, box.maxHeight - lifted, window.width, box.maxHeight);
+        }
+        return Stack(
+          fit: StackFit.expand,
+          children: [
+            PTPane(rect: panes.first, child: first),
+            // Opaque, always: lifted over the picture the pane must not let it
+            // show through the messages (and a wrapper that came and went with
+            // the keyboard would remount the chat).
+            PTPane(
+              rect: lower,
+              child: ColoredBox(color: PTColors.screenBg, child: second),
+            ),
+          ],
+        );
+      },
     );
   }
 }
+
+/// The least height a lifted lower pane (see [RoomFoldSplit.liftSecond]) gets.
+const kDeckLiftedMin = 220.0;
 
 /// Portrait windows shorter than this are a cover display: picture and
 /// transport only, no chat (board 57).
@@ -861,8 +893,13 @@ class RoomDeck extends StatelessWidget {
     required this.transport,
     required this.aside,
     required this.chat,
+    this.controlsAside = false,
     super.key,
   });
+
+  /// The controls column steps aside (kept mounted, not laid out or painted)
+  /// and the chat takes the whole width: a tabletop with the keyboard up.
+  final bool controlsAside;
 
   final Widget header;
   final Widget transport;
@@ -876,24 +913,29 @@ class RoomDeck extends StatelessWidget {
         final controls = (box.maxWidth * 0.48).clamp(340.0, 440.0);
         return Row(
           children: [
-            SizedBox(
-              width: controls,
-              child: Column(
-                children: [
-                  // Short (a tabletop's lower half with the keyboard up): the
-                  // room's name gives way to the transport, as the portrait
-                  // stack's header does under a keyboard.
-                  if (box.maxHeight >= kDeckHeaderMinHeight) header,
-                  transport,
-                  Expanded(
-                    child: SingleChildScrollView(
-                      child: Column(mainAxisSize: MainAxisSize.min, children: aside),
+            Offstage(
+              offstage: controlsAside,
+              child: SizedBox(
+                width: controls,
+                child: Column(
+                  children: [
+                    // Short: the room's name gives way to the transport, as the
+                    // portrait stack's header does under a keyboard.
+                    if (box.maxHeight >= kDeckHeaderMinHeight) header,
+                    transport,
+                    Expanded(
+                      child: SingleChildScrollView(
+                        child: Column(mainAxisSize: MainAxisSize.min, children: aside),
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
-            const VerticalDivider(width: 1, color: PTColors.aisle),
+            Offstage(
+              offstage: controlsAside,
+              child: const VerticalDivider(width: 1, color: PTColors.aisle),
+            ),
             Expanded(child: chat),
           ],
         );

@@ -6363,53 +6363,57 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
   /// tabletop's two halves, minus the fold.
   Widget _squarish() {
     final hasCams = _av != null && !_privacyHidden && _camsVisible;
-    final height = MediaQuery.sizeOf(context).height;
-    return Column(
-      children: [
-        ColoredBox(
-          color: PTColors.screenBg,
-          child: SafeArea(
-            bottom: false,
-            child: ConstrainedBox(
-              constraints: BoxConstraints(maxHeight: height * 0.5),
-              child: Center(
-                child: AspectRatio(
-                  aspectRatio: 16 / 9,
-                  child: _skipZones(child: _videoSurface()),
-                ),
-              ),
-            ),
-          ),
-        ),
-        Expanded(
-          child: SafeArea(
-            top: false,
-            child: RoomDeck(
-              header: _portraitHeader(),
-              transport: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 14),
-                child: Column(
-                  mainAxisSize: .min,
-                  children: [_reactionStrip(compact: true), _controlBar(compact: true)],
-                ),
-              ),
-              aside: [
-                _bannerStack(
-                  spacing: 10,
-                  inScroll: true,
-                  padding: const EdgeInsets.fromLTRB(14, 10, 14, 0),
-                ),
-                if (hasCams)
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(14, 10, 14, 0),
-                    child: _facecamStrip(),
+    // Sized against the body's own height, not the window's: with the soft
+    // keyboard up the body is what is left above it, and half of the whole
+    // window left the deck a sliver.
+    return LayoutBuilder(
+      builder: (context, box) => Column(
+        children: [
+          ColoredBox(
+            color: PTColors.screenBg,
+            child: SafeArea(
+              bottom: false,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(maxHeight: box.maxHeight * 0.5),
+                child: Center(
+                  child: AspectRatio(
+                    aspectRatio: 16 / 9,
+                    child: _skipZones(child: _videoSurface()),
                   ),
-              ],
-              chat: _embeddedChat(padding: EdgeInsets.zero),
+                ),
+              ),
             ),
           ),
-        ),
-      ],
+          Expanded(
+            child: SafeArea(
+              top: false,
+              child: RoomDeck(
+                header: _portraitHeader(),
+                transport: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 14),
+                  child: Column(
+                    mainAxisSize: .min,
+                    children: [_reactionStrip(compact: true), _controlBar(compact: true)],
+                  ),
+                ),
+                aside: [
+                  _bannerStack(
+                    spacing: 10,
+                    inScroll: true,
+                    padding: const EdgeInsets.fromLTRB(14, 10, 14, 0),
+                  ),
+                  if (hasCams)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(14, 10, 14, 0),
+                      child: _facecamStrip(),
+                    ),
+                ],
+                chat: _embeddedChat(padding: EdgeInsets.zero),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -6629,6 +6633,18 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
   /// on the top half, transport + reactions + chat on the bottom half.
   Widget _folded(PTFold fold) {
     final hasCams = _av != null && !_privacyHidden && _camsVisible;
+    // A tabletop whose lower half the soft keyboard has taken: the room keeps
+    // the same tree (a remount would drop the composer's focus and the
+    // keyboard with it) and only moves geometry - the lower pane's rect lifts
+    // above the keys over the picture's bottom, and the deck's control column
+    // steps aside for the chat, as phone landscape's control bar does.
+    final keyboardOverLower =
+        fold.axis == .horizontal &&
+        MediaQuery.viewInsetsOf(context).bottom > 0 &&
+        MediaQuery.sizeOf(context).height -
+                MediaQuery.viewInsetsOf(context).bottom -
+                fold.bounds.bottom <
+            kMinLowerPaneHeight;
     if (fold.axis == .vertical) {
       return _foldSplit(
         fold,
@@ -6681,6 +6697,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     }
     return _foldSplit(
       fold,
+      liftSecond: keyboardOverLower,
       SafeArea(
         bottom: false,
         child: ColoredBox(
@@ -6717,6 +6734,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
             // phone-sized stack.
             child: deckFits(MediaQuery.sizeOf(context))
                 ? RoomDeck(
+                    controlsAside: keyboardOverLower,
                     header: _portraitHeader(),
                     transport: transport,
                     aside: aside,
@@ -6735,7 +6753,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
   /// Splits the window at the hinge: [first] before it, [second] after it,
   /// and the hinge itself left empty so nothing interactive straddles it.
   /// The hinge rect is in window coordinates, and the room fills the window.
-  Widget _foldSplit(PTFold fold, Widget first, Widget second) {
-    return RoomFoldSplit(fold: fold, first: first, second: second);
+  Widget _foldSplit(PTFold fold, Widget first, Widget second, {bool liftSecond = false}) {
+    return RoomFoldSplit(fold: fold, first: first, second: second, liftSecond: liftSecond);
   }
 }

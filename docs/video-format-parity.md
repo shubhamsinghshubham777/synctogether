@@ -1,5 +1,23 @@
 # Video format parity: desktop vs mobile
 
+## Status (updated 2026-11-06, `main` at e8b7963 and later)
+
+The audit below describes the tree *before* the work; this table is where the gaps stand now.
+Everything marked **built** compiles and passes the Dart suite; none of the device-only parts
+have run on real hardware yet.
+
+| # | Gap | State |
+|---|---|---|
+| 1 | Android picker had no path (staged upload dead, no Recent, no R2 share) | **Built**: `MediaAccess.kt` persistable grant, ranged-read uploads from `content://`, `LocalMediaStore` and `RecentVideos` carry the reference. Needs a real-device check (Drive, Downloads, restart). |
+| 2 | Gate matched the exact filename | **Built**: same title / duration within 1.5 s / "Same movie" confirmation (`gateMatchOf`). |
+| 3 | iOS security scope and iCloud-evicted files | **Built**: scope held for the session, bookmarks persisted, iCloud download requested. Needs a real-device check. |
+| 4 | Allow-list rejected odd containers | **Done**: deny-list of clearly-non-media types; mpv's open failure is the real check. |
+| 5 | iOS UTI and Android MIME coverage | **Done**: one source of truth in `lib/player/media_file_types.dart`; drift test against `Info.plist`; 15 imported iOS types. |
+| 6 | Restart persistence on iOS | **Built** (bookmarks). macOS Store sandbox still falls back to "Find your copy". |
+| 7 | Real-device soak (4K HEVC/AV1/DV/ProRes, hardware decode, thermals) | **Open**: needs devices. |
+| 8 | Android soft subtitles cannot track the render surface | Accepted. |
+| 9 | FFV1-in-Matroska on mpv 0.36 | Accepted gap. |
+
 Audit of 2026-11-05 against `main` at 8d413d4 plus the uncommitted working tree
 (`lib/player/media_file_types.dart`). Every claim is tagged **[ran]** (executed
 here), **[read]** (plugin/app source or binary strings) or **[inferred]**.

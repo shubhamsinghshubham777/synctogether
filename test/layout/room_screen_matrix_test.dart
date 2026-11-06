@@ -336,6 +336,7 @@ void main() {
       await tester.showKeyboard(field.first);
       await tester.pump(const Duration(milliseconds: 400));
     }
+    await expectTapAwayClosesKeyboard(tester, c);
     await _finish(tester);
   }, cases: kScreenMatrix.where((c) => c.keyboard > 0).toList());
 
@@ -700,6 +701,22 @@ void main() {
       await _pumpRoom(tester, c, s, av: true, members: 6);
       await _tapReact(tester);
       expectTransportReachable(tester, c);
+      // Portrait: the facecam strip and the reaction strip are separate surfaces with air
+      // between them, not two borders touching.
+      final strip = find.byType(ReactionStrip);
+      if (c.size.height > c.size.width &&
+          strip.evaluate().isNotEmpty &&
+          tiles().evaluate().isNotEmpty) {
+        final stripTop = tester.getRect(strip).top;
+        var tilesBottom = double.negativeInfinity;
+        for (var i = 0; i < tiles().evaluate().length; i++) {
+          final r = tester.getRect(tiles().at(i));
+          if (r.bottom <= stripTop + 0.5 && r.bottom > tilesBottom) tilesBottom = r.bottom;
+        }
+        if (tilesBottom.isFinite) {
+          expect(stripTop - tilesBottom, greaterThanOrEqualTo(6), reason: 'cams crammed on strip');
+        }
+      }
       await _finish(tester);
     },
     cases: kScreenMatrix.where((c) => c.name.startsWith('phone') && c.keyboard == 0).toList(),

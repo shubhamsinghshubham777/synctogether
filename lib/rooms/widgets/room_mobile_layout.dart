@@ -293,14 +293,14 @@ class RoomMobilePortraitLayout extends StatelessWidget {
             RoomPortraitSlot(
               role: .cams,
               child: Padding(
-                padding: EdgeInsets.fromLTRB(gutter, 10, gutter, 0),
+                padding: EdgeInsets.fromLTRB(gutter, 10, gutter, 6),
                 child: facecamStrip!,
               ),
             ),
           RoomPortraitSlot(
             role: .strip,
             child: Padding(
-              padding: EdgeInsets.fromLTRB(gutter, 0, gutter, 0),
+              padding: EdgeInsets.fromLTRB(gutter, 0, gutter, 6),
               child: reactionStrip,
             ),
           ),

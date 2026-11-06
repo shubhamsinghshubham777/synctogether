@@ -192,6 +192,8 @@ class _CameraCaptureDialogState extends State<CameraCaptureDialog> {
 
   @override
   void dispose() {
+    // Detach first so no frame is delivered to a renderer being torn down.
+    _renderer.srcObject = null;
     final stream = _stream;
     if (stream != null) {
       for (final track in stream.getTracks()) {

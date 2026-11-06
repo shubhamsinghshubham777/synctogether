@@ -148,3 +148,8 @@ dependency_overrides:
     path: third_party/media_kit_libs_macos_video
   media_kit_libs_windows_video:
     path: third_party/media_kit_libs_windows_video
+  # 1.6.2+hotfix.3 plus a nil guard in FlutterRTCVideoRenderer.m (the first-frame
+  # block dereferenced a renderer already deallocated: iOS crash on closing the
+  # profile-photo camera). Drop once upstream fixes it.
+  flutter_webrtc:
+    path: third_party/flutter_webrtc

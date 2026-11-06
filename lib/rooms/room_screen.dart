@@ -53,6 +53,7 @@ import 'package:synctogether/rooms/room_models.dart';
 import 'package:synctogether/rooms/moderation_service.dart';
 import 'package:synctogether/rooms/widgets/report_dialog.dart';
 import 'package:synctogether/rooms/room_service.dart';
+import 'package:synctogether/rooms/roster_fold.dart';
 import 'package:synctogether/rooms/upload_source.dart';
 import 'package:synctogether/rooms/widgets/extend_room_dialog.dart';
 import 'package:synctogether/rooms/widgets/facecam_rail.dart';
@@ -70,6 +71,7 @@ import 'package:synctogether/rooms/widgets/room_control_bar.dart';
 import 'package:synctogether/rooms/widgets/room_desktop_layout.dart';
 import 'package:synctogether/rooms/widgets/room_ended_dialog.dart';
 import 'package:synctogether/rooms/widgets/room_pill.dart';
+import 'package:synctogether/rooms/widgets/room_bar_form.dart';
 import 'package:synctogether/rooms/widgets/room_mobile_layout.dart';
 import 'package:synctogether/rooms/widgets/room_overflow_menu.dart';
 import 'package:synctogether/rooms/widgets/room_track_chooser_dialog.dart';
@@ -141,6 +143,10 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
   /// layouts trips `_attachTarget == this` / `_elements.contains(element)`.
   /// Remounting is cheap; losing a half-typed message is not.
   final _chatDraft = TextEditingController();
+
+  /// Whether the phone roster strip is folded; owned here so it outlives the
+  /// chat panel, which remounts when the layout class changes.
+  final _rosterFold = RosterFold();
 
   /// The chat's inline emoji picker holds the soft keyboard's place (touch).
   bool _chatPickerUp = false;
@@ -793,6 +799,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
   @override
   void initState() {
     super.initState();
+    _rosterFold.load();
     if (widget.player == null) {
       // libass on every platform: the Flutter subtitle view only receives
       // plain text, so ASS/SSA styling and older files' tracks came out
@@ -1337,6 +1344,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
   void dispose() {
     _subtitleStyle?.dispose();
     _chatDraft.dispose();
+    _rosterFold.dispose();
     ModerationService.instance.removeListener(_onBlocksChanged);
     if (_immersive) unawaited(_applySystemUi(immersive: false));
     if (isDesktop) windowManager.removeListener(this);
@@ -5502,19 +5510,46 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
   // ---------------------------------------------------------------------------
 
   /// How much of the video box the floating chrome (top actions, control
-  /// bar) covers, so the readiness card centres in the visible gap instead of
-  /// running its buttons under the control bar. Zero for the in-flow layouts,
-  /// whose chrome sits outside the video box.
+  /// bar, and in phone landscape the chat column and facecam rail) covers, so
+  /// the readiness card sits in the gap above the bar - bottom-anchored, never
+  /// under it, the rail or the chat. Zero for the in-flow layouts, whose chrome
+  /// sits outside the video box.
   EdgeInsets _videoChromeInsets() {
     final fold = !isDesktop ? foldOf(context) : null;
+    final scale = MediaQuery.textScalerOf(context).scale(1).clamp(1.0, 1.4);
     if (fold != null && fold.isSplit) {
-      return fold.axis == .vertical ? const EdgeInsets.only(top: 60, bottom: 130) : EdgeInsets.zero;
+      // Book fold: the bar floats 16 px up from the pane's bottom, ~135 tall.
+      return fold.axis == .vertical
+          ? EdgeInsets.only(top: 60, bottom: 156 * scale)
+          : EdgeInsets.zero;
     }
     if (_chatEmbedded || !_controlsOverVideo) return EdgeInsets.zero;
-    final scale = MediaQuery.textScalerOf(context).scale(1).clamp(1.0, 1.4);
-    return layoutOf(context) == .landscape
-        ? EdgeInsets.only(top: 60 * scale, bottom: 136 * scale)
-        : EdgeInsets.only(top: 76 * scale, bottom: 154 * scale);
+    if (layoutOf(context) != .landscape) {
+      return EdgeInsets.only(top: 76 * scale, bottom: 154 * scale);
+    }
+    // Phone landscape: the chat column and the rail hug the right edge of the
+    // safe area (56 px in); the card stays left of whichever is showing.
+    final size = MediaQuery.sizeOf(context);
+    final pad = MediaQuery.paddingOf(context);
+    final edge = math.max(56.0, math.max(pad.left, pad.right));
+    final safeWidth = size.width - 2 * edge;
+    var right = 0.0;
+    if (_chatOpen && landscapeChatFits(safeWidth)) right += landscapeChatWidth(safeWidth) + 12;
+    if (_av != null && !_privacyHidden && _camsVisible) {
+      // Judged against the shortest bar form so the reserve is never too small.
+      final slot = size.height - (kLandscapeBarInset + 86) - kRailGap - kRailTop;
+      right += railPlanFor(slot).tileWidth + 12;
+    }
+    return EdgeInsets.only(
+      top: 60 * scale,
+      right: right == 0 ? 0 : math.max(0, edge + right - pad.right - 12),
+      // The bar's inset (22) plus its tallest form: ~136, growing ~20 px per
+      // 1x of text scale (the forms step down rather than scale, so no more).
+      bottom:
+          kLandscapeBarInset +
+          136 +
+          20 * (MediaQuery.textScalerOf(context).scale(1).clamp(1.0, 2.0) - 1),
+    );
   }
 
   /// Raises libass's subtitles by the control bar's height while the bar is
@@ -5576,6 +5611,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
       closable: !docked && layoutOf(context) != .desktop,
       // Everyone present, blocked or not: the gate waits on all of them, so
       // the roster mirrors the readiness overlay rather than the chat feed.
+      rosterFold: embedded ? _rosterFold : null,
       roster: isDesktop || docked || embedded
           ? [
               for (final m in _present)

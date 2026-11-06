@@ -13,7 +13,6 @@ import 'package:synctogether/player/youtube/youtube_links.dart';
 import 'package:synctogether/rooms/emoji/emoji_logic.dart';
 import 'package:synctogether/rooms/emoji/emoji_prefs.dart';
 import 'package:synctogether/sync/sync_service.dart';
-import 'package:synctogether/ui/booth.dart';
 import 'package:synctogether/ui/buttons.dart';
 import 'package:synctogether/ui/glass.dart';
 import 'package:synctogether/ui/identity.dart';
@@ -24,6 +23,10 @@ import 'package:synctogether/ui/responsive.dart';
 import '../../rewards/rewards_models.dart';
 import 'emoji_picker.dart';
 import 'emoji_quick_bar.dart';
+import '../roster_fold.dart';
+import 'room_roster.dart';
+
+export 'room_roster.dart' show ChatRosterSeat;
 
 /// Pointer hover-intent before the picker opens: long enough that sweeping the
 /// mouse across the button on the way to the field does not pop it.
@@ -106,6 +109,7 @@ class RoomChatPanel extends StatefulWidget {
     this.docked = false,
     this.closable = true,
     this.roster,
+    this.rosterFold,
     this.premiumMembers = const {},
     this.memberFrames = const {},
     this.draftController,
@@ -156,23 +160,13 @@ class RoomChatPanel extends StatefulWidget {
   /// seat's ring turns Cue as they clear the gate. Null keeps the plain header.
   final List<ChatRosterSeat>? roster;
 
+  /// Embedded only: lets the viewer fold the roster to a slim row. Null (every
+  /// docked and floating chat) keeps the plain header - the desktop column has
+  /// the height to spare and the fold is about a phone's.
+  final RosterFold? rosterFold;
+
   @override
   State<RoomChatPanel> createState() => _RoomChatPanelState();
-}
-
-/// One avatar in the chat panel's "In the room" roster.
-class ChatRosterSeat {
-  const ChatRosterSeat({
-    required this.member,
-    required this.ready,
-    this.premium = false,
-    this.frame,
-  });
-
-  final PresentMember member;
-  final bool ready;
-  final bool premium;
-  final AvatarFrame? frame;
 }
 
 class _RoomChatPanelState extends State<RoomChatPanel> {
@@ -230,6 +224,7 @@ class _RoomChatPanelState extends State<RoomChatPanel> {
   void initState() {
     super.initState();
     _snapshot();
+    _observeRoster();
     // Everything already loaded is history: it renders statically, only
     // messages appended after mount animate in.
     _animated.addAll(widget.messages.map(_keyOf));
@@ -246,6 +241,7 @@ class _RoomChatPanelState extends State<RoomChatPanel> {
   @override
   void didUpdateWidget(covariant RoomChatPanel oldWidget) {
     super.didUpdateWidget(oldWidget);
+    _observeRoster();
     // Count alone misses a history reload that swaps rows in place, and the
     // typing row counts towards the list's extent too.
     final last = widget.messages.lastOrNull;
@@ -259,6 +255,14 @@ class _RoomChatPanelState extends State<RoomChatPanel> {
     final follow = _nearBottom || last?.senderId == widget.sync.userId;
     _snapshot();
     if (follow) _scrollToBottom();
+  }
+
+  /// Tells the roster fold how many are in and how many have cleared the gate,
+  /// so it can fold itself once everyone has.
+  void _observeRoster() {
+    final seats = widget.roster;
+    if (seats == null) return;
+    widget.rosterFold?.observe(total: seats.length, ready: seats.where((s) => s.ready).length);
   }
 
   void _snapshot() {
@@ -654,6 +658,8 @@ class _RoomChatPanelState extends State<RoomChatPanel> {
   /// "IN THE ROOM · 4" over a row of seats. One line that scrolls sideways
   /// rather than wrapping: a sixteen-seat room must not eat the chat's height.
   Widget _rosterHeader(List<ChatRosterSeat> seats) {
+    final fold = widget.rosterFold;
+    if (widget.embedded && fold != null) return FoldableRoster(seats: seats, fold: fold);
     return Container(
       padding: EdgeInsets.fromLTRB(20, 18, widget.closable && !widget.embedded ? 12 : 20, 18),
       decoration: const BoxDecoration(
@@ -685,42 +691,7 @@ class _RoomChatPanelState extends State<RoomChatPanel> {
                 ),
             ],
           ),
-          SizedBox(
-            height: 44,
-            child: ListView.separated(
-              scrollDirection: .horizontal,
-              padding: EdgeInsets.zero,
-              itemCount: seats.length,
-              separatorBuilder: (_, _) => const SizedBox(width: 10),
-              itemBuilder: (context, i) {
-                final seat = seats[i];
-                final m = seat.member;
-                return Tooltip(
-                  message: [
-                    m.displayName,
-                    if (m.isHost) 'host',
-                    seat.ready ? 'ready' : 'getting ready',
-                  ].join(' · '),
-                  child: Center(
-                    child: ReadyRing(
-                      diameter: 36,
-                      ready: seat.ready,
-                      premium: seat.premium,
-                      clip: false,
-                      child: PTAvatar(
-                        userId: m.userId,
-                        displayName: m.displayName,
-                        avatarUrl: m.avatarUrl,
-                        size: 36,
-                        premium: seat.premium,
-                        frame: seat.frame,
-                      ),
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
+          RosterRings(seats: seats),
         ],
       ),
     );

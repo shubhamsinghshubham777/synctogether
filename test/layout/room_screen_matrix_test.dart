@@ -8,6 +8,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -29,14 +30,17 @@ import 'package:synctogether/rooms/room_service.dart';
 import 'package:synctogether/rooms/widgets/emoji_picker.dart';
 import 'package:synctogether/rooms/widgets/facecam_rail.dart';
 import 'package:synctogether/rooms/widgets/reaction_strip.dart';
+import 'package:synctogether/rooms/widgets/readiness_overlay.dart';
 import 'package:synctogether/rooms/widgets/room_chat_panel.dart';
 import 'package:synctogether/rooms/widgets/room_control_bar.dart';
+import 'package:synctogether/rooms/widgets/room_roster.dart';
 import 'package:synctogether/sync/sync_service.dart';
 import 'package:synctogether/ui/booth_icons.g.dart';
 import 'package:synctogether/ui/buttons.dart';
 import 'package:synctogether/ui/glass.dart';
 import 'package:synctogether/ui/identity.dart';
 import 'package:synctogether/ui/inputs.dart';
+import 'package:synctogether/ui/pt_motion.dart';
 
 import '../support/screen_matrix.dart';
 import '../sync/fakes.dart';
@@ -316,6 +320,49 @@ Finder tiles() => find.descendant(
   matching: find.byWidgetPredicate((w) => w.runtimeType.toString() == '_FacecamTile'),
 );
 
+/// Boards 47/48: the readiness / empty-state card rests at the bottom of the
+/// picture, a gutter above its edge (or above the floating control bar), never
+/// centred, and never over the control bar, the chat or the facecam rail.
+void expectCardBottomAnchored(WidgetTester tester, ScreenCase c, double s) {
+  final label = '${c.name} x$s';
+  final overlayFinder = find.byType(ReadinessOverlay);
+  expect(overlayFinder, findsOneWidget, reason: label);
+  final overlay = tester.widget<ReadinessOverlay>(overlayFinder);
+  final box = tester.getRect(overlayFinder);
+  final system = MediaQuery.paddingOf(tester.element(overlayFinder));
+  final card = tester.getRect(
+    find.descendant(of: overlayFinder, matching: find.byType(GlassPanel)).first,
+  );
+  expect(card.bottom, lessThanOrEqualTo(box.bottom + 0.5), reason: '$label: $card below $box');
+  // The gap under the card: the gutter plus whatever chrome/system inset
+  // reaches it - or, when height runs out, the 4 px tight form.
+  final inset = overlay.chromeInsets.bottom + system.bottom;
+  final gutter = overlay.compact ? 12.0 : 16.0;
+  final tight = system.bottom + overlay.chromeInsets.bottom + 4;
+  final gap = box.bottom - card.bottom;
+  final matches = [inset + gutter, tight].any((e) => (gap - e).abs() <= 2);
+  // A card taller than the gap scrolls with its bottom pinned instead.
+  final scrolls = card.top <= box.top + 0.5;
+  expect(
+    matches || scrolls,
+    isTrue,
+    reason: '$label: gap $gap, wanted ${inset + gutter} (or tight $tight) in $box, card $card',
+  );
+  expect(card.left, greaterThanOrEqualTo(box.left), reason: label);
+  expect(card.right, lessThanOrEqualTo(box.right), reason: label);
+  for (final other in [RoomControlBar, RoomChatPanel, FacecamRail]) {
+    for (final e in find.byType(other).evaluate()) {
+      final r = tester.getRect(find.byElementPredicate((x) => x == e));
+      expect(
+        r.intersect(card).isEmpty || r.intersect(card).width <= 0 || r.intersect(card).height <= 0,
+        isTrue,
+        reason:
+            '$label: card $card overlaps $other $r (overlay $box, chrome ${overlay.chromeInsets}, system $system)',
+      );
+    }
+  }
+}
+
 void main() {
   setUp(() => _VideoProbe.mounts = 0);
 
@@ -365,12 +412,14 @@ void main() {
     ScreenCase c,
     double s, {
     bool host = true,
+    bool av = false,
   }) async {
     await _pumpRoom(
       tester,
       c,
       s,
       room: _emptyRoom(),
+      av: av,
       members: 2,
       selfHost: host,
       remembered: false,
@@ -381,23 +430,55 @@ void main() {
     }
     await tester.pump(const Duration(milliseconds: 500));
     await tester.pump(const Duration(seconds: 1));
+    // A member has no source to wait for: the room answers "idle" after the
+    // state-request retry window (2 x 2 s), and only then does the waiting card
+    // replace the "Setting up the room" spinner.
+    if (!host) await tester.pump(const Duration(seconds: 5));
+    await tester.pump(const Duration(seconds: 1));
   }
 
-  screenMatrix('room empty state, host', (tester, c, s) async {
-    await pumpEmptyRoom(tester, c, s);
-    final pick = find.text('Choose a video');
-    expect(pick, findsOneWidget, reason: '${c.name} x$s: no way to choose');
-    expect(pick.hitTestable(), findsOneWidget, reason: '${c.name} x$s: choose button not hittable');
-    final visible = Rect.fromLTWH(0, 0, c.size.width, c.size.height - c.keyboard);
-    final r = tester.getRect(find.ancestor(of: pick, matching: find.byType(PTButton)));
-    expect(
-      visible.contains(r.topLeft) && visible.contains(r.bottomRight),
-      isTrue,
-      reason: '${c.name} x$s: $r outside $visible',
-    );
-    expectShownWhole(tester, 'Choose a video');
-    await _finish(tester);
-  }, cases: kScreenMatrix.where((c) => c.keyboard == 0).toList());
+  const emptyScales = [1.0, 1.5, 2.0];
+  final emptyCases = kScreenMatrix.where((c) => c.keyboard == 0).toList();
+
+  screenMatrix(
+    'room empty state, host',
+    (tester, c, s) async {
+      await pumpEmptyRoom(tester, c, s);
+      final pick = find.text('Choose a video');
+      expect(pick, findsOneWidget, reason: '${c.name} x$s: no way to choose');
+      expect(
+        pick.hitTestable(),
+        findsOneWidget,
+        reason: '${c.name} x$s: choose button not hittable',
+      );
+      final visible = Rect.fromLTWH(0, 0, c.size.width, c.size.height - c.keyboard);
+      final button = find.ancestor(of: pick, matching: find.byType(PTButton));
+      final r = tester.getRect(button);
+      expect(
+        visible.contains(r.topLeft) && visible.contains(r.bottomRight),
+        isTrue,
+        reason: '${c.name} x$s: $r outside $visible',
+      );
+      expect(r.height, greaterThanOrEqualTo(44), reason: '${c.name} x$s: primary under 44 px');
+      expectShownWhole(tester, 'Choose a video');
+      expectCardBottomAnchored(tester, c, s);
+      await _finish(tester);
+    },
+    textScales: emptyScales,
+    cases: emptyCases,
+  );
+
+  screenMatrix(
+    'room empty state, host, with the facecam rail',
+    (tester, c, s) async {
+      await pumpEmptyRoom(tester, c, s, av: true);
+      expect(find.text('Choose a video').hitTestable(), findsOneWidget, reason: '${c.name} x$s');
+      expectCardBottomAnchored(tester, c, s);
+      await _finish(tester);
+    },
+    textScales: [1.0, 2.0],
+    cases: emptyCases,
+  );
 
   screenMatrix(
     'room empty state, member sees no dead-end button',
@@ -406,10 +487,11 @@ void main() {
       expect(find.textContaining('Waiting for the host'), findsOneWidget);
       expect(find.text('Choose a video'), findsNothing);
       expect(find.text('Use a YouTube link instead'), findsNothing);
+      expectCardBottomAnchored(tester, c, s);
       await _finish(tester);
     },
-    textScales: [1.0],
-    cases: kScreenMatrix.where((c) => c.keyboard == 0).toList(),
+    textScales: emptyScales,
+    cases: emptyCases,
   );
 
   testWidgets('empty state: the host can switch source from the overlay', (tester) async {
@@ -909,6 +991,75 @@ void main() {
       }
     });
   });
+
+  // The phone room's "In the room" strip folds to one slim row. It is the first
+  // thing the stack hides when height runs short, so a case where it is hidden
+  // has nothing to fold; everywhere it shows it must fold without moving the
+  // transport and keep a 44 px target.
+  final rosterCases = kScreenMatrix
+      .where((c) => c.size.height > c.size.width && c.keyboard == 0 && c.features.isEmpty)
+      .toList();
+  final rosterToggle = find.textContaining('IN THE ROOM');
+
+  screenMatrix('room roster expanded, someone still getting ready', (tester, c, s) async {
+    await _pumpRoom(tester, c, s, allReady: false, members: 4, chat: mockChatMessagesList);
+    if (rosterToggle.evaluate().isNotEmpty) {
+      expect(find.byType(FoldableRoster), findsOneWidget);
+      expect(find.byType(RosterRings), findsOneWidget);
+    }
+    await _finish(tester);
+  }, cases: rosterCases);
+
+  screenMatrix('room roster folded by hand', (tester, c, s) async {
+    await _pumpRoom(tester, c, s, allReady: false, members: 4, chat: mockChatMessagesList);
+    if (rosterToggle.evaluate().isNotEmpty) {
+      await tester.tap(rosterToggle);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 600));
+    }
+    await _finish(tester);
+  }, cases: rosterCases);
+
+  screenMatrix('room roster fold: slimmer, 44 px target, transport and chat do not move', (
+    tester,
+    c,
+    s,
+  ) async {
+    await _pumpRoom(tester, c, s, allReady: false, members: 4, chat: mockChatMessagesList);
+    if (c.name == 'phone' && s == 1.0) {
+      expect(rosterToggle, findsOneWidget, reason: 'a plain phone has room for the strip');
+    }
+    if (rosterToggle.evaluate().isEmpty) {
+      await _finish(tester);
+      return;
+    }
+    final roster = find.byType(FoldableRoster);
+    final open = tester.getSize(roster).height;
+    final bar = tester.getRect(find.byType(RoomControlBar));
+    final panel = tester.getRect(find.byType(RoomChatPanel));
+    final target = find.ancestor(of: rosterToggle, matching: find.byType(PTPressable));
+    expect(tester.getSize(target).height, greaterThanOrEqualTo(44), reason: '${c.name} x$s');
+
+    await tester.tap(rosterToggle);
+    await tester.pump(const Duration(milliseconds: 120));
+    expect(tester.getRect(find.byType(RoomControlBar)), bar, reason: 'transport moved mid-fold');
+    await tester.pump(const Duration(milliseconds: 500));
+    final slim = tester.getSize(roster).height;
+    expect(slim, lessThan(open), reason: '${c.name} x$s: folded $slim, open $open');
+    expect(slim, lessThanOrEqualTo(max(46.0, 46.0 * s)), reason: 'the folded row is slim');
+    expect(tester.getRect(find.byType(RoomControlBar)), bar);
+    expect(tester.getRect(find.byType(RoomChatPanel)), panel, reason: 'the chat slot is fixed');
+    expectTransportReachable(tester, c);
+    // The composer still sits at the bottom, where the thumb expects it.
+    final input = tester.getRect(find.byType(EditableText).first);
+    expect(input.bottom, lessThanOrEqualTo(c.size.height));
+
+    await tester.tap(rosterToggle);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 600));
+    expect(tester.getSize(roster).height, open, reason: 'opening restores the same height');
+    await _finish(tester);
+  }, cases: rosterCases);
 
   // The outlined mic, camera and react squares read as three buttons: equal
   // gaps between neighbours, never the ~1 px that merged two hairlines.

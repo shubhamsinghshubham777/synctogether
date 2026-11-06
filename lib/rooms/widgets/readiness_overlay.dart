@@ -121,8 +121,8 @@ class ReadinessOverlay extends StatelessWidget {
   final VoidCallback? onPickFiles;
   final bool compact;
 
-  /// The part of the video box covered by floating chrome; the card centres
-  /// in what is left.
+  /// The part of the video box covered by floating chrome; the card sits in
+  /// what is left, anchored to its bottom edge (boards 47/48).
   final EdgeInsets chromeInsets;
   final double reveal;
   final Set<String> premiumMembers;
@@ -136,21 +136,22 @@ class ReadinessOverlay extends StatelessWidget {
     // reach it (none, once a parent SafeArea has consumed them) and of the
     // floating chrome.
     final system = MediaQuery.paddingOf(context);
-    final roomy = EdgeInsets.all(compact ? 12 : 24) + system + chromeInsets;
+    final roomy = EdgeInsets.all(compact ? 12 : 16) + system + chromeInsets;
     return LayoutBuilder(
       builder: (context, box) {
         // Tightest: a short window or big text leaves a sliver once the chrome
         // is subtracted. The empty state's button is the one thing that must
-        // stay reachable, so the headline (the button names the job), the
-        // panel's breathing room give way, and the system insets overlap the
-        // chrome's rather than adding to it.
+        // stay reachable, so the headline (the button names the job) and the
+        // panel's breathing room give way. The bottom keeps system and chrome
+        // additive - the control bar floats above the system inset, so
+        // overlapping them would put the card under the bar.
         final tight = onPickSource != null && box.maxHeight - roomy.vertical < 130;
         final padding = tight
             ? EdgeInsets.fromLTRB(
                 system.left + chromeInsets.left + 4,
                 math.max(system.top, chromeInsets.top) + 4,
                 system.right + chromeInsets.right + 4,
-                math.max(system.bottom, chromeInsets.bottom) + 4,
+                system.bottom + chromeInsets.bottom + 4,
               )
             : roomy;
         // Dense: the video box is a phone's strip (or the chrome leaves little
@@ -260,100 +261,112 @@ class ReadinessOverlay extends StatelessWidget {
     ];
     return Container(
       color: PTColors.scrimBase.withValues(alpha: 0.7 * t),
-      alignment: .center,
       padding: padding,
-      child: SingleChildScrollView(
+      // Bottom-anchored, never centred (boards 47/48): the card rests a gutter
+      // above the picture's bottom edge - or above the floating control bar
+      // via [chromeInsets] - full width on a phone, capped and centred on a
+      // roomy box. `reverse` keeps the bottom edge pinned when the card is
+      // taller than the gap and scrolls instead of clipping.
+      child: Align(
+        alignment: .bottomCenter,
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 460),
-          child: Transform.scale(
-            scale: 0.96 + 0.04 * t,
-            child: GlassPanel(
-              radius: compact ? 20 : 24,
-              baseColor: PTColors.surfaceBase,
-              borderColor: PTColors.white(0.14 * t),
-              shadow: false,
-              padding: EdgeInsets.all(tight ? 8 : (compact ? 18 : 24)),
-              child: Opacity(
-                opacity: t,
-                child: Column(
-                  mainAxisSize: .min,
-                  crossAxisAlignment: .stretch,
-                  spacing: tight ? 0 : (compact ? 14 : 18),
-                  children: [
-                    if (!tight)
-                      Row(
-                        crossAxisAlignment: .start,
-                        spacing: 12,
-                        children: [
-                          Padding(
-                            padding: const EdgeInsets.only(top: 1),
-                            child: Icon(
-                              Symbols.hourglass_top_rounded,
-                              size: compact ? 19 : 22,
-                              color: PTColors.textAccent,
-                            ),
-                          ),
-                          Expanded(
-                            child: Text(
-                              headline,
-                              maxLines: dense ? headlineLines : null,
-                              overflow: dense ? .ellipsis : null,
-                              // Media names run long ("Movie.2005.1080p.BluRay…"), and
-                              // at the headline size they turn the panel into a wall
-                              // of bold text. Step down once past a sentence or so.
-                              style: PTText.body.copyWith(
-                                fontSize: headline.length > 90
-                                    ? (compact ? 13 : 14)
-                                    : (compact ? 14.5 : 16),
-                                fontWeight: .w600,
-                                height: 1.4,
+          // Infinite width clamps to the constraint: full width up to the cap.
+          child: SizedBox(
+            width: double.infinity,
+            child: SingleChildScrollView(
+              reverse: true,
+              child: Transform.scale(
+                scale: 0.96 + 0.04 * t,
+                child: GlassPanel(
+                  radius: compact ? 20 : 24,
+                  baseColor: PTColors.surfaceBase,
+                  borderColor: PTColors.white(0.14 * t),
+                  shadow: false,
+                  padding: EdgeInsets.all(tight ? 8 : (compact ? 18 : 24)),
+                  child: Opacity(
+                    opacity: t,
+                    child: Column(
+                      mainAxisSize: .min,
+                      crossAxisAlignment: .stretch,
+                      spacing: tight ? 0 : (compact ? 14 : 18),
+                      children: [
+                        if (!tight)
+                          Row(
+                            crossAxisAlignment: .start,
+                            spacing: 12,
+                            children: [
+                              Padding(
+                                padding: const EdgeInsets.only(top: 1),
+                                child: Icon(
+                                  Symbols.hourglass_top_rounded,
+                                  size: compact ? 19 : 22,
+                                  color: PTColors.textAccent,
+                                ),
                               ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    if (uploadProgressWidget != null) uploadProgressWidget!,
-                    if (members.isNotEmpty && !dense)
-                      Column(
-                        mainAxisSize: .min,
-                        children: [
-                          for (final member in members)
-                            // Watching friends' chips flip green one by one is the
-                            // "we're all here" moment; stagger the roster so it
-                            // assembles rather than appearing whole.
-                            PTEntrance(
-                              delay: Duration(milliseconds: 40 * nextRow()),
-                              offset: 8,
-                              child: _MemberStatusRow(
-                                member: member,
-                                media: media,
-                                premium: premiumMembers.contains(member.userId),
-                                frame: memberFrames[member.userId],
-                                isSelf: member.userId == selfId,
-                                compact: compact,
-                                // Reserve the kick column on every row, not just the
-                                // kickable ones, so the status chips share a left
-                                // edge instead of jumping about per row.
-                                reserveKickSlot: selfIsHost,
-                                onKick: selfIsHost && member.userId != selfId && !member.isHost
-                                    ? () => onKick?.call(member)
-                                    : null,
+                              Expanded(
+                                child: Text(
+                                  headline,
+                                  maxLines: dense ? headlineLines : null,
+                                  overflow: dense ? .ellipsis : null,
+                                  // Media names run long ("Movie.2005.1080p.BluRay…"), and
+                                  // at the headline size they turn the panel into a wall
+                                  // of bold text. Step down once past a sentence or so.
+                                  style: PTText.body.copyWith(
+                                    fontSize: headline.length > 90
+                                        ? (compact ? 13 : 14)
+                                        : (compact ? 14.5 : 16),
+                                    fontWeight: .w600,
+                                    height: 1.4,
+                                  ),
+                                ),
                               ),
-                            ),
-                        ],
-                      ),
-                    if (pairRow)
-                      // The empty room: primary and YouTube link share a row.
-                      Row(
-                        spacing: 10,
-                        children: [for (final a in actions.take(2)) Expanded(child: a)],
-                      )
-                    else if (dense && sideBySide && actions.length > 1)
-                      Row(spacing: 10, children: [for (final a in actions) Expanded(child: a)])
-                    else
-                      ...actions,
-                    if (pairRow) ...actions.skip(2),
-                  ],
+                            ],
+                          ),
+                        if (uploadProgressWidget != null) uploadProgressWidget!,
+                        if (members.isNotEmpty && !dense)
+                          Column(
+                            mainAxisSize: .min,
+                            children: [
+                              for (final member in members)
+                                // Watching friends' chips flip green one by one is the
+                                // "we're all here" moment; stagger the roster so it
+                                // assembles rather than appearing whole.
+                                PTEntrance(
+                                  delay: Duration(milliseconds: 40 * nextRow()),
+                                  offset: 8,
+                                  child: _MemberStatusRow(
+                                    member: member,
+                                    media: media,
+                                    premium: premiumMembers.contains(member.userId),
+                                    frame: memberFrames[member.userId],
+                                    isSelf: member.userId == selfId,
+                                    compact: compact,
+                                    // Reserve the kick column on every row, not just the
+                                    // kickable ones, so the status chips share a left
+                                    // edge instead of jumping about per row.
+                                    reserveKickSlot: selfIsHost,
+                                    onKick: selfIsHost && member.userId != selfId && !member.isHost
+                                        ? () => onKick?.call(member)
+                                        : null,
+                                  ),
+                                ),
+                            ],
+                          ),
+                        if (pairRow)
+                          // The empty room: primary and YouTube link share a row.
+                          Row(
+                            spacing: 10,
+                            children: [for (final a in actions.take(2)) Expanded(child: a)],
+                          )
+                        else if (dense && sideBySide && actions.length > 1)
+                          Row(spacing: 10, children: [for (final a in actions) Expanded(child: a)])
+                        else
+                          ...actions,
+                        if (pairRow) ...actions.skip(2),
+                      ],
+                    ),
+                  ),
                 ),
               ),
             ),

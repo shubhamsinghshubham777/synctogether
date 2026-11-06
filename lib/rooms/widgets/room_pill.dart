@@ -7,6 +7,7 @@ import 'package:synctogether/ui/booth_icons.g.dart';
 import 'package:synctogether/ui/buttons.dart';
 import 'package:synctogether/ui/glass.dart';
 import 'package:synctogether/ui/identity.dart';
+import 'package:synctogether/ui/marquee.dart';
 import 'package:synctogether/ui/pt_motion.dart';
 import 'package:synctogether/ui/pt_theme.dart';
 
@@ -111,10 +112,9 @@ class RoomPillBody extends StatelessWidget {
         Flexible(
           child: ConstrainedBox(
             constraints: BoxConstraints(maxWidth: compact ? double.infinity : 200),
-            child: Text(
+            // A name too long for the pill scrolls to show all of itself.
+            child: PTMarquee(
               room.name,
-              maxLines: 1,
-              overflow: .ellipsis,
               style: compact
                   ? PTText.panelHeading.copyWith(fontSize: 13)
                   : PTText.panelHeading.copyWith(fontSize: 14, fontWeight: .w700),

@@ -33,6 +33,7 @@ import 'package:synctogether/rooms/widgets/reaction_strip.dart';
 import 'package:synctogether/rooms/widgets/readiness_overlay.dart';
 import 'package:synctogether/rooms/widgets/room_chat_panel.dart';
 import 'package:synctogether/rooms/widgets/room_control_bar.dart';
+import 'package:synctogether/rooms/widgets/room_pill.dart';
 import 'package:synctogether/rooms/widgets/room_roster.dart';
 import 'package:synctogether/sync/sync_service.dart';
 import 'package:synctogether/ui/booth_icons.g.dart';
@@ -40,6 +41,7 @@ import 'package:synctogether/ui/buttons.dart';
 import 'package:synctogether/ui/glass.dart';
 import 'package:synctogether/ui/identity.dart';
 import 'package:synctogether/ui/inputs.dart';
+import 'package:synctogether/ui/marquee.dart';
 import 'package:synctogether/ui/pt_motion.dart';
 import 'package:synctogether/ui/responsive.dart';
 
@@ -945,6 +947,39 @@ void main() {
       debugDefaultTargetPlatformOverride = null;
     }
   });
+
+  // The scrolling room name is switched off under test everywhere else (an
+  // animation that never ends cannot settle). This runs it for real, in the
+  // places it sits, because a marquee that misbehaves in layout - it once took
+  // an unbounded height and blanked the whole top bar - only shows up animated.
+  screenMatrix(
+    'room pill with a scrolling name keeps its size',
+    (tester, c, s) async {
+      PTMarquee.animate = true;
+      addTearDown(() => PTMarquee.animate = false);
+      await _pumpRoom(tester, c, s, playing: true, chatOpen: true, chat: mockChatMessagesList);
+      await tester.pump(const Duration(seconds: 3));
+      expectNoOverflow(tester);
+      final pills = find.byType(RoomPill);
+      if (pills.evaluate().isNotEmpty) {
+        expect(tester.getSize(pills.first).height, lessThan(120), reason: '${c.name}: pill height');
+      }
+      expectTransportReachable(tester, c);
+      await finishCase(tester);
+    },
+    cases: kScreenMatrix
+        .where(
+          (c) => [
+            'phone',
+            'phone-land',
+            'iphone-duo-book',
+            'iphone-duo-inner-land',
+            'fold-book',
+          ].contains(c.name),
+        )
+        .toList(),
+    textScales: const [1.0, 2.0],
+  );
 
   screenMatrix('room transport reachable, chat closed', (tester, c, s) async {
     await _pumpRoom(tester, c, s);

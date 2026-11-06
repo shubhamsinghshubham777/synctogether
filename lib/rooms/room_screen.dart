@@ -96,6 +96,7 @@ import 'package:synctogether/ui/popover.dart';
 import 'package:synctogether/ui/glass.dart';
 import 'package:synctogether/ui/identity.dart';
 import 'package:synctogether/ui/loader.dart';
+import 'package:synctogether/ui/marquee.dart';
 import 'package:synctogether/ui/logo.dart';
 import 'package:synctogether/ui/pt_motion.dart';
 import 'package:synctogether/ui/pt_theme.dart';
@@ -6492,10 +6493,8 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
             child: Column(
               spacing: 3,
               children: [
-                Text(
+                PTMarquee(
                   room.name,
-                  maxLines: 1,
-                  overflow: .ellipsis,
                   textAlign: .center,
                   style: PTText.panelHeading.copyWith(fontSize: 17),
                 ),

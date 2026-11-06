@@ -439,11 +439,7 @@ void main() {
   }
 
   const emptyScales = [1.0, 1.5, 2.0];
-  // ACCEPTED GAP: the Flip cover display (360x374) leaves the portrait stack
-  // a ~70 px picture slot, so the empty-state card is clipped. It needs its
-  // own picture-first composition (chat hidden) and a board before it can be
-  // asserted; every other room test still runs there.
-  final emptyCases = kScreenMatrix.where((c) => c.keyboard == 0 && c.name != 'flip-cover').toList();
+  final emptyCases = kScreenMatrix.where((c) => c.keyboard == 0).toList();
 
   screenMatrix(
     'room empty state, host',
@@ -810,8 +806,10 @@ void main() {
       expect(mq.displayFeatures, isEmpty, reason: '${c.name}: a pane still sees the hinge');
       final bar = tester.element(find.byType(RoomControlBar).first);
       final barQ = MediaQuery.of(bar);
+      // A soft keyboard shrinks the lower pane's height, never its width.
+      bool isAPane(Size q) => panes.any((p) => p.width == q.width && q.height <= p.height + 0.5);
       expect(
-        panes.any((p) => p.size == barQ.size || p.size == mq.size),
+        isAPane(barQ.size) || isAPane(mq.size),
         isTrue,
         reason: '${c.name}: pane sizes $panes vs bar ${barQ.size} / chat ${mq.size}',
       );
@@ -823,51 +821,125 @@ void main() {
 
   // Folding and unfolding mid-session: the picture is never recreated, the
   // transport stays reachable on every frame, and the half-typed message
-  // survives, whatever posture the window passes through.
-  testWidgets('fold -> unfold -> fold keeps one video surface and the draft', (tester) async {
-    final cover = kScreenMatrix.firstWhere((c) => c.name == 'fold-cover');
-    final book = kScreenMatrix.firstWhere((c) => c.name == 'fold-book');
-    final flat = kScreenMatrix.firstWhere((c) => c.name == 'fold-unfolded');
-    try {
-      await _pumpRoom(
-        tester,
-        cover,
-        1.0,
-        playing: true,
-        chatOpen: true,
-        chat: mockChatMessagesList,
-      );
-      final video = tester.state(find.byType(_VideoProbe));
-      expect(_VideoProbe.mounts, 1);
-      await tester.enterText(find.byType(EditableText).first, 'half typed');
-      Future<void> go(ScreenCase to, {int frames = 12}) async {
-        final from = tester.view.physicalSize;
-        for (var i = 1; i <= frames; i++) {
-          final t = i / frames;
-          tester.view.physicalSize = Size(
-            from.width + (to.size.width - from.width) * t,
-            from.height + (to.size.height - from.height) * t,
-          );
-          // The hinge appears with the last frame, as the OS reports it.
-          tester.view.displayFeatures = i == frames ? to.features : const [];
-          await tester.pump(const Duration(milliseconds: 16));
+  // survives, whatever posture the window passes through - the Fold's, and the
+  // iPhone Duo's (closed, opened, book-folded, turned to tabletop, flat portrait,
+  // closed again), each with the insets that posture really has.
+  for (final (name, sequence) in <(String, List<String>)>[
+    ('Fold', ['fold-cover', 'fold-unfolded', 'fold-book', 'fold-unfolded', 'fold-cover']),
+    (
+      'iPhone Duo',
+      [
+        'iphone-duo-outer',
+        'iphone-duo-inner-land',
+        'iphone-duo-book',
+        'iphone-duo-tabletop',
+        'iphone-duo-inner-portrait',
+        'iphone-duo-outer',
+      ],
+    ),
+  ]) {
+    testWidgets('$name posture sequence keeps one video surface and the draft', (tester) async {
+      final cases = [for (final n in sequence) kScreenMatrix.firstWhere((c) => c.name == n)];
+      try {
+        await _pumpRoom(
+          tester,
+          cases.first,
+          1.0,
+          playing: true,
+          chatOpen: true,
+          chat: mockChatMessagesList,
+        );
+        final video = tester.state(find.byType(_VideoProbe));
+        expect(_VideoProbe.mounts, 1);
+        await tester.enterText(find.byType(EditableText).first, 'half typed');
+        Future<void> go(ScreenCase to, {int frames = 12}) async {
+          final from = tester.view.physicalSize;
+          for (var i = 1; i <= frames; i++) {
+            final t = i / frames;
+            tester.view.physicalSize = Size(
+              from.width + (to.size.width - from.width) * t,
+              from.height + (to.size.height - from.height) * t,
+            );
+            // The fold and the insets arrive with the last frame, as the OS
+            // reports them.
+            tester.view.displayFeatures = i == frames ? to.features : const [];
+            if (i == frames) {
+              tester.view
+                ..padding = FakeViewPadding(
+                  left: to.padding.left,
+                  top: to.padding.top,
+                  right: to.padding.right,
+                  bottom: to.padding.bottom,
+                )
+                ..viewPadding = FakeViewPadding(
+                  left: to.padding.left,
+                  top: to.padding.top,
+                  right: to.padding.right,
+                  bottom: to.padding.bottom,
+                );
+            }
+            await tester.pump(const Duration(milliseconds: 16));
+            expectNoOverflow(tester);
+            expect(
+              find.byType(PTPlayButton).hitTestable(),
+              findsOneWidget,
+              reason: 'transport lost at frame $i toward ${to.name}',
+            );
+          }
+          await tester.pump(const Duration(milliseconds: 400));
           expectNoOverflow(tester);
+        }
+
+        for (final to in cases.skip(1)) {
+          await go(to);
           expect(
-            find.byType(PTPlayButton).hitTestable(),
+            find.text('half typed'),
             findsOneWidget,
-            reason: 'transport lost at frame $i toward ${to.name}',
+            reason: 'the draft was lost at ${to.name}',
           );
         }
-        await tester.pump(const Duration(milliseconds: 400));
+        expect(tester.state(find.byType(_VideoProbe)), same(video));
+        expect(_VideoProbe.mounts, 1, reason: 'the picture was recreated by a posture change');
+        await _finish(tester);
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
       }
+    });
+  }
 
-      await go(flat);
-      await go(book);
-      await go(flat);
-      await go(cover);
-      expect(tester.state(find.byType(_VideoProbe)), same(video));
-      expect(_VideoProbe.mounts, 1, reason: 'the picture was recreated by a fold change');
-      expect(find.text('half typed'), findsOneWidget, reason: 'the draft was lost');
+  // Inside one composition a resize is continuous: dragging a Split View handle
+  // or an unfold animation across the deck's range moves the transport and chat
+  // a few pixels a frame, never a pop.
+  testWidgets('resizing inside the deck moves the transport smoothly', (tester) async {
+    final flat = kScreenMatrix.firstWhere((c) => c.name == 'fold-unfolded');
+    try {
+      await _pumpRoom(tester, flat, 1.0, playing: true, chatOpen: true, chat: mockChatMessagesList);
+      Rect rect(Finder f) => tester.getRect(f.first);
+      final play = find.byType(PTPlayButton);
+      final chat = find.byType(RoomChatPanel);
+      var prevPlay = rect(play);
+      var prevChat = rect(chat);
+      const frames = 24;
+      for (var i = 1; i <= frames; i++) {
+        // 1104 down to 1010 tall at 882 wide: still near-square (under 1.3).
+        tester.view.physicalSize = Size(882, 1104 - 94 * i / frames);
+        await tester.pump(const Duration(milliseconds: 16));
+        expectNoOverflow(tester);
+        final nowPlay = rect(play);
+        final nowChat = rect(chat);
+        expect(
+          (nowPlay.center - prevPlay.center).distance,
+          lessThan(14),
+          reason: 'transport jumped at frame $i',
+        );
+        expect(
+          (nowChat.height - prevChat.height).abs(),
+          lessThan(14),
+          reason: 'chat popped at frame $i',
+        );
+        prevPlay = nowPlay;
+        prevChat = nowChat;
+      }
       await _finish(tester);
     } finally {
       debugDefaultTargetPlatformOverride = null;

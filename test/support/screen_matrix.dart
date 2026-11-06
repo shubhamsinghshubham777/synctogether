@@ -109,7 +109,7 @@ final kScreenMatrix = <ScreenCase>[
   // Surface Duo-like dual screen, held like a book: two 540x720 panes with a
   // 30 px vertical hinge between them.
   const ScreenCase(
-    'duo-book',
+    'surface-duo-book',
     Size(1110, 720),
     .android,
     padding: _androidGesture,
@@ -124,7 +124,7 @@ final kScreenMatrix = <ScreenCase>[
   // The same device turned a quarter: two panes stacked, a 30 px horizontal
   // hinge between them.
   const ScreenCase(
-    'duo-stacked',
+    'surface-duo-stacked',
     Size(720, 1110),
     .android,
     padding: _androidGesture,
@@ -133,6 +133,135 @@ final kScreenMatrix = <ScreenCase>[
         bounds: Rect.fromLTWH(0, 540, 720, 30),
         type: DisplayFeatureType.hinge,
         state: DisplayFeatureState.postureFlat,
+      ),
+    ],
+  ),
+  // iPhone Duo, with the metrics the iPhone Duo simulator (Xcode 27.1, iOS 27.1)
+  // reports: 3x, one 84 pt system bar on the camera edge (trailing when the
+  // outer display is held portrait, leading when landscape; trailing on the
+  // inner display held landscape; the top status bar - 82 - when it is held
+  // portrait), and a 40 pt division region down the middle that is only active
+  // while the device is partly folded.
+  const ScreenCase(
+    'iphone-duo-outer',
+    Size(466, 678),
+    .iOS,
+    padding: EdgeInsets.only(right: 84, bottom: 34),
+  ),
+  const ScreenCase(
+    'iphone-duo-outer-land',
+    Size(678, 466),
+    .iOS,
+    padding: EdgeInsets.only(left: 84, bottom: 34),
+  ),
+  const ScreenCase(
+    'iphone-duo-inner-land',
+    Size(951, 669),
+    .iOS,
+    padding: EdgeInsets.only(right: 84, bottom: 34),
+  ),
+  const ScreenCase(
+    'iphone-duo-inner-portrait',
+    Size(669, 951),
+    .iOS,
+    padding: EdgeInsets.only(top: 82, bottom: 34),
+  ),
+  const ScreenCase(
+    'iphone-duo-book',
+    Size(951, 669),
+    .iOS,
+    padding: EdgeInsets.only(right: 84, bottom: 34),
+    features: [
+      DisplayFeature(
+        bounds: Rect.fromLTWH(455.5, 0, 40, 669),
+        type: DisplayFeatureType.fold,
+        state: DisplayFeatureState.postureHalfOpened,
+      ),
+    ],
+  ),
+  const ScreenCase(
+    'iphone-duo-tabletop',
+    Size(669, 951),
+    .iOS,
+    padding: EdgeInsets.only(top: 82, bottom: 34),
+    features: [
+      DisplayFeature(
+        bounds: Rect.fromLTWH(0, 455.5, 669, 40),
+        type: DisplayFeatureType.fold,
+        state: DisplayFeatureState.postureHalfOpened,
+      ),
+    ],
+  ),
+  // The soft keyboard in the folded postures. A tabletop's keyboard lands in
+  // its lower half; a book's covers the bottom of the window (whether it spans
+  // both halves is the OS's call, so both panes are asked to cope).
+  const ScreenCase(
+    'iphone-duo-tabletop-keyboard',
+    Size(669, 951),
+    .iOS,
+    padding: EdgeInsets.only(top: 82, bottom: 34),
+    keyboard: 336,
+    features: [
+      DisplayFeature(
+        bounds: Rect.fromLTWH(0, 455.5, 669, 40),
+        type: DisplayFeatureType.fold,
+        state: DisplayFeatureState.postureHalfOpened,
+      ),
+    ],
+  ),
+  const ScreenCase(
+    'iphone-duo-book-keyboard',
+    Size(951, 669),
+    .iOS,
+    padding: EdgeInsets.only(right: 84, bottom: 34),
+    keyboard: 300,
+    features: [
+      DisplayFeature(
+        bounds: Rect.fromLTWH(455.5, 0, 40, 669),
+        type: DisplayFeatureType.fold,
+        state: DisplayFeatureState.postureHalfOpened,
+      ),
+    ],
+  ),
+  const ScreenCase(
+    'fold-tabletop-keyboard',
+    Size(882, 1104),
+    .android,
+    padding: _androidGesture,
+    keyboard: 340,
+    features: [
+      DisplayFeature(
+        bounds: Rect.fromLTWH(0, 552, 882, 0),
+        type: DisplayFeatureType.fold,
+        state: DisplayFeatureState.postureHalfOpened,
+      ),
+    ],
+  ),
+  // The Fold held the other way: a laptop-posture fold in a landscape window
+  // (two short, wide halves), and a book fold in a portrait one.
+  const ScreenCase(
+    'fold-tabletop-land',
+    Size(1104, 882),
+    .android,
+    padding: _androidGesture,
+    features: [
+      DisplayFeature(
+        bounds: Rect.fromLTWH(0, 441, 1104, 0),
+        type: DisplayFeatureType.fold,
+        state: DisplayFeatureState.postureHalfOpened,
+      ),
+    ],
+  ),
+  const ScreenCase(
+    'fold-book-portrait',
+    Size(882, 1104),
+    .android,
+    padding: _androidGesture,
+    features: [
+      DisplayFeature(
+        bounds: Rect.fromLTWH(441, 0, 0, 1104),
+        type: DisplayFeatureType.fold,
+        state: DisplayFeatureState.postureHalfOpened,
       ),
     ],
   ),
@@ -177,6 +306,10 @@ Future<void> pumpAtSize(
   /// Dresses [child] the way the router dresses every page but the room: in
   /// [PTHingeSafe], so a hinge keeps it inside one pane.
   bool singlePane = false,
+
+  /// With [singlePane]: the screen lays itself out in both panes of a vertical
+  /// fold (the lobby) - see [PTHingeSafe.twoPaneBook].
+  bool twoPaneBook = false,
 
   /// Asserts nothing is cut by the hinge at `finishCase` without wrapping the
   /// child (for pages, like dialogs, that confine themselves).
@@ -224,7 +357,7 @@ Future<void> pumpAtSize(
               context,
               TapToDismissKeyboard(child: page ?? const SizedBox.shrink()),
             ),
-            home: singlePane ? PTHingeSafe(child: child) : child,
+            home: singlePane ? PTHingeSafe(twoPaneBook: twoPaneBook, child: child) : child,
           )
         : child,
   );
@@ -467,13 +600,43 @@ bool _cutsHinge(Rect r, Rect hinge) {
   return r.top < hinge.top - _eps && r.bottom > hinge.top + _eps && r.left < hinge.right;
 }
 
-/// The part of [r] a scroll viewport around [e] actually shows; scrolled-away
-/// content is clipped, so it is under nothing.
+/// Whether some visible point of [box] (at [r]) actually reaches it when hit
+/// tested: not behind a modal barrier, not an unchosen candidate of a
+/// `FirstFit`, not offstage.
+bool _reachable(WidgetTester tester, RenderBox box, Rect r, Rect screen) {
+  final visible = r.intersect(screen);
+  if (visible.width <= 0 || visible.height <= 0) return false;
+  for (final p in [
+    visible.center,
+    visible.topLeft + const Offset(1, 1),
+    visible.bottomRight - const Offset(1, 1),
+  ]) {
+    final result = HitTestResult();
+    WidgetsBinding.instance.hitTestInView(result, p, tester.view.viewId);
+    if (result.path.any((entry) => identical(entry.target, box))) return true;
+  }
+  return false;
+}
+
+/// The part of [r] that survives every paint clip between [e]'s render object
+/// and the screen (scroll viewports, `ClipRect`s, a dialog's clipped panel):
+/// scrolled-away or clipped content is under nothing.
 Rect _clipToScroll(Element e, Rect r) {
-  final scrollable = Scrollable.maybeOf(e);
-  final box = scrollable?.context.findRenderObject();
-  if (box is! RenderBox || !box.hasSize) return r;
-  return r.intersect(_rectOf(box));
+  var visible = r;
+  RenderObject? child = e.renderObject;
+  var parent = child?.parent;
+  while (parent != null && child != null) {
+    if (parent is RenderBox && parent.hasSize) {
+      final clip = parent.describeApproximatePaintClip(child);
+      if (clip != null) {
+        visible = visible.intersect(MatrixUtils.transformRect(parent.getTransformTo(null), clip));
+        if (visible.isEmpty) return Rect.zero;
+      }
+    }
+    child = parent;
+    parent = parent.parent;
+  }
+  return visible;
 }
 
 /// Asserts nothing a user can touch, and no text, is cut by the hinge: a
@@ -497,7 +660,9 @@ void expectClearOfHinge(WidgetTester tester, ScreenCase c) {
     final ro = e.renderObject;
     if (ro is! RenderBox || !ro.attached || !ro.hasSize) continue;
     if (e.findAncestorWidgetOfExactType<CompositedTransformFollower>() != null) continue;
-    check('${e.widget.runtimeType}', _clipToScroll(e, _rectOf(ro)));
+    final shown = _clipToScroll(e, _rectOf(ro));
+    if (!_reachable(tester, ro, shown, screen)) continue;
+    check('${e.widget.runtimeType}', shown);
   }
   for (final e in find.byType(RichText, skipOffstage: true).evaluate()) {
     final ro = e.renderObject;
@@ -506,6 +671,7 @@ void expectClearOfHinge(WidgetTester tester, ScreenCase c) {
     if (text.trim().isEmpty) continue;
     final r = _clipToScroll(e, _rectOf(ro)).intersect(screen);
     if (r.width <= 0 || r.height <= 0) continue;
+    if (!_reachable(tester, ro, r, screen)) continue;
     check('text "$text"', r);
   }
   expect(problems, isEmpty, reason: '${c.name}: ${problems.toSet().join('\n')}');

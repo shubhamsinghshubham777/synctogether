@@ -62,7 +62,13 @@ void main() {
     // clear of it, so scrolled content never meets the back button.
     final back = find.byIcon(BoothIcons.arrowBack);
     if (c.size.width < 700 && back.evaluate().isNotEmpty) {
-      expect(tester.getTopLeft(back.first).dx, lessThan(80), reason: 'header must be left-aligned');
+      // Left-aligned past whatever the system keeps on the leading edge (the
+      // iPhone Duo's 84 pt bar when its outer display is held landscape).
+      expect(
+        tester.getTopLeft(back.first).dx,
+        lessThan(80 + c.padding.left),
+        reason: 'header must be left-aligned',
+      );
       final scroll = find.byType(SingleChildScrollView);
       if (scroll.evaluate().isNotEmpty && c.size.height > c.size.width) {
         expect(

@@ -3,7 +3,7 @@ import '../ui/booth_icons.g.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:go_router/go_router.dart';
+import 'package:synctogether/nav.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:window_manager/window_manager.dart';
@@ -219,7 +219,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> with WindowListen
                         icon: BoothIcons.arrowBack,
                         iconSize: 20,
                         size: 38,
-                        onPressed: () => context.go('/lobby'),
+                        onPressed: () => goBack(context),
                       ),
                     ),
                     Text('LEADERBOARD', maxLines: 1, overflow: .ellipsis, style: PTText.label),
@@ -229,7 +229,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> with WindowListen
               trailing: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20.0),
                 child: TextButton(
-                  onPressed: () => context.go('/lobby/profile'),
+                  onPressed: () => openPage(context, '/lobby/profile'),
                   style: TextButton.styleFrom(
                     foregroundColor: PTColors.white(0.7),
                     textStyle: PTText.caption.copyWith(decoration: TextDecoration.underline),
@@ -252,12 +252,12 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> with WindowListen
                     icon: BoothIcons.arrowBack,
                     iconSize: 20,
                     size: compact ? 44 : 42,
-                    onPressed: () => context.go('/lobby'),
+                    onPressed: () => goBack(context),
                   ),
                   const Expanded(child: _HeaderLabel('LEADERBOARD')),
                   // Consent, handle and frame all live in the profile.
                   TextButton(
-                    onPressed: () => context.go('/lobby/profile'),
+                    onPressed: () => openPage(context, '/lobby/profile'),
                     style: TextButton.styleFrom(
                       foregroundColor: PTColors.white(0.7),
                       textStyle: PTText.caption.copyWith(decoration: TextDecoration.underline),
@@ -633,7 +633,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> with WindowListen
         variant: .secondary,
         icon: Symbols.settings_rounded,
         expand: false,
-        onPressed: () => context.go('/lobby/profile'),
+        onPressed: () => openPage(context, '/lobby/profile'),
       ),
     );
   }
@@ -775,7 +775,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> with WindowListen
                 'surface': 'leaderboard',
                 'action': 'subscribe',
               });
-              context.go('/lobby/subscribe?source=leaderboard');
+              openPage(context, '/lobby/subscribe?source=leaderboard');
             },
           ),
         ],

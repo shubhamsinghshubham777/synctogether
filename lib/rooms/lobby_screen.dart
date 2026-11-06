@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart' show defaultTargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:go_router/go_router.dart';
+import 'package:synctogether/nav.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:synctogether/player/local_video.dart';
@@ -568,7 +569,7 @@ class _LobbyScreenState extends State<LobbyScreen> with WindowListener {
                     'surface': 'ended_room',
                     'action': 'subscribe',
                   });
-                  context.go('/lobby/subscribe?source=ended_room');
+                  openPage(context, '/lobby/subscribe?source=ended_room');
                 },
           onDelete: () => _deleteMyRoom(entry),
         ),
@@ -660,7 +661,7 @@ class _LobbyScreenState extends State<LobbyScreen> with WindowListener {
             'surface': 'room_limit',
             'action': 'subscribe',
           });
-          context.go('/lobby/subscribe?source=room_limit');
+          openPage(context, '/lobby/subscribe?source=room_limit');
         },
       ),
     );
@@ -797,7 +798,7 @@ class _LobbyScreenState extends State<LobbyScreen> with WindowListener {
           meta: defaultTargetPlatform == TargetPlatform.macOS,
           control: defaultTargetPlatform != TargetPlatform.macOS,
         ): () =>
-            context.go('/lobby/profile'),
+            openPage(context, '/lobby/profile'),
       },
       child: Focus(
         autofocus: true,
@@ -961,7 +962,7 @@ class _LobbyScreenState extends State<LobbyScreen> with WindowListener {
                 ? 'Streak'
                 : 'Start a streak',
             detail: !guest && streak.current > 0 ? '${streak.current} days' : null,
-            onTap: () => context.go('/lobby/leaderboard'),
+            onTap: () => openPage(context, '/lobby/leaderboard'),
           ),
         if (_showQuotaChip && level >= 3)
           LobbyMenuItem(
@@ -976,14 +977,14 @@ class _LobbyScreenState extends State<LobbyScreen> with WindowListener {
             icon: BoothIcons.crown,
             label: 'Get a Patron seat',
             color: PTColors.textAccent,
-            onTap: () => context.go('/lobby/subscribe?source=lobby_chip'),
+            onTap: () => openPage(context, '/lobby/subscribe?source=lobby_chip'),
           ),
       ],
       footer: [
         LobbyMenuItem(
           icon: BoothIcons.person,
           label: 'Profile & settings',
-          onTap: () => context.go('/lobby/profile'),
+          onTap: () => openPage(context, '/lobby/profile'),
         ),
         const LobbyMenuItem(
           icon: BoothIcons.logout,
@@ -1491,7 +1492,7 @@ class _LobbyScreenState extends State<LobbyScreen> with WindowListener {
       compact: compact,
       locked: guest,
       atRisk: !guest && streakAtRisk(streak, DateTime.now()),
-      onTap: () => context.go('/lobby/leaderboard'),
+      onTap: () => openPage(context, '/lobby/leaderboard'),
     );
   }
 
@@ -1501,14 +1502,14 @@ class _LobbyScreenState extends State<LobbyScreen> with WindowListener {
       return Tooltip(
         message: 'Get a Patron seat',
         child: GlassPill(
-          onTap: () => context.go('/lobby/subscribe?source=lobby_chip'),
+          onTap: () => openPage(context, '/lobby/subscribe?source=lobby_chip'),
           padding: const EdgeInsets.all(8),
           child: crown,
         ),
       );
     }
     return GlassPill(
-      onTap: () => context.go('/lobby/subscribe?source=lobby_chip'),
+      onTap: () => openPage(context, '/lobby/subscribe?source=lobby_chip'),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
       child: Row(
         mainAxisSize: .min,
@@ -1587,7 +1588,7 @@ class _LobbyScreenState extends State<LobbyScreen> with WindowListener {
   Widget _profilePill() {
     final profile = ProfileService.instance.profile;
     return GlassPill(
-      onTap: () => context.go('/lobby/profile'),
+      onTap: () => openPage(context, '/lobby/profile'),
       padding: const EdgeInsets.fromLTRB(6, 5, 16, 5),
       child: Row(
         mainAxisSize: .min,
@@ -1629,7 +1630,7 @@ class _LobbyScreenState extends State<LobbyScreen> with WindowListener {
           cursor: SystemMouseCursors.click,
           child: GestureDetector(
             onTap: menuLevel == null
-                ? () => context.go('/lobby/profile')
+                ? () => openPage(context, '/lobby/profile')
                 : () => _openAccountMenu(anchor, menuLevel),
             child: PTAvatar(
               userId: profile?.id ?? '',

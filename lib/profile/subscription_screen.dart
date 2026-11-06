@@ -4,6 +4,7 @@ import '../ui/booth_icons.g.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:synctogether/nav.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:synctogether/analytics.dart';
@@ -353,7 +354,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen>
             icon: BoothIcons.arrowBack,
             iconSize: compact ? 18 : 20,
             size: compact ? 38 : 42,
-            onPressed: () => context.canPop() ? context.pop() : context.go('/lobby'),
+            onPressed: () => goBack(context),
           ),
         ),
         Text(

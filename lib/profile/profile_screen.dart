@@ -5,7 +5,7 @@ import 'dart:io';
 import 'package:fast_file_picker/fast_file_picker.dart';
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
+import 'package:synctogether/nav.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:synctogether/app_version.dart';
@@ -733,7 +733,7 @@ class _ProfileScreenState extends State<ProfileScreen> with WindowListener {
       style: PTText.label,
     );
     final link = PTPressable(
-      onTap: () => context.go('/lobby/leaderboard'),
+      onTap: () => openPage(context, '/lobby/leaderboard'),
       // 44pt tall: this is a touch layout.
       child: Container(
         height: 44,
@@ -856,7 +856,7 @@ class _ProfileScreenState extends State<ProfileScreen> with WindowListener {
               icon: isPrem ? BoothIcons.arrowForward : BoothIcons.crown,
               height: 48,
               maxLines: 2,
-              onPressed: () => context.go('/lobby/subscribe?source=profile'),
+              onPressed: () => openPage(context, '/lobby/subscribe?source=profile'),
             ),
         ],
       ),
@@ -1102,7 +1102,7 @@ class _ProfileScreenState extends State<ProfileScreen> with WindowListener {
               icon: BoothIcons.trophy,
               height: 34,
               expand: false,
-              onPressed: () => context.go('/lobby/leaderboard'),
+              onPressed: () => openPage(context, '/lobby/leaderboard'),
             ),
           ],
         ),
@@ -1228,7 +1228,7 @@ class _ProfileScreenState extends State<ProfileScreen> with WindowListener {
                   icon: isPrem ? BoothIcons.arrowForward : BoothIcons.crown,
                   height: 38,
                   expand: false,
-                  onPressed: () => context.go('/lobby/subscribe?source=profile'),
+                  onPressed: () => openPage(context, '/lobby/subscribe?source=profile'),
                 ),
         ),
       ],
@@ -1352,7 +1352,7 @@ class _ProfileScreenState extends State<ProfileScreen> with WindowListener {
               'surface': 'handle',
               'action': 'notify',
             });
-            context.go('/lobby/subscribe?source=handle');
+            openPage(context, '/lobby/subscribe?source=handle');
           },
           child: _settingRow(
             title: 'Public handle',
@@ -1781,7 +1781,7 @@ class _ProfileScreenState extends State<ProfileScreen> with WindowListener {
             icon: BoothIcons.arrowBack,
             iconSize: iconSize,
             size: size,
-            onPressed: () => context.go('/lobby'),
+            onPressed: () => goBack(context),
           ),
         ),
         Text(

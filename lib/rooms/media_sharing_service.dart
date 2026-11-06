@@ -157,12 +157,31 @@ class DownloadUrlResult {
     required this.fileName,
     required this.fileSize,
     required this.expiresInSeconds,
+    this.chunkBytes,
+    this.maxParallel,
   });
 
   final Uri streamUrl;
   final String fileName;
   final int fileSize;
   final int expiresInSeconds;
+
+  /// Optional server hints for the loopback proxy (absent on older servers).
+  /// Already clamped: 4-32 MiB and 1-8 connections; null means "use defaults".
+  final int? chunkBytes;
+  final int? maxParallel;
+
+  /// Reads the optional hints defensively: anything that is not a positive
+  /// number is treated as absent, anything out of range is clamped.
+  static int? parseChunkBytes(Object? raw) {
+    if (raw is! num || !raw.isFinite || raw <= 0) return null;
+    return raw.toInt().clamp(4 * 1024 * 1024, 32 * 1024 * 1024);
+  }
+
+  static int? parseMaxParallel(Object? raw) {
+    if (raw is! num || !raw.isFinite || raw <= 0) return null;
+    return raw.toInt().clamp(1, 8);
+  }
 }
 
 class StagedUploadSession {
@@ -533,6 +552,8 @@ class MediaSharingService {
       fileName: data['fileName'] as String? ?? 'video.mp4',
       fileSize: (data['fileSize'] as num?)?.toInt() ?? 0,
       expiresInSeconds: (data['expiresIn'] as num?)?.toInt() ?? 3600,
+      chunkBytes: DownloadUrlResult.parseChunkBytes(data['chunkBytes']),
+      maxParallel: DownloadUrlResult.parseMaxParallel(data['maxParallel']),
     );
   }
 

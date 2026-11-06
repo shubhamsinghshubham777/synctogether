@@ -995,6 +995,24 @@ void main() {
       );
     });
 
+    group('streaming fallback notice', () {
+      bool owed({bool host = false, String? stored = 'movie.mkv', bool usable = false}) =>
+          shouldNoteStreamingFallback(
+            isHost: host,
+            mediaName: 'movie.mkv',
+            storedFileName: stored,
+            storedFileUsable: usable,
+          );
+
+      test('a member whose remembered copy is gone is told', () => expect(owed(), isTrue));
+      test('never for a host', () => expect(owed(host: true), isFalse));
+      test('not when this device never had that file', () {
+        expect(owed(stored: null), isFalse);
+        expect(owed(stored: 'other.mkv'), isFalse);
+      });
+      test('not while the remembered copy is usable', () => expect(owed(usable: true), isFalse));
+    });
+
     test('youtube rooms never consult the local path map', () {
       expect(
         shouldAutoReopenLocalFile(

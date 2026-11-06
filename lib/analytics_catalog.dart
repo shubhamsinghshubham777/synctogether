@@ -149,6 +149,15 @@ const kAnalyticsEvents = <AnalyticsEventDoc>[
     properties: ['where it came from (Photos, Files or Recent), never the file or its name'],
   ),
   AnalyticsEventDoc(
+    event: 'stream_notice_answered',
+    group: .engagement,
+    what:
+        'You answered the note about a high-quality video and your connection: Buffer ahead or Keep going.',
+    why:
+        'Whether the note helps or only gets in the way, so we can stop showing it if it is the latter.',
+    properties: ['which button (Buffer ahead or Keep going), never the video'],
+  ),
+  AnalyticsEventDoc(
     event: 'playback_started',
     group: .rooms,
     what: 'Playback began in a room.',

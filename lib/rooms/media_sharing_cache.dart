@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
 import 'package:path/path.dart' as p;
@@ -220,6 +221,33 @@ class MediaSharingCache {
     }
   }
 
+  static const _mapMagic = 0x53544d31; // "STM1"
+
+  static Uint8List _encodeMap(int totalBytes, int chunkSize, Uint8List present) {
+    final out = BytesBuilder();
+    final header = ByteData(16)
+      ..setUint32(0, _mapMagic)
+      ..setUint32(4, chunkSize)
+      ..setUint64(8, totalBytes);
+    out
+      ..add(header.buffer.asUint8List())
+      ..add(present);
+    return out.takeBytes();
+  }
+
+  static Uint8List? _decodeMap(Uint8List bytes, int totalBytes, int chunkSize) {
+    if (bytes.length < 16) return null;
+    final header = ByteData.sublistView(bytes, 0, 16);
+    if (header.getUint32(0) != _mapMagic ||
+        header.getUint32(4) != chunkSize ||
+        header.getUint64(8) != totalBytes) {
+      return null;
+    }
+    final chunks = (totalBytes + chunkSize - 1) ~/ chunkSize;
+    if (bytes.length != 16 + chunks) return null;
+    return Uint8List.fromList(bytes.sublist(16));
+  }
+
   /// Wipes all cached media and temporary files from the local disk cache
   /// upon account deletion.
   Future<void> clearAll() async {
@@ -236,5 +264,206 @@ class MediaSharingCache {
         }
       } catch (_) {}
     }
+  }
+}
+
+/// Default ceiling for the playback cache, across every film it holds.
+const int kStreamCacheCapBytes = 3 * 1024 * 1024 * 1024;
+
+/// One shared film, held on disk as it is streamed: a pre-sized data file plus
+/// a one-byte-per-chunk presence map. Chunks are only ever marked present once
+/// whole, so a crash or a cancelled fetch leaves a file that is merely
+/// incomplete, never wrong.
+///
+/// The map is conservative by construction: data is written before its chunk
+/// is marked, and the map is persisted after, so a stale map can only forget
+/// bytes it has - never claim bytes it lacks.
+class SparseMediaEntry {
+  SparseMediaEntry._(
+    this.totalBytes,
+    this.chunkSize,
+    this._present,
+    this._dataFile,
+    this._mapFile,
+    this._writer,
+    this._reader,
+  );
+
+  final int totalBytes;
+  final int chunkSize;
+  final Uint8List _present;
+  final File _dataFile;
+  final File _mapFile;
+  final RandomAccessFile _writer;
+  final RandomAccessFile _reader;
+  Future<void> _writeLock = Future.value();
+  Future<void> _readLock = Future.value();
+  bool _dirty = false;
+  bool _closed = false;
+
+  int get chunkCount => _present.length;
+
+  /// Bytes in chunk [index] (the last one is short).
+  int chunkLength(int index) =>
+      index == chunkCount - 1 ? totalBytes - index * chunkSize : chunkSize;
+
+  bool hasChunk(int index) => index >= 0 && index < chunkCount && _present[index] == 1;
+
+  int get cachedBytes {
+    var n = 0;
+    for (var i = 0; i < chunkCount; i++) {
+      if (_present[i] == 1) n += chunkLength(i);
+    }
+    return n;
+  }
+
+  /// Contiguous whole-chunk bytes available from [offset] onwards.
+  int contiguousFrom(int offset) {
+    if (offset < 0 || offset >= totalBytes) return 0;
+    var i = offset ~/ chunkSize;
+    if (!hasChunk(i)) return 0;
+    var end = (i + 1) * chunkSize;
+    while (i + 1 < chunkCount && hasChunk(i + 1)) {
+      i++;
+      end += chunkSize;
+    }
+    return (end > totalBytes ? totalBytes : end) - offset;
+  }
+
+  /// Runs [op] on the write handle once every earlier write-side operation has
+  /// finished. A RandomAccessFile allows exactly one async operation at a time
+  /// (a second throws "An async operation is currently pending"), and seek+write
+  /// is two of them, so *everything* that touches the handle goes through here.
+  Future<T> _onWriter<T>(Future<T> Function() op) {
+    final run = _writeLock.then((_) => op());
+    _writeLock = run.then((_) {}, onError: (Object _) {});
+    return run;
+  }
+
+  /// Writes [data] at [offset].
+  Future<void> write(int offset, Uint8List data) => _onWriter(() async {
+    if (_closed) return;
+    await _writer.setPosition(offset);
+    await _writer.writeFrom(data);
+  });
+
+  Future<Uint8List> read(int offset, int length) {
+    final run = _readLock.then((_) async {
+      if (_closed) return Uint8List(0);
+      await _reader.setPosition(offset);
+      return _reader.read(length);
+    });
+    _readLock = run.then((_) {}, onError: (Object _) {});
+    return run;
+  }
+
+  /// Marks chunk [index] whole. Call only after every byte of it was written.
+  Future<void> markChunk(int index) async {
+    if (index < 0 || index >= chunkCount || _present[index] == 1) return;
+    await _writeLock; // the chunk's last write has landed
+    _present[index] = 1;
+    _dirty = true;
+  }
+
+  /// Persists the presence map if it changed.
+  Future<void> persist() async {
+    if (!_dirty || _closed) return;
+    _dirty = false;
+    try {
+      await _onWriter(() => _writer.flush());
+      await _mapFile.writeAsBytes(MediaSharingCache._encodeMap(totalBytes, chunkSize, _present));
+    } catch (_) {
+      _dirty = true;
+    }
+  }
+
+  Future<void> close() async {
+    if (_closed) return;
+    await persist();
+    _closed = true;
+    try {
+      await _onWriter(() => _writer.close());
+      await _readLock;
+      await _reader.close();
+    } catch (_) {}
+  }
+
+  String get dataPath => _dataFile.path;
+}
+
+extension StreamingCache on MediaSharingCache {
+  /// Opens (creating if needed) the sparse entry for [key]. A key is anything
+  /// stable across re-signed URLs plus the object size, so a replaced file of a
+  /// different size can never be served from an old entry.
+  Future<SparseMediaEntry> openSparse({
+    required String key,
+    required int totalBytes,
+    int chunkSize = 4 * 1024 * 1024,
+  }) async {
+    final dir = await cacheDirectory;
+    final hash = sha256.convert(utf8.encode('$key|$totalBytes')).toString();
+    final dataFile = File(p.join(dir.path, '$hash.part'));
+    final mapFile = File(p.join(dir.path, '$hash.map'));
+    final chunks = (totalBytes + chunkSize - 1) ~/ chunkSize;
+    var present = Uint8List(chunks);
+    var reuse = false;
+    if (await dataFile.exists() && await mapFile.exists()) {
+      final loaded = MediaSharingCache._decodeMap(
+        await mapFile.readAsBytes(),
+        totalBytes,
+        chunkSize,
+      );
+      if (loaded != null && await dataFile.length() == totalBytes) {
+        present = loaded;
+        reuse = true;
+      }
+    }
+    if (!reuse) {
+      if (await dataFile.exists()) await dataFile.delete();
+      if (await mapFile.exists()) await mapFile.delete();
+      await dataFile.create(recursive: true);
+      final init = await dataFile.open(mode: FileMode.append);
+      try {
+        await init.truncate(totalBytes);
+      } finally {
+        await init.close();
+      }
+    }
+    final writer = await dataFile.open(mode: FileMode.append);
+    final reader = await dataFile.open();
+    // Touch: the LRU order is by last open.
+    try {
+      await dataFile.setLastModified(DateTime.now());
+    } catch (_) {}
+    return SparseMediaEntry._(totalBytes, chunkSize, present, dataFile, mapFile, writer, reader);
+  }
+
+  /// Evicts least-recently-used streamed films until the cache fits in
+  /// [maxBytes]. [keepPath] (the film being watched) is never evicted.
+  Future<int> enforceCap({int maxBytes = kStreamCacheCapBytes, String? keepPath}) async {
+    final dir = await cacheDirectory;
+    final parts = <File>[];
+    var total = 0;
+    for (final e in dir.listSync()) {
+      if (e is File && e.path.endsWith('.part')) {
+        parts.add(e);
+        total += e.lengthSync();
+      }
+    }
+    if (total <= maxBytes) return 0;
+    parts.sort((a, b) => a.lastModifiedSync().compareTo(b.lastModifiedSync()));
+    var freed = 0;
+    for (final f in parts) {
+      if (total - freed <= maxBytes) break;
+      if (f.path == keepPath) continue;
+      final size = f.lengthSync();
+      try {
+        f.deleteSync();
+        final map = File('${f.path.substring(0, f.path.length - 5)}.map');
+        if (map.existsSync()) map.deleteSync();
+        freed += size;
+      } catch (_) {}
+    }
+    return freed;
   }
 }

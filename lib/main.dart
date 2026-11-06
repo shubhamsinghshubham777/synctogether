@@ -16,6 +16,7 @@ import 'package:synctogether/env.dart';
 import 'package:synctogether/mock/mock_dependencies.dart';
 import 'package:synctogether/mock/store_capture.dart';
 import 'package:synctogether/platform.dart';
+import 'package:synctogether/player/photo_picker.dart' show sweepPhotoExports;
 import 'package:synctogether/profile/apple_iap_service.dart';
 import 'package:synctogether/profile/microsoft_iap_service.dart';
 import 'package:synctogether/rewards/rewards_models.dart';
@@ -97,6 +98,7 @@ Future<void> _bootstrap() async {
   // guest captcha can render; everywhere else this returns immediately.
   await PTWebView.init();
   unawaited(purgeLegacyYouTubeCookies());
+  unawaited(sweepPhotoExports());
   if (Env.supabaseUrl.isEmpty) {
     reportNonFatal(
       StateError('Supabase URL is empty; check compile-time SUPABASE_URL define'),

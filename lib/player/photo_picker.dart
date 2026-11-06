@@ -1,8 +1,11 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:synctogether/diagnostics.dart';
+import 'package:synctogether/player/photo_exports.dart';
+import 'package:synctogether/rooms/local_media_store.dart';
 
 // "From Photos" (board 47): the system photo picker, filtered to videos, with
 // NO permission prompt and NO new package.
@@ -15,18 +18,23 @@ import 'package:synctogether/diagnostics.dart';
 //
 //   iOS      `PHPickerViewController` (iOS 14+, out-of-process, so the app is
 //            never granted library access and never prompts). The chosen movie
-//            is exported once into a temp folder - `.current` representation,
-//            so no transcode - because the provider's file is deleted when the
-//            callback returns. See `PhotoPickerChannel` in AppDelegate.swift.
+//            is exported once into `Application Support/PhotosPicks` - `.current`
+//            representation, so no transcode - because the provider's file is
+//            deleted when the callback returns. Not tmp: iOS purges that while
+//            the app is closed, which lost the pick before a rejoin. Retention
+//            is `PhotoExports` (photo_exports.dart). See `PhotoPickerChannel`
+//            in AppDelegate.swift.
 //   Android  `MediaStore.ACTION_PICK_IMAGES` (the system photo picker, API 33+
 //            and backported to 30+ via Play system updates), falling back to
 //            `ACTION_GET_CONTENT` for `video/*`. It hands back a `content://`
-//            URI with a temporary grant, no copy. See MainActivity.kt.
+//            URI with a temporary grant (it dies with the process). A persistable
+//            grant is taken when the provider allows it; otherwise the video is
+//            copied into app-private `filesDir/PhotosPicks`. See PhotoPicker.kt.
 //
-// The result goes through `LocalVideoAccess.adoptPick(origin: photos)`: on iOS
-// it is a path under tmp (so `temporary`), on Android a content URI that is not
-// persistable - either way `RecentVideos.record` declines it, which is the
-// policy for Photos picks. Desktop has no photo library entry; the chooser
+// The result goes through `LocalVideoAccess.adoptPick(origin: photos)`: a path
+// under `PhotosPicks` (durable for the room that picked it, so a rejoin reopens
+// it) or, on Android when the grant persisted, a content URI. `RecentVideos`
+// still declines Photos picks: the export is kept days, not forever. Desktop has no photo library entry; the chooser
 // never shows the row there.
 
 /// What the photo picker handed back: a path (iOS temp export) or a
@@ -59,6 +67,7 @@ Future<PhotoPick?> pickPhotoVideo() async {
     final path = r['path'] as String?;
     final uri = r['uri'] as String?;
     if (path == null && uri == null) return null;
+    unawaited(sweepPhotoExports(playing: path));
     return PhotoPick(path: path, uri: uri, name: (r['name'] as String?) ?? '');
   } on MissingPluginException {
     return null;
@@ -66,4 +75,12 @@ Future<PhotoPick?> pickPhotoVideo() async {
     reportNonFatal(e, s, during: 'picking a video from Photos');
     return null;
   }
+}
+
+/// Applies the Photos-export retention policy against the rooms this device
+/// still remembers. At launch and after each pick; never throws.
+Future<void> sweepPhotoExports({String? playing}) async {
+  if (!photosAvailable) return;
+  final remembered = await LocalMediaStore.instance.rememberedPaths();
+  await PhotoExports.instance.sweep(referenced: remembered, playing: playing);
 }

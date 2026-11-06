@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:synctogether/diagnostics.dart';
 import 'package:synctogether/player/media_access.dart';
 import 'package:synctogether/player/media_file_types.dart';
+import 'package:synctogether/player/photo_exports.dart';
 import 'package:synctogether/rooms/upload_source.dart';
 
 // Local-video ACCESS: turning whatever a picker (or a stored reference) gives us
@@ -247,7 +248,10 @@ class LocalVideo {
   bool get isContentUri => contentUri != null;
 
   /// Whether remembering this in Recents is worthwhile.
-  bool get durable => !temporary && origin != VideoOrigin.photos;
+  /// A Photos export is kept days, not forever, so it never joins Recent even
+  /// when a room reopens it (which loses the `photos` origin).
+  bool get durable =>
+      !temporary && origin != VideoOrigin.photos && !(path != null && isPhotosExportPath(path!));
 
   /// The file on disk, or null for a content:// URI.
   File? get file => path == null ? null : File(path!);

@@ -239,8 +239,15 @@ enum MediaAccessChannel {
 /// "From Photos": `PHPickerViewController` filtered to videos. It runs out of
 /// process, so the app is never granted library access and there is no prompt
 /// and no usage string. The provider's file is deleted when the completion
-/// returns, so the movie is exported once into a temp folder of ours. Dart side:
+/// returns, so the movie is exported once into a folder of ours. Dart side:
 /// lib/player/photo_picker.dart (channel `app.synctogether/photo_picker`).
+///
+/// The folder is `Application Support/PhotosPicks`, NOT tmp: iOS purges tmp
+/// whenever the app is not running, which silently lost the pick between a
+/// leave and a rejoin and made the room stream the host's copy instead.
+/// Application Support is never purged by the OS, so retention is ours: Dart's
+/// `PhotoExports` (lib/player/photo_exports.dart) sweeps by age and total size
+/// and owns the policy. The folder is excluded from iCloud/device backups.
 final class PhotoPickerChannel: NSObject, PHPickerViewControllerDelegate {
   private static let shared = PhotoPickerChannel()
   private var pending: FlutterResult?
@@ -248,24 +255,25 @@ final class PhotoPickerChannel: NSObject, PHPickerViewControllerDelegate {
   static func register(with messenger: FlutterBinaryMessenger) {
     let channel = FlutterMethodChannel(name: "app.synctogether/photo_picker", binaryMessenger: messenger)
     channel.setMethodCallHandler { call, result in
-      guard call.method == "pickVideo" else { return result(FlutterMethodNotImplemented) }
-      shared.present(result: result)
+      switch call.method {
+      case "pickVideo": shared.present(result: result)
+      case "photoExportsDir": result(folder.path)
+      default: result(FlutterMethodNotImplemented)
+      }
     }
   }
 
+  /// Created on demand and marked `isExcludedFromBackup` (set again on every
+  /// call: the flag is cheap and a restore can drop it).
   private static var folder: URL {
-    URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("PhotosPicks", isDirectory: true)
-  }
-
-  /// Exports from earlier sessions are not worth keeping; a day is plenty for
-  /// anything still playing.
-  private static func sweep() {
-    let fm = FileManager.default
-    let cutoff = Date().addingTimeInterval(-86_400)
-    for url in (try? fm.contentsOfDirectory(at: folder, includingPropertiesForKeys: [.contentModificationDateKey])) ?? [] {
-      let modified = (try? url.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate
-      if let modified = modified, modified < cutoff { try? fm.removeItem(at: url) }
-    }
+    var url = (FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+      ?? URL(fileURLWithPath: NSTemporaryDirectory()))
+      .appendingPathComponent("PhotosPicks", isDirectory: true)
+    try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+    var values = URLResourceValues()
+    values.isExcludedFromBackup = true
+    try? url.setResourceValues(values)
+    return url
   }
 
   private func present(result: @escaping FlutterResult) {
@@ -300,7 +308,6 @@ final class PhotoPickerChannel: NSObject, PHPickerViewControllerDelegate {
     guard let provider = results.first?.itemProvider else { return reply(nil) }
     let type = UTType.movie.identifier
     guard provider.hasItemConformingToTypeIdentifier(type) else { return reply(nil) }
-    PhotoPickerChannel.sweep()
     provider.loadFileRepresentation(forTypeIdentifier: type) { url, error in
       guard let url = url, error == nil else {
         DispatchQueue.main.async { reply(nil) }
@@ -312,6 +319,11 @@ final class PhotoPickerChannel: NSObject, PHPickerViewControllerDelegate {
       do {
         try fm.createDirectory(at: dir, withIntermediateDirectories: true)
         try fm.copyItem(at: url, to: target)
+        // copyItem keeps the clip's original modification date; retention reads
+        // it as "last used", so stamp it now or an old video looks stale.
+        let now = Date()
+        try? fm.setAttributes([.modificationDate: now], ofItemAtPath: target.path)
+        try? fm.setAttributes([.modificationDate: now], ofItemAtPath: dir.path)
         DispatchQueue.main.async { reply(["path": target.path, "name": target.lastPathComponent]) }
       } catch {
         DispatchQueue.main.async { reply(nil) }

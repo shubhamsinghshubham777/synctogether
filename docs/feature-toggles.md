@@ -189,6 +189,7 @@ them set. Changing any of these needs a rebuild and a release.
 | `POSTHOG_HOST` | Defaults to `https://us.i.posthog.com`. |
 | `LIVEKIT_URL` | Facecams disappear entirely - no service, no token fetch, no UI. |
 | `TURNSTILE_SITE_KEY` | The client skips the captcha dialog, **but the server still demands a token**, so guest sign-in fails. Set it or disable captcha server-side too. |
+| `STREAM_PROXY` | Defaults to **on**. `--dart-define=STREAM_PROXY=false` makes shared-media streams open the direct URL (no loopback range proxy, no disk cache); mpv tuning, health monitoring and the notice still apply. |
 | `SUPABASE_URL` / `SUPABASE_PUBLISHABLE_KEY` | Required. Debug builds fall back to the local stack. |
 | `STORE_BUILD` | Store distribution. On macOS it is the Mac App Store build (StoreKit); on Windows it is the Microsoft Store build (Windows.Services.Store); on **Android it is the Google Play build**, which is consumption-only - Premium bought elsewhere unlocks, but no upsell, price or link is shown (`canSellPremium`, which is true on Apple builds and the Microsoft Store build). Every Play release must set it. iOS is always the App Store build regardless. |
 | `STORE_TARGET` | With `CAPTURE_STORE`: `mac` selects the Mac App Store screenshot set. Off in real builds. |

@@ -367,6 +367,17 @@ bool shouldAutoReopenLocalFile({
   return storedFileExists;
 }
 
+/// Whether the quiet "streaming the shared copy" notice is owed: a member whose
+/// device remembered this very file for the room, but can no longer open it, is
+/// about to be handed the host's copy. Never for a host, and never when this
+/// device had no copy to lose (that is just the normal first-time path).
+bool shouldNoteStreamingFallback({
+  required bool isHost,
+  required String? mediaName,
+  required String? storedFileName,
+  required bool storedFileUsable,
+}) => !isHost && mediaName != null && storedFileName == mediaName && !storedFileUsable;
+
 Duration playablePosition(Duration reported) => reported < Duration.zero ? Duration.zero : reported;
 
 const kResumeTailWindow = Duration(seconds: 15);

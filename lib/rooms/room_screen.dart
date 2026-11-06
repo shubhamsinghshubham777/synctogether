@@ -26,6 +26,8 @@ import 'package:synctogether/platform.dart';
 import 'package:synctogether/player/local_video.dart';
 import 'package:synctogether/player/local_video_chooser.dart';
 import 'package:synctogether/player/media_file_types.dart';
+import 'package:synctogether/player/photo_exports.dart';
+import 'package:synctogether/rooms/widgets/streaming_fallback_banner.dart';
 import 'package:synctogether/player/photo_picker.dart';
 import 'package:synctogether/player/recent_format.dart';
 import 'package:synctogether/player/recent_videos.dart';
@@ -42,7 +44,12 @@ import 'package:synctogether/profile/media_quota_dialog.dart';
 import 'package:synctogether/profile/profile_models.dart';
 import 'package:synctogether/profile/profile_service.dart';
 import 'package:synctogether/rooms/local_media_store.dart';
+import 'package:synctogether/rooms/media_sharing_cache.dart';
 import 'package:synctogether/rooms/media_sharing_service.dart';
+import 'package:synctogether/player/stream/stream_health.dart' show formatMbps;
+import 'package:synctogether/player/stream/stream_notice.dart' show StreamNotice;
+import 'package:synctogether/player/stream/stream_session.dart';
+import 'package:synctogether/player/stream/stream_tuning.dart';
 import 'package:synctogether/rooms/reactions.dart';
 import 'package:synctogether/rooms/room_dependencies.dart';
 import 'package:synctogether/rewards/rewards_logic.dart';
@@ -328,6 +335,10 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
   String? _localFileName;
   bool _mismatchDismissed = false;
 
+  /// A rejoin found the remembered local copy gone and fell back to streaming
+  /// the host's shared copy: say so once, quietly (info banner, never error).
+  bool _streamingFallbackNotice = false;
+
   bool _resumeAttempted = false;
   bool _extending = false;
   final _resuming = ValueNotifier<bool>(false);
@@ -365,6 +376,8 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
   int _uploadEtaSeconds = 0;
   String _uploadState = 'none';
   bool _recoveringStream403 = false;
+  final _streamCache = MediaSharingCache();
+  SharedStreamSession? _stream;
 
   /// The video this device has open in the player, with whatever platform
   /// access it holds (an iOS security scope). Released when it is replaced and
@@ -1110,6 +1123,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
       _player.stream.playing.listen((playing) {
         if (_mode == .local) {
           setState(() => _playing = playing);
+          _stream?.onPlaying(playing);
           _onPlayingChangedForControls(playing);
         }
       }),
@@ -1120,6 +1134,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
         if (_mode != .local) return;
         final wasResolved = _duration != Duration.zero;
         setState(() => _duration = duration);
+        if (_isStreamingRemoteSharedMedia) _stream?.onDuration(duration);
         if (wasResolved != (duration != Duration.zero)) {
           trace(
             'local duration ${duration == Duration.zero ? 'cleared' : 'resolved'}',
@@ -1143,7 +1158,11 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
       _player.stream.buffering.listen((buffering) {
         if (_mode != .local) return;
         setState(() => _buffering = buffering);
+        _stream?.onBuffering(buffering);
         _sync?.noteBuffering(buffering);
+      }),
+      _player.stream.width.listen((w) {
+        if (w != null && w > 0 && _isStreamingRemoteSharedMedia) _stream?.onFirstFrame();
       }),
       _player.stream.buffer.listen((buffer) {
         if (_isStreamingRemoteSharedMedia && _mode == .local) {
@@ -1364,6 +1383,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     _catchUpTimeoutTimer?.cancel();
     _localLoadWatchdog?.cancel();
     _thumbWait?.cancel();
+    unawaited(_stream?.dispose());
     RecentVideos.instance.removeListener(_onRecentsChanged);
     unawaited(_localVideo?.release());
     for (final t in _overlayChatTimers) {
@@ -1781,6 +1801,8 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     _ytBufferReady = false;
     _localLoadWatchdog?.cancel();
     _localLoadStalled = false;
+    _isStreamingRemoteSharedMedia = false;
+    unawaited(_stream?.reset());
     final existing = _youtubeController;
     trace(
       'switching to youtube mode',
@@ -2461,6 +2483,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     _openFailedFor = null;
     _isStreamingRemoteSharedMedia = false;
     _bufferPosition = null;
+    unawaited(_stream?.reset());
     try {
       await _player.open(Media(video.mediaUri), play: false);
       unawaited(_suppressSecondarySubtitles());
@@ -2516,6 +2539,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
       ),
     );
     unawaited(_rememberRecent(video));
+    if (video.path != null) unawaited(PhotoExports.instance.touch(video.path!));
     unawaited(_announceLocalFile(name));
     if (seekTo != null) unawaited(_seekOnceLoaded(seekTo, name));
     setState(() {});
@@ -2568,7 +2592,12 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
       _recentId = null;
       _localLoadWatchdog?.cancel();
       _localLoadStalled = false;
-      await _player.open(Media(dl.streamUrl.toString()), play: false);
+      final source = await (_stream ??= _newStreamSession()).start(
+        dl,
+        duration: _canonicalMedia.duration,
+      );
+      if (!mounted || _ended) return;
+      await _player.open(Media(source.toString()), play: false);
       unawaited(_preferTextSubtitleOnOpen());
       unawaited(_suppressSecondarySubtitles());
       _armLocalLoadWatchdog(fileName);
@@ -2634,6 +2663,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
 
     final entry = await LocalMediaStore.instance.lookup(widget.roomId);
     if (!mounted || _ended) return;
+    var storedFileUsable = entry?.fileStillExists ?? false;
     if (shouldAutoReopenLocalFile(
       media: media,
       storedFileName: entry?.name,
@@ -2663,6 +2693,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
       }
       // The file moved, or the grant lapsed: fall through to the shared copy
       // (if the host uploaded one); otherwise the gate's Locate button is it.
+      storedFileUsable = false;
       trace(
         'remembered room file is unavailable',
         category: 'room',
@@ -2682,6 +2713,19 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
       );
       _resolveFirstSource();
       _idleSourceTimer?.cancel();
+      if (shouldNoteStreamingFallback(
+        isHost: _sync?.isHost ?? false,
+        mediaName: media.name,
+        storedFileName: entry?.name,
+        storedFileUsable: storedFileUsable,
+      )) {
+        trace(
+          'streaming the shared copy because the remembered file is gone',
+          category: 'room',
+          data: {'room_id': widget.roomId, 'file': media.name},
+        );
+        setState(() => _streamingFallbackNotice = true);
+      }
       unawaited(_startStreamingSharedMedia(media.name!, seekTo: held));
     }
   }
@@ -2728,7 +2772,46 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     );
   }
 
-  Future<void> _recoverFromStream403() async {
+  SharedStreamSession _newStreamSession() => SharedStreamSession(
+    roomId: widget.roomId,
+    fetchUrl: () => _mediaSharingService.fetchDownloadUrl(roomId: widget.roomId),
+    cache: _streamCache,
+    device: _streamDevice(),
+    setOption: (key, value) async {
+      final native = _player.platform;
+      if (native is NativePlayer) await native.setProperty(key, value);
+    },
+    mpvCacheBps: () async {
+      final native = _player.platform;
+      if (native is! NativePlayer) return null;
+      final raw = double.tryParse(await native.getProperty('cache-speed'));
+      return raw == null ? null : raw * 8;
+    },
+    bufferedAhead: () {
+      final buffer = _bufferPosition;
+      if (buffer == null || buffer <= _position) return Duration.zero;
+      return buffer - _position;
+    },
+    remaining: () => _duration > _position ? _duration - _position : Duration.zero,
+    onChanged: () {
+      if (mounted) setState(() {});
+    },
+    onReadinessChanged: () {
+      if (mounted) _updateReadiness();
+    },
+    onProxyFatal: (_) => unawaited(_recoverFromStream403(direct: true)),
+  );
+
+  StreamDeviceClass _streamDevice() {
+    if (!isMobile) return .desktop;
+    return MediaQuery.sizeOf(context).shortestSide >= 600 ? .tablet : .phone;
+  }
+
+  /// Reopens the shared stream after an error, keeping position and the
+  /// viewer's audio and subtitle choice. Through the proxy a 403 never reaches
+  /// mpv (the proxy re-signs); this path is for a direct stream, and for the
+  /// proxy giving up ([direct]), where it falls back to the origin URL.
+  Future<void> _recoverFromStream403({bool direct = false}) async {
     if (_recoveringStream403 || !mounted || _ended) return;
     _recoveringStream403 = true;
     try {
@@ -2736,10 +2819,19 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
       final audioTrack = _player.state.track.audio;
       final subtitleTrack = _player.state.track.subtitle;
 
-      final dl = await _mediaSharingService.fetchDownloadUrl(roomId: widget.roomId);
+      final session = _stream;
+      final Uri source;
+      if (session == null) {
+        source = (await _mediaSharingService.fetchDownloadUrl(roomId: widget.roomId)).streamUrl;
+      } else if (direct) {
+        trace('streaming direct after the proxy gave up', category: 'media');
+        source = await session.fallBackToDirect();
+      } else {
+        source = await session.reopenSource();
+      }
       if (!mounted || _ended) return;
 
-      await _player.open(Media(dl.streamUrl.toString()), play: _playing);
+      await _player.open(Media(source.toString()), play: _playing);
       if (currentPos > Duration.zero) {
         _player.seek(currentPos);
       }
@@ -2948,6 +3040,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
         // `ready` means "a file is fully open", NOT "the right file" - the gate
         // compares loadedFileName against canonical itself, so the UI can tell
         // "still loading" apart from "loaded the wrong thing".
+        if (_stream?.holdingForBuffer ?? false) return .loading;
         return _duration == Duration.zero ? .loading : .ready;
       case .youtube:
         return _ytBufferReady ? .ready : .loading;
@@ -5355,6 +5448,19 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
             onDismiss: () => setState(() => _mismatchDismissed = true),
           ),
         ),
+      if (_streamingFallbackNotice && _localFileName != _canonicalMedia.name)
+        PTEntrance(
+          key: const ValueKey('streaming-fallback'),
+          offset: -8,
+          duration: PTMotion.state,
+          child: StreamingFallbackBanner(
+            onUseMyCopy: () {
+              setState(() => _streamingFallbackNotice = false);
+              _pickVideo();
+            },
+            onDismiss: () => setState(() => _streamingFallbackNotice = false),
+          ),
+        ),
       if ((_sync?.isHost ?? false) && _mode == .local && _uploadState == 'failed')
         PTEntrance(
           key: const ValueKey('media-sharing-failed'),
@@ -5419,7 +5525,111 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
             onDismiss: () => setState(() => _localReadyPromptDismissed = true),
           ),
         ),
+      ..._streamNoticeBanners(),
     ];
+  }
+
+  /// The gentle connection notice, in three states (design board 51). Info
+  /// style throughout, never blocks playback, never for a local file.
+  List<Widget> _streamNoticeBanners() {
+    final session = _stream;
+    if (session == null || _mode != .local || !_isStreamingRemoteSharedMedia) return const [];
+    final notice = session.notice;
+    switch (notice.notice) {
+      case StreamNotice.none:
+        return const [];
+      case StreamNotice.bufferingMore:
+        return [
+          PTEntrance(
+            key: const ValueKey('stream-notice-buffering-more'),
+            offset: -8,
+            duration: PTMotion.state,
+            child: PTBanner(
+              kind: .info,
+              icon: BoothIcons.clock,
+              title: 'Buffering a little more',
+              subtitle: 'Smoothing things out so it plays without pauses.',
+              showActivity: true,
+              autoDismissAfter: const Duration(seconds: 6),
+              onDismiss: notice.dismiss,
+            ),
+          ),
+        ];
+      case StreamNotice.connection:
+        final need = notice.requiredBps ?? 0;
+        final have = notice.capacityBps ?? 0;
+        return [
+          PTEntrance(
+            key: const ValueKey('stream-notice-connection'),
+            offset: -8,
+            duration: PTMotion.state,
+            child: PTBanner(
+              kind: .info,
+              icon: BoothIcons.info,
+              title: 'This video is high quality (${formatMbps(need)})',
+              subtitle:
+                  'Your connection looks like it can keep up with ${formatMbps(have)} right now, '
+                  'so it may pause now and then. You can let it buffer ahead first.',
+              trailing: Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  PTButton(
+                    label: 'Buffer ahead',
+                    variant: .primary,
+                    height: 36,
+                    expand: false,
+                    onPressed: () {
+                      Analytics.instance.track('stream_notice_answered', {
+                        'choice': 'buffer_ahead',
+                      });
+                      session.bufferAhead();
+                    },
+                  ),
+                  PTButton(
+                    label: 'Keep going',
+                    variant: .secondary,
+                    height: 36,
+                    expand: false,
+                    onPressed: _keepGoingOnStreamNotice,
+                  ),
+                ],
+              ),
+              onDismiss: notice.dismiss,
+            ),
+          ),
+        ];
+      case StreamNotice.bufferingAhead:
+        final (have, want) = session.holdProgress;
+        return [
+          PTEntrance(
+            key: const ValueKey('stream-notice-buffering-ahead'),
+            offset: -8,
+            duration: PTMotion.state,
+            child: PTBanner(
+              kind: .info,
+              icon: BoothIcons.clock,
+              title: 'Buffering ahead',
+              subtitle:
+                  'About $have s of $want s is ready. You will show as loading to the room until then.',
+              showActivity: true,
+              trailing: PTButton(
+                label: 'Start anyway',
+                variant: .secondary,
+                height: 36,
+                expand: false,
+                onPressed: session.releaseHold,
+              ),
+              onDismiss: session.releaseHold,
+            ),
+          ),
+        ];
+    }
+  }
+
+  void _keepGoingOnStreamNotice() {
+    Analytics.instance.track('stream_notice_answered', {'choice': 'keep_going'});
+    _stream?.notice.dismiss();
   }
 
   /// Collapses to nothing when the last banner goes, so dismissing one doesn't

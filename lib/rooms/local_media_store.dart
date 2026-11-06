@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:synctogether/diagnostics.dart';
 import 'package:synctogether/player/local_video.dart';
+import 'package:synctogether/player/photo_exports.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 const _kStoreKey = 'pt.local_media_by_room';
@@ -109,6 +110,10 @@ class LocalMediaEntry {
   /// "couldn't open that file" path.
   bool get fileStillExists {
     if (reference is ContentUriReference) return true;
+    // A Photos export is ours and lives in the app container, whose absolute
+    // path iOS can move on an update; the bookmark still resolves, so let
+    // `reopen` decide rather than call it gone on a stale path.
+    if (reference is BookmarkReference && isPhotosExportPath(path)) return true;
     try {
       return File(path).existsSync();
     } catch (_) {
@@ -236,6 +241,12 @@ class LocalMediaStore {
       reportNonFatal(e, s, during: 'clearing local media store');
     }
   }
+
+  /// Every path a room still remembers (for the Photos-export sweep).
+  Future<Set<String>> rememberedPaths() async => {
+    for (final e in (await _read()).values)
+      if (e.path.isNotEmpty) e.path,
+  };
 
   Future<LocalMediaEntry?> lookup(String roomId) async => (await _read())[roomId];
 

@@ -20,6 +20,12 @@ class Env {
 
   /// Well-known local development defaults used when running locally in debug mode
   /// without explicit compile-time defines.
+  /// `--dart-define=STREAM_PROXY=false` switches the loopback range proxy off
+  /// and mpv opens the shared-media URL directly, as it did before the proxy
+  /// existed. On by default; there is no server-side switch because the proxy
+  /// is a client delivery detail.
+  static const bool _envStreamProxy = bool.fromEnvironment('STREAM_PROXY', defaultValue: true);
+
   static const String defaultLocalSupabaseUrl = 'http://127.0.0.1:54321';
   static const String defaultLocalSupabasePublishableKey =
       'sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH';
@@ -46,6 +52,8 @@ class Env {
   static String? overridePosthogHost;
   @visibleForTesting
   static bool? overrideReleaseMode;
+  @visibleForTesting
+  static bool? overrideStreamProxy;
 
   @visibleForTesting
   static void resetOverridesForTesting() {
@@ -59,7 +67,10 @@ class Env {
     overridePosthogApiKey = null;
     overridePosthogHost = null;
     overrideReleaseMode = null;
+    overrideStreamProxy = null;
   }
+
+  static bool get streamProxyEnabled => overrideStreamProxy ?? _envStreamProxy;
 
   static bool get _isDebug => overrideReleaseMode == true ? false : kDebugMode;
 

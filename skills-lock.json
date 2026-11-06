@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "skills": {
+    "iphone-duo-adaptive-layout": {
+      "source": "mirzaaghazadeh/iphone-duo-skills",
+      "sourceType": "github",
+      "skillPath": "skills/iphone-duo-adaptive-layout/SKILL.md",
+      "computedHash": "88160bdea8d617329f7456b604a189d1d39cadce769f7edd22eeeb5371cda426"
+    },
+    "iphone-duo-design-review": {
+      "source": "mirzaaghazadeh/iphone-duo-skills",
+      "sourceType": "github",
+      "skillPath": "skills/iphone-duo-design-review/SKILL.md",
+      "computedHash": "6977308db668fbe69cc67c21d65fd514d18a3b74fbfcdb03b73a7d8e6ed64d80"
+    },
+    "iphone-duo-dual-pane-patterns": {
+      "source": "mirzaaghazadeh/iphone-duo-skills",
+      "sourceType": "github",
+      "skillPath": "skills/iphone-duo-dual-pane-patterns/SKILL.md",
+      "computedHash": "4395cf25f2dcb7fb02ac6ad5d9d0d4ae8234d6dbe0192f4eba5db2819a07085f"
+    },
+    "iphone-duo-flutter": {
+      "source": "mirzaaghazadeh/iphone-duo-skills",
+      "sourceType": "github",
+      "skillPath": "skills/iphone-duo-flutter/SKILL.md",
+      "computedHash": "c7e89fe2e10acab997bba3cd2260d8ab76d54ea43733c2037c35004913c8ee7d"
+    },
+    "iphone-duo-hinge-and-scenes": {
+      "source": "mirzaaghazadeh/iphone-duo-skills",
+      "sourceType": "github",
+      "skillPath": "skills/iphone-duo-hinge-and-scenes/SKILL.md",
+      "computedHash": "48eaec10f431d341cbe5bb53c1e1815fedf4b95f2ce415692ad7dd0afb6e82b3"
+    },
+    "iphone-duo-readiness": {
+      "source": "mirzaaghazadeh/iphone-duo-skills",
+      "sourceType": "github",
+      "skillPath": "skills/iphone-duo-readiness/SKILL.md",
+      "computedHash": "24b268588fc2e9fee2ac272ba275eb52124d2839ebf34aec3cfe0e9364b6c0b7"
+    }
+  }
+}

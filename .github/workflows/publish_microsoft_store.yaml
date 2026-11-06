@@ -67,6 +67,14 @@ jobs:
           restore-keys: |
             pub-${{ runner.os }}-
 
+      # The jni plugin (a transitive dependency) compiles against jni.h, which only a
+      # JDK ships. The runner image stopped exposing one (20261103), so name one.
+      - name: Set up Java (jni headers)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
       - name: Install dependencies
         run: |
           flutter config --enable-windows-desktop

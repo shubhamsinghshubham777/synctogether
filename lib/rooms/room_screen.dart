@@ -4993,13 +4993,23 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
                       Video(
                         controller: controller,
                         controls: NoVideoControls,
+                        // The picture is shown whole, always: letterboxed in
+                        // black inside whatever box a layout gives it (a tall
+                        // half of a folded phone included), never cropped to
+                        // fill it. Stated, not left to the package default.
+                        fit: BoxFit.contain,
+                        fill: PTColors.black(1),
                         filterQuality: .medium,
                         // libass draws subtitles into the frame; the Flutter
                         // view must never draw a second copy.
                         subtitleViewConfiguration: const SubtitleViewConfiguration(visible: false),
                       ),
                     )
-              : Image.asset('assets/store/movie_still.jpg', fit: BoxFit.cover),
+              // The demo still follows the same rule as the real picture.
+              : ColoredBox(
+                  color: PTColors.black(1),
+                  child: Image.asset('assets/store/movie_still.jpg', fit: BoxFit.contain),
+                ),
         if (_mode == .youtube && _youtubeController != null)
           // The embed is a display surface, not a control surface. Its own
           // chrome is stripped, but when an ad is actively playing, allow pointer

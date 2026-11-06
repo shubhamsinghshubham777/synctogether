@@ -6,6 +6,7 @@ import 'package:flutter/widgets.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'package:synctogether/diagnostics.dart';
+import 'package:synctogether/player/video_color_path.dart';
 
 /// Largest render texture we ask for - 4K UHD, in either orientation.
 const kMaxSurfaceLongSide = 3840, kMaxSurfaceShortSide = 2160;
@@ -37,6 +38,7 @@ const kMaxSurfaceLongSide = 3840, kMaxSurfaceShortSide = 2160;
 Future<void> applyVideoQualityOptions(Player player) async {
   final native = player.platform;
   if (native is! NativePlayer || Platform.isAndroid) return;
+  VideoColorGuard.attach(player);
   const options = {
     'scale': 'spline36',
     'cscale': 'spline36',

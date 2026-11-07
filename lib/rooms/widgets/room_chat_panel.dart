@@ -1020,6 +1020,8 @@ class _RoomChatPanelState extends State<RoomChatPanel> with SingleTickerProvider
     cursorColor: PTColors.textAccent,
     decoration: InputDecoration(
       hintText: 'Say something…',
+      // One line, ellipsized: a narrow composer used to wrap it inside a word.
+      hintMaxLines: 1,
       hintStyle: PTText.body.copyWith(fontSize: _spare ? 13 : 15, color: PTColors.fgMute),
       border: InputBorder.none,
       isDense: true,
@@ -1204,6 +1206,11 @@ class _RoomChatPanelState extends State<RoomChatPanel> with SingleTickerProvider
   }
 }
 
+/// Under this width a message row has no room for the actions column beside its
+/// bubble (avatar 26 + buttons 26 + gaps + the bubble's own padding leave the
+/// text under 120 px), so the actions tuck under the bubble.
+const double _kNarrowRow = 280;
+
 class _MessageRow extends StatefulWidget {
   const _MessageRow({
     required this.message,
@@ -1377,7 +1384,15 @@ class _MessageRowState extends State<_MessageRow> {
           )
         : null;
 
-    final row = widget.own ? _own(copyButton) : _other(copyButton, reportButton);
+    // Narrow is judged from the width the row is given, not from the panel's
+    // `spare` mode (that is the desktop's floating panel): a landscape phone's
+    // docked chat is about 210 px wide.
+    final row = LayoutBuilder(
+      builder: (context, box) {
+        final narrow = widget.spare || box.maxWidth < _kNarrowRow;
+        return widget.own ? _own(copyButton, narrow) : _other(copyButton, reportButton, narrow);
+      },
+    );
     return MouseRegion(
       onEnter: (_) => setState(() => _hovered = true),
       onExit: (_) => setState(() => _hovered = false),
@@ -1401,7 +1416,21 @@ class _MessageRowState extends State<_MessageRow> {
     ),
   );
 
-  Widget _other(Widget copyButton, Widget? reportButton) {
+  /// A narrow (spare) panel cannot afford the column the per-message actions
+  /// reserve beside the bubble even while invisible - it left the text about
+  /// 55 px wide, a word per line. There they sit under the bubble instead,
+  /// taking room only while revealed.
+  Widget _tuckedActions(Widget copyButton, Widget? reportButton, {required bool end}) {
+    return AnimatedSize(
+      duration: PTMotion.functional(context, PTMotion.state),
+      alignment: end ? .topRight : .topLeft,
+      child: _hovered
+          ? Row(mainAxisSize: .min, children: [copyButton, ?reportButton])
+          : const SizedBox(width: 0, height: 0),
+    );
+  }
+
+  Widget _other(Widget copyButton, Widget? reportButton, bool narrow) {
     final message = widget.message;
     return Row(
       crossAxisAlignment: .end,
@@ -1449,39 +1478,47 @@ class _MessageRowState extends State<_MessageRow> {
                       ),
                 child: _bubbleBody(),
               ),
+              if (narrow) _tuckedActions(copyButton, reportButton, end: false),
             ],
           ),
         ),
         // Stacked, not side by side: two 26 px buttons in a row cost a 300 px
         // docked panel a third of its bubble width.
-        Column(mainAxisSize: .min, children: [copyButton, ?reportButton]),
+        if (!narrow) Column(mainAxisSize: .min, children: [copyButton, ?reportButton]),
       ],
     );
   }
 
-  Widget _own(Widget copyButton) {
+  Widget _own(Widget copyButton, bool narrow) {
     return Row(
       mainAxisAlignment: .end,
       crossAxisAlignment: .end,
       spacing: 8,
       children: [
-        copyButton,
+        if (!narrow) copyButton,
         Flexible(
-          child: Container(
-            constraints: const BoxConstraints(maxWidth: 260),
-            padding: _bigEmoji ? const EdgeInsets.symmetric(horizontal: 2) : _bubblePadding,
-            decoration: _bigEmoji
-                ? null
-                : const BoxDecoration(
-                    color: PTColors.fg,
-                    borderRadius: BorderRadius.only(
-                      topLeft: Radius.circular(PTRadius.panel),
-                      topRight: Radius.circular(PTRadius.panel),
-                      bottomLeft: Radius.circular(PTRadius.panel),
-                      bottomRight: Radius.circular(2),
-                    ),
-                  ),
-            child: _bubbleBody(),
+          child: Column(
+            mainAxisSize: .min,
+            crossAxisAlignment: .end,
+            children: [
+              Container(
+                constraints: const BoxConstraints(maxWidth: 260),
+                padding: _bigEmoji ? const EdgeInsets.symmetric(horizontal: 2) : _bubblePadding,
+                decoration: _bigEmoji
+                    ? null
+                    : const BoxDecoration(
+                        color: PTColors.fg,
+                        borderRadius: BorderRadius.only(
+                          topLeft: Radius.circular(PTRadius.panel),
+                          topRight: Radius.circular(PTRadius.panel),
+                          bottomLeft: Radius.circular(PTRadius.panel),
+                          bottomRight: Radius.circular(2),
+                        ),
+                      ),
+                child: _bubbleBody(),
+              ),
+              if (narrow) _tuckedActions(copyButton, null, end: true),
+            ],
           ),
         ),
       ],

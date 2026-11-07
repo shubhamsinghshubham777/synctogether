@@ -1093,7 +1093,10 @@ class _ProfileScreenState extends State<ProfileScreen> with WindowListener {
       children: [
         const _Rule(),
         _ActionRow(
-          minRowWidth: 200,
+          // The label (about 65 px) plus the Leaderboard button (about 175 px)
+          // plus the gap: 200 left the label a 24 px sliver that broke inside
+          // the word between 200 and 250.
+          minRowWidth: 250,
           children: [
             Expanded(child: Text('WATCHING', style: PTText.label)),
             PTButton(

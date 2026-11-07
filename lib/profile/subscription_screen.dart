@@ -439,9 +439,31 @@ class _SubscriptionScreenState extends State<SubscriptionScreen>
     (BoothIcons.upload, '10 GB shared uploads', 'Per file, with no weekly limit.', '2 GB', '10 GB'),
   ];
 
+  /// The full table (index, icon, title, and two 88 px value columns) needs about
+  /// [_comparisonMinWidth] to keep a readable title. Given less - the pitch
+  /// column of the two-column page on a desktop at its 900 px minimum, the
+  /// unfolded Fold, the Duo's landscape, or larger text - it takes the phone
+  /// form (no header, no Free column) instead of squeezing the title into a
+  /// sliver that breaks inside words. It judges the width it is given, not the
+  /// page's breakpoint, so no layout has to guess it right.
+  static const _comparisonMinWidth = 460.0;
+
   Widget _comparison({required bool compact}) {
+    if (compact) return _comparisonTable(compact: true);
+    return LayoutBuilder(
+      builder: (context, box) => _comparisonTable(compact: box.maxWidth < _comparisonMinWidth),
+    );
+  }
+
+  Widget _comparisonTable({required bool compact}) {
     final rule = BorderSide(color: PTColors.rail);
-    final col = compact ? 52.0 : 88.0;
+    // The compact value column holds words like "Video" in a monospace face: a
+    // fixed 52 px was 8 px short at 1.0x text and broke the word at larger sizes.
+    final scale = MediaQuery.textScalerOf(context).scale(1);
+    final col = compact ? MediaQuery.textScalerOf(context).scale(62).clamp(62.0, 96.0) : 88.0;
+    // At the largest text sizes a phone has no room for a value column and a
+    // readable title together; each row's caption already says what Free gets.
+    final showValue = !compact || scale <= 1.5;
     final head = PTText.label.copyWith(fontSize: 10);
     // Phones drop the header and the Free column: each row's caption already
     // says what Free gets, and the narrow table reads as one list of perks.
@@ -519,18 +541,19 @@ class _SubscriptionScreenState extends State<SubscriptionScreen>
                         style: PTText.mono.copyWith(fontSize: 13, color: PTColors.white(0.55)),
                       ),
                     ),
-                  SizedBox(
-                    width: col,
-                    child: Text(
-                      perk.$5,
-                      textAlign: .end,
-                      style: PTText.mono.copyWith(
-                        fontSize: 13,
-                        fontWeight: .w600,
-                        color: PTColors.premium,
+                  if (showValue)
+                    SizedBox(
+                      width: col,
+                      child: Text(
+                        perk.$5,
+                        textAlign: .end,
+                        style: PTText.mono.copyWith(
+                          fontSize: 13,
+                          fontWeight: .w600,
+                          color: PTColors.premium,
+                        ),
                       ),
                     ),
-                  ),
                 ],
               ),
             ),

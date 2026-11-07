@@ -41,7 +41,65 @@ void expectShownWhole(WidgetTester tester, String text) {
 /// Asserts no overflow and - inside a [screenMatrix] case that has not opted
 /// out - that every control respects the system insets, then unmounts so periodic timers (lobby polling,
 /// loaders) are cancelled before the test ends.
+/// No ordinary word may be squeezed into a box clearly narrower than itself.
+///
+/// A column that is too narrow does not overflow - the text engine just breaks
+/// the word wherever it runs out of room, so a title became "Video faceca / ms",
+/// a chat bubble ran one word per line and a label became a sliver, all with
+/// every other layout check green. This reads every multi-line, non-ellipsized
+/// plain paragraph on screen and fails when the box is more than 10% under its
+/// longest word. Out of scope on purpose: long identifiers and names (test
+/// strings are deliberately unbreakable), password dots, and the very largest
+/// text sizes (over 1.5x), where a few points short on one long word is
+/// ordinary typography.
+void expectNoWordsBrokenMidWord(WidgetTester tester) {
+  final offenders = <String>[];
+  void visit(RenderObject o) {
+    if (o is RenderParagraph && o.attached && o.hasSize && o.size.width > 0) {
+      final span = o.text;
+      final plain = span is TextSpan && span.text != null && (span.children?.isEmpty ?? true);
+      final multiline = o.maxLines == null || o.maxLines! > 1;
+      if (plain &&
+          multiline &&
+          o.overflow != TextOverflow.ellipsis &&
+          o.textScaler.scale(1) <= 1.5) {
+        var longest = 0.0;
+        var longestWord = '';
+        for (final w in span.text!.split(RegExp(r'[\s\-/]+'))) {
+          if (w.isEmpty || w.length > 14 || !RegExp(r'[A-Za-z0-9]').hasMatch(w)) continue;
+          final tp = TextPainter(
+            text: TextSpan(text: w, style: span.style),
+            textDirection: TextDirection.ltr,
+            textScaler: o.textScaler,
+          )..layout();
+          if (tp.width > longest) {
+            longest = tp.width;
+            longestWord = w;
+          }
+        }
+        if (longest > 0 && o.size.width + 0.5 < longest * 0.9) {
+          offenders.add(
+            '"${span.text!.replaceAll('\n', ' ')}" is ${o.size.width.toStringAsFixed(0)} px wide '
+            'but "$longestWord" needs ${longest.toStringAsFixed(0)}',
+          );
+        }
+      }
+    }
+    o.visitChildren(visit);
+  }
+
+  for (final v in tester.binding.renderViews) {
+    visit(v);
+  }
+  expect(
+    offenders,
+    isEmpty,
+    reason: 'text squeezed so narrow that words break in the middle:\n${offenders.join('\n')}',
+  );
+}
+
 Future<void> finishCase(WidgetTester tester) async {
+  expectNoWordsBrokenMidWord(tester);
   await captureScreenshot(tester);
   expectNoOverflow(tester);
   expectSinglePaneClearOfHinge(tester);

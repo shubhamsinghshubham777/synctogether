@@ -50,8 +50,11 @@ import 'package:synctogether/ui/pt_theme.dart';
 import 'package:synctogether/ui/responsive.dart';
 import 'package:synctogether/ui/scroll_fade.dart';
 
-/// Width below which the desktop lobby stacks into a single column.
-const double kLobbySplitWidth = 960;
+/// Width below which the desktop lobby stacks into a single column. 940, not
+/// 960: the iPhone Duo's flat inner landscape is 951 wide and has the room for
+/// two columns (it stacked 9 px short of the line, leaving tickets below the
+/// fold beside empty margins), while the 900 px desktop minimum still stacks.
+const double kLobbySplitWidth = 940;
 
 class LobbyScreen extends StatefulWidget {
   const LobbyScreen({super.key});
@@ -1011,7 +1014,10 @@ class _LobbyScreenState extends State<LobbyScreen> with WindowListener {
   /// the columns would starve each other, so it stacks into one column.
   Widget _desktop() {
     final width = MediaQuery.sizeOf(context).width;
-    if (width < kLobbySplitWidth) return _stacked();
+    // Larger text needs a wider left column for the big heading to keep whole
+    // words ("watching?" at 1.5x is wider than the 320 px the split leaves it).
+    final split = kLobbySplitWidth + (MediaQuery.textScalerOf(context).scale(1) > 1.25 ? 200 : 0);
+    if (width < split) return _stacked();
     final left = (width * 0.42).clamp(420.0, 560.0);
     return SafeArea(
       top: !isDesktop,

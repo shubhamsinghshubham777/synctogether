@@ -1393,7 +1393,10 @@ class _LobbyScreenState extends State<LobbyScreen> with WindowListener {
           Row(
             spacing: 12,
             children: [
+              // Loose, but far ahead of the divider's flex of 1: with equal flex the
+              // label was held to half the row and ellipsized on an iPad column.
               Flexible(
+                flex: 100,
                 child: Text(
                   'OR ENTER A TICKET CODE',
                   maxLines: 1,

@@ -84,8 +84,37 @@ Future<void> _runMobileStoreCapture(GoRouter router) async {
     print('[SHOT] $name');
     await Future.delayed(const Duration(milliseconds: 3500));
   }
+  // The keyboard-up states: the real test of a layout. Focusing the first text
+  // field of a screen raises the software keyboard the way a tap would.
+  const typing = <(String, String)>[
+    ('4_lobby_keyboard', '/lobby'),
+    ('5_room_keyboard', '/lobby/room/demo-room-1'),
+  ];
+  for (final (name, path) in typing) {
+    router.go(path);
+    await Future.delayed(const Duration(milliseconds: 3500));
+    _focusFirstTextField();
+    await Future.delayed(const Duration(milliseconds: 2500));
+    // ignore: avoid_print
+    print('[SHOT] $name');
+    await Future.delayed(const Duration(milliseconds: 3000));
+    FocusManager.instance.primaryFocus?.unfocus();
+    await Future.delayed(const Duration(milliseconds: 1000));
+  }
   // ignore: avoid_print
   print('[SHOT] done');
+}
+
+void _focusFirstTextField() {
+  void walk(Element e) {
+    if (e is StatefulElement && e.state is EditableTextState) {
+      (e.state as EditableTextState).requestKeyboard();
+      return;
+    }
+    e.visitChildren(walk);
+  }
+
+  WidgetsBinding.instance.rootElement?.visitChildren(walk);
 }
 
 Future<void> runStoreCaptureFlow(BuildContext context, GoRouter router) async {

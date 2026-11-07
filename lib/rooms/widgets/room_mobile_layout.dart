@@ -533,7 +533,16 @@ class _RoomMobilePortraitLayoutState extends State<RoomMobilePortraitLayout> {
     // readable chat under the picture and the transport; the picture and the
     // transport win and chat is left to the big screen (board 57).
     final cover = MediaQuery.sizeOf(context).height < kCoverMaxHeight;
-    final floor = cover ? 0.0 : floorScaler(context).scale(160);
+    // A roomy tablet typing has far more height than 160 px of chat is worth:
+    // with the keys up the picture used to keep most of what was left and the
+    // chat showed a single bubble. The picture still shrinks whole (never
+    // cropped); the chat takes a bit over a third of the space above the keyboard.
+    final visibleH = MediaQuery.sizeOf(context).height - MediaQuery.viewInsetsOf(context).bottom;
+    final floor = cover
+        ? 0.0
+        : (w.roomy && w.keyboardUp
+              ? math.max(floorScaler(context).scale(160), visibleH * 0.38)
+              : floorScaler(context).scale(160));
     final reveal = cover ? null : w.chatFloorReveal;
     final slots = <Widget>[
       RoomPortraitSlot(

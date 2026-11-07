@@ -46,21 +46,23 @@ export function PricingTable({ prices = PATRON_PRICES }: { prices?: PatronPriceT
           const { annual, fmt } = priceIn(c);
           const pct = savingsPct(c);
           return (
-            <>
-              <span className="block">
-                <span className="text-brass font-semibold">{fmt(annualPerMonth(c, annual))}</span> a month, billed yearly
-              </span>
-              {pct && (
-                <span className="block">
-                  save <span className="text-brass font-semibold">{pct}</span>
-                </span>
-              )}
-            </>
+            <ul className="list-disc pl-4 marker:text-brass space-y-0.5">
+                <li>
+                  Just <span className="text-brass font-semibold">{fmt(annualPerMonth(c, annual))}</span> a month, billed yearly
+                </li>
+                {pct && (
+                  <li>
+                    Save <span className="text-brass font-semibold">{pct}</span>
+                  </li>
+                )}
+              </ul>
           );
         }}
       />
     ) : (
-      "Billed monthly. Cancel anytime."
+      <ul className="list-disc pl-4 marker:text-brass">
+        <li>Billed monthly. Cancel anytime.</li>
+      </ul>
     );
 
   return (

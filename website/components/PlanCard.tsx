@@ -63,7 +63,7 @@ export function PlanCard({
           <span className={`${display} text-[52px] font-extrabold tracking-[-0.04em] leading-[1.2] text-white`}>{price}</span>
           {periodText && <span className={`${mono} text-xs text-gray-500`}>{periodText}</span>}
         </div>
-        <p className={`${mono} mt-1.5 text-xs text-gray-500 min-h-4`}>{subPrice}</p>
+        <div className={`${mono} mt-1.5 text-xs text-gray-500 min-h-4`}>{subPrice}</div>
       </div>
 
       <ul className="flex flex-col gap-[14px] flex-1">

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
+import 'package:synctogether/env.dart';
 import 'package:synctogether/auth/auth_service.dart';
 import 'package:synctogether/profile/profile_service.dart';
 import 'package:synctogether/ui/booth_icons.g.dart';
@@ -99,23 +100,25 @@ class BannedScreen extends StatelessWidget {
                         const SizedBox(height: 28),
                         PTButtonBar(
                           buttons: [
-                            PTButton(
-                              label: 'Contact Support',
-                              icon: Symbols.mail_rounded,
-                              variant: .secondary,
-                              onPressed: () {
-                                final uri = Uri(
-                                  scheme: 'mailto',
-                                  path: 'support@synctogether.app',
-                                  queryParameters: {
-                                    'subject': 'Account Appeal: ${profile?.id ?? "Suspended User"}',
-                                    'body':
-                                        'User ID: ${profile?.id ?? ""}\nEmail: ${profile?.email ?? ""}\n\nAppeal details:\n',
-                                  },
-                                );
-                                launchUrl(uri, mode: LaunchMode.externalApplication);
-                              },
-                            ),
+                            if (Env.supportEmail case final supportEmail?)
+                              PTButton(
+                                label: 'Contact Support',
+                                icon: Symbols.mail_rounded,
+                                variant: .secondary,
+                                onPressed: () {
+                                  final uri = Uri(
+                                    scheme: 'mailto',
+                                    path: supportEmail,
+                                    queryParameters: {
+                                      'subject':
+                                          'Account Appeal: ${profile?.id ?? "Suspended User"}',
+                                      'body':
+                                          'User ID: ${profile?.id ?? ""}\nEmail: ${profile?.email ?? ""}\n\nAppeal details:\n',
+                                    },
+                                  );
+                                  launchUrl(uri, mode: LaunchMode.externalApplication);
+                                },
+                              ),
                             PTButton(
                               label: 'Sign Out',
                               icon: BoothIcons.logout,

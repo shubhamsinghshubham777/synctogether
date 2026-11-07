@@ -109,17 +109,12 @@ SyncTogether uses LiveKit for ultra-low-latency voice and video facecam rails.
 2. Retrieve your **WebSocket URL** (`wss://<your-subdomain>.livekit.cloud`), **API Key**, and **API Secret** from **Settings → Keys**.
 
 #### Option 2: Self-Hosted LiveKit Server (Docker)
-1. A ready-to-use Docker Compose setup is included in the repo (`docker-compose.selfhost.yml` + `docker/livekit.yaml`). **Replace the shipped `devkey` pair** in `docker/livekit.yaml` with your own, and set `use_external_ip: true` on a public VPS (it ships `false`, which only works on a LAN):
-   ```yaml
-   port: 7880
-   rtc:
-     tcp_port: 7881
-     port_range_start: 50000
-     port_range_end: 50100
-     use_external_ip: true
-   keys:
-     <your_api_key>: <your_api_secret>   # must match LIVEKIT_API_KEY / LIVEKIT_API_SECRET
+1. A ready-to-use Docker Compose setup is included in the repo (`docker-compose.selfhost.yml` + `docker/livekit.yaml`, LiveKit pinned to `v1.13`). No API key is stored in the repo and the compose file **refuses to start without one** - generate a pair and keep it, you will paste the same two values into `supabase/functions/.env`:
+   ```bash
+   export LIVEKIT_API_KEY="API$(openssl rand -hex 6)"
+   export LIVEKIT_API_SECRET="$(openssl rand -base64 36 | tr -d '/+=')"
    ```
+   `docker/livekit.yaml` ships `use_external_ip: false`, which only works on a LAN; set it to `true` on a public VPS (or use Option 3, which does this and more).
 2. Start the LiveKit server:
    ```bash
    docker compose -f docker-compose.selfhost.yml up -d
@@ -207,7 +202,7 @@ supabase functions deploy cleanup-r2
 > ```
 
 > [!TIP]
-> **Optional: faster streaming with the edge Worker.** Members stream the host's file from your bucket's S3 endpoint, which is neither CDN-cached nor close to them. `deploy/media-edge/` is a small Cloudflare Worker that reads the same bucket through an R2 *binding* (no S3 keys in it), honours HTTP Range and caches 4 MiB chunks at the edge so the 2nd..Nth viewer never reaches R2. It never alters the file. It needs a Cloudflare account, a hostname on a zone you own and Workers Paid for a busy room (the Free plan's 10 ms CPU and 50-subrequest limits are tight). If you skip it nothing changes: with `MEDIA_EDGE_SECRET` unset or `app_settings.media_edge.enabled = false`, `download-url` returns the presigned S3 URL exactly as before. Setup and rollback: [media-edge.md](media-edge.md).
+> **Optional: faster streaming with the edge Worker.** Members stream the host's file from your bucket's S3 endpoint, which is neither CDN-cached nor close to them. `deploy/media-edge/` is a small Cloudflare Worker that reads the same bucket through an R2 *binding* (no S3 keys in it), honours HTTP Range and caches 4 MiB chunks at the edge so the 2nd..Nth viewer never reaches R2. It never alters the file. `deploy/media-edge/wrangler.toml` ships the official deployment's hostname - change the `[[routes]]` pattern to your own zone first. It needs a Cloudflare account, a hostname on a zone you own and Workers Paid for a busy room (the Free plan's 10 ms CPU and 50-subrequest limits are tight). If you skip it nothing changes: with `MEDIA_EDGE_SECRET` unset or `app_settings.media_edge.enabled = false`, `download-url` returns the presigned S3 URL exactly as before. Setup and rollback: [media-edge.md](media-edge.md).
 
 `apple-iap` is only needed if you sell Premium through the Mac App Store (secrets `APPLE_BUNDLE_ID`, `APPLE_APP_APPLE_ID`); a self-hosted instance can skip it. `ms-iap` is the Microsoft Store equivalent (secrets `MS_STORE_TENANT_ID`, `MS_STORE_CLIENT_ID`, `MS_STORE_CLIENT_SECRET`, `MS_STORE_PRODUCT_IDS`), also optional.
 
@@ -219,15 +214,25 @@ All auth settings live in `supabase/config.toml`, with secrets read from `supaba
 ```bash
 supabase config push
 ```
-Auth config is **not** part of `supabase db push` - a migrated database with un-pushed auth config will fail in confusing ways. On a self-hosted Docker stack, set the equivalent `GOTRUE_*` variables in its `.env` instead.
+Auth config is **not** part of `supabase db push` - a migrated database with un-pushed auth config will fail in confusing ways.
+
+> [!IMPORTANT]
+> **Do not push `supabase/config.toml` as it is.** It is the official deployment's config: redirect allow-list for `synctogether.app`, Turnstile on, Google and Apple on with the official bundle ids. Generate your own copy instead (the tracked file is left alone; output goes to the gitignored `.selfhost/`):
+> ```bash
+> ./scripts/selfhost-config.sh https://watch.example.com [--no-captcha] [--google] [--apple]
+> supabase config push --workdir .selfhost --project-ref <your-ref>
+> ```
+> `--no-captcha` skips Turnstile, `--google` / `--apple` keep those providers (both are off by default). On a self-hosted Docker stack `config push` does not apply: run `./scripts/selfhost-config.sh https://watch.example.com --gotrue` and paste the printed `GOTRUE_*` variables into that stack's `.env`.
+
+The numbered list below describes what the settings mean; the script already applies the site URL, redirects, captcha and provider toggles.
 
 1. **Anonymous Guest Sign-in**: Enabled (`enable_anonymous_sign_ins = true`). Guests receive a temporary username (`Guest-xxxx`) and are purged after 3 days.
-   - **Cloudflare Turnstile is required as shipped**: `[auth.captcha]` is `enabled = true`, so the server rejects any guest sign-in without a token. Either create a Turnstile widget (add `localhost` to its hostname allow-list - the client serves the challenge from a loopback page), set `SUPABASE_AUTH_CAPTCHA_SECRET` in `supabase/.env` and build the client with `TURNSTILE_SITE_KEY`, **or** set `[auth.captcha] enabled = false` before pushing.
+   - **Cloudflare Turnstile is required as shipped**: `[auth.captcha]` is `enabled = true`, so the server rejects any guest sign-in without a token. Either create a Turnstile widget (add `localhost` to its hostname allow-list - the client serves the challenge from a loopback page), set `SUPABASE_AUTH_CAPTCHA_SECRET` in `supabase/.env` and build the client with `TURNSTILE_SITE_KEY`, **or** pass `--no-captcha` to the config script.
 2. **Google OAuth (Optional)**:
    - In Google Cloud Console, create a **Web Application OAuth Client** with the Authorized Redirect URI `https://<your-supabase-host>/auth/v1/callback`.
    - Put the ID and secret in `supabase/.env` as `SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID` / `SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET`.
    - Keep `enable_manual_linking = true` - it is what lets a guest upgrade to Google in place; with it off every upgrade fails with `manual_linking_disabled`.
-   - Set `site_url` and `additional_redirect_urls` to your own web portal's domain.
+   - `site_url` and `additional_redirect_urls` are set to your portal's origin by the config script; a plain `config.toml` push would leave them on `synctogether.app`.
 3. **Apple Sign-In (Optional)**: `[auth.external.apple]` lists the Services ID and bundle id (`app.synctogether.web,app.synctogether`) - change them to your own identifiers and set `SUPABASE_AUTH_EXTERNAL_APPLE_SECRET` (a 6-month ES256 JWT from your `.p8` key).
 4. **Email OTP (Optional)**: Email sign-in sends a 6-digit code using the template in `supabase/templates/magic_link.html`. Configure an SMTP provider (`[auth.email.smtp]`) for production - Supabase's built-in sender is heavily rate-limited.
 
@@ -261,31 +266,37 @@ fvm flutter pub get
 fvm flutter run -d macos \
   --dart-define=SUPABASE_URL="https://<your-supabase-url>" \
   --dart-define=SUPABASE_PUBLISHABLE_KEY="<your-supabase-publishable-key>" \
-  --dart-define=LIVEKIT_URL="wss://<your-livekit-url>"
+  --dart-define=LIVEKIT_URL="wss://<your-livekit-url>" \
+  --dart-define=SITE_URL="https://<your-web-portal>" \
+  --dart-define=SUPPORT_EMAIL="<you@your-domain>"
 
 # Build release binaries:
 fvm flutter build macos --release \
   --dart-define=SUPABASE_URL="https://<your-supabase-url>" \
   --dart-define=SUPABASE_PUBLISHABLE_KEY="<your-supabase-publishable-key>" \
-  --dart-define=LIVEKIT_URL="wss://<your-livekit-url>"
+  --dart-define=LIVEKIT_URL="wss://<your-livekit-url>" \
+  --dart-define=SITE_URL="https://<your-web-portal>" \
+  --dart-define=SUPPORT_EMAIL="<you@your-domain>"
 
 fvm flutter build windows --release \
   --dart-define=SUPABASE_URL="https://<your-supabase-url>" \
   --dart-define=SUPABASE_PUBLISHABLE_KEY="<your-supabase-publishable-key>" \
-  --dart-define=LIVEKIT_URL="wss://<your-livekit-url>"
+  --dart-define=LIVEKIT_URL="wss://<your-livekit-url>" \
+  --dart-define=SITE_URL="https://<your-web-portal>" \
+  --dart-define=SUPPORT_EMAIL="<you@your-domain>"
 ```
 
-> [!WARNING]
-> **Hardcoded `synctogether.app` URLs.** The client builds shareable invite links (`/join/<code>`), recap and profile links, the Google OAuth desktop bridge (`/auth/desktop-callback`) and the Terms/Privacy links against `https://synctogether.app` in release builds (`lib/rewards/rewards_service.dart`, `lib/auth/auth_service.dart`, `lib/auth/login_screen.dart`, `lib/profile/profile_screen.dart`, `lib/profile/subscription_screen.dart`, plus the support address in `lib/profile/banned_screen.dart` and the invite-link check in `lib/rooms/invite_clipboard.dart`). A self-hosted build should change those to your own web portal's origin, otherwise invites point at the official site and Google sign-in redirects through it. Guests, in-app room codes and `synctogether://join/<code>` links work without any web portal.
+> [!IMPORTANT]
+> **`SITE_URL` and `SUPPORT_EMAIL` have no built-in values - set both.** `--dart-define=SITE_URL=https://watch.example.com` is the origin of your web portal (Step 6); the client builds invite links (`/join/<code>`), recap and profile links, the Terms/Privacy links and the Google sign-in bridge (`/auth/desktop-callback`) from it. `--dart-define=SUPPORT_EMAIL=help@example.com` is where reports and appeals point. Nothing falls back to the official site, so a build can never send your users' invites or sign-ins through someone else's. Left unset the client still runs, but invites share the `synctogether://join/<code>` link instead, the Terms/Privacy and share-link buttons disappear and Google sign-in says it isn't set up. The verifier in Step 7 fails a release configuration without them.
 
 > [!TIP]
 > **VS Code & Define Files**: Instead of passing command-line arguments manually, you can configure these defines under `args` in `.vscode/launch.json` or maintain a local JSON file passed with `--dart-define-from-file=my_config.json`.
 
 ---
 
-### Step 6: (Optional) Deploy Web Portal (`website/`)
+### Step 6: Deploy Web Portal (`website/`)
 
-The web portal (`website/`) provides marketing pages, app download links, and web invite redirection (`synctogether.app/join/<code>` to `synctogether://join/<code>` deep link).
+The web portal (`website/`) provides the Terms and Privacy pages, shareable invite pages (`<SITE_URL>/join/<code>` hands the code to the app via the `synctogether://join/<code>` deep link), recap and profile pages, the Google sign-in bridge, and the marketing and download pages. Deploy it at the origin you pass as `SITE_URL`.
 
 1. Navigate to the website directory:
    ```bash
@@ -293,7 +304,7 @@ The web portal (`website/`) provides marketing pages, app download links, and we
    cp .env.example .env.local
    npm install
    ```
-2. Set `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SERVICE_ROLE_KEY` and `NEXT_PUBLIC_SITE_URL` in `website/.env.local`. PostHog and the `PROD_*` admin-dashboard variables are optional for self-hosted instances; see `website/.env.example` for the full list.
+2. Set `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SERVICE_ROLE_KEY` and `NEXT_PUBLIC_SITE_URL` in `website/.env.local`. PostHog and the `PROD_*` variables are optional: `PROD_SUPABASE_*` only feed the internal `/internal/metrics` page, which you can ignore; see `website/.env.example` for the full list.
 3. Run or deploy:
    ```bash
    # Development
@@ -303,6 +314,40 @@ The web portal (`website/`) provides marketing pages, app download links, and we
    npm run build
    npm run start
    ```
+
+---
+
+### Step 7: Verify the deployment
+
+Do not trust a setup because each step printed no error. `scripts/selfhost-verify.py` checks the whole thing against your real servers - not just that values are set, but that they work together:
+
+```bash
+export SUPABASE_SERVICE_ROLE_KEY=...          # from Project Settings -> API; used only by the script
+python3 scripts/selfhost-verify.py            # reads ./.env (client defines) and supabase/functions/.env
+python3 scripts/selfhost-verify.py --require av,media     # a feature you intend to run must work, not just be "off"
+```
+
+Use the same values you build the client with: put the client defines (`SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `SITE_URL`, `SUPPORT_EMAIL`, `LIVEKIT_URL`, `TURNSTILE_SITE_KEY`) in a `KEY=VALUE` file and pass it with `--client-env`. Python 3 only, nothing to install.
+
+It signs in a throwaway test user (through the admin API, so no email or captcha is involved) and then:
+
+| Area | What it proves |
+|---|---|
+| Config | client and server agree (LiveKit on both sides or neither, R2 all-or-none), no shipped dev keys, `SITE_URL`/`SUPPORT_EMAIL` set |
+| Backend | auth reachable, keys valid, every table from `supabase/migrations` exists, `tier_limits` and `app_settings` seeded |
+| Auth | guest and email sign-in enabled, captcha setting matches the client's Turnstile key, your site's redirect URLs are on the allow-list |
+| Rooms | `create_room` works, RLS blocks anonymous reads, a member joins the **private Realtime channel** |
+| Functions | all functions deployed; LiveKit **accepts the token** your `livekit-token` mints; a file uploaded through `media-share` lands in your bucket and streams back byte-identical; `av_cleanup` / `r2_cleanup` are switched on |
+| Cron | an expired room is ended by the every-minute job (about 2 minutes), the only direct proof `pg_cron` is running |
+| Web | your `SITE_URL` serves the home, terms, privacy and invite pages and the sign-in bridge |
+
+Everything it creates (user, room, uploaded file) is removed afterwards. The result is one of:
+
+- **READY** (exit 0): every automated check passed.
+- **NOT READY** (exit 1): the list says what failed and the command to fix it. Fix it and run again.
+- **INCOMPLETE** (exit 2): a check could not run (for example `--skip-cron-wait`), so nothing is promised.
+
+**What READY does not cover.** Five things need a person, and the script prints them every time: an email code arriving in a real inbox (SMTP), Google sign-in end to end, two machines actually hearing and seeing each other (UDP through your firewall), a release build run once with these same defines, and your own backups and certificate renewal. Features you have not configured are shown as *off*, not as passing; use `--require` to make them failures. Run it again after every upgrade (`supabase db push`, a new function deploy, a LiveKit change).
 
 ---
 
@@ -317,6 +362,8 @@ Pass these variables at compile-time via `--dart-define=KEY=VALUE` or `--dart-de
 | `SUPABASE_URL` | **Yes** (Release) | Public HTTPS endpoint of your Supabase API gateway (defaults to `http://127.0.0.1:54321` in debug mode) |
 | `SUPABASE_PUBLISHABLE_KEY` | **Yes** (Release) | Supabase publishable API key (defaults to local development key in debug mode) |
 | `LIVEKIT_URL` | *No* | LiveKit WebSocket endpoint (`wss://...`). Facecam rails are hidden if unset |
+| `SITE_URL` | **Yes** (Release) | Origin of your web portal (invites, recaps, profile pages, Terms/Privacy, Google sign-in bridge). No built-in default; a debug run on the local stack always uses `http://localhost:3000` |
+| `SUPPORT_EMAIL` | **Yes** (Release) | Address shown in report/appeal copy. No built-in default; unset hides the "email us" lines |
 | `TURNSTILE_SITE_KEY` | *No* | Cloudflare Turnstile site key for captcha verification |
 | `SENTRY_DSN` | *No* | Sentry project DSN for client-side crash telemetry |
 | `POSTHOG_API_KEY` | *No* | PostHog public project key for product analytics |

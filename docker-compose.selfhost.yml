@@ -1,6 +1,15 @@
 # ==============================================================================
 # SyncTogether Self-Hosted LiveKit & Media Server
 # ------------------------------------------------------------------------------
+# LAN / quick-test LiveKit. For a public server use scripts/setup-livekit-server.sh
+# (deploy/livekit/): it adds TLS, TURN and the host firewall rules this file lacks.
+#
+# The API key pair is REQUIRED and is never stored in a file in this repo - the
+# compose file refuses to start without it. Generate one and keep it:
+#   export LIVEKIT_API_KEY="API$(openssl rand -hex 6)"
+#   export LIVEKIT_API_SECRET="$(openssl rand -base64 36 | tr -d '/+=')"
+# The same two values go in supabase/functions/.env (LIVEKIT_API_KEY / _SECRET).
+#
 # Usage:
 #   docker compose -f docker-compose.selfhost.yml up -d
 #   docker compose -f docker-compose.selfhost.yml logs -f
@@ -11,10 +20,12 @@ name: synctogether-selfhost
 
 services:
   livekit:
-    image: livekit/livekit-server:latest
+    image: livekit/livekit-server:v1.13
     container_name: synctogether-livekit
     restart: unless-stopped
     command: --config /etc/livekit.yaml
+    environment:
+      LIVEKIT_KEYS: "${LIVEKIT_API_KEY:?set LIVEKIT_API_KEY - see the header of this file}: ${LIVEKIT_API_SECRET:?set LIVEKIT_API_SECRET - see the header of this file}"
     volumes:
       - ./docker/livekit.yaml:/etc/livekit.yaml:ro
     ports:

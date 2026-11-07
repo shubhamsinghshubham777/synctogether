@@ -59,11 +59,11 @@ void main() {
       final authService = AuthService.instance;
       expect(authService.user, isNotNull);
       expect(authService.user!.id, 'user-alex');
-      expect(authService.user!.email, 'alex@synctogether.app');
+      expect(authService.user!.email, 'alex@example.com');
       expect(authService.user!.userMetadata?['full_name'], 'Alex Rivers');
       expect(authService.session, isNotNull);
       expect(authService.session!.accessToken, 'mock-access-token');
-      expect(authService.session!.user.email, 'alex@synctogether.app');
+      expect(authService.session!.user.email, 'alex@example.com');
     });
 
     test('MockAuthService handles signOut and deleteAccount cleanly', () async {

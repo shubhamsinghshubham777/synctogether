@@ -160,9 +160,15 @@ class AuthService {
       (defaultTargetPlatform == TargetPlatform.macOS ||
           defaultTargetPlatform == TargetPlatform.iOS);
 
-  static String get _authRedirectUrl => kDebugMode && Env.usingLocalStack
-      ? 'http://localhost:3000/auth/desktop-callback'
-      : 'https://synctogether.app/auth/desktop-callback';
+  static String? get _authRedirectUrl => Env.sitePage('auth/desktop-callback')?.toString();
+
+  /// Google sign-in returns through the web portal's `/auth/desktop-callback`,
+  /// so a build with no `SITE_URL` cannot offer it.
+  static String get _oauthRedirectUrl =>
+      _authRedirectUrl ??
+      (throw const AuthException(
+        "Google sign-in isn't set up on this server. Use an email code instead.",
+      ));
 
   void _ensureConfigured() {
     if (Env.supabaseUrl.isEmpty) {
@@ -299,7 +305,7 @@ class AuthService {
   Future<void> signInWithGoogle() => _startOAuth(
     () => _client.auth.signInWithOAuth(
       OAuthProvider.google,
-      redirectTo: _authRedirectUrl,
+      redirectTo: _oauthRedirectUrl,
       authScreenLaunchMode: LaunchMode.externalApplication,
     ),
   );
@@ -308,7 +314,7 @@ class AuthService {
   Future<void> linkGoogleIdentity() => _startOAuth(
     () => _client.auth.linkIdentity(
       OAuthProvider.google,
-      redirectTo: _authRedirectUrl,
+      redirectTo: _oauthRedirectUrl,
       authScreenLaunchMode: LaunchMode.externalApplication,
     ),
   );

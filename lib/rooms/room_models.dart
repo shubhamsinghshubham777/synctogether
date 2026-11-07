@@ -257,8 +257,14 @@ class Room {
   String get inviteLink => shareableInviteLink(code);
 }
 
-/// One definition of the web base, shared with the recap and profile links.
-String shareableInviteLink(String code) => '$rewardsSiteBase/join/${code.toUpperCase()}';
+/// One definition of the web base, shared with the recap and profile links. A
+/// build with no web portal (`SITE_URL` unset) shares the app link instead, which
+/// still works for anyone who has the app.
+String shareableInviteLink(String code) {
+  final upper = code.toUpperCase();
+  final base = rewardsSiteBase;
+  return base == null ? 'synctogether://join/$upper' : '$base/join/$upper';
+}
 
 class MyRoom {
   const MyRoom({

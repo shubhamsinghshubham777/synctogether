@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:fast_file_picker/fast_file_picker.dart';
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
+import 'package:synctogether/env.dart';
 import 'package:synctogether/nav.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:window_manager/window_manager.dart';
@@ -1361,8 +1362,8 @@ class _ProfileScreenState extends State<ProfileScreen> with WindowListener {
             title: 'Public handle',
             titleTag: const DialogTag('Patron', tone: DialogTagTone.premium),
             subtitle:
-                'Patron seats get a page at synctogether.app/u/you, with your streak and '
-                'badges on it.',
+                'Patron seats get a page${Env.siteHost == null ? '' : ' at ${Env.siteHost}/u/you'}, '
+                'with your streak and badges on it.',
             minRowWidth: 360,
             trailing: IgnorePointer(
               child: PTButton(
@@ -1621,26 +1622,22 @@ class _ProfileScreenState extends State<ProfileScreen> with WindowListener {
         ),
         PTButtonBar(
           buttons: [
-            PTButton(
-              label: 'Privacy policy',
-              variant: .secondary,
-              icon: BoothIcons.openInNew,
-              height: 36,
-              onPressed: () => launchUrl(
-                Uri.parse('https://synctogether.app/privacy'),
-                mode: LaunchMode.externalApplication,
+            if (Env.sitePage('privacy') case final page?)
+              PTButton(
+                label: 'Privacy policy',
+                variant: .secondary,
+                icon: BoothIcons.openInNew,
+                height: 36,
+                onPressed: () => launchUrl(page, mode: LaunchMode.externalApplication),
               ),
-            ),
-            PTButton(
-              label: 'Terms of service',
-              variant: .secondary,
-              icon: BoothIcons.openInNew,
-              height: 36,
-              onPressed: () => launchUrl(
-                Uri.parse('https://synctogether.app/terms'),
-                mode: LaunchMode.externalApplication,
+            if (Env.sitePage('terms') case final page?)
+              PTButton(
+                label: 'Terms of service',
+                variant: .secondary,
+                icon: BoothIcons.openInNew,
+                height: 36,
+                onPressed: () => launchUrl(page, mode: LaunchMode.externalApplication),
               ),
-            ),
           ],
         ),
       ],
@@ -1811,8 +1808,8 @@ class _ProfileScreenState extends State<ProfileScreen> with WindowListener {
         children: [
           Text('Pick a handle', style: PTText.cardHeading),
           Text(
-            'This becomes synctogether.app/u/yourhandle, a page with your streak '
-            'and badges on it that you can link to.',
+            'This becomes ${Env.siteHost == null ? 'your public page' : '${Env.siteHost}/u/yourhandle'}, '
+            'a page with your streak and badges on it that you can link to.',
             style: PTText.caption,
           ),
           PTTextField(

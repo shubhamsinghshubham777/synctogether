@@ -14,6 +14,7 @@ import 'package:path/path.dart' as p;
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'package:livekit_client/livekit_client.dart' as lk;
+import 'package:synctogether/env.dart';
 import 'package:synctogether/analytics.dart';
 import 'package:synctogether/auth/auth_service.dart';
 
@@ -134,6 +135,12 @@ class RoomScreen extends StatefulWidget {
 
   @override
   State<RoomScreen> createState() => _RoomScreenState();
+}
+
+/// ", or email <address>" when this build has a support address, else nothing.
+String _orEmailSupport() {
+  final email = Env.supportEmail;
+  return email == null ? '' : ', or email $email';
 }
 
 class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProviderStateMixin {
@@ -3386,8 +3393,8 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
       if (!mounted) return;
       _snack(
         moderation.isBlocked(userId)
-            ? "You won't see ${name ?? 'them'} any more, but the report didn't send. Try again, or email support@synctogether.app."
-            : "That didn't send. Try again, or email support@synctogether.app.",
+            ? "You won't see ${name ?? 'them'} any more, but the report didn't send. Try again${_orEmailSupport()}."
+            : "That didn't send. Try again${_orEmailSupport()}.",
       );
     }
   }

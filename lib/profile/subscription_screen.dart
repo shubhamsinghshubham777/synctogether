@@ -4,6 +4,7 @@ import '../ui/booth_icons.g.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:synctogether/env.dart';
 import 'package:synctogether/nav.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:window_manager/window_manager.dart';
@@ -28,8 +29,9 @@ import 'package:synctogether/ui/responsive.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 // Guideline 3.1.2 requires both beside an auto-renewing subscription offer.
-const _termsUrl = 'https://synctogether.app/terms';
-const _privacyUrl = 'https://synctogether.app/privacy';
+// Null when the build has no web portal (SITE_URL unset): the links are then left out.
+String? get _termsUrl => Env.sitePage('terms')?.toString();
+String? get _privacyUrl => Env.sitePage('privacy')?.toString();
 
 class SubscriptionScreen extends StatefulWidget {
   const SubscriptionScreen({
@@ -636,14 +638,16 @@ class _SubscriptionScreenState extends State<SubscriptionScreen>
       spacing: 16,
       runSpacing: 6,
       children: [
-        GestureDetector(
-          onTap: () => _openUrl(_termsUrl),
-          child: Text('Terms of Use', style: link),
-        ),
-        GestureDetector(
-          onTap: () => _openUrl(_privacyUrl),
-          child: Text('Privacy Policy', style: link),
-        ),
+        if (_termsUrl case final url?)
+          GestureDetector(
+            onTap: () => _openUrl(url),
+            child: Text('Terms of Use', style: link),
+          ),
+        if (_privacyUrl case final url?)
+          GestureDetector(
+            onTap: () => _openUrl(url),
+            child: Text('Privacy Policy', style: link),
+          ),
       ],
     );
   }
@@ -1196,14 +1200,16 @@ class _SubscriptionScreenState extends State<SubscriptionScreen>
           spacing: 16,
           runSpacing: compact ? 2 : 6,
           children: [
-            GestureDetector(
-              onTap: () => _openUrl(_termsUrl),
-              child: Text('Terms of Use', style: link),
-            ),
-            GestureDetector(
-              onTap: () => _openUrl(_privacyUrl),
-              child: Text('Privacy Policy', style: link),
-            ),
+            if (_termsUrl case final url?)
+              GestureDetector(
+                onTap: () => _openUrl(url),
+                child: Text('Terms of Use', style: link),
+              ),
+            if (_privacyUrl case final url?)
+              GestureDetector(
+                onTap: () => _openUrl(url),
+                child: Text('Privacy Policy', style: link),
+              ),
           ],
         ),
       ],

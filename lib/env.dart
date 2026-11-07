@@ -17,6 +17,8 @@ class Env {
   static const String _envSentryDsn = String.fromEnvironment('SENTRY_DSN');
   static const String _envPosthogApiKey = String.fromEnvironment('POSTHOG_API_KEY');
   static const String _envPosthogHost = String.fromEnvironment('POSTHOG_HOST');
+  static const String _envSiteUrl = String.fromEnvironment('SITE_URL');
+  static const String _envSupportEmail = String.fromEnvironment('SUPPORT_EMAIL');
 
   /// Well-known local development defaults used when running locally in debug mode
   /// without explicit compile-time defines.
@@ -30,6 +32,7 @@ class Env {
   static const String defaultLocalSupabasePublishableKey =
       'sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH';
   static const String defaultLocalTurnstileSiteKey = '1x00000000000000000000AA';
+  static const String defaultLocalSiteUrl = 'http://localhost:3000';
 
   // Testing overrides.
   @visibleForTesting
@@ -51,6 +54,10 @@ class Env {
   @visibleForTesting
   static String? overridePosthogHost;
   @visibleForTesting
+  static String? overrideSiteUrl;
+  @visibleForTesting
+  static String? overrideSupportEmail;
+  @visibleForTesting
   static bool? overrideReleaseMode;
   @visibleForTesting
   static bool? overrideStreamProxy;
@@ -66,6 +73,8 @@ class Env {
     overrideSentryDsn = null;
     overridePosthogApiKey = null;
     overridePosthogHost = null;
+    overrideSiteUrl = null;
+    overrideSupportEmail = null;
     overrideReleaseMode = null;
     overrideStreamProxy = null;
   }
@@ -139,6 +148,38 @@ class Env {
     final val = overridePosthogHost ?? _envPosthogHost;
     return val.isEmpty ? null : val;
   }
+
+  /// Origin of the web portal this build links to: invites, recaps, profile
+  /// pages, Terms/Privacy and the Google sign-in bridge (`/auth/desktop-callback`).
+  ///
+  /// There is deliberately no built-in production value: a build only ever talks
+  /// to the site it was given with `--dart-define=SITE_URL=https://...`, so a
+  /// fork can never send invites, sign-ins or legal links through somebody
+  /// else's site. Unset (outside a debug run on the local stack) it is null and
+  /// every feature that needs a site hides itself. Never ends in a slash.
+  static String? get siteUrl {
+    // A debug run on the local stack always uses the local website, so its
+    // invites and sign-in bridge never leave the machine even when SITE_URL is
+    // also set for release builds.
+    if (usingLocalStack) return defaultLocalSiteUrl;
+    final explicit = (overrideSiteUrl ?? _envSiteUrl).trim();
+    return explicit.isEmpty ? null : explicit.replaceFirst(RegExp(r'/+$'), '');
+  }
+
+  /// Host of [siteUrl], for recognising our own invite links on the clipboard.
+  static String? get siteHost {
+    final url = siteUrl;
+    return url == null ? null : _opt(Uri.tryParse(url)?.host ?? '');
+  }
+
+  /// A page on the web portal, or null when this build has none.
+  static Uri? sitePage(String path) {
+    final url = siteUrl;
+    return url == null ? null : Uri.tryParse('$url/$path');
+  }
+
+  /// Where reports and appeals are sent. Null (unset) hides the "email us" copy.
+  static String? get supportEmail => _opt((overrideSupportEmail ?? _envSupportEmail).trim());
 
   static String? _opt(String value) => value.isEmpty ? null : value;
 }

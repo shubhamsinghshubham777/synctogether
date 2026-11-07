@@ -1,3 +1,4 @@
+import 'package:synctogether/env.dart';
 import '../ui/inputs.dart';
 
 /// The room code in whatever an invite looks like once it has been copied: the
@@ -17,7 +18,7 @@ String? inviteCodeFromClipboard(String? text) {
     final isScheme = uri.scheme == 'synctogether' && uri.host == 'join';
     final isWeb =
         (uri.scheme == 'https' || uri.scheme == 'http') &&
-        (uri.host == 'synctogether.app' || uri.host == 'localhost') &&
+        (uri.host == Env.siteHost || uri.host == 'localhost') &&
         uri.pathSegments.length >= 2 &&
         uri.pathSegments.first == 'join';
     if (!isScheme && !isWeb) return null;

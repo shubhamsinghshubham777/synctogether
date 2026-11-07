@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:synctogether/env.dart';
 import 'package:synctogether/analytics_consent.dart';
 import 'package:synctogether/diagnostics.dart';
 
@@ -12,17 +13,24 @@ import 'rewards_models.dart';
 /// a recap, a profile card, the board - is an https URL, because the app's
 /// `synctogether://` scheme does not linkify anywhere a person would post it and
 /// is a dead end for anyone who has not installed the app yet.
-String get rewardsSiteBase => kDebugMode ? 'http://localhost:3000' : 'https://synctogether.app';
+String? get rewardsSiteBase => Env.siteUrl;
 
-String recapUrl(String id) => '$rewardsSiteBase/r/$id';
+String? recapUrl(String id) => _onSite('r/$id');
 
-String profileUrl(String handle) => '$rewardsSiteBase/u/$handle';
+String? profileUrl(String handle) => _onSite('u/$handle');
 
 /// The year-in-review page. No year means the current one; the page resolves it,
 /// so a link shared in January keeps pointing at the new year, and `year` pins
 /// last year's card once the calendar has turned.
-String wrappedUrl(String handle, {int? year}) =>
-    '$rewardsSiteBase/wrapped/$handle${year == null ? '' : '?year=$year'}';
+String? wrappedUrl(String handle, {int? year}) =>
+    _onSite('wrapped/$handle${year == null ? '' : '?year=$year'}');
+
+/// A shareable page, or null on a build with no web portal (`SITE_URL` unset) -
+/// callers hide the share action rather than copy a dead link.
+String? _onSite(String path) {
+  final base = rewardsSiteBase;
+  return base == null ? null : '$base/$path';
+}
 
 /// Reads the ledger, streak, badges and boards, and carries the one write the
 /// room makes - the heartbeat.

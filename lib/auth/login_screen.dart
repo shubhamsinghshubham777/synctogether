@@ -1214,6 +1214,10 @@ class _TermsNote extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final terms = Env.sitePage('terms');
+    final privacy = Env.sitePage('privacy');
+    // No web portal (SITE_URL unset) means no legal pages to link to.
+    if (terms == null || privacy == null) return const SizedBox.shrink();
     final linkStyle = PTText.finePrint.copyWith(
       color: PTColors.link,
       decoration: TextDecoration.underline,
@@ -1228,20 +1232,14 @@ class _TermsNote extends StatelessWidget {
             text: 'Terms',
             style: linkStyle,
             recognizer: TapGestureRecognizer()
-              ..onTap = () => launchUrl(
-                Uri.parse('https://synctogether.app/terms'),
-                mode: LaunchMode.externalApplication,
-              ),
+              ..onTap = () => launchUrl(terms, mode: LaunchMode.externalApplication),
           ),
           const TextSpan(text: ' and '),
           TextSpan(
             text: 'Privacy policy',
             style: linkStyle,
             recognizer: TapGestureRecognizer()
-              ..onTap = () => launchUrl(
-                Uri.parse('https://synctogether.app/privacy'),
-                mode: LaunchMode.externalApplication,
-              ),
+              ..onTap = () => launchUrl(privacy, mode: LaunchMode.externalApplication),
           ),
         ],
       ),

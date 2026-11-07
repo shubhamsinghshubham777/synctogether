@@ -123,6 +123,8 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
           LIVEKIT_URL: ${{ secrets.LIVEKIT_URL }}
+          SITE_URL: ${{ secrets.SITE_URL }}
+          SUPPORT_EMAIL: ${{ secrets.SUPPORT_EMAIL }}
           TURNSTILE_SITE_KEY: ${{ secrets.TURNSTILE_SITE_KEY }}
           SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
           POSTHOG_API_KEY: ${{ secrets.POSTHOG_API_KEY }}
@@ -130,6 +132,12 @@ jobs:
         run: |
           if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_PUBLISHABLE_KEY" ]; then
             echo "::error::SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY secrets must be configured in GitHub repository secrets."
+            exit 1
+          fi
+          # No built-in site or support address exists in the client: without these the
+          # build would ship with no invite links, no Terms/Privacy links and no sign-in bridge.
+          if [ -z "$SITE_URL" ] || [ -z "$SUPPORT_EMAIL" ]; then
+            echo "::error::SITE_URL and SUPPORT_EMAIL secrets must be configured in GitHub repository secrets."
             exit 1
           fi
           # --config-only bakes the version, build number and dart-defines into
@@ -143,6 +151,8 @@ jobs:
             --dart-define=SUPABASE_URL="$SUPABASE_URL" \
             --dart-define=SUPABASE_PUBLISHABLE_KEY="$SUPABASE_PUBLISHABLE_KEY" \
             --dart-define=LIVEKIT_URL="$LIVEKIT_URL" \
+            --dart-define=SITE_URL="$SITE_URL" \
+            --dart-define=SUPPORT_EMAIL="$SUPPORT_EMAIL" \
             --dart-define=TURNSTILE_SITE_KEY="$TURNSTILE_SITE_KEY" \
             --dart-define=SENTRY_DSN="$SENTRY_DSN" \
             --dart-define=POSTHOG_API_KEY="$POSTHOG_API_KEY" \

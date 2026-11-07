@@ -76,4 +76,33 @@ void main() {
     expect(Env.supabasePublishableKey, 'sb_publishable_custom');
     expect(Env.usingLocalStack, isFalse);
   });
+
+  group('web portal origin', () {
+    test('a release build with no SITE_URL has no web portal at all', () {
+      Env.overrideReleaseMode = true;
+      expect(Env.siteUrl, isNull);
+      expect(Env.siteHost, isNull);
+      expect(Env.sitePage('terms'), isNull);
+      expect(Env.supportEmail, isNull);
+    });
+
+    test('a debug build on the local stack links to the local website', () {
+      Env.overrideSiteUrl = 'https://watch.example.com';
+      expect(Env.siteUrl, 'http://localhost:3000');
+      expect(Env.sitePage('terms').toString(), 'http://localhost:3000/terms');
+    });
+
+    test('SITE_URL wins and loses its trailing slash', () {
+      Env.overrideReleaseMode = true;
+      Env.overrideSiteUrl = 'https://watch.example.com/';
+      Env.overrideSupportEmail = 'help@example.com';
+      expect(Env.siteUrl, 'https://watch.example.com');
+      expect(Env.siteHost, 'watch.example.com');
+      expect(
+        Env.sitePage('auth/desktop-callback').toString(),
+        'https://watch.example.com/auth/desktop-callback',
+      );
+      expect(Env.supportEmail, 'help@example.com');
+    });
+  });
 }

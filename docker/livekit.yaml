@@ -9,13 +9,11 @@ rtc:
   tcp_port: 7881
   port_range_start: 50000
   port_range_end: 50100
+  # false suits a LAN. On a public host set true (or use scripts/setup-livekit-server.sh).
   use_external_ip: false
 
-# API keys used for authentication and token signing.
-# Format: <api_key>: <api_secret>
-# MUST match LIVEKIT_API_KEY and LIVEKIT_API_SECRET in supabase/functions/.env
-keys:
-  devkey: secret_dev_key_for_synctogether_change_in_production
+# API keys are NOT set here: docker-compose.selfhost.yml passes LIVEKIT_KEYS from
+# LIVEKIT_API_KEY / LIVEKIT_API_SECRET, which must match supabase/functions/.env.
 
 logging:
   json: false

@@ -868,8 +868,8 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> with WindowListen
       spacing: 12,
       runSpacing: 12,
       children: [
-        share('Share my profile', 'leaderboard', profileUrl(handle)),
-        share('Share my year', 'leaderboard_wrapped', wrappedUrl(handle)),
+        if (profileUrl(handle) case final url?) share('Share my profile', 'leaderboard', url),
+        if (wrappedUrl(handle) case final url?) share('Share my year', 'leaderboard_wrapped', url),
       ],
     );
   }

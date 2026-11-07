@@ -1,10 +1,15 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:synctogether/env.dart';
 import 'package:synctogether/rooms/invite_clipboard.dart';
 
 void main() {
+  tearDown(Env.resetOverridesForTesting);
+
   test('reads the scheme link, the web link and a bare code', () {
     expect(inviteCodeFromClipboard('synctogether://join/X7K9P2'), 'X7K9P2');
-    expect(inviteCodeFromClipboard('https://synctogether.app/join/x7k9p2'), 'X7K9P2');
+    Env.overrideReleaseMode = true;
+    Env.overrideSiteUrl = 'https://watch.example.com';
+    expect(inviteCodeFromClipboard('https://watch.example.com/join/x7k9p2'), 'X7K9P2');
     expect(inviteCodeFromClipboard('  x7k9p2 \n'), 'X7K9P2');
   });
 

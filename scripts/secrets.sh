@@ -105,6 +105,10 @@ discover_secret_files() {
     "website/.env.production.local"
     "android/key.properties"
     "android/app/upload-keystore.jks"
+    # Rendered on the LiveKit VPS by setup-livekit-server.sh; holds the API secret.
+    "deploy/livekit/livekit.yaml"
+    # Wrangler's local secrets for the optional media-edge Worker (MEDIA_EDGE_SECRET).
+    "deploy/media-edge/.dev.vars"
   )
 
   for candidate in "${known_candidates[@]}"; do
@@ -144,6 +148,7 @@ discover_secret_files() {
       -name "*.p12" -o \
       -name "*.p8" -o \
       -name "*.pfx" -o \
+      -name ".dev.vars" -o \
       \( -name ".env*" ! -name "*.example*" ! -name "*.example" ! -name "*.bak*" \) \
     \) 2>/dev/null || true)
 

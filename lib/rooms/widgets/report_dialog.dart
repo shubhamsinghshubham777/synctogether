@@ -1,3 +1,4 @@
+import 'package:synctogether/env.dart';
 import 'package:flutter/material.dart';
 import '../../ui/booth_icons.g.dart';
 
@@ -180,7 +181,8 @@ class _ReportDialogState extends State<_ReportDialog> {
           ),
         const SizedBox(height: 10),
         Text(
-          'Reports are reviewed by our team. You can also email support@synctogether.app.',
+          'Reports are reviewed by our team.'
+          '${Env.supportEmail == null ? '' : ' You can also email ${Env.supportEmail}.'}',
           style: PTText.finePrint.copyWith(color: PTColors.white(0.5)),
         ),
         const SizedBox(height: 16),

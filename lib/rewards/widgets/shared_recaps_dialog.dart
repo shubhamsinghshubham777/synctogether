@@ -175,24 +175,25 @@ class _RecapRow extends StatelessWidget {
               ],
             ),
           ),
-          PTIconButton(
-            icon: BoothIcons.link,
-            iconSize: 17,
-            size: 34,
-            tooltip: 'Copy link',
-            onPressed: () async {
-              await Clipboard.setData(ClipboardData(text: recapUrl(recap.id)));
-              // The same event as the first share, on purpose: splitting it
-              // would split the one funnel this feature is judged by. The
-              // surface is what separates "shared on the way out" from "went
-              // looking for the link again", and the second is the stronger
-              // signal of the two.
-              Analytics.instance.track('recap_shared', {'surface': 'manage'});
-              if (context.mounted) {
-                showPTSnack(context, 'Link copied.', kind: .success);
-              }
-            },
-          ),
+          if (recapUrl(recap.id) case final url?)
+            PTIconButton(
+              icon: BoothIcons.link,
+              iconSize: 17,
+              size: 34,
+              tooltip: 'Copy link',
+              onPressed: () async {
+                await Clipboard.setData(ClipboardData(text: url));
+                // The same event as the first share, on purpose: splitting it
+                // would split the one funnel this feature is judged by. The
+                // surface is what separates "shared on the way out" from "went
+                // looking for the link again", and the second is the stronger
+                // signal of the two.
+                Analytics.instance.track('recap_shared', {'surface': 'manage'});
+                if (context.mounted) {
+                  showPTSnack(context, 'Link copied.', kind: .success);
+                }
+              },
+            ),
           PTIconButton(
             icon: busy ? Symbols.hourglass_empty_rounded : BoothIcons.delete,
             iconSize: 17,

@@ -6,13 +6,16 @@ compatibility_date = "2026-11-01"
 workers_dev = false
 
 # The bucket is reached through a BINDING: the Worker holds no S3 credentials.
-# bucket_name must equal the CF_R2_BUCKET_NAME the media-share function uses.
+# bucket_name must equal the CF_R2_BUCKET_NAME the media-share function uses
+# (the .env.example default is also synctogether-media).
 [[r2_buckets]]
 binding = "BUCKET"
 bucket_name = "synctogether-media"
 
-# Serve from your own hostname (the zone must be on this Cloudflare account).
-# Uncomment and edit, or attach the domain in the dashboard.
+# SELF-HOSTERS: change this to a hostname on a zone in YOUR Cloudflare account
+# (this one belongs to the official deployment and will not deploy for you), and
+# set app_settings.media_edge.base_url to the same origin. Or remove the block and
+# attach the domain in the dashboard.
 [[routes]]
 pattern = "media.synctogether.app"
 custom_domain = true

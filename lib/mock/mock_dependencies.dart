@@ -18,7 +18,7 @@ final mockCurrentUser = User(
   id: 'user-alex',
   aud: 'authenticated',
   role: 'authenticated',
-  email: 'alex@synctogether.app',
+  email: 'alex@example.com',
   emailConfirmedAt: '2026-01-01T00:00:00Z',
   appMetadata: const <String, dynamic>{},
   userMetadata: const <String, dynamic>{'full_name': 'Alex Rivers'},
@@ -36,7 +36,7 @@ const mockCurrentProfile = Profile(
   id: 'user-alex',
   displayName: 'Alex Rivers',
   isGuest: false,
-  email: 'alex@synctogether.app',
+  email: 'alex@example.com',
 );
 
 final mockRoomOne = Room(

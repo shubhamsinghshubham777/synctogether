@@ -32,7 +32,7 @@ Points the existing notes in ASC (copied from the Mac submission) get wrong or l
 
 ## Privacy: App Privacy ("nutrition label") answers
 
-Source of truth: `website/app/privacy/page.tsx`, `docs/agent/ui-and-av.md` (Analytics), `lib/main.dart` (Sentry has no `setUser`, no PII). Tracking: **No** (no ad SDKs, no cross-app/site linking; PostHog is first-party analytics with an in-app opt-out). The bundled `ios/Runner/PrivacyInfo.xcprivacy` declares the same set.
+Source of truth: `website/app/privacy/page.tsx`, `docs/agent/ui-and-av.md` (Analytics), `lib/main.dart` (Sentry has no `setUser`, no PII). **Verified against the code and schema on 2026-11-07 and published to App Store Connect** (it is one app-wide declaration, shared with the Mac): avatars go to the public `avatars` bucket and a host's file to R2 (Photos or videos); `profiles.handle` and room names (Other user content); `messages` (Emails or text messages); `apple_subscriptions` (Purchase history); the 40 events in `lib/analytics_catalog.dart` keyed by the account id (Product interaction, User ID). Change `lib/` data collection and this table together, then `asc web privacy pull / plan / apply / publish --app 6809185202` (needs `asc web auth login`). Tracking: **No** (no ad SDKs, no cross-app/site linking; PostHog is first-party analytics with an in-app opt-out). The bundled `ios/Runner/PrivacyInfo.xcprivacy` declares the same set.
 
 | Data type | Collected | Linked to user | Purpose | Notes |
 |---|---|---|---|---|
@@ -43,7 +43,7 @@ Source of truth: `website/app/privacy/page.tsx`, `docs/agent/ui-and-av.md` (Anal
 | User content > Other user content | Yes | Yes | App functionality | Persisted room chat, handle, room names |
 | Purchases > Purchase history | Yes | Yes | App functionality | Apple subscription transactions in `apple_subscriptions` |
 | Usage data > Product interaction | Yes | Yes | Analytics | PostHog events (no chat, filenames, paths or YouTube ids) |
-| Diagnostics > Crash data, Performance data, Other diagnostic data | Yes | No | App functionality | Sentry |
+| Diagnostics > Crash data, Other diagnostic data | Yes | **Yes** | App functionality, Analytics (crash data) | Sentry. **No Performance data**: `tracesSampleRate = 0` (`lib/main.dart`), so nothing is traced. Linked, not anonymous: breadcrumbs from `trace()` carry user and room ids (blocked-user ids, senders, rooms), so a crash report can be tied to an account |
 | Audio / video (voice, facecams) | Not declared | - | - | Real-time relay via LiveKit, never recorded or stored; if you prefer to be conservative, declare Audio data and Photos or videos as App functionality, not linked |
 | Location, contacts, health, financial, browsing, search, sensitive info | No | | | |
 

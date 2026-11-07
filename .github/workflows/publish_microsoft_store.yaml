@@ -75,6 +75,14 @@ jobs:
           distribution: temurin
           java-version: '17'
 
+      # setup-java alone was not enough: CMake's FindJNI still left jni.h out of the
+      # jni plugin's compile line on the new image. cl.exe reads CL on every call.
+      - name: Put the JDK headers on the compiler's include path
+        shell: pwsh
+        run: |
+          $inc = Join-Path $env:JAVA_HOME 'include'
+          "CL=/I$inc /I$inc\win32" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
       - name: Install dependencies
         run: |
           flutter config --enable-windows-desktop

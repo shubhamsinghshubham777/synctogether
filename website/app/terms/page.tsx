@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { LegalShell, LegalNum } from "@/components/LegalShell";
-import { SITE_CONFIG } from "@/lib/constants";
+import { OPERATOR, SITE_CONFIG } from "@/lib/constants";
 
 const TOC = [
   { id: "s-1", n: "01", label: "Nature of the Service" },
@@ -136,7 +136,7 @@ export default function TermsPage() {
             Governing Law
           </h2>
           <p>
-            These Terms shall be governed by and construed in accordance with the laws of India, without regard to its conflict of law provisions.
+            These Terms shall be governed by and construed in accordance with the laws of {OPERATOR.governingLaw}, without regard to its conflict of law provisions.
           </p>
         </section>
 

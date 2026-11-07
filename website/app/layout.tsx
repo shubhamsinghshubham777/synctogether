@@ -6,7 +6,7 @@ import { SpeedInsights } from "@vercel/speed-insights/next";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { AnalyticsBeacon } from "@/components/AnalyticsBeacon";
-import { CURRENCY_COOKIE, SITE_CONFIG } from "@/lib/constants";
+import { CURRENCY_COOKIE, OPERATOR, SITE_CONFIG } from "@/lib/constants";
 
 // Projection booth typography. globals.css maps the older --font-space-grotesk /
 // --font-outfit slots onto these, so existing classes pick them up.
@@ -75,7 +75,7 @@ export const metadata: Metadata = {
     title: "SyncTogether: Watch Movies Together, Even When You're Apart",
     description: SITE_CONFIG.description,
     images: ["/og-image.png"],
-    creator: "@shubhamsingh",
+    ...(OPERATOR.twitter ? { creator: OPERATOR.twitter } : {}),
   },
   robots: {
     index: true,

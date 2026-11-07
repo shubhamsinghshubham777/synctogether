@@ -74,6 +74,9 @@ Before starting, ensure you have the following installed on your machine:
 
 ## 4. Step-by-Step Setup Guide
 
+> [!TIP]
+> **Quick start: let the wizard do the typing.** `python3 scripts/selfhost-setup.py` asks for everything the steps below need - who you are (the legal pages name the operator), your addresses, sign-in, voice/video and file-storage choices - then writes `.env`, `supabase/.env`, `supabase/functions/.env` and `website/.env.local` for you (all private and git-ignored), generates your auth config, and prints the exact commands left to run, in order, for your answers. It is safe to re-run: earlier answers become the defaults, and a changed file is backed up first. It writes files only; it touches no server. The steps below are what it automates, so you can do any of them by hand. **Read the legal pages before you publish** - see Step 6.
+
 ### Step 1: Database & Backend (Supabase)
 
 #### Option 1: Managed Supabase Cloud (Easiest)
@@ -304,7 +307,7 @@ The web portal (`website/`) provides the Terms and Privacy pages, shareable invi
    cp .env.example .env.local
    npm install
    ```
-2. Set `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `NEXT_PUBLIC_SITE_URL`, `NEXT_PUBLIC_SUPPORT_EMAIL` and `NEXT_PUBLIC_COPYRIGHT_EMAIL` in `website/.env.local`. **A production build refuses to start without the site URL and the two addresses** - there are no built-in values, so a build can never serve someone else's contacts. (The Terms, Privacy and DMCA pages still name the operator's own legal details in their text; replace those with yours before you publish the site.) PostHog and the `PROD_*` variables are optional: `PROD_SUPABASE_*` only feed the internal `/internal/metrics` page, which you can ignore; see `website/.env.example` for the full list.
+2. Set `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `NEXT_PUBLIC_SITE_URL`, `NEXT_PUBLIC_SUPPORT_EMAIL` and `NEXT_PUBLIC_COPYRIGHT_EMAIL` in `website/.env.local`. **A production build refuses to start without the site URL and the two addresses** - there are no built-in values, so a build can never serve someone else's contacts. Set `NEXT_PUBLIC_OPERATOR_NAME`, `NEXT_PUBLIC_OPERATOR_ADDRESS` (lines separated by `|`) and `NEXT_PUBLIC_GOVERNING_LAW` too: the Terms, Privacy and DMCA pages name the operator, and a production build refuses to start without them. Optional: `NEXT_PUBLIC_OPERATOR_URL`, `NEXT_PUBLIC_OPERATOR_TWITTER`, `NEXT_PUBLIC_APP_STORE_URL`, `NEXT_PUBLIC_MICROSOFT_STORE_URL`, and `NEXT_PUBLIC_DMCA_REGISTRATION` (leave it empty unless you registered an agent with the U.S. Copyright Office - the DMCA page only claims a registered agent when it is set). **The wizard fills in your details, not the legal text around them:** the Terms and Privacy pages are written for the project's own deployment. Have a lawyer review them, in particular the list of service providers in `website/app/privacy/page.tsx` (yours will differ) and the India (DPDP Act) section. PostHog and the `PROD_*` variables are optional: `PROD_SUPABASE_*` only feed the internal `/internal/metrics` page, which you can ignore; see `website/.env.example` for the full list.
 3. Run or deploy:
    ```bash
    # Development

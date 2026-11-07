@@ -68,14 +68,18 @@ function Credits({ year }: { year: number }) {
     <>
       <span>
         © {year} {SITE_CONFIG.name} · Made by{" "}
-        <a
-          href={SITE_CONFIG.creatorLinkedIn}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="hover:text-white underline underline-offset-4 decoration-rail hover:decoration-beam-500 transition-colors"
-        >
-          {SITE_CONFIG.creatorName}
-        </a>
+        {SITE_CONFIG.creatorLinkedIn ? (
+          <a
+            href={SITE_CONFIG.creatorLinkedIn}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hover:text-white underline underline-offset-4 decoration-rail hover:decoration-beam-500 transition-colors"
+          >
+            {SITE_CONFIG.creatorName}
+          </a>
+        ) : (
+          SITE_CONFIG.creatorName
+        )}
       </span>
       <span>
         <a href={SITE_CONFIG.githubRepo} target="_blank" rel="noopener noreferrer" className="hover:text-white underline underline-offset-4 decoration-rail hover:decoration-beam-500 transition-colors">

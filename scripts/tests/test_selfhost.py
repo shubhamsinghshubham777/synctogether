@@ -192,6 +192,194 @@ class ConfigGenerator(unittest.TestCase):
             self.assertEqual(self.gen(bad).returncode, 1, bad)
 
 
+def load_wizard():
+    spec = importlib.util.spec_from_file_location("selfhost_setup", REPO / "scripts" / "selfhost-setup.py")
+    mod = importlib.util.module_from_spec(spec)
+    sys.modules["selfhost_setup"] = mod
+    spec.loader.exec_module(mod)
+    return mod
+
+
+W = load_wizard()
+
+FULL = {
+    "operator_name": "Alex Example", "operator_address": ["1 Example Street", "Springfield 00000", "Freedonia"],
+    "governing_law": "Freedonia", "support_email": "help@watch.example.com", "site_url": "https://watch.example.com",
+    "supabase_url": "https://abcdefghijklmnopqrst.supabase.co", "supabase_hosting": "cloud",
+    "supabase_publishable_key": "sb_publishable_realvalue", "supabase_service_role_key": "sb_secret_realvalue",
+    "has_stores": "n", "captcha": "y", "turnstile_site_key": "0x4AAAAAAAsite", "turnstile_secret": "0x4AAAAAAAsecret",
+    "google": "y", "google_client_id": "123.apps.googleusercontent.com", "google_client_secret": "GOCSPX-real",
+    "av": "cloud", "livekit_url": "wss://x.livekit.cloud", "livekit_key": "APIreal", "livekit_secret": "livesecret",
+    "r2": "y", "r2_endpoint": "https://acc.r2.cloudflarestorage.com", "r2_bucket": "media",
+    "r2_access_key": "AK", "r2_secret_key": "SK",
+}
+MINIMAL = {k: FULL[k] for k in ("operator_name", "operator_address", "governing_law", "support_email", "site_url",
+                                 "supabase_url", "supabase_hosting", "supabase_publishable_key", "supabase_service_role_key")}
+MINIMAL.update({"captcha": "n", "google": "n", "av": "none", "r2": "n", "has_stores": "n"})
+
+
+class Wizard(unittest.TestCase):
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp())
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def run_wizard(self, answers, *extra, out=None):
+        f = self.tmp / "answers.json"
+        f.write_text(json.dumps(answers))
+        return run([sys.executable, str(REPO / "scripts" / "selfhost-setup.py"), "--answers", str(f),
+                    "--out-dir", str(out or self.tmp / "out"), "--no-config", *extra])
+
+    def env(self, rel):
+        return W.parse_env_file(self.tmp / "out" / rel)
+
+    def test_full_run_writes_four_private_files(self):
+        r = self.run_wizard(FULL)
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        for rel in (".env", "supabase/.env", "supabase/functions/.env", "website/.env.local"):
+            p = self.tmp / "out" / rel
+            self.assertTrue(p.is_file(), rel)
+            self.assertEqual(p.stat().st_mode & 0o777, 0o600, rel)
+
+    def test_every_secret_lands_only_where_it_belongs(self):
+        self.run_wizard(FULL)
+        client, auth = self.env(".env"), self.env("supabase/.env")
+        fn, web = self.env("supabase/functions/.env"), self.env("website/.env.local")
+        self.assertNotIn("sb_secret_realvalue", json.dumps({"client": client, "auth": auth, "fn": fn}))
+        self.assertEqual(web["SUPABASE_SERVICE_ROLE_KEY"], "sb_secret_realvalue")
+        self.assertEqual(auth["SUPABASE_AUTH_CAPTCHA_SECRET"], "0x4AAAAAAAsecret")
+        self.assertNotIn("0x4AAAAAAAsecret", json.dumps({"client": client, "fn": fn, "web": web}))
+        self.assertEqual(fn["LIVEKIT_API_SECRET"], "livesecret")
+        self.assertNotIn("livesecret", json.dumps({"client": client, "auth": auth, "web": web}))
+        self.assertEqual(fn["CF_R2_SECRET_ACCESS_KEY"], "SK")
+        self.assertNotIn("SK", json.dumps(client))
+
+    def test_the_client_file_covers_every_define_in_env_example(self):
+        self.run_wizard(FULL)
+        wanted = {k for k in W.parse_env_file(REPO / ".env.example") if not k.endswith("_LOCAL")}
+        self.assertEqual(sorted(wanted - set(self.env(".env"))), [])
+
+    def test_the_website_file_covers_every_variable_the_site_reads(self):
+        self.run_wizard(FULL)
+        used = set()
+        for f in (REPO / "website").rglob("*.ts*"):
+            if "node_modules" in f.parts or ".next" in f.parts:
+                continue
+            used |= set(re.findall(r"process\.env\.(NEXT_PUBLIC_[A-Z0-9_]+)", f.read_text()))
+        # NEXT_PUBLIC_SUPABASE_ANON_KEY is only the older name the code falls back to for the publishable key.
+        optional_for_this_product = {"NEXT_PUBLIC_SUPABASE_ANON_KEY", "NEXT_PUBLIC_POSTHOG_KEY", "NEXT_PUBLIC_POSTHOG_HOST", "NEXT_PUBLIC_SHOW_USAGE_STATS",
+                                     "NEXT_PUBLIC_PADDLE_ENVIRONMENT", "NEXT_PUBLIC_PADDLE_CLIENT_TOKEN",
+                                     "NEXT_PUBLIC_PADDLE_MONTHLY_PRICE_ID", "NEXT_PUBLIC_PADDLE_ANNUAL_PRICE_ID"}
+        self.assertEqual(sorted((used - optional_for_this_product) - set(self.env("website/.env.local"))), [])
+        example = set(W.parse_env_file(REPO / "website" / ".env.example"))
+        self.assertEqual(sorted(k for k in (used - optional_for_this_product) if k not in example), [],
+                         "a variable the site requires is missing from website/.env.example")
+
+    def test_operator_values_reach_the_website_file_intact(self):
+        self.run_wizard(FULL)
+        web = self.env("website/.env.local")
+        self.assertEqual(web["NEXT_PUBLIC_OPERATOR_NAME"], "Alex Example")
+        self.assertEqual(web["NEXT_PUBLIC_OPERATOR_ADDRESS"], "1 Example Street|Springfield 00000|Freedonia")
+        self.assertEqual(web["NEXT_PUBLIC_GOVERNING_LAW"], "Freedonia")
+        self.assertEqual(web["NEXT_PUBLIC_COPYRIGHT_EMAIL"], "help@watch.example.com")  # defaults to support
+        self.assertEqual(web["NEXT_PUBLIC_DMCA_REGISTRATION"], "")  # never claimed unless given
+
+    def test_awkward_characters_survive_a_round_trip(self):
+        weird = dict(FULL, operator_name='Acme "Films" #1 & Co', operator_address=["Unit 5 #2, Main St"])
+        self.run_wizard(weird)
+        raw = (self.tmp / "out" / "website" / ".env.local").read_text().splitlines()
+        # Quoted in the file itself: Next's (dotenv) parser would otherwise cut the value at " #".
+        self.assertIn('NEXT_PUBLIC_OPERATOR_NAME="Acme \\"Films\\" #1 & Co"', raw)
+        self.assertIn('NEXT_PUBLIC_OPERATOR_ADDRESS="Unit 5 #2, Main St"', raw)
+        self.assertIn("NEXT_PUBLIC_GOVERNING_LAW=Freedonia", raw)  # plain values stay plain
+        self.assertEqual(self.env("website/.env.local")["NEXT_PUBLIC_OPERATOR_NAME"], 'Acme "Films" #1 & Co')
+        self.assertEqual(W.remembered(self.tmp / "out")["operator_name"], 'Acme "Films" #1 & Co')
+
+    def test_nothing_written_is_a_placeholder_the_verifier_would_reject(self):
+        self.run_wizard(FULL)
+        for rel in (".env", "supabase/functions/.env"):
+            for k, v in self.env(rel).items():
+                self.assertNotRegex(v, r"xxxxx|<[^>]*>|\.\.\.$", f"{rel} {k}")
+
+    def test_a_minimal_setup_turns_the_optional_features_off(self):
+        self.assertEqual(self.run_wizard(MINIMAL).returncode, 0)
+        self.assertEqual(self.env(".env")["LIVEKIT_URL"], "")
+        self.assertEqual(self.env(".env")["TURNSTILE_SITE_KEY"], "")
+        self.assertNotIn("SUPABASE_AUTH_CAPTCHA_SECRET", self.env("supabase/.env"))
+        self.assertNotIn("LIVEKIT_API_KEY", self.env("supabase/functions/.env"))
+        self.assertNotIn("CF_R2_ENDPOINT", self.env("supabase/functions/.env"))
+        steps = " ".join(t for t, _ in W.next_steps(MINIMAL))
+        self.assertNotIn("cleanup jobs", steps)
+        cmds = " ".join(" ".join(c) for _, c in W.next_steps(MINIMAL))
+        self.assertIn("--no-captcha", cmds)
+        self.assertNotIn("functions deploy", cmds)
+
+    def test_next_steps_follow_the_answers(self):
+        cloud = " ".join(" ".join(c) for _, c in W.next_steps(FULL))
+        self.assertIn("supabase link --project-ref abcdefghijklmnopqrst", cloud)
+        self.assertIn("functions deploy media-share", cloud)
+        self.assertIn("--require av,media,google", cloud)
+        docker = " ".join(" ".join(c) for _, c in W.next_steps(dict(FULL, supabase_hosting="docker")))
+        self.assertIn("--gotrue", docker)
+        self.assertIn("--db-url", docker)
+        own = [t for t, _ in W.next_steps(dict(FULL, av="own", livekit_url="", livekit_key=""))]
+        self.assertIn("Your LiveKit server (not set up yet)", own)
+
+    def test_bad_answers_are_refused_with_a_reason(self):
+        for bad, key in (({"site_url": "http://watch.example.com"}, "site_url"), ({"support_email": "nope"}, "support_email"),
+                         ({"operator_name": ""}, "operator_name"), ({"dmca_registration": "12345"}, "dmca_registration")):
+            r = self.run_wizard(dict(FULL, **bad))
+            self.assertNotEqual(r.returncode, 0, key)
+            self.assertIn(key, r.stderr + r.stdout)
+        r = self.run_wizard(dict(FULL, surprise="x"))
+        self.assertIn("unknown keys", r.stderr + r.stdout)
+
+    def test_rerun_keeps_old_answers_as_defaults_and_backs_up_changes(self):
+        self.run_wizard(FULL)
+        remembered = W.remembered(self.tmp / "out")
+        self.assertEqual(remembered["site_url"], "https://watch.example.com")
+        self.assertEqual(remembered["av"], "cloud")
+        self.assertEqual(remembered["google_client_id"], "123.apps.googleusercontent.com")
+        before = (self.tmp / "out" / ".env").read_text()
+        self.run_wizard(dict(FULL, support_email="other@watch.example.com"))
+        self.assertEqual(len(list((self.tmp / "out").glob(".env.bak.*"))), 1)  # changed -> backed up
+        self.assertEqual((next((self.tmp / "out").glob(".env.bak.*"))).read_text(), before)
+        self.run_wizard(dict(FULL, support_email="other@watch.example.com"))
+        self.assertEqual(len(list((self.tmp / "out").glob(".env.bak.*"))), 1)  # unchanged -> no churn
+
+    def test_the_post_deploy_sql_only_touches_what_is_enabled(self):
+        full, minimal = W.post_deploy_sql(FULL), W.post_deploy_sql(MINIMAL)
+        self.assertIn("'av_cleanup'", full)
+        self.assertIn("/functions/v1/cleanup-r2", full)
+        self.assertIn("Nothing to do", minimal)
+        self.assertNotIn("update public", minimal)
+
+    def test_interactive_prompts_use_defaults_and_collect_the_address(self):
+        import builtins
+        import contextlib
+        import io
+        q_addr = next(q for s in W.STEPS for q in s.questions if q.key == "operator_address")
+        q_name = next(q for s in W.STEPS for q in s.questions if q.key == "operator_name")
+        feed = iter(["1 Main St", "Town", ""])
+        real = builtins.input
+        builtins.input = lambda *a, **k: next(feed)
+        try:
+            with contextlib.redirect_stdout(io.StringIO()):  # the prompts themselves
+                self.assertEqual(W.ask(q_addr, {}, None), "1 Main St\nTown")
+                builtins.input = lambda *a, **k: ""  # Enter keeps the remembered value
+                self.assertEqual(W.ask(q_name, {"operator_name": "Kept Name"}, None), "Kept Name")
+                answers = iter(["", "Typed Name"])  # empty is refused for a required question, then accepted
+                builtins.input = lambda *a, **k: next(answers)
+                self.assertEqual(W.ask(q_name, {}, None), "Typed Name")
+        finally:
+            builtins.input = real
+
+    def test_every_answer_key_is_documented_by_a_question(self):
+        self.assertEqual(len(W.ALL_KEYS), len(set(W.ALL_KEYS)))
+        self.assertTrue(set(FULL) <= set(W.ALL_KEYS))
+
+
 class ShippedFiles(unittest.TestCase):
     def test_livekit_config_ships_no_keys(self):
         text = (REPO / "docker" / "livekit.yaml").read_text()

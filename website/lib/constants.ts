@@ -21,6 +21,30 @@ const SITE_URL = requiredEnv(process.env.NEXT_PUBLIC_SITE_URL, "NEXT_PUBLIC_SITE
 /// The site's host without the scheme, for copy like "<host>/u/yourhandle".
 export const SITE_HOST = SITE_URL.replace(/^https?:\/\//, "");
 
+/// Optional value: the empty string when unset.
+const optionalEnv = (value: string | undefined): string => (value ?? "").trim();
+
+/// Who runs this deployment, for the legal pages and the credits. Every field is
+/// the operator's own: nothing here belongs to the project's original author.
+export const OPERATOR = {
+  name: requiredEnv(process.env.NEXT_PUBLIC_OPERATOR_NAME, "NEXT_PUBLIC_OPERATOR_NAME", "Operator"),
+  /// Postal address lines, separated by "|" in the variable. A takedown notice
+  /// has to be sendable to a real address, so a production build requires one.
+  address: requiredEnv(process.env.NEXT_PUBLIC_OPERATOR_ADDRESS, "NEXT_PUBLIC_OPERATOR_ADDRESS", "Local development")
+    .split("|")
+    .map((line) => line.trim())
+    .filter(Boolean),
+  /// A page about the operator (LinkedIn, a homepage). Optional: unset renders the name as plain text.
+  url: optionalEnv(process.env.NEXT_PUBLIC_OPERATOR_URL),
+  /// X/Twitter handle for link-preview cards, with the @. Optional: unset omits it.
+  twitter: optionalEnv(process.env.NEXT_PUBLIC_OPERATOR_TWITTER),
+  /// Country whose law governs the Terms. A legal choice; have a lawyer confirm it.
+  governingLaw: requiredEnv(process.env.NEXT_PUBLIC_GOVERNING_LAW, "NEXT_PUBLIC_GOVERNING_LAW", "your jurisdiction"),
+  /// U.S. Copyright Office DMCA agent registration number. Optional, and the DMCA page
+  /// only claims a registered agent when this is set.
+  dmcaRegistration: optionalEnv(process.env.NEXT_PUBLIC_DMCA_REGISTRATION),
+};
+
 export const SITE_CONFIG = {
   name: "SyncTogether",
   tagline: "Movie night, even when you're not in the same room.",
@@ -29,10 +53,12 @@ export const SITE_CONFIG = {
   url: SITE_URL,
   supportEmail: requiredEnv(process.env.NEXT_PUBLIC_SUPPORT_EMAIL, "NEXT_PUBLIC_SUPPORT_EMAIL", "support@localhost"),
   githubRepo: "https://github.com/shubhamsinghshubham777/synctogether",
-  microsoftStoreUrl: "https://apps.microsoft.com/detail/9P1BZTSXHDFS",
-  appStoreUrl: "https://apps.apple.com/in/app/synctogether-watch-party/id6809185202?mt=12",
-  creatorName: "Shubham Singh",
-  creatorLinkedIn: "https://www.linkedin.com/in/shubhamsinghshubham777/",
+  // Where people get the client. Unset, the buttons lead to this site's own /download page rather than
+  // to anyone else's store listing (which would install a client that talks to someone else's backend).
+  microsoftStoreUrl: optionalEnv(process.env.NEXT_PUBLIC_MICROSOFT_STORE_URL) || `${SITE_URL}/download`,
+  appStoreUrl: optionalEnv(process.env.NEXT_PUBLIC_APP_STORE_URL) || `${SITE_URL}/download`,
+  creatorName: OPERATOR.name,
+  creatorLinkedIn: OPERATOR.url,
 };
 
 /// Designated agent for copyright notices, as registered with the U.S.
@@ -46,15 +72,11 @@ export const SITE_CONFIG = {
 /// number on a web page is scraped far more aggressively than one in a
 /// government register.
 export const DMCA_AGENT = {
-  registrationNumber: "DMCA-1080733",
-  serviceProvider: "Shubham Singh",
+  registrationNumber: OPERATOR.dmcaRegistration,
+  serviceProvider: OPERATOR.name,
   agentName: "DMCA Agent, SyncTogether",
   email: requiredEnv(process.env.NEXT_PUBLIC_COPYRIGHT_EMAIL, "NEXT_PUBLIC_COPYRIGHT_EMAIL", "copyright@localhost"),
-  address: [
-    "House No. 1282, First Floor, Sector-9",
-    "Bahadurgarh, Haryana 124507",
-    "India",
-  ],
+  address: OPERATOR.address,
   directoryUrl: "https://dmca.copyright.gov/osp/publish/history.html",
 };
 
@@ -240,7 +262,7 @@ export const FAQ_ITEMS = [
     questions: [
       {
         q: "How do I create and join a room?",
-        a: "Launch SyncTogether and click 'Create Room'. You will receive a unique 6-character room code (e.g. `X7K9P2`) and an invite link (`https://synctogether.app/join/X7K9P2`). Share it anywhere. The link opens the app for anyone who has it, and offers the download to anyone who does not, with the code kept for them."
+        a: `Launch SyncTogether and click 'Create Room'. You will receive a unique 6-character room code (e.g. \`X7K9P2\`) and an invite link (\`${SITE_CONFIG.url}/join/X7K9P2\`). Share it anywhere. The link opens the app for anyone who has it, and offers the download to anyone who does not, with the code kept for them.`
       },
       {
         q: "What media formats are supported?",
@@ -273,7 +295,7 @@ export const FAQ_ITEMS = [
       },
       {
         q: "What is your refund policy?",
-        a: "Refunds are handled by the store you bought from, through its own refund process (for Apple, reportaproblem.apple.com). If something went wrong with your Premium access, email support@synctogether.app and we will help."
+        a: `Refunds are handled by the store you bought from, through its own refund process (for Apple, reportaproblem.apple.com). If something went wrong with your Premium access, email ${SITE_CONFIG.supportEmail} and we will help.`
       },
       {
         q: "I subscribed on my Mac but my Windows app still shows Free. What should I do?",

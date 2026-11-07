@@ -57,9 +57,14 @@ export default function DmcaPage() {
             Designated Agent for Copyright Notices
           </h2>
           <p>
-            We have registered a designated agent with the United States Copyright Office
-            (registration number{" "}
-            <span className="font-mono text-purple-300">{DMCA_AGENT.registrationNumber}</span>).
+            {DMCA_AGENT.registrationNumber ? (
+              <>
+                We have registered a designated agent with the United States Copyright Office
+                (registration number{" "}
+                <span className="font-mono text-purple-300">{DMCA_AGENT.registrationNumber}</span>
+                ).{" "}
+              </>
+            ) : null}
             Send copyright notices to:
           </p>
           <div className="p-4 rounded-xl bg-white/5 border border-white/10 font-mono text-sm text-gray-200 space-y-1">

@@ -273,7 +273,7 @@ export function RoomFrame({
             >
               {fidelity === "full" ? (
                 <>
-                  <FacecamTile avatar="/avatars/av-02-cam.avif" name="Shubham Singh" premium />
+                  <FacecamTile avatar="/avatars/av-02-cam.avif" name="Sam Rivera" premium />
                   <FacecamTile avatar="/avatars/av-01-cam.avif" name="Guest-0397" muted />
                   <FacecamTile avatar="/avatars/av-04-cam.avif" name="Maya" className="hidden lg:block" />
                 </>

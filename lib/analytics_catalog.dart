@@ -400,13 +400,6 @@ const kAnalyticsEvents = <AnalyticsEventDoc>[
     why: 'Shows whether calling is how a date night actually starts.',
   ),
   AnalyticsEventDoc(
-    event: 'watchlist_added',
-    group: .pair,
-    what: 'You added something to your shared watchlist.',
-    why: 'Tells us whether people plan ahead, and whether they mostly use files or YouTube.',
-    properties: ['whether it was a file or a YouTube link (never the name or the link)'],
-  ),
-  AnalyticsEventDoc(
     event: 'date_night_planned',
     group: .pair,
     what: 'You planned a date night.',

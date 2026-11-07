@@ -57,6 +57,10 @@ class _PairAcceptScreenState extends State<PairAcceptScreen> {
           PairInviteStatus.accepted => PairErrorCode.inviteUsed,
           PairInviteStatus.cancelled => PairErrorCode.inviteCancelled,
           PairInviteStatus.pending when invite.isMine => PairErrorCode.cannotPairSelf,
+          // Already paired: say so now, rather than offer a button that can only
+          // fail. (The server enforces it too; this is only the kinder screen.)
+          PairInviteStatus.pending when PairService.instance.isPaired =>
+            PairErrorCode.alreadyPaired,
           PairInviteStatus.pending => null,
         };
       });
@@ -155,7 +159,7 @@ class _PairAcceptScreenState extends State<PairAcceptScreen> {
                 PairDivider(),
                 PairRow(icon: BoothIcons.calendar, title: 'Date nights with both your time zones'),
                 PairDivider(),
-                PairRow(icon: BoothIcons.film, title: 'A shared watchlist and watch history'),
+                PairRow(icon: BoothIcons.fire, title: 'A watch history and a weekly streak'),
               ],
             ),
           ),

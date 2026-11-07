@@ -115,44 +115,6 @@ class PairInvite {
   bool isLiveAt(DateTime now) => status == PairInviteStatus.pending && expiresAt.isAfter(now);
 }
 
-enum WatchSource {
-  youtube,
-  local;
-
-  static WatchSource fromWire(String? v) => v == 'youtube' ? youtube : local;
-}
-
-@immutable
-class WatchlistItem {
-  const WatchlistItem({
-    required this.id,
-    required this.title,
-    required this.source,
-    required this.addedBy,
-    required this.createdAt,
-    this.sourceUrl,
-    this.watched = false,
-  });
-
-  factory WatchlistItem.fromJson(Map<String, dynamic> json) => WatchlistItem(
-    id: json['id'] as String,
-    title: json['title'] as String,
-    source: WatchSource.fromWire(json['source_kind'] as String?),
-    sourceUrl: json['source_url'] as String?,
-    addedBy: json['added_by'] as String,
-    createdAt: _time(json['created_at']) ?? DateTime.now().toUtc(),
-    watched: json['status'] == 'watched',
-  );
-
-  final String id;
-  final String title;
-  final WatchSource source;
-  final String? sourceUrl;
-  final String addedBy;
-  final DateTime createdAt;
-  final bool watched;
-}
-
 enum DateNightStatus {
   proposed,
   accepted,
@@ -256,14 +218,12 @@ class PairStats {
   final int films;
 }
 
-/// Which notifications a person wants. Server defaults: everything on except
-/// watchlist additions.
+/// Which notifications a person wants. Server defaults: everything on.
 @immutable
 class PushPrefs {
   const PushPrefs({
     this.calls = true,
     this.dateNights = true,
-    this.watchlist = false,
     this.reunion = true,
     this.quietHours = true,
   });
@@ -271,14 +231,12 @@ class PushPrefs {
   factory PushPrefs.fromJson(Map<String, dynamic> json) => PushPrefs(
     calls: json['calls'] as bool? ?? true,
     dateNights: json['date_nights'] as bool? ?? true,
-    watchlist: json['watchlist'] as bool? ?? false,
     reunion: json['reunion'] as bool? ?? true,
     quietHours: json['quiet_hours'] as bool? ?? true,
   );
 
   final bool calls;
   final bool dateNights;
-  final bool watchlist;
   final bool reunion;
   final bool quietHours;
 
@@ -286,35 +244,24 @@ class PushPrefs {
     'calls' => PushPrefs(
       calls: value,
       dateNights: dateNights,
-      watchlist: watchlist,
       reunion: reunion,
       quietHours: quietHours,
     ),
     'date_nights' => PushPrefs(
       calls: calls,
       dateNights: value,
-      watchlist: watchlist,
-      reunion: reunion,
-      quietHours: quietHours,
-    ),
-    'watchlist' => PushPrefs(
-      calls: calls,
-      dateNights: dateNights,
-      watchlist: value,
       reunion: reunion,
       quietHours: quietHours,
     ),
     'reunion' => PushPrefs(
       calls: calls,
       dateNights: dateNights,
-      watchlist: watchlist,
       reunion: value,
       quietHours: quietHours,
     ),
     'quiet_hours' => PushPrefs(
       calls: calls,
       dateNights: dateNights,
-      watchlist: watchlist,
       reunion: reunion,
       quietHours: value,
     ),
@@ -340,8 +287,6 @@ enum PairErrorCode {
   ),
   invalidTime('invalid_time', 'Pick a time at least a few minutes from now.'),
   invalidTitle('invalid_title', 'Give it a name first.'),
-  invalidSource('invalid_source', "Hmm, that doesn't look like a YouTube link."),
-  watchlistFull('watchlist_full', "Your watchlist is full. Clear a few watched ones first."),
   nightNotOpen('night_not_open', 'That date night has already been answered.'),
   accountBanned('account_banned', 'Your account has been suspended from using rooms.'),
   notAuthenticated('not_authenticated', 'Your session has expired. Please sign in again.'),

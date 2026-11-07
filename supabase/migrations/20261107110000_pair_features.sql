@@ -5,8 +5,8 @@
 --     Function only delivers (APNs, FCM, WNS). Quiet hours are enforced when a
 --     row is claimed, in the recipient's own time zone, so a reminder queued
 --     at noon still respects 11 PM.
---   * pair_watchlist, date_nights, pair_sessions: the shared list, scheduled
---     nights, and what you watched together (history, streak, recap stats).
+--   * date_nights, pair_sessions: scheduled nights, and what you watched
+--     together (history, streak, recap stats).
 --
 -- Patron rules (pair_is_patron = either partner is premium):
 --   creating a date night and reading history older than 7 days need it;
@@ -14,7 +14,7 @@
 --   nothing is deleted when Patron ends. Exporting history is always allowed.
 
 -- ---------------------------------------------------------------------------
--- 1. Pair broadcast channel: private "pair:<pair id>" (Pick tonight, presence)
+-- 1. Pair channel: private "pair:<pair id>" (presence: is my person on)
 -- ---------------------------------------------------------------------------
 create or replace function public.pair_id_from_topic(p_topic text)
 returns uuid
@@ -64,7 +64,6 @@ create table public.push_prefs (
   user_id uuid primary key references public.profiles (id) on delete cascade,
   calls boolean not null default true,
   date_nights boolean not null default true,
-  watchlist boolean not null default false,
   reunion boolean not null default true,
   quiet_hours boolean not null default true
 );
@@ -142,7 +141,6 @@ as $$
   select jsonb_build_object(
     'calls', coalesce(p.calls, true),
     'date_nights', coalesce(p.date_nights, true),
-    'watchlist', coalesce(p.watchlist, false),
     'reunion', coalesce(p.reunion, true),
     'quiet_hours', coalesce(p.quiet_hours, true))
   from (select 1) x
@@ -157,7 +155,7 @@ begin
   if auth.uid() is null then
     raise exception 'not_authenticated';
   end if;
-  if p_key not in ('calls', 'date_nights', 'watchlist', 'reunion', 'quiet_hours') then
+  if p_key not in ('calls', 'date_nights', 'reunion', 'quiet_hours') then
     raise exception 'invalid_pref';
   end if;
   insert into public.push_prefs (user_id) values (auth.uid()) on conflict do nothing;
@@ -173,7 +171,6 @@ as $$
   select case
     when p_kind = 'call' then coalesce(p.calls, true)
     when p_kind like 'date_night%' then coalesce(p.date_nights, true)
-    when p_kind = 'watchlist_add' then coalesce(p.watchlist, false)
     when p_kind = 'reunion' then coalesce(p.reunion, true)
     else true
   end
@@ -445,86 +442,7 @@ begin
 end $$;
 
 -- ---------------------------------------------------------------------------
--- 6. Watchlist
--- ---------------------------------------------------------------------------
-create table public.pair_watchlist (
-  id uuid primary key default gen_random_uuid(),
-  pair_id uuid not null references public.pairs (id) on delete cascade,
-  added_by uuid not null references public.profiles (id) on delete cascade,
-  title text not null check (char_length(title) between 1 and 120),
-  source_kind text not null check (source_kind in ('youtube', 'local')),
-  source_url text check (source_url is null or char_length(source_url) <= 300),
-  status text not null default 'to_watch' check (status in ('to_watch', 'watched')),
-  created_at timestamptz not null default now(),
-  watched_at timestamptz,
-  constraint pair_watchlist_shape check ((source_kind = 'youtube') = (source_url is not null))
-);
-create index idx_pair_watchlist_pair on public.pair_watchlist (pair_id, created_at desc);
-
-alter table public.pair_watchlist enable row level security;
-create policy pair_watchlist_select on public.pair_watchlist for select to authenticated
-  using (pair_id = (select public.my_pair_id()));
-revoke all on public.pair_watchlist from public, anon, authenticated;
-grant select on public.pair_watchlist to authenticated;
-alter publication supabase_realtime add table public.pair_watchlist;
-alter table public.pair_watchlist replica identity full;
-
-create or replace function public.add_watchlist_item(p_title text, p_source_kind text, p_source_url text default null)
-returns public.pair_watchlist
-language plpgsql security definer set search_path = ''
-as $$
-declare
-  v_uid uuid := auth.uid();
-  v_pair uuid := public.my_pair_id();
-  v_item public.pair_watchlist;
-  v_title text := left(trim(coalesce(p_title, '')), 120);
-begin
-  if v_uid is null or v_pair is null then
-    raise exception 'not_paired';
-  end if;
-  if v_title = '' then
-    raise exception 'invalid_title';
-  end if;
-  if p_source_kind = 'youtube' and (p_source_url is null or p_source_url !~* '^https?://') then
-    raise exception 'invalid_source';
-  end if;
-  if (select count(*) from public.pair_watchlist where pair_id = v_pair) >= 200 then
-    raise exception 'watchlist_full';
-  end if;
-
-  insert into public.pair_watchlist (pair_id, added_by, title, source_kind, source_url)
-  values (v_pair, v_uid, v_title, p_source_kind,
-          case when p_source_kind = 'youtube' then left(p_source_url, 300) else null end)
-  returning * into v_item;
-
-  perform public.enqueue_push(
-    public.partner_of(v_uid), 'watchlist_add',
-    public.display_name_of(v_uid) || ' added ' || v_title,
-    'It is on your watchlist now.',
-    jsonb_build_object('route', 'watchlist'),
-    now(), now() + interval '1 day', 'wl:' || v_pair::text);
-  return v_item;
-end $$;
-
-create or replace function public.set_watchlist_status(p_id uuid, p_watched boolean)
-returns void
-language sql security definer set search_path = ''
-as $$
-  update public.pair_watchlist set
-    status = case when p_watched then 'watched' else 'to_watch' end,
-    watched_at = case when p_watched then now() else null end
-  where id = p_id and pair_id = (select public.my_pair_id());
-$$;
-
-create or replace function public.remove_watchlist_item(p_id uuid)
-returns void
-language sql security definer set search_path = ''
-as $$
-  delete from public.pair_watchlist where id = p_id and pair_id = (select public.my_pair_id());
-$$;
-
--- ---------------------------------------------------------------------------
--- 7. Date nights
+-- 6. Date nights
 -- ---------------------------------------------------------------------------
 create table public.date_nights (
   id uuid primary key default gen_random_uuid(),
@@ -709,7 +627,7 @@ begin
 end $$;
 
 -- ---------------------------------------------------------------------------
--- 8. What you watched together
+-- 7. What you watched together
 -- ---------------------------------------------------------------------------
 create table public.pair_sessions (
   id uuid primary key default gen_random_uuid(),
@@ -752,11 +670,6 @@ begin
   do update set
     seconds = greatest(public.pair_sessions.seconds, excluded.seconds),
     title = coalesce(public.pair_sessions.title, excluded.title);
-
-  if v_title is not null then
-    update public.pair_watchlist set status = 'watched', watched_at = now()
-    where pair_id = v_pair and status = 'to_watch' and lower(title) = lower(v_title);
-  end if;
 end $$;
 
 -- The last 7 days are free; the rest is Patron on either side, and is kept
@@ -857,7 +770,7 @@ begin
 end $$;
 
 -- ---------------------------------------------------------------------------
--- 9. Reunion reminders and housekeeping, on the existing minutely job
+-- 8. Reunion reminders and housekeeping, on the existing minutely job
 -- ---------------------------------------------------------------------------
 -- Run on the hour. A member hears about the countdown at 9 AM their time, the
 -- day before and every Sunday in between.
@@ -943,14 +856,13 @@ begin
 end $$;
 
 -- ---------------------------------------------------------------------------
--- 10. Grants for the client-facing RPCs
+-- 9. Grants for the client-facing RPCs
 -- ---------------------------------------------------------------------------
 do $$
 declare f text;
 begin
   foreach f in array array[
-    'call_partner()', 'add_watchlist_item(text, text, text)', 'set_watchlist_status(uuid, boolean)',
-    'remove_watchlist_item(uuid)', 'create_date_night(text, timestamptz)',
+    'call_partner()', 'create_date_night(text, timestamptz)',
     'respond_date_night(uuid, boolean)', 'reschedule_date_night(uuid, timestamptz)',
     'cancel_date_night(uuid)', 'log_pair_session(text, timestamptz, int)', 'pair_history()',
     'pair_history_export()', 'pair_stats(int)', 'accept_pair_invite(text)']

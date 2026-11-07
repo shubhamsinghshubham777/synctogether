@@ -1,5 +1,5 @@
 begin;
-select plan(43);
+select plan(46);
 
 create function pg_temp.mk_user(p_guest boolean default false) returns uuid
 language plpgsql as $$
@@ -148,6 +148,30 @@ select is((public.my_pair())->>'reunion_label', 'Heathrow', 'and the other sees 
 select lives_ok($$ select public.unpair() $$, 'either partner can unpair');
 select is((select count(*)::int from public.pairs) + (select count(*)::int from public.pair_members)
   + (select count(*)::int from public.rooms where pair_id is not null), 0, 'which removes the pair, both memberships and Our Room');
+
+-- ---------------------------------------------------------------------------
+-- One partner each: the edges
+-- ---------------------------------------------------------------------------
+insert into t values ('kai', pg_temp.mk_user()), ('noor', pg_temp.mk_user());
+
+select pg_temp.act_as((select v from t where k = 'lee'));
+insert into c select 'L', (public.create_pair_invite()).code;
+select pg_temp.act_as((select v from t where k = 'kai'));
+insert into c select 'K', (public.create_pair_invite()).code;
+select pg_temp.act_as((select v from t where k = 'lee'));
+select lives_ok(format($$ select public.accept_pair_invite(%L) $$, (select v from c where k = 'K')), 'Lee accepts Kai, so both are paired');
+
+-- Noor opens Lee's older invite: Lee has a partner now.
+select pg_temp.act_as((select v from t where k = 'noor'));
+select throws_ok(format($$ select public.accept_pair_invite(%L) $$, (select v from c where k = 'L')),
+  'partner_already_paired', 'an invite from someone who has since paired is refused');
+
+-- A paired person accepting anyone's invite is refused too.
+select pg_temp.act_as((select v from t where k = 'noor'));
+insert into c select 'N', (public.create_pair_invite()).code;
+select pg_temp.act_as((select v from t where k = 'kai'));
+select throws_ok(format($$ select public.accept_pair_invite(%L) $$, (select v from c where k = 'N')),
+  'already_paired', 'someone with a partner cannot accept a second');
 
 select * from finish();
 rollback;

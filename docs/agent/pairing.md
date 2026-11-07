@@ -2,12 +2,12 @@
 
 Read before touching `lib/pairing/`, `supabase/migrations/20261107*`, `supabase/functions/push-dispatch`, the three native `push` channels, or anything that changes how a room is counted, retired or entered.
 
-Two signed-in accounts can **pair**. A pair owns one persistent private room (**Our Room**), a shared watchlist, date nights, and a history that feeds a weekly streak and a shareable year card. It exists for long-distance couples, but nothing in it says "couple" to the server: it is two accounts and the rules below. Rooms with friends and family are untouched.
+Two signed-in accounts can **pair**. A pair owns one persistent private room (**Our Room**), date nights, and a history that feeds a weekly streak and a shareable year card. It exists for long-distance couples, but nothing in it says "couple" to the server: it is two accounts and the rules below. Rooms with friends and family are untouched.
 
 ## Data model (`20261107100000_pairing.sql`, `20261107110000_pair_features.sql`)
 
 - `pairs`, `pair_members` (**`user_id` is the primary key: one pair per person**), `pair_invites`. All client reads are RLS-gated to the caller's own pair (`my_pair_id()`); **every write is a `security definer` RPC**. Tables grant `select` only.
-- Deleting *any* membership deletes the whole pair (trigger `pair_member_removed`), which cascades to the other membership, Our Room, the watchlist, nights and sittings. Account deletion therefore ends the pair for both; `unpair()` announces `room_ended {reason: deleted}` first so a partner standing in the room is ejected.
+- Deleting *any* membership deletes the whole pair (trigger `pair_member_removed`), which cascades to the other membership, Our Room, nights and sittings. Account deletion therefore ends the pair for both; `unpair()` announces `room_ended {reason: deleted}` first so a partner standing in the room is ejected.
 - **Pairing is account-scoped. Guests cannot pair** (`assert_can_pair` raises `sign_in_required`). `effective_tier` stays the single arbiter, so "guest" is never re-derived client-side.
 - `profiles.timezone` is an IANA name written by `set_my_timezone` (validated against `pg_timezone_names`). The partner's clock row is shown **only when it differs from the device's own offset** at that instant (`shouldShowPartnerTime`); DST is read at the moment in question, not today.
 
@@ -67,12 +67,14 @@ Client: one `MethodChannel` (`app.synctogether/push`) answered by every runner, 
 
 ## Testing seams
 
-`FakePairService` (`test/support`) hands a screen its state with no backend; `test/layout/pair_matrix_test.dart` and `pair_screens_matrix_test.dart` run every pair screen across the whole screen matrix (folds, iPhone Duo, 2x text) and write real-font PNGs with `--dart-define=SCREENSHOTS=true`. Decisions are free functions in `pair_logic.dart`, `pair_pick.dart`, `pair_links.dart`, all unit tested. `supabase/tests/30_pairing_test.sql` and `31_pair_features_test.sql` cover the RPCs; the second runs row-visibility assertions **as the `authenticated` role** (a superuser bypasses RLS and would pass for the wrong reason).
+`FakePairService` (`test/support`) hands a screen its state with no backend; `test/layout/pair_matrix_test.dart` and `pair_screens_matrix_test.dart` run every pair screen across the whole screen matrix (folds, iPhone Duo, 2x text) and write real-font PNGs with `--dart-define=SCREENSHOTS=true`. Decisions are free functions in `pair_logic.dart`, `pair_links.dart`, all unit tested. `supabase/tests/30_pairing_test.sql` and `31_pair_features_test.sql` cover the RPCs; the second runs row-visibility assertions **as the `authenticated` role** (a superuser bypasses RLS and would pass for the wrong reason).
 
 ## Analytics
 
-Product events fire only where a human caused them: `pair_invite_created`, `pair_invite_shared {via}`, `pair_accepted`, `pair_ended`, `our_room_opened`, `partner_called`, `watchlist_added {kind}`, `date_night_planned`, `date_night_answered {accepted}`, `pair_year_shared`, `push_enabled {platform}`, plus the existing `upgrade_cta_shown/clicked` with surfaces `date_night` and `pair_history`. Never a film title, a link, a name or chat. All are listed in `lib/analytics_catalog.dart`, which a test keeps in step with the code.
+Product events fire only where a human caused them: `pair_invite_created`, `pair_invite_shared {via}`, `pair_accepted`, `pair_ended`, `our_room_opened`, `partner_called`, `date_night_planned`, `date_night_answered {accepted}`, `pair_year_shared`, `push_enabled {platform}`, plus the existing `upgrade_cta_shown/clicked` with surfaces `date_night` and `pair_history`. Never a film title, a link, a name or chat. All are listed in `lib/analytics_catalog.dart`, which a test keeps in step with the code.
 
 ## Not built (decided, not forgotten)
+
+A shared watchlist and "Pick tonight" were built and then removed. This app plays the pair's own files and YouTube links, so there is no catalogue to recommend from, and a bare list of typed titles did not earn its place. If it comes back it should start from a real need (a title that reaches the room's source picker), not from a list.
 
 A QR code for the invite; EventKit's native "Add to Calendar" (the share sheet carries the `.ics`, which iOS Calendar opens); "ping me when Sam is on"; a per-week breakdown behind the streak dots; hours-and-days granularity on the reunion card (the reunion is a calendar date with no time).

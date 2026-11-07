@@ -1,5 +1,5 @@
 begin;
-select plan(58);
+select plan(49);
 
 create function pg_temp.mk_user() returns uuid
 language plpgsql as $$
@@ -37,10 +37,10 @@ select lives_ok($$ select public.register_push_token('ios', 'maya-ios-token-0001
 select pg_temp.act_as((select v from t where k = 'sam'));
 select lives_ok($$ select public.register_push_token('windows', 'https://wns.example/sam-channel-0001') $$, 'a Windows channel registers');
 select throws_ok($$ select public.register_push_token('plan9', 'sam-token-00000001') $$, '23514', null, 'an unknown platform is refused');
-select is((public.my_push_prefs())->>'watchlist', 'false', 'watchlist pushes are off by default');
+select is((public.my_push_prefs())->>'reunion', 'true', 'the reunion countdown is on by default');
 select is((public.my_push_prefs())->>'calls', 'true', 'calls are on by default');
-select lives_ok($$ select public.set_push_pref('watchlist', true) $$, 'a switch can be flipped');
-select is((public.my_push_prefs())->>'watchlist', 'true', 'and reads back');
+select lives_ok($$ select public.set_push_pref('reunion', false) $$, 'a switch can be flipped');
+select is((public.my_push_prefs())->>'reunion', 'false', 'and reads back');
 select throws_ok($$ select public.set_push_pref('everything', true) $$, 'invalid_pref', 'an unknown switch is refused');
 
 -- Lee has no token: nothing is queued for them.
@@ -62,7 +62,7 @@ select ok((select expires_at <= now() + interval '95 seconds' from public.push_o
 -- ---------------------------------------------------------------------------
 update public.profiles set timezone = 'UTC' where id = (select v from t where k = 'sam');
 insert into public.push_outbox (user_id, kind, title, body)
-values ((select v from t where k = 'sam'), 'watchlist_add', 'x', 'y');
+values ((select v from t where k = 'sam'), 'reunion', 'x', 'y');
 
 -- Pin the clock by choosing the time zone whose local hour is 3 right now.
 do $$
@@ -72,44 +72,28 @@ begin
    where extract(hour from now() at time zone name) = 3 and name !~ '^(posix|Etc|SystemV)' limit 1;
   update public.profiles set timezone = v_tz where id = (select v from t where k = 'sam');
 end $$;
-select is((select count(*)::int from public.claim_push_batch(50) where kind = 'watchlist_add'), 0, 'a watchlist push waits through quiet hours');
+select is((select count(*)::int from public.claim_push_batch(50) where kind = 'reunion'), 0, 'a reunion push waits through quiet hours');
 update public.push_outbox set locked_until = null, attempts = 0;
 select is((select count(*)::int from public.claim_push_batch(50) where kind = 'call'), 1, 'but a call goes through');
 update public.push_prefs set quiet_hours = false where user_id = (select v from t where k = 'sam');
-update public.push_outbox set locked_until = null where kind = 'watchlist_add';
-select is((select count(*)::int from public.claim_push_batch(50) where kind = 'watchlist_add'), 1, 'with quiet hours off it is claimed');
+update public.push_outbox set locked_until = null where kind = 'reunion';
+select is((select count(*)::int from public.claim_push_batch(50) where kind = 'reunion'), 1, 'with quiet hours off it is claimed');
 select is((select count(*)::int from public.claim_push_batch(50)), 0, 'claimed rows are locked, not handed out twice');
 
 select lives_ok($$ select public.complete_push((select id from public.push_outbox where kind = 'call'), true) $$, 'a delivered push is completed');
 select isnt((select sent_at from public.push_outbox where kind = 'call'), null::timestamptz, 'and stamped sent');
 
 -- ---------------------------------------------------------------------------
--- Watchlist
+-- An outsider
 -- ---------------------------------------------------------------------------
-select pg_temp.act_as((select v from t where k = 'maya'));
-insert into t select 'item', (public.add_watchlist_item('Spirited Away', 'local')).id;
-select lives_ok($$ select public.add_watchlist_item('Aftersun', 'youtube', 'https://youtu.be/x') $$, 'a YouTube item needs a link');
-select throws_ok($$ select public.add_watchlist_item('Bad', 'youtube', 'not a url') $$, 'invalid_source', 'and a real one');
-select throws_ok($$ select public.add_watchlist_item('  ', 'local') $$, 'invalid_title', 'a blank title is refused');
-select is((select count(*)::int from public.pair_watchlist), 2, 'both are on the shared list');
-select is((select count(*)::int from public.push_outbox where kind = 'watchlist_add' and user_id = (select v from t where k = 'sam')), 2,
-  'Sam has the earlier row and one collapsed row for the new adds');
-
-select pg_temp.act_as((select v from t where k = 'sam'));
-set local role authenticated;
-select is((select count(*)::int from public.pair_watchlist), 2, 'Sam sees the same list');
-reset role;
-select lives_ok($$ select public.set_watchlist_status((select v from t where k = 'item'), true) $$, 'either person can mark watched');
-
 select pg_temp.act_as((select v from t where k = 'lee'));
 set local role authenticated;
-select is((select count(*)::int from public.pair_watchlist), 0, 'an outsider sees nothing');
 select is((select count(*)::int from public.date_nights) + (select count(*)::int from public.pairs), 0,
-  'nor pairs or nights');
+  'an outsider sees no pairs or nights');
 select throws_ok($$ select count(*) from public.push_outbox $$, '42501', null, 'the outbox is not readable by clients at all');
 select throws_ok($$ select count(*) from public.push_tokens $$, '42501', null, 'nor are device tokens');
 reset role;
-select throws_ok($$ select public.add_watchlist_item('Mine', 'local') $$, 'not_paired', 'and cannot add to it');
+select throws_ok($$ select public.call_partner() $$, 'not_paired', 'and cannot ring anyone');
 
 -- ---------------------------------------------------------------------------
 -- Date nights: creating is Patron, answering never is
@@ -154,7 +138,6 @@ select is((select count(*)::int from public.pair_sessions), 1, 'is one row');
 select is((select seconds from public.pair_sessions), 7500, 'keeping the longer report');
 select lives_ok($$ select public.log_pair_session('Blip', now(), 30) $$, 'under a minute is ignored');
 select is((select count(*)::int from public.pair_sessions), 1, 'and not stored');
-select is((select status from public.pair_watchlist where title = 'Spirited Away'), 'watched', 'watching it ticks the list');
 
 -- Older sittings: backfill directly, then check the free window and the lock.
 insert into public.pair_sessions (pair_id, title, started_at, seconds) values

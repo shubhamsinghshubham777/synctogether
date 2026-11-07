@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-SyncTogether is a Flutter app for synchronized ("watch together") media playback across devices. Authenticated users (Google OAuth or anonymous guests) create/join **rooms** (6-char codes or `synctogether://join/<code>` invite links). Room size, session length, AV and what happens at expiry all come from the host's **tier** (guest / free / premium - see Entitlements & room lifecycle). Play/pause/seek/mode changes broadcast to all members over a private Supabase Realtime channel per room. Two playback modes: **local** files (media_kit) and **YouTube** (internal loopback IFrame bridge); a signed-in host can also **upload the local file to Cloudflare R2** so members without a copy can stream it (see Media sharing). Rooms also have persisted chat with typing indicators and presence, ephemeral **quick reactions**, plus **voice/video facecams** via LiveKit. Two signed-in accounts can **pair** (a long-distance couple being the target): a pair gets a free persistent private room (Our Room), a shared watchlist, date nights across time zones, a weekly streak and history, and push notifications (see `docs/agent/pairing.md`).
+SyncTogether is a Flutter app for synchronized ("watch together") media playback across devices. Authenticated users (Google OAuth or anonymous guests) create/join **rooms** (6-char codes or `synctogether://join/<code>` invite links). Room size, session length, AV and what happens at expiry all come from the host's **tier** (guest / free / premium - see Entitlements & room lifecycle). Play/pause/seek/mode changes broadcast to all members over a private Supabase Realtime channel per room. Two playback modes: **local** files (media_kit) and **YouTube** (internal loopback IFrame bridge); a signed-in host can also **upload the local file to Cloudflare R2** so members without a copy can stream it (see Media sharing). Rooms also have persisted chat with typing indicators and presence, ephemeral **quick reactions**, plus **voice/video facecams** via LiveKit. Two signed-in accounts can **pair** (a long-distance couple being the target): a pair gets a free persistent private room (Our Room), date nights across time zones, a weekly streak and history, and push notifications (see `docs/agent/pairing.md`).
 
 ## Setup & Commands
 
@@ -93,7 +93,7 @@ Each file holds the invariants and the *why* for one area. They are not loaded a
 | `lib/auth/`, `lib/tls.dart`, WebView2, Turnstile, `third_party/` codecs, store flavours | `docs/agent/auth-and-platform.md` |
 | layouts, `RoomScreen` UX, subtitles, chat emoji, `lib/av/`, `Analytics.track` | `docs/agent/ui-and-av.md` |
 | `lib/rewards/`, streaks, badges, leaderboards, recaps | `docs/agent/gamification.md` |
-| `lib/pairing/`, pairs, Our Room, date nights, watchlist, push (`push-dispatch`, the native `push` channels) | `docs/agent/pairing.md` |
+| `lib/pairing/`, pairs, Our Room, date nights, push (`push-dispatch`, the native `push` channels) | `docs/agent/pairing.md` |
 | anything under `assets/` or `*.g.dart` build output | `docs/agent/generated-assets.md` |
 
 ### Licensing & Self-Hosting

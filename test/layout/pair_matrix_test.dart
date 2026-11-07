@@ -162,4 +162,19 @@ void main() {
     expect(find.text('Pair with Sam Rivera'), findsNothing);
     await finishCase(tester);
   });
+
+  screenMatrix('pair/accept-already-paired', (tester, c, s) async {
+    PairService.instance = FakePairService(pair: samePairInfo(), preview: _invite());
+    await pumpAtSize(
+      tester,
+      const PairAcceptScreen(code: 'M4YA7K'),
+      c,
+      textScale: s,
+      singlePane: true,
+    );
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.text(PairErrorCode.alreadyPaired.message), findsOneWidget);
+    expect(find.text('Pair with Sam Rivera'), findsNothing, reason: 'a button that can only fail');
+    await finishCase(tester);
+  });
 }

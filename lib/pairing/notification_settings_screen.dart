@@ -116,12 +116,6 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                       onChanged: (v) => _set('date_nights', v),
                     ),
                     PTToggleRow(
-                      title: 'Watchlist additions',
-                      subtitle: 'When $partner adds a title.',
-                      value: prefs.watchlist,
-                      onChanged: (v) => _set('watchlist', v),
-                    ),
-                    PTToggleRow(
                       title: 'Reunion countdown',
                       subtitle: 'Every Sunday, and the day before.',
                       value: prefs.reunion,

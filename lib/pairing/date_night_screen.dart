@@ -387,9 +387,7 @@ Future<void> showPlanNight(BuildContext context) async {
     await _showGate(context);
     return;
   }
-  final title = TextEditingController(
-    text: svc.watchlist.where((i) => !i.watched).firstOrNull?.title ?? '',
-  );
+  final title = TextEditingController();
   var when = DateTime.now().add(const Duration(days: 1)).copyWith(hour: 21, minute: 0, second: 0);
   var busy = false;
   String? problem;

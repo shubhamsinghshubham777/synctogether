@@ -105,7 +105,7 @@ class _PairScreenState extends State<PairScreen> {
         children: [
           Text('Unpair from $partner?', style: PTText.screenTitle),
           Text(
-            'Our Room, the shared watchlist, date nights and the pair streak go away for both of you. '
+            'Our Room, date nights and the pair streak go away for both of you. '
             'Your own rooms and your personal streak stay put.',
             style: PTText.body.copyWith(color: PTColors.fgSoft, height: 1.5),
           ),
@@ -464,13 +464,6 @@ class _Hub extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Column(
             children: [
-              PairRow(
-                icon: BoothIcons.film,
-                title: 'Watchlist',
-                value: '${svc.watchlist.where((i) => !i.watched).length} to watch',
-                onTap: () => openPage(context, '/lobby/pair/watchlist'),
-              ),
-              const PairDivider(),
               PairRow(
                 icon: BoothIcons.calendar,
                 title: 'Date nights',

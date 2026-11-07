@@ -11,7 +11,6 @@ class FakePairService extends PairService {
     PairInvite? pending,
     PairInvite? sent,
     this._preview,
-    List<WatchlistItem> watchlist = const [],
     List<DateNight> nights = const [],
     PairStats stats = PairStats.empty,
     PairHistory history = PairHistory.empty,
@@ -21,7 +20,6 @@ class FakePairService extends PairService {
   }) : _fakePair = pair,
        _fakePending = pending,
        _fakeSent = sent,
-       _fakeWatchlist = watchlist,
        _fakeNights = nights,
        _fakeStats = stats,
        _fakeHistory = history,
@@ -34,7 +32,6 @@ class FakePairService extends PairService {
   final PairInvite? _fakePending;
   PairInvite? _fakeSent;
   final PairInvite? _preview;
-  List<WatchlistItem> _fakeWatchlist;
   List<DateNight> _fakeNights;
   final PairStats _fakeStats;
   final PairHistory _fakeHistory;
@@ -63,9 +60,6 @@ class FakePairService extends PairService {
 
   @override
   PairInvite? get sentInvite => _fakeSent;
-
-  @override
-  List<WatchlistItem> get watchlist => _fakeWatchlist;
 
   @override
   List<DateNight> get nights => _fakeNights;
@@ -147,40 +141,6 @@ class FakePairService extends PairService {
   Future<bool> callPartner() async {
     calls.add('callPartner');
     return true;
-  }
-
-  @override
-  Future<void> addWatchlistItem({
-    required String title,
-    required WatchSource source,
-    String? url,
-  }) async {
-    calls.add('addWatchlistItem:$title');
-    _fakeWatchlist = [
-      WatchlistItem(
-        id: 'new-${_fakeWatchlist.length}',
-        title: title,
-        source: source,
-        sourceUrl: url,
-        addedBy: 'me',
-        createdAt: DateTime.now().toUtc(),
-      ),
-      ..._fakeWatchlist,
-    ];
-    notifyListeners();
-  }
-
-  @override
-  Future<void> setWatched(String id, bool watched) async => calls.add('setWatched:$id:$watched');
-
-  @override
-  Future<void> removeWatchlistItem(String id) async {
-    calls.add('removeWatchlistItem:$id');
-    _fakeWatchlist = [
-      for (final i in _fakeWatchlist)
-        if (i.id != id) i,
-    ];
-    notifyListeners();
   }
 
   @override

@@ -12,10 +12,9 @@ import 'package:synctogether/rooms/room_service.dart';
 
 import 'pair_logic.dart';
 import 'pair_models.dart';
-import 'pair_pick.dart';
 
 /// Everything about "your person": the pair, its invite, Our Room, the shared
-/// watchlist, date nights and what you watched together.
+/// date nights and what you watched together.
 ///
 /// Shaped like [RewardsService]: a `ChangeNotifier` singleton that reads through
 /// RPCs and whose failure mode is to *understate*. A client that could not load
@@ -54,9 +53,6 @@ class PairService extends ChangeNotifier {
   PairInvite? _sent;
   PairInvite? get sentInvite => _sent;
 
-  List<WatchlistItem> _watchlist = const [];
-  List<WatchlistItem> get watchlist => _watchlist;
-
   List<DateNight> _nights = const [];
   List<DateNight> get nights => _nights;
 
@@ -88,29 +84,12 @@ class PairService extends ChangeNotifier {
 
   RealtimeChannel? _live;
   String? _liveFor;
-  final _pickController = StreamController<Map<String, dynamic>>.broadcast();
-
   bool _partnerOnline = false;
 
   /// Whether the partner has the app open right now (private presence on the
   /// pair channel). False when unknown - the Call button then stays hidden,
   /// which understates rather than rings someone who is not there.
   bool get partnerOnline => _partnerOnline;
-
-  /// Answers to "Pick tonight" from the partner, as they arrive.
-  Stream<Map<String, dynamic>> get partnerPicks => _pickController.stream;
-
-  /// Their latest answers and when they arrived, kept so that the person who
-  /// finishes second still sees them. A broadcast missed while nobody listened
-  /// is gone; this is what makes "Sam already finished" work.
-  ({List<String> yes, DateTime at})? _lastPartnerPicks;
-
-  /// Their answers if they are recent enough to still mean tonight.
-  List<String>? get freshPartnerPicks {
-    final p = _lastPartnerPicks;
-    if (p == null || !picksAreFresh(p.at, DateTime.now())) return null;
-    return p.yes;
-  }
 
   String? get _uid => _clientOrNull?.auth.currentUser?.id;
   bool get isSignedInAccount {
@@ -142,14 +121,13 @@ class PairService extends ChangeNotifier {
                 'status': 'pending',
               });
         await _loadSentInvite(client);
-        _watchlist = const [];
         _nights = const [];
         _stats = PairStats.empty;
         _history = PairHistory.empty;
       } else {
         _pending = null;
         _sent = null;
-        await Future.wait([_loadWatchlist(client), _loadNights(client), _loadStats(client)]);
+        await Future.wait([_loadNights(client), _loadStats(client)]);
       }
       _loaded = true;
       _ensureRealtime();
@@ -173,11 +151,6 @@ class PairService extends ChangeNotifier {
     _sent = rows.isEmpty
         ? null
         : PairInvite.mine(rows.first, PairPartner(id: uid, displayName: 'You'));
-  }
-
-  Future<void> _loadWatchlist(SupabaseClient client) async {
-    final rows = await client.from('pair_watchlist').select().order('created_at', ascending: false);
-    _watchlist = [for (final r in rows) WatchlistItem.fromJson(r)];
   }
 
   Future<void> _loadNights(SupabaseClient client) async {
@@ -253,7 +226,7 @@ class PairService extends ChangeNotifier {
         _debounce = Timer(const Duration(milliseconds: 250), load);
       }
 
-      for (final table in const ['pair_members', 'pair_invites', 'date_nights', 'pair_watchlist']) {
+      for (final table in const ['pair_members', 'pair_invites', 'date_nights']) {
         channel.onPostgresChanges(
           event: PostgresChangeEvent.all,
           schema: 'public',
@@ -269,7 +242,7 @@ class PairService extends ChangeNotifier {
   }
 
   /// Private channel `pair:<id>`: presence for "is my person on", and
-  /// broadcast for Pick tonight. Authorized by the same `my_pair_id()` rule as
+  /// authorised by the same `my_pair_id()` rule as
   /// every read, so an outsider cannot join it even holding the id.
   void _ensureLive() {
     final uid = _uid;
@@ -298,17 +271,6 @@ class PairService extends ChangeNotifier {
             notifyListeners();
           }
         })
-        ..onBroadcast(
-          event: 'pick',
-          callback: (payload) {
-            if (payload['from'] == uid) return;
-            _lastPartnerPicks = (
-              yes: [for (final id in (payload['yes'] as List? ?? const [])) '$id'],
-              at: DateTime.now(),
-            );
-            _pickController.add(payload);
-          },
-        )
         ..subscribe((status, error) {
           if (status == RealtimeSubscribeStatus.subscribed) {
             unawaited(channel.track({'user_id': uid}));
@@ -319,16 +281,6 @@ class PairService extends ChangeNotifier {
     } catch (e, s) {
       reportNonFatal(e, s, during: 'joining the pair channel');
     }
-  }
-
-  /// Shares my Pick tonight answers with the partner.
-  Future<void> sendPicks(List<String> yesIds, {required int round}) async {
-    final c = _live;
-    if (c == null) return;
-    await c.sendBroadcastMessage(
-      event: 'pick',
-      payload: {'from': _uid, 'round': round, 'yes': yesIds},
-    );
   }
 
   void _closeLive() {
@@ -354,13 +306,11 @@ class PairService extends ChangeNotifier {
     _pair = null;
     _pending = null;
     _sent = null;
-    _watchlist = const [];
     _nights = const [];
     _stats = PairStats.empty;
     _history = PairHistory.empty;
     _loaded = false;
     _dismissed.clear();
-    _lastPartnerPicks = null;
     pendingPairCode = null;
     notifyListeners();
   }
@@ -450,7 +400,6 @@ class PairService extends ChangeNotifier {
       Analytics.instance.track('pair_ended');
       trace('unpaired', category: 'room');
       _pair = null;
-      _watchlist = const [];
       _nights = const [];
       _stats = PairStats.empty;
       _history = PairHistory.empty;
@@ -498,17 +447,6 @@ class PairService extends ChangeNotifier {
     }
   }
 
-  /// Loads a YouTube link into Our Room. Both partners are hosts there, so either
-  /// may. Quiet on failure: the room is open either way and the source picker is
-  /// one tap away.
-  Future<void> setOurRoomYouTube(String roomId, String url) async {
-    try {
-      await RoomService.instance.setRoomMedia(roomId: roomId, kind: .youtube, url: url);
-    } catch (e, s) {
-      reportNonFatal(e, s, during: 'loading a watchlist link into Our Room');
-    }
-  }
-
   /// Rings the partner. False when throttled (one a minute) - nothing to say to
   /// the person, the room is open for them either way.
   Future<bool> callPartner() async {
@@ -544,41 +482,6 @@ class PairService extends ChangeNotifier {
     } catch (e, s) {
       reportNonFatal(e, s, during: 'logging a sitting together');
     }
-  }
-
-  // ------------------------------------------------------------- watchlist
-
-  Future<void> addWatchlistItem({
-    required String title,
-    required WatchSource source,
-    String? url,
-  }) async {
-    try {
-      await _client.rpc(
-        'add_watchlist_item',
-        params: {'p_title': title, 'p_source_kind': source.name, 'p_source_url': url},
-      );
-      Analytics.instance.track('watchlist_added', {'kind': source.name});
-      await _reloadWatchlist();
-    } catch (e, s) {
-      _reportUnexpected(e, s, 'adding to the watchlist');
-      rethrow;
-    }
-  }
-
-  Future<void> setWatched(String id, bool watched) async {
-    await _client.rpc('set_watchlist_status', params: {'p_id': id, 'p_watched': watched});
-    await _reloadWatchlist();
-  }
-
-  Future<void> removeWatchlistItem(String id) async {
-    await _client.rpc('remove_watchlist_item', params: {'p_id': id});
-    await _reloadWatchlist();
-  }
-
-  Future<void> _reloadWatchlist() async {
-    await _loadWatchlist(_client);
-    notifyListeners();
   }
 
   // ----------------------------------------------------------- date nights

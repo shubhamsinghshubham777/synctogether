@@ -32,10 +32,6 @@ void main() {
         (target('synctogether://push?route=date-night') as OpenPath).path,
         '/lobby/pair/nights',
       );
-      expect(
-        (target('synctogether://push?route=watchlist') as OpenPath).path,
-        '/lobby/pair/watchlist',
-      );
       expect((target('synctogether://push?route=lobby') as OpenPath).path, '/lobby');
     });
 

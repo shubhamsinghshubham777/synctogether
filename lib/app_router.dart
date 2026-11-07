@@ -15,9 +15,7 @@ import 'pairing/notification_settings_screen.dart';
 import 'pairing/pair_accept_screen.dart';
 import 'pairing/pair_screen.dart';
 import 'pairing/pair_service.dart';
-import 'pairing/pick_tonight_screen.dart';
 import 'pairing/push_service.dart';
-import 'pairing/watchlist_screen.dart';
 import 'pairing/year_recap_screen.dart';
 import 'profile/banned_screen.dart';
 import 'profile/entitlement_service.dart';
@@ -126,14 +124,6 @@ GoRouter buildRouter([Player? player]) {
                 path: 'accept/:code',
                 pageBuilder: (context, state) =>
                     _detail(state, PairAcceptScreen(code: state.pathParameters['code']!)),
-              ),
-              GoRoute(
-                path: 'watchlist',
-                pageBuilder: (context, state) => _detail(state, const WatchlistScreen()),
-              ),
-              GoRoute(
-                path: 'pick',
-                pageBuilder: (context, state) => _detail(state, const PickTonightScreen()),
               ),
               GoRoute(
                 path: 'nights',

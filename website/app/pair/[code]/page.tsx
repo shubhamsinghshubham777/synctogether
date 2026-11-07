@@ -26,7 +26,7 @@ export async function generateMetadata({
   const normalized = normalizeRoomCode(code);
   const title = "Someone wants to pair with you";
   const description =
-    "A private room that is always yours, date nights across time zones, and a shared watchlist. Open the invite in SyncTogether.";
+    "A private room that is always yours, date nights across time zones, and a weekly streak. Open the invite in SyncTogether.";
   return {
     title,
     description,

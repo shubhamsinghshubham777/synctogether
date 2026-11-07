@@ -49,7 +49,6 @@ PushTarget? pushTargetFromLink(Uri uri) {
 PushTarget? pushTargetForRoute(String? route) => switch (route) {
   'our-room' => const OpenOurRoom(),
   'date-night' => const OpenPath('/lobby/pair/nights'),
-  'watchlist' => const OpenPath('/lobby/pair/watchlist'),
   'lobby' => const OpenPath('/lobby'),
   _ => null,
 };

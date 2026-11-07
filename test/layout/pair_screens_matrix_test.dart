@@ -8,9 +8,7 @@ import 'package:synctogether/pairing/history_screen.dart';
 import 'package:synctogether/pairing/notification_settings_screen.dart';
 import 'package:synctogether/pairing/pair_models.dart';
 import 'package:synctogether/pairing/pair_service.dart';
-import 'package:synctogether/pairing/pick_tonight_screen.dart';
 import 'package:synctogether/pairing/push_service.dart';
-import 'package:synctogether/pairing/watchlist_screen.dart';
 import 'package:synctogether/pairing/year_recap_screen.dart';
 import 'package:synctogether/rewards/rewards_service.dart';
 
@@ -40,31 +38,6 @@ class _Bridge implements PushBridge {
   Future<void> openSettings() async {}
 }
 
-WatchlistItem _item(
-  String id,
-  String title, {
-  bool mine = false,
-  bool file = true,
-  bool watched = false,
-}) => WatchlistItem(
-  id: id,
-  title: title,
-  source: file ? WatchSource.local : WatchSource.youtube,
-  sourceUrl: file ? null : 'https://youtu.be/x',
-  addedBy: mine ? 'user-alex' : 'sam',
-  createdAt: DateTime.utc(2026, 11, 1),
-  watched: watched,
-);
-
-final _items = [
-  _item('1', 'Past Lives', file: false),
-  _item('2', 'Perfect Days', mine: true),
-  _item('3', 'Spirited Away', mine: true),
-  _item('4', 'Aftersun', file: false),
-  _item('5', 'The Worst Person in the World an extraordinarily long title that must wrap'),
-  _item('6', 'Drive My Car', watched: true),
-];
-
 DateNight _night(String id, DateNightStatus status, Duration from, {String by = 'sam'}) =>
     DateNight(
       id: id,
@@ -79,33 +52,6 @@ void main() {
     SharedPreferences.setMockInitialValues({});
     installMockDependencies();
     RewardsService.instance = FakeRewardsService();
-  });
-
-  screenMatrix('pair/watchlist', (tester, c, s) async {
-    PairService.instance = FakePairService(pair: samePairInfo(), watchlist: _items);
-    await pumpAtSize(tester, const WatchlistScreen(), c, textScale: s, singlePane: true);
-    await tester.pump(const Duration(milliseconds: 500));
-    expect(find.text('Pick tonight'), findsOneWidget);
-    expect(find.textContaining('NEEDS THE SAME FILE'), findsWidgets);
-    await finishCase(tester);
-  });
-
-  screenMatrix('pair/watchlist-empty', (tester, c, s) async {
-    PairService.instance = FakePairService(pair: samePairInfo());
-    await pumpAtSize(tester, const WatchlistScreen(), c, textScale: s, singlePane: true);
-    await tester.pump(const Duration(milliseconds: 500));
-    expect(find.text('Nothing on the list yet'), findsOneWidget);
-    expect(find.text('Pick tonight'), findsNothing, reason: 'nothing to pick from');
-    await finishCase(tester);
-  });
-
-  screenMatrix('pair/pick', (tester, c, s) async {
-    PairService.instance = FakePairService(pair: samePairInfo(), watchlist: _items, online: true);
-    await pumpAtSize(tester, const PickTonightScreen(), c, textScale: s, singlePane: true);
-    await tester.pump(const Duration(milliseconds: 500));
-    expect(find.text('1 of 5'.toUpperCase()), findsOneWidget);
-    expect(find.text('Yes'), findsOneWidget);
-    await finishCase(tester);
   });
 
   screenMatrix('pair/nights', (tester, c, s) async {

@@ -54,10 +54,10 @@ Deno.test("APNs: a call is time-sensitive and high priority; the rest are not", 
   const call = apnsPayload(row());
   assertEquals((call.aps as Record<string, unknown>)["interruption-level"], "time-sensitive");
   assertEquals(call.route, "our-room");
-  const wl = apnsPayload(row({ kind: "watchlist_add" }));
+  const wl = apnsPayload(row({ kind: "reunion" }));
   assertEquals((wl.aps as Record<string, unknown>)["interruption-level"], "active");
   assertEquals(apnsHeaders(row(), "app.x", "J", NOW)["apns-priority"], "10");
-  assertEquals(apnsHeaders(row({ kind: "watchlist_add" }), "app.x", "J", NOW)["apns-priority"], "5");
+  assertEquals(apnsHeaders(row({ kind: "reunion" }), "app.x", "J", NOW)["apns-priority"], "5");
 });
 
 Deno.test("APNs: expiry is an absolute epoch, so a stale call is never delivered late", () => {
@@ -121,7 +121,7 @@ Deno.test("FCM: calls use the high-priority channel, with a short ttl", () => {
   assertEquals(m.android.ttl, "90s");
   assertEquals(m.android.notification.channel_id, "calls");
   assertEquals(m.data, { kind: "call", route: "our-room", urgent: "true" }, "data values are strings");
-  const wl = fcmMessage(row({ kind: "watchlist_add" }), "tok", NOW).message as Record<string, any>;
+  const wl = fcmMessage(row({ kind: "reunion" }), "tok", NOW).message as Record<string, any>;
   assertEquals(wl.android.notification.channel_id, "default");
   assertEquals(wl.android.priority, "NORMAL");
 });
@@ -165,7 +165,7 @@ Deno.test("WNS: toast carries a deep link, escapes text, and a call uses the cal
   assertStringIncludes(xml, "Sam &amp; &quot;Lee&quot; &lt;3");
   assertStringIncludes(xml, 'launch="synctogether://push?route=date-night&amp;night=n%201"');
   assertStringIncludes(xml, 'scenario="incomingCall"');
-  assert(!wnsToast(row({ kind: "watchlist_add" })).includes("incomingCall"));
+  assert(!wnsToast(row({ kind: "reunion" })).includes("incomingCall"));
   assertEquals(xmlEscape("a<b&c"), "a&lt;b&amp;c");
 });
 

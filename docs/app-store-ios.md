@@ -67,6 +67,15 @@ ASC currently holds **zero iOS screenshots** (the iOS version record is a stale 
 
 Shoot with `--dart-define=DEMO_MODE=true` (as for the Mac set). If iPad is not going to be tested on hardware, the lowest-risk option is to ship iPhone-only for this release (`TARGETED_DEVICE_FAMILY = 1` in all three `Runner` configurations): reviewers test iPad builds on an iPad and a layout crash there is a rejection. Info.plist already lists all four iPad orientations, so multitasking is not blocked.
 
+## iPhone Duo screenshots
+
+App Store Connect has its own **iPhone Duo** slot (`APP_IPHONE_DUO`) that takes the device's native sizes: 2007x2853 / 2853x2007 (inner display) and 1398x2034 / 2034x1398 (outer). Portrait and landscape can share one set. Upload the raw simulator captures (`store/ios/screenshots/duo-native/`), not captioned cards on an iPhone canvas.
+
+- `asc` older than 6.x does not know the type (`unsupported screenshot display type`); `brew upgrade asc`, then `asc screenshots upload --device-type IPHONE_DUO`.
+- Simulator PNGs carry an alpha channel, which ASC rejects: flatten with `magick in.png -background '#121010' -alpha remove -alpha off PNG24:out.png`.
+- A version **in review** cannot get a new screenshot set ("Can't Create Screenshot Set while In Review"): withdraw with `asc submit cancel --id <submission> --confirm`, upload, resubmit (the queue position resets).
+- The inner display only renders while Device Hub is running; the posture buttons at the bottom of its window pick folded / half-folded / unfolded (a reboot of the simulator resets it to folded).
+
 ## Pre-submit checklist (state as audited 2026-11-05)
 
 Done in repo: camera/local-network usage strings, Runner privacy manifest, ATS comment, Sign in with Apple entitlement and capability, IAP capability, Apple distribution cert and ASC key secrets.

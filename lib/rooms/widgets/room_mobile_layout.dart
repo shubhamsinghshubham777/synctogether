@@ -110,7 +110,17 @@ class RoomPortraitSlot extends ParentDataWidget<_PortraitParentData> {
 /// left. Only when the window cannot hold the header and the bar plus the
 /// chat floor does the chat give way - the bar still does not.
 class RoomPortraitStack extends StatefulWidget {
-  const RoomPortraitStack({super.key, required this.chatFloor, required this.children});
+  const RoomPortraitStack({
+    super.key,
+    required this.chatFloor,
+    required this.children,
+    this.barFloats = false,
+  });
+
+  /// The transport leaves its row and floats over the picture's bottom edge
+  /// (the soft keyboard holds the lower half). One bar either way: its row
+  /// folds away with an eased fraction while it glides onto the picture.
+  final bool barFloats;
 
   /// The least height the chat is given while anything above it can still give.
   final double chatFloor;
@@ -125,6 +135,7 @@ class _RoomPortraitStackState extends State<RoomPortraitStack> with SingleTicker
   Widget build(BuildContext context) => _PortraitStackRender(
     vsync: this,
     chatFloor: widget.chatFloor,
+    barFloats: widget.barFloats,
     duration: PTMotion.functional(context, PTMotion.state),
     children: widget.children,
   );
@@ -134,22 +145,25 @@ class _PortraitStackRender extends MultiChildRenderObjectWidget {
   const _PortraitStackRender({
     required this.vsync,
     required this.chatFloor,
+    required this.barFloats,
     required this.duration,
     required super.children,
   });
 
   final TickerProvider vsync;
   final double chatFloor;
+  final bool barFloats;
   final Duration duration;
 
   @override
   RenderObject createRenderObject(BuildContext context) =>
-      RenderRoomPortraitStack(vsync, chatFloor, duration);
+      RenderRoomPortraitStack(vsync, chatFloor, duration, barFloats);
 
   @override
   void updateRenderObject(BuildContext context, RenderRoomPortraitStack renderObject) {
     renderObject
       ..chatFloor = chatFloor
+      ..barFloats = barFloats
       ..duration = duration;
   }
 }
@@ -197,7 +211,7 @@ class RenderRoomPortraitStack extends RenderBox
     with
         ContainerRenderObjectMixin<RenderBox, _PortraitParentData>,
         RenderBoxContainerDefaultsMixin<RenderBox, _PortraitParentData> {
-  RenderRoomPortraitStack(this._vsync, this._chatFloor, this._duration) {
+  RenderRoomPortraitStack(this._vsync, this._chatFloor, this._duration, this._barFloats) {
     _ticker = _vsync.createTicker(_tick);
   }
 
@@ -210,6 +224,16 @@ class RenderRoomPortraitStack extends RenderBox
   /// The pieces that fold in and out, rather than appearing whole.
   final _strip = _Presence();
   final _cams = _Presence();
+
+  /// How much of the transport's row is still allocated (1 = it sits in its
+  /// row, 0 = it floats over the picture and takes no height).
+  final _bar = _Presence();
+  bool _barFloats;
+  set barFloats(bool v) {
+    if (_barFloats == v) return;
+    _barFloats = v;
+    markNeedsLayout();
+  }
 
   double _chatFloor;
   set chatFloor(double v) {
@@ -229,12 +253,13 @@ class RenderRoomPortraitStack extends RenderBox
     final step = _duration.inMicroseconds <= 0 ? 1.0 : dt.inMicroseconds / _duration.inMicroseconds;
     _strip.advance(step);
     _cams.advance(step);
-    if (_strip.settled && _cams.settled) _ticker.stop();
+    _bar.advance(step);
+    if (_strip.settled && _cams.settled && _bar.settled) _ticker.stop();
     markNeedsLayout();
   }
 
   void _ensureTicking() {
-    if ((_strip.settled && _cams.settled) || _ticker.isActive) return;
+    if ((_strip.settled && _cams.settled && _bar.settled) || _ticker.isActive) return;
     _last = Duration.zero;
     _ticker.start();
   }
@@ -304,18 +329,22 @@ class RenderRoomPortraitStack extends RenderBox
       headerH = header.size.height;
     }
     var barH = 0.0;
+    var barRow = 0.0;
     if (bar != null) {
       bar.layout(loose(natural), parentUsesSize: true);
       barH = bar.size.height;
+      // A bar that mounts floating starts floating; one that changes folds.
+      _bar.retarget(!_barFloats, animateIn: _laidOut);
+      barRow = barH * _bar.eased;
     }
     place(.header, header, shown: true, h: headerH);
-    place(.bar, bar, shown: true, h: barH);
+    place(.bar, bar, shown: true, h: barRow);
 
     // Two budgets. The target one decides what is present (on natural heights,
     // as if every fold had finished); the live one is what is left to spend this
     // frame once the folding pieces take their eased slice, so the chat never
     // dips under its floor while one of them grows.
-    var target = math.max(0.0, height - headerH - barH - _chatFloor);
+    var target = math.max(0.0, height - headerH - barRow - _chatFloor);
     var live = target;
 
     // A piece that folds whole in or out. Returns its allocated height.
@@ -384,6 +413,18 @@ class RenderRoomPortraitStack extends RenderBox
       if (box == null) continue;
       (box.parentData! as _PortraitParentData).offset = Offset(0, y);
       y += heights[role] ?? 0;
+    }
+
+    // A floating bar rests on the picture's bottom edge (never above its top),
+    // and glides there from its row as the row folds away.
+    if (bar != null && video != null && _bar.eased < 1) {
+      final videoData = video.parentData! as _PortraitParentData;
+      final barData = bar.parentData! as _PortraitParentData;
+      final overlayY = math.max(
+        videoData.offset.dy,
+        videoData.offset.dy + video.size.height - barH,
+      );
+      barData.offset = Offset(0, overlayY + (barData.offset.dy - overlayY) * _bar.eased);
     }
 
     if (semanticsChanged) markNeedsSemanticsUpdate();
@@ -480,7 +521,6 @@ class RoomMobilePortraitLayout extends StatefulWidget {
   /// Whether the soft keyboard is up. Passed in rather than read here: the
   /// Scaffold above consumes the bottom view inset, so by this point it is 0.
   final bool keyboardUp;
-
   final Widget header;
   final Widget videoSurface;
   final Widget reactionStrip;
@@ -581,11 +621,18 @@ class _RoomMobilePortraitLayoutState extends State<RoomMobilePortraitLayout> {
     ];
     return SafeArea(
       child: reveal == null
-          ? RoomPortraitStack(chatFloor: floor + (cover ? 0 : w.chatFloorExtra), children: slots)
+          ? RoomPortraitStack(
+              chatFloor: floor + (cover ? 0 : w.chatFloorExtra),
+              barFloats: w.keyboardUp && !cover,
+              children: slots,
+            )
           : ValueListenableBuilder<double>(
               valueListenable: reveal,
-              builder: (context, t, _) =>
-                  RoomPortraitStack(chatFloor: floor + w.chatFloorExtra * t, children: slots),
+              builder: (context, t, _) => RoomPortraitStack(
+                chatFloor: floor + w.chatFloorExtra * t,
+                barFloats: w.keyboardUp && !cover,
+                children: slots,
+              ),
             ),
     );
   }

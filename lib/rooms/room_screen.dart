@@ -317,6 +317,14 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
   bool _cursorVisible = true;
   Timer? _controlsHideTimer;
   Timer? _cursorHideTimer;
+
+  /// Portrait with the keyboard (or the inline emoji picker) up: the transport
+  /// leaves its row and floats over the picture's bottom edge, so the picture
+  /// keeps the height the bar took. It shows when the keys rise, hides itself a
+  /// few seconds into playback, and stays up while paused.
+  bool _kbBarVisible = true;
+  bool _kbBarWasUp = false;
+  Timer? _kbBarTimer;
   double _volumeBeforeMute = 1.0;
   final _shortcutFocus = FocusNode();
 
@@ -1378,6 +1386,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     _idleSourceTimer?.cancel();
     _controlsHideTimer?.cancel();
     _cursorHideTimer?.cancel();
+    _kbBarTimer?.cancel();
     _actionToastTimer?.cancel();
     _skipFlashTimer?.cancel();
     _ytBufferFallbackTimer?.cancel();
@@ -3954,7 +3963,86 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
       _cursorHideTimer?.cancel();
       if (!_controlsVisible) setState(() => _controlsVisible = true);
       if (!_cursorVisible) setState(() => _cursorVisible = true);
+      _kbBarTimer?.cancel();
+      if (!_kbBarVisible) setState(() => _kbBarVisible = true);
+    } else if (_kbBarWasUp) {
+      _revealKbBar();
     }
+  }
+
+  /// Whether the portrait room is floating its transport over the picture
+  /// because the keyboard (or the inline emoji picker) holds the lower half.
+  /// Phone portrait and tablet portrait only - the layouts [_portrait] builds.
+  bool get _kbOverlayOn {
+    if (isDesktop || foldOf(context).isSplit) return false;
+    final size = MediaQuery.sizeOf(context);
+    final portraitish = switch (layoutOf(context)) {
+      .portrait => true,
+      .tablet => size.height >= size.width && size.height / size.width >= kSquarishMaxAspect,
+      _ => false,
+    };
+    return portraitish && (MediaQuery.viewInsetsOf(context).bottom > 0 || _chatPickerUp);
+  }
+
+  /// Whether the chrome over the picture is showing: the landscape overlay's
+  /// state, or the keyboard-up bar's.
+  bool get _overlayShown => _kbOverlayOn ? _kbBarVisible : _controlsVisible;
+
+  /// Called from build with whether the keyboard overlay is wanted. The rising
+  /// edge shows the bar (and starts its hide timer); the work is deferred past
+  /// the frame because it sets state.
+  void _kbBarEdge(bool up) {
+    if (up == _kbBarWasUp) return;
+    _kbBarWasUp = up;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (up) {
+        _revealKbBar();
+      } else {
+        _kbBarTimer?.cancel();
+      }
+    });
+  }
+
+  void _revealKbBar() {
+    _kbBarTimer?.cancel();
+    if (!_kbBarVisible) setState(() => _kbBarVisible = true);
+    // Paused, the bar stays: hiding the transport on a paused frame helps no one.
+    if (!_playing) return;
+    _kbBarTimer = Timer(const Duration(seconds: 3), () {
+      if (mounted && _kbBarWasUp && _playing) setState(() => _kbBarVisible = false);
+    });
+  }
+
+  /// The one transport bar, in both of its places. While the keys are up the
+  /// stack floats it over the picture's bottom edge; this wrapper is what lets
+  /// it fade and slide away on its own timer. The tree is the same whether or
+  /// not it floats, so nothing remounts when the keys rise or fall.
+  Widget _kbBarShell(Widget bar, {required bool floating}) {
+    final away = floating && !_kbBarVisible;
+    return IgnorePointer(
+      ignoring: away,
+      child: AnimatedSlide(
+        offset: away ? const Offset(0, 1.2) : Offset.zero,
+        duration: PTMotion.functional(context, PTMotion.state),
+        curve: away ? PTMotion.exit : PTMotion.enter,
+        child: AnimatedOpacity(
+          opacity: away ? 0 : 1,
+          duration: PTMotion.functional(context, Durations.medium2),
+          // Any touch on the bar keeps it up another few seconds.
+          child: Listener(
+            behavior: HitTestBehavior.translucent,
+            onPointerDown: (_) {
+              if (floating) _revealKbBar();
+            },
+            onPointerUp: (_) {
+              if (floating) _revealKbBar();
+            },
+            child: bar,
+          ),
+        ),
+      ),
+    );
   }
 
   /// Fades and slides the floating chrome.
@@ -5189,7 +5277,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
                   return Align(
                     alignment: .bottomCenter,
                     child: AnimatedOpacity(
-                      opacity: _controlsVisible ? 1 : 0,
+                      opacity: _overlayShown ? 1 : 0,
                       duration: PTMotion.functional(context, Durations.medium2),
                       child: SizedBox(
                         width: double.infinity,
@@ -5857,7 +5945,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
   void _liftSubtitles(double videoHeight) {
     final applier = _subtitleStyle;
     if (applier == null) return;
-    if (!_controlsVisible || videoHeight <= 0) return applier.setLift(0);
+    if (!_overlayShown || videoHeight <= 0) return applier.setLift(0);
     final scale = MediaQuery.textScalerOf(context).scale(1).clamp(1.0, 1.4);
     applier.setLift(100 * kSubtitleLiftPx * scale / videoHeight);
   }
@@ -6121,6 +6209,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
   /// Whether the chrome floats over the video in the current layout. Never on
   /// desktop: the theatre docks its marquee and control bars around the picture.
   bool get _controlsOverVideo {
+    if (_kbOverlayOn) return true;
     if (!isDesktop && foldOf(context).isSplit) return foldOf(context).axis == .vertical;
     if (layoutOf(context) == .desktop) return false;
     return !_chatEmbedded;
@@ -6585,6 +6674,11 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     final keyboardUp = MediaQuery.viewInsetsOf(context).bottom > 0 || _chatPickerUp;
     final liveKeyboard = _keyboardMemory.observe(View.of(context));
     final gutter = roomy ? 24.0 : (MediaQuery.sizeOf(context).width < 380 ? 10.0 : 14.0);
+    // With the keys up the transport floats over the picture instead of taking
+    // its own row, so the picture keeps that height. The same widget tree either
+    // way (a Stack around the picture), so nothing remounts when the keys rise.
+    final floatBar = keyboardUp;
+    _kbBarEdge(floatBar);
     return RoomMobilePortraitLayout(
       roomy: roomy,
       keyboardUp: keyboardUp,
@@ -6595,10 +6689,15 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
             ? const EdgeInsets.fromLTRB(16, 10, 16, 10)
             : const EdgeInsets.fromLTRB(6, 4, 6, 8),
       ),
-      videoSurface: _skipZones(child: _videoSurface()),
+      // A hidden transport comes back with a tap on the picture; with it showing,
+      // the tap is left alone so it closes the keyboard like any empty space.
+      videoSurface: _skipZones(
+        onTap: floatBar && !_kbBarVisible ? _revealKbBar : null,
+        child: _videoSurface(),
+      ),
       facecamStrip: (_av != null && !_privacyHidden && _camsVisible) ? _facecamStrip() : null,
       reactionStrip: _reactionStrip(compact: !roomy),
-      controlBar: _controlBar(compact: !roomy, docked: true),
+      controlBar: _kbBarShell(_controlBar(compact: !roomy, docked: true), floating: floatBar),
       bannerStack: _bannerStack(
         spacing: 10,
         inScroll: true,

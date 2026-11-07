@@ -28,6 +28,7 @@ import 'package:synctogether/rooms/room_models.dart';
 import 'package:synctogether/rooms/room_screen.dart';
 import 'package:synctogether/rooms/room_service.dart';
 import 'package:synctogether/rooms/widgets/emoji_picker.dart';
+import 'package:synctogether/rooms/widgets/room_mobile_layout.dart' show RoomPortraitRole;
 import 'package:synctogether/rooms/widgets/room_desktop_layout.dart';
 import 'package:synctogether/rooms/widgets/facecam_rail.dart';
 import 'package:synctogether/rooms/widgets/reaction_strip.dart';
@@ -588,7 +589,13 @@ void main() {
         expect(strip, findsOneWidget);
         final sr = tester.getRect(strip);
         expect(sr.height, greaterThan(20));
-        expect(sr.bottom, lessThanOrEqualTo(play.top + 0.5), reason: 'strip overlaps the bar');
+        // With the keys up the transport floats over the picture, so the strip
+        // sits under it rather than above it: either way they never overlap.
+        expect(
+          sr.bottom <= play.top + 0.5 || sr.top >= play.bottom - 0.5,
+          isTrue,
+          reason: 'strip overlaps the bar',
+        );
         expect(sr.top, greaterThanOrEqualTo(0));
         await _finish(tester);
       } finally {
@@ -1576,6 +1583,9 @@ void main() {
           right: c.padding.right,
           bottom: c.padding.bottom,
         );
+      // Two pumps: the transport's fold off the picture starts on the frame the
+      // keys drop and runs on its own clock, so one frame only begins it.
+      await tester.pump(const Duration(milliseconds: 400));
       await tester.pump(const Duration(milliseconds: 400));
       await _tapReact(tester);
       tester.view
@@ -1650,8 +1660,12 @@ void main() {
         final play = find.descendant(of: bar, matching: find.byType(PTPlayButton));
         const names = ['bar', 'chat', 'input'];
         List<Rect> snap() => [rect(bar), rect(chat), rect(input)];
-        final settled = snap();
-        for (final k in [0, 1]) {
+        // Two round trips. A piece held inside the stack's hysteresis band (a
+        // strip a few px over its budget) may end the first one in its other
+        // stable state, so the layout is judged by repeating, not by matching
+        // the very first frame.
+        late List<Rect> afterFirst;
+        for (final (idx, k) in [0, 1, 0, 1].indexed) {
           final from = k == 0 ? c.keyboard : 0.0;
           final to = k == 0 ? 0.0 : c.keyboard;
           var prev = snap();
@@ -1698,17 +1712,101 @@ void main() {
             expect(play.hitTestable(), findsOneWidget);
             prev = now;
           }
+          if (idx == 1) afterFirst = snap();
         }
-        // Back where it started, exactly as the unanimated layout puts it.
+        // The second round trip lands exactly where the first did: no drift.
         final now = snap();
         for (var j = 0; j < names.length; j++) {
-          expect(now[j].height, closeTo(settled[j].height, 0.5), reason: names[j]);
-          expect(now[j].top, closeTo(settled[j].top, 0.5), reason: names[j]);
+          expect(now[j].height, closeTo(afterFirst[j].height, 0.5), reason: names[j]);
+          expect(now[j].top, closeTo(afterFirst[j].top, 0.5), reason: names[j]);
         }
         await _finish(tester);
       },
       cases: busyCases,
       textScales: const [1.0, 1.5],
+    );
+
+    testWidgets(
+      'with the keys up the transport floats over the picture, hides itself and a tap brings it back',
+      (tester) async {
+        final c = kScreenMatrix.firstWhere((c) => c.name == 'phone-keyboard');
+        try {
+          await _pumpRoom(
+            tester,
+            c,
+            1.0,
+            av: true,
+            allReady: false,
+            selfHost: false,
+            openFails: true,
+            chat: [mockChatMessagesList.first],
+          );
+          _lastPlayer!.playing.add(true);
+          // Keys down: the transport sits in its own row, under the picture.
+          tester.view
+            ..viewInsets = FakeViewPadding.zero
+            ..padding = FakeViewPadding(top: c.padding.top, bottom: c.padding.bottom);
+          await tester.pump(const Duration(milliseconds: 600));
+          await tester.pump(const Duration(milliseconds: 600));
+          final bar = find.byType(RoomControlBar);
+          final picture = find.byKey(const ValueKey(RoomPortraitRole.video));
+          final play = find.descendant(of: bar, matching: find.byType(PTPlayButton));
+          expect(bar, findsOneWidget);
+          expect(
+            tester.getRect(bar).top,
+            greaterThanOrEqualTo(tester.getRect(picture).bottom - 0.5),
+            reason: 'keys down: transport in its row',
+          );
+
+          // Keys up: one bar, resting on the picture's bottom edge, reachable.
+          tester.view
+            ..viewInsets = FakeViewPadding(bottom: c.keyboard)
+            ..padding = FakeViewPadding(top: c.padding.top);
+          await tester.showKeyboard(find.byType(EditableText).first);
+          await tester.pump(const Duration(milliseconds: 600));
+          await tester.pump(const Duration(milliseconds: 600));
+          expect(bar, findsOneWidget, reason: 'one transport, not a copy');
+          final b = tester.getRect(bar);
+          final p = tester.getRect(picture);
+          expect(b.bottom, closeTo(p.bottom, 1), reason: 'rests on the picture bottom edge');
+          expect(b.top, greaterThanOrEqualTo(p.top - 0.5));
+          expect(play.hitTestable(), findsOneWidget, reason: 'reachable as the keys rise');
+
+          // Playing: it hides itself a few seconds in, and is then out of reach.
+          await tester.pump(const Duration(seconds: 4));
+          await tester.pump(const Duration(milliseconds: 600));
+          expect(play.hitTestable(), findsNothing, reason: 'hidden means out of reach');
+
+          // A tap on the picture brings it back (and the keyboard stays up).
+          await tester.tapAt(tester.getCenter(picture));
+          await tester.pump(const Duration(milliseconds: 400));
+          await tester.pump(const Duration(milliseconds: 600));
+          expect(play.hitTestable(), findsOneWidget, reason: 'a tap on the picture reveals it');
+          expect(tester.view.viewInsets.bottom, c.keyboard);
+
+          // Paused, it stays up however long it has been.
+          _lastPlayer!.playing.add(false);
+          await tester.pump(const Duration(milliseconds: 200));
+          await tester.pump(const Duration(seconds: 5));
+          expect(play.hitTestable(), findsOneWidget, reason: 'paused: stays');
+
+          // Keys down again: back in its row, whole.
+          tester.view
+            ..viewInsets = FakeViewPadding.zero
+            ..padding = FakeViewPadding(top: c.padding.top, bottom: c.padding.bottom);
+          await tester.pump(const Duration(milliseconds: 600));
+          await tester.pump(const Duration(milliseconds: 600));
+          expect(
+            tester.getRect(bar).top,
+            greaterThanOrEqualTo(tester.getRect(picture).bottom - 0.5),
+            reason: 'keys down: transport back in its row',
+          );
+          expect(play.hitTestable(), findsOneWidget);
+          await _finish(tester);
+        } finally {
+          debugDefaultTargetPlatformOverride = null;
+        }
+      },
     );
 
     testWidgets('the header folds away with the keyboard instead of cutting', (tester) async {
@@ -1763,6 +1861,9 @@ void main() {
         await pumpBusy(tester, c, 1.0);
         final composerTop = tester.getRect(find.byType(EditableText).first).top;
         await tester.tap(find.byTooltip(RegExp('Emoji')).first);
+        // The first frames let the picker's reveal settle; jumps are judged after.
+        await tester.pump(const Duration(milliseconds: 400));
+        double? lastTop;
         // The OS slides the keyboard away over ~250 ms.
         for (var k = 336.0; k >= 0; k -= 56) {
           tester.view.viewInsets = FakeViewPadding(bottom: k);
@@ -1781,11 +1882,17 @@ void main() {
               reason: 'picker overlaps the keyboard at $k',
             );
           }
+          // The picker taking the keyboard's place may settle the composer a few
+          // px once (the strips above are already at their floor in this busy
+          // room), but it never moves while the keys slide away.
+          final top = tester.getRect(find.byType(EditableText).first).top;
+          expect(top, closeTo(composerTop, 8), reason: 'composer moved far at $k');
           expect(
-            tester.getRect(find.byType(EditableText).first).top,
-            closeTo(composerTop, 1),
+            top,
+            closeTo(lastTop ?? top, 1),
             reason: 'composer jumped during the hand-off at $k',
           );
+          lastTop = top;
         }
         await tester.pump(const Duration(milliseconds: 400));
         expect(find.text('SMILEYS & EMOTION').hitTestable(), findsOneWidget);

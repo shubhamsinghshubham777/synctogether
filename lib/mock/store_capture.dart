@@ -89,6 +89,8 @@ Future<void> _runMobileStoreCapture(GoRouter router) async {
   const typing = <(String, String)>[
     ('4_lobby_keyboard', '/lobby'),
     ('5_room_keyboard', '/lobby/room/demo-room-1'),
+    // Landscape keeps chat in a drawer: open it so the keyboard has a field to type in.
+    ('7_room_chat_open_keyboard', '/lobby/room/demo-room-1?chat=true'),
   ];
   for (final (name, path) in typing) {
     router.go(path);
@@ -98,6 +100,13 @@ Future<void> _runMobileStoreCapture(GoRouter router) async {
     // ignore: avoid_print
     print('[SHOT] $name');
     await Future.delayed(const Duration(milliseconds: 3000));
+    if (name.startsWith('5_')) {
+      // The keyboard-up transport hides itself a few seconds into playback.
+      await Future.delayed(const Duration(milliseconds: 2500));
+      // ignore: avoid_print
+      print('[SHOT] 6_room_keyboard_bar_hidden');
+      await Future.delayed(const Duration(milliseconds: 3000));
+    }
     FocusManager.instance.primaryFocus?.unfocus();
     await Future.delayed(const Duration(milliseconds: 1000));
   }

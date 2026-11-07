@@ -1,0 +1,637 @@
+import 'dart:async';
+
+import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart' show MissingPluginException;
+import 'package:flutter_timezone/flutter_timezone.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:synctogether/analytics.dart';
+import 'package:synctogether/diagnostics.dart';
+import 'package:synctogether/rewards/rewards_service.dart' show rewardsSiteBase;
+import 'package:synctogether/rooms/room_models.dart';
+import 'package:synctogether/rooms/room_service.dart';
+
+import 'pair_logic.dart';
+import 'pair_models.dart';
+
+/// Everything about "your person": the pair, its invite, Our Room, the shared
+/// watchlist, date nights and what you watched together.
+///
+/// Shaped like [RewardsService]: a `ChangeNotifier` singleton that reads through
+/// RPCs and whose failure mode is to *understate*. A client that could not load
+/// shows nobody paired rather than a pairing the server does not agree with.
+/// Every rule that matters (who may schedule, how much history shows, who may
+/// enter Our Room) is enforced in `security definer` RPCs; this class only
+/// carries the calls and keeps state fresh.
+class PairService extends ChangeNotifier {
+  PairService();
+  PairService._();
+  static PairService instance = PairService._();
+
+  SupabaseClient? get _clientOrNull {
+    try {
+      return Supabase.instance.client;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  SupabaseClient get _client => Supabase.instance.client;
+
+  /// An invite code parked until the person is signed in and the lobby can show
+  /// the accept screen (`synctogether://pair/<code>` opened signed out).
+  String? pendingPairCode;
+
+  PairInfo? _pair;
+  PairInfo? get pair => _pair;
+  bool get isPaired => _pair != null;
+
+  /// An invite I opened and have not answered: the lobby banner.
+  PairInvite? _pending;
+  PairInvite? get pendingInvite => _pending;
+
+  /// The invite I sent and is still waiting.
+  PairInvite? _sent;
+  PairInvite? get sentInvite => _sent;
+
+  List<WatchlistItem> _watchlist = const [];
+  List<WatchlistItem> get watchlist => _watchlist;
+
+  List<DateNight> _nights = const [];
+  List<DateNight> get nights => _nights;
+
+  PairStats _stats = PairStats.empty;
+  PairStats get stats => _stats;
+
+  PairHistory _history = PairHistory.empty;
+  PairHistory get history => _history;
+
+  PushPrefs _prefs = const PushPrefs();
+  PushPrefs get prefs => _prefs;
+
+  bool _loaded = false;
+  bool get loaded => _loaded;
+
+  /// Banner invites the person said "Not now" to, for this run. The server keeps
+  /// the invite for its 48 hours; the banner only stops nagging.
+  final Set<String> _dismissed = {};
+
+  PairInvite? get bannerInvite {
+    final p = _pending;
+    if (p == null || _dismissed.contains(p.code) || isPaired) return null;
+    return p.isLiveAt(DateTime.now().toUtc()) ? p : null;
+  }
+
+  RealtimeChannel? _channel;
+  Timer? _debounce;
+  String? _channelUser;
+
+  RealtimeChannel? _live;
+  String? _liveFor;
+  final _pickController = StreamController<Map<String, dynamic>>.broadcast();
+
+  bool _partnerOnline = false;
+
+  /// Whether the partner has the app open right now (private presence on the
+  /// pair channel). False when unknown - the Call button then stays hidden,
+  /// which understates rather than rings someone who is not there.
+  bool get partnerOnline => _partnerOnline;
+
+  /// Answers to "Pick tonight" from the partner, as they arrive.
+  Stream<Map<String, dynamic>> get partnerPicks => _pickController.stream;
+
+  String? get _uid => _clientOrNull?.auth.currentUser?.id;
+  bool get isSignedInAccount {
+    final user = _clientOrNull?.auth.currentUser;
+    return user != null && !user.isAnonymous;
+  }
+
+  // ---------------------------------------------------------------- loading
+
+  /// Loads the pair and, when paired, the shared lists. Safe to call often: it
+  /// is what a realtime nudge, a resume and a sign-in all run.
+  Future<void> load() async {
+    final client = _clientOrNull;
+    if (client == null) return;
+    if (!isSignedInAccount) {
+      clear();
+      return;
+    }
+    try {
+      final pairRow = await client.rpc('my_pair');
+      _pair = pairRow == null ? null : PairInfo.fromJson((pairRow as Map).cast<String, dynamic>());
+
+      if (_pair == null) {
+        final pending = await client.rpc('my_pending_pair_invite');
+        _pending = pending == null
+            ? null
+            : PairInvite.fromJson({
+                ...(pending as Map).cast<String, dynamic>(),
+                'status': 'pending',
+              });
+        await _loadSentInvite(client);
+        _watchlist = const [];
+        _nights = const [];
+        _stats = PairStats.empty;
+        _history = PairHistory.empty;
+      } else {
+        _pending = null;
+        _sent = null;
+        await Future.wait([_loadWatchlist(client), _loadNights(client), _loadStats(client)]);
+      }
+      _loaded = true;
+      _ensureRealtime();
+      _ensureLive();
+      notifyListeners();
+    } catch (e, s) {
+      reportNonFatal(e, s, during: 'loading the pair');
+    }
+  }
+
+  Future<void> _loadSentInvite(SupabaseClient client) async {
+    final uid = _uid;
+    if (uid == null) return;
+    final rows = await client
+        .from('pair_invites')
+        .select()
+        .eq('inviter_id', uid)
+        .eq('status', 'pending')
+        .gt('expires_at', DateTime.now().toUtc().toIso8601String())
+        .limit(1);
+    _sent = rows.isEmpty
+        ? null
+        : PairInvite.mine(rows.first, PairPartner(id: uid, displayName: 'You'));
+  }
+
+  Future<void> _loadWatchlist(SupabaseClient client) async {
+    final rows = await client.from('pair_watchlist').select().order('created_at', ascending: false);
+    _watchlist = [for (final r in rows) WatchlistItem.fromJson(r)];
+  }
+
+  Future<void> _loadNights(SupabaseClient client) async {
+    final rows = await client
+        .from('date_nights')
+        .select()
+        .gte(
+          'starts_at',
+          DateTime.now().toUtc().subtract(const Duration(days: 1)).toIso8601String(),
+        )
+        .order('starts_at');
+    _nights = [for (final r in rows) DateNight.fromJson(r)];
+  }
+
+  Future<void> _loadStats(SupabaseClient client) async {
+    final row = await client.rpc('pair_stats');
+    _stats = row == null
+        ? PairStats.empty
+        : PairStats.fromJson((row as Map).cast<String, dynamic>());
+  }
+
+  Future<PairHistory> loadHistory() async {
+    try {
+      final row = await _client.rpc('pair_history');
+      _history = PairHistory.fromJson((row as Map).cast<String, dynamic>());
+      notifyListeners();
+    } catch (e, s) {
+      reportNonFatal(e, s, during: 'loading the pair history');
+    }
+    return _history;
+  }
+
+  Future<PairStats> loadStatsForYear(int year) async {
+    try {
+      final row = await _client.rpc('pair_stats', params: {'p_year': year});
+      return PairStats.fromJson((row as Map).cast<String, dynamic>());
+    } catch (e, s) {
+      reportNonFatal(e, s, during: 'loading the year recap stats');
+      return PairStats.empty;
+    }
+  }
+
+  Future<List<PairSession>> exportHistory() async {
+    final rows = await _client.rpc('pair_history_export');
+    return [
+      for (final r in (rows as List)) PairSession.fromJson((r as Map).cast<String, dynamic>()),
+    ];
+  }
+
+  Future<void> loadPrefs() async {
+    try {
+      final row = await _client.rpc('my_push_prefs');
+      _prefs = PushPrefs.fromJson((row as Map).cast<String, dynamic>());
+      notifyListeners();
+    } catch (e, s) {
+      reportNonFatal(e, s, during: 'loading push preferences');
+    }
+  }
+
+  // --------------------------------------------------------------- realtime
+
+  /// One channel, four tables. A change to any of them is a nudge to reload,
+  /// debounced: an accept touches `pair_members` twice and `pair_invites` once.
+  void _ensureRealtime() {
+    final uid = _uid;
+    if (uid == null || (_channel != null && _channelUser == uid)) return;
+    _closeChannel();
+    try {
+      final channel = _client.channel('pair-state:$uid');
+      void nudge(String table) {
+        trace('pair realtime nudge', category: 'room', data: {'table': table});
+        _debounce?.cancel();
+        _debounce = Timer(const Duration(milliseconds: 250), load);
+      }
+
+      for (final table in const ['pair_members', 'pair_invites', 'date_nights', 'pair_watchlist']) {
+        channel.onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: table,
+          callback: (_) => nudge(table),
+        );
+      }
+      _channel = channel..subscribe();
+      _channelUser = uid;
+    } catch (e, s) {
+      reportNonFatal(e, s, during: 'subscribing to pair changes');
+    }
+  }
+
+  /// Private channel `pair:<id>`: presence for "is my person on", and
+  /// broadcast for Pick tonight. Authorized by the same `my_pair_id()` rule as
+  /// every read, so an outsider cannot join it even holding the id.
+  void _ensureLive() {
+    final uid = _uid;
+    final pairId = _pair?.pairId;
+    if (uid == null || pairId == null) {
+      _closeLive();
+      return;
+    }
+    if (_live != null && _liveFor == pairId) return;
+    _closeLive();
+    try {
+      final channel = _client.channel(
+        'pair:$pairId',
+        opts: RealtimeChannelConfig(private: true, key: uid),
+      );
+      channel
+        ..onPresenceSync((_) {
+          final partnerId = _pair?.partner.id;
+          final online =
+              partnerId != null &&
+              channel.presenceState().any(
+                (state) => state.presences.any((p) => p.payload['user_id'] == partnerId),
+              );
+          if (online != _partnerOnline) {
+            _partnerOnline = online;
+            notifyListeners();
+          }
+        })
+        ..onBroadcast(
+          event: 'pick',
+          callback: (payload) {
+            if (payload['from'] != uid) _pickController.add(payload);
+          },
+        )
+        ..subscribe((status, error) {
+          if (status == RealtimeSubscribeStatus.subscribed) {
+            unawaited(channel.track({'user_id': uid}));
+          }
+        });
+      _live = channel;
+      _liveFor = pairId;
+    } catch (e, s) {
+      reportNonFatal(e, s, during: 'joining the pair channel');
+    }
+  }
+
+  /// Shares my Pick tonight answers with the partner.
+  Future<void> sendPicks(List<String> yesIds, {required int round}) async {
+    final c = _live;
+    if (c == null) return;
+    await c.sendBroadcastMessage(
+      event: 'pick',
+      payload: {'from': _uid, 'round': round, 'yes': yesIds},
+    );
+  }
+
+  void _closeLive() {
+    final c = _live;
+    _live = null;
+    _liveFor = null;
+    if (_partnerOnline) _partnerOnline = false;
+    if (c != null) unawaited(_clientOrNull?.removeChannel(c));
+  }
+
+  void _closeChannel() {
+    final c = _channel;
+    _channel = null;
+    _channelUser = null;
+    if (c != null) unawaited(_clientOrNull?.removeChannel(c));
+  }
+
+  void clear() {
+    _debounce?.cancel();
+    _debounce = null;
+    _closeChannel();
+    _closeLive();
+    _pair = null;
+    _pending = null;
+    _sent = null;
+    _watchlist = const [];
+    _nights = const [];
+    _stats = PairStats.empty;
+    _history = PairHistory.empty;
+    _loaded = false;
+    _dismissed.clear();
+    pendingPairCode = null;
+    notifyListeners();
+  }
+
+  // ------------------------------------------------------------- time zone
+
+  String? _reportedZone;
+
+  /// Tells the server this device's IANA zone so a partner's screens can show
+  /// the right clock. Quiet by design: a device that cannot say simply has none.
+  Future<void> syncTimezone() async {
+    final client = _clientOrNull;
+    if (client == null || !isSignedInAccount) return;
+    try {
+      final zone = (await FlutterTimezone.getLocalTimezone()).identifier;
+      if (zone == _reportedZone) return;
+      await client.rpc('set_my_timezone', params: {'p_timezone': zone});
+      _reportedZone = zone;
+    } on MissingPluginException {
+      // A platform (or a test) with no native side: nothing to report.
+    } catch (e, s) {
+      reportNonFatal(e, s, during: 'reporting the time zone');
+    }
+  }
+
+  // --------------------------------------------------------------- pairing
+
+  /// A fresh or reused invite for me to send. Idempotent on the server, so
+  /// "Share again" never mints a second code.
+  Future<PairInvite> createInvite() async {
+    try {
+      final row = await _client.rpc('create_pair_invite');
+      final invite = PairInvite.mine(
+        (row as Map).cast<String, dynamic>(),
+        PairPartner(id: _uid ?? '', displayName: 'You'),
+      );
+      _sent = invite;
+      notifyListeners();
+      Analytics.instance.track('pair_invite_created');
+      trace('pair invite created', category: 'room');
+      return invite;
+    } catch (e, s) {
+      _reportUnexpected(e, s, 'creating a pair invite');
+      rethrow;
+    }
+  }
+
+  Future<void> cancelInvite() async {
+    await _client.rpc('cancel_pair_invite');
+    _sent = null;
+    notifyListeners();
+  }
+
+  /// What the accept screen shows. Opening a link also remembers me as its
+  /// latest viewer so the lobby banner can remind me if I walk away.
+  Future<PairInvite> previewInvite(String code) async {
+    try {
+      final row = await _client.rpc('get_pair_invite', params: {'p_code': code});
+      return PairInvite.fromJson((row as Map).cast<String, dynamic>());
+    } catch (e, s) {
+      _reportUnexpected(e, s, 'previewing a pair invite');
+      rethrow;
+    }
+  }
+
+  Future<void> acceptInvite(String code) async {
+    try {
+      await _client.rpc('accept_pair_invite', params: {'p_code': code});
+      Analytics.instance.track('pair_accepted');
+      trace('pair accepted', category: 'room');
+      await load();
+      await syncTimezone();
+    } catch (e, s) {
+      _reportUnexpected(e, s, 'accepting a pair invite');
+      rethrow;
+    }
+  }
+
+  void dismissBanner(String code) {
+    _dismissed.add(code);
+    notifyListeners();
+  }
+
+  Future<void> unpair() async {
+    try {
+      await _client.rpc('unpair');
+      Analytics.instance.track('pair_ended');
+      trace('unpaired', category: 'room');
+      _pair = null;
+      _watchlist = const [];
+      _nights = const [];
+      _stats = PairStats.empty;
+      _history = PairHistory.empty;
+      notifyListeners();
+      await load();
+    } catch (e, s) {
+      _reportUnexpected(e, s, 'unpairing');
+      rethrow;
+    }
+  }
+
+  Future<void> setReunion(DateTime? on, String? label) async {
+    try {
+      await _client.rpc(
+        'set_reunion',
+        params: {
+          'p_on': on == null
+              ? null
+              : '${on.year.toString().padLeft(4, '0')}-${on.month.toString().padLeft(2, '0')}-${on.day.toString().padLeft(2, '0')}',
+          'p_label': label,
+        },
+      );
+      await load();
+    } catch (e, s) {
+      _reportUnexpected(e, s, 'setting the reunion date');
+      rethrow;
+    }
+  }
+
+  // -------------------------------------------------------------- Our Room
+
+  /// Create-or-resume the pair's room, make me a member, and adopt it as the
+  /// current room so the room screen finds it the way it finds any other.
+  Future<Room> openOurRoom() async {
+    try {
+      final row = await _client.rpc('open_our_room');
+      final map = row is List ? row.first as Map : row as Map;
+      final room = Room.fromJson(map.cast<String, dynamic>());
+      await RoomService.instance.joinRoom(room.code, via: .pair);
+      Analytics.instance.track('our_room_opened');
+      return room;
+    } catch (e, s) {
+      _reportUnexpected(e, s, 'opening Our Room');
+      rethrow;
+    }
+  }
+
+  /// Rings the partner. False when throttled (one a minute) - nothing to say to
+  /// the person, the room is open for them either way.
+  Future<bool> callPartner() async {
+    try {
+      final row = await _client.rpc('call_partner');
+      final sent = ((row as Map)['sent'] as bool?) ?? false;
+      if (sent) Analytics.instance.track('partner_called');
+      return sent;
+    } catch (e, s) {
+      _reportUnexpected(e, s, 'calling the partner');
+      rethrow;
+    }
+  }
+
+  /// Logs a sitting spent together. Silent: a lost sitting is not worth a
+  /// snackbar over a film, and both partners may report the same one.
+  Future<void> logSession({
+    required String? title,
+    required DateTime startedAt,
+    required Duration together,
+  }) async {
+    if (!isPaired || !isLoggableSitting(together)) return;
+    try {
+      await _client.rpc(
+        'log_pair_session',
+        params: {
+          'p_title': title,
+          'p_started_at': startedAt.toUtc().toIso8601String(),
+          'p_seconds': together.inSeconds,
+        },
+      );
+      trace('pair sitting logged', category: 'room', data: {'seconds': together.inSeconds});
+    } catch (e, s) {
+      reportNonFatal(e, s, during: 'logging a sitting together');
+    }
+  }
+
+  // ------------------------------------------------------------- watchlist
+
+  Future<void> addWatchlistItem({
+    required String title,
+    required WatchSource source,
+    String? url,
+  }) async {
+    try {
+      await _client.rpc(
+        'add_watchlist_item',
+        params: {'p_title': title, 'p_source_kind': source.name, 'p_source_url': url},
+      );
+      Analytics.instance.track('watchlist_added', {'kind': source.name});
+      await _reloadWatchlist();
+    } catch (e, s) {
+      _reportUnexpected(e, s, 'adding to the watchlist');
+      rethrow;
+    }
+  }
+
+  Future<void> setWatched(String id, bool watched) async {
+    await _client.rpc('set_watchlist_status', params: {'p_id': id, 'p_watched': watched});
+    await _reloadWatchlist();
+  }
+
+  Future<void> removeWatchlistItem(String id) async {
+    await _client.rpc('remove_watchlist_item', params: {'p_id': id});
+    await _reloadWatchlist();
+  }
+
+  Future<void> _reloadWatchlist() async {
+    await _loadWatchlist(_client);
+    notifyListeners();
+  }
+
+  // ----------------------------------------------------------- date nights
+
+  Future<DateNight> planNight({required String title, required DateTime startsAt}) async {
+    try {
+      final row = await _client.rpc(
+        'create_date_night',
+        params: {'p_title': title, 'p_starts_at': startsAt.toUtc().toIso8601String()},
+      );
+      Analytics.instance.track('date_night_planned');
+      await _reloadNights();
+      return DateNight.fromJson((row as Map).cast<String, dynamic>());
+    } catch (e, s) {
+      _reportUnexpected(e, s, 'planning a date night');
+      rethrow;
+    }
+  }
+
+  Future<void> answerNight(String id, {required bool accept}) async {
+    try {
+      await _client.rpc('respond_date_night', params: {'p_id': id, 'p_accept': accept});
+      Analytics.instance.track('date_night_answered', {'accepted': accept});
+      await _reloadNights();
+    } catch (e, s) {
+      _reportUnexpected(e, s, 'answering a date night');
+      rethrow;
+    }
+  }
+
+  Future<void> rescheduleNight(String id, DateTime startsAt) async {
+    try {
+      await _client.rpc(
+        'reschedule_date_night',
+        params: {'p_id': id, 'p_starts_at': startsAt.toUtc().toIso8601String()},
+      );
+      await _reloadNights();
+    } catch (e, s) {
+      _reportUnexpected(e, s, 'moving a date night');
+      rethrow;
+    }
+  }
+
+  Future<void> cancelNight(String id) async {
+    await _client.rpc('cancel_date_night', params: {'p_id': id});
+    await _reloadNights();
+  }
+
+  Future<void> _reloadNights() async {
+    await _loadNights(_client);
+    notifyListeners();
+  }
+
+  // ---------------------------------------------------------------- prefs
+
+  Future<void> setPref(String key, bool value) async {
+    final before = _prefs;
+    _prefs = before.withKey(key, value);
+    notifyListeners();
+    try {
+      await _client.rpc('set_push_pref', params: {'p_key': key, 'p_value': value});
+    } catch (e, s) {
+      _prefs = before;
+      notifyListeners();
+      reportNonFatal(e, s, during: 'saving a notification switch');
+    }
+  }
+
+  // ------------------------------------------------------------- reporting
+
+  /// A mapped [PairErrorCode] is a normal answer; only the `unknown` fallback is
+  /// worth a Sentry event.
+  void _reportUnexpected(Object e, StackTrace s, String during) {
+    if (PairErrorCode.fromError(e) == PairErrorCode.unknown) {
+      reportNonFatal(e, s, during: during);
+    }
+  }
+}
+
+/// The link an invite carries. A web page when the build has a portal (it hands
+/// off to the app, or offers the download), the app scheme link otherwise.
+String pairInviteLink(String code) {
+  final upper = code.toUpperCase();
+  final base = rewardsSiteBase;
+  return base == null ? 'synctogether://pair/$upper' : '$base/pair/$upper';
+}

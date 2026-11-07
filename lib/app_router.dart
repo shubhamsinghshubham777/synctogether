@@ -9,6 +9,9 @@ import 'package:supabase_flutter/supabase_flutter.dart' show AuthChangeEvent;
 
 import 'auth/auth_service.dart';
 import 'auth/login_screen.dart';
+import 'pairing/pair_accept_screen.dart';
+import 'pairing/pair_screen.dart';
+import 'pairing/pair_service.dart';
 import 'profile/banned_screen.dart';
 import 'profile/entitlement_service.dart';
 import 'profile/profile_screen.dart';
@@ -107,6 +110,17 @@ GoRouter buildRouter([Player? player]) {
           GoRoute(
             path: 'profile',
             pageBuilder: (context, state) => _detail(state, const ProfileScreen()),
+          ),
+          GoRoute(
+            path: 'pair',
+            pageBuilder: (context, state) => _detail(state, const PairScreen()),
+            routes: [
+              GoRoute(
+                path: 'accept/:code',
+                pageBuilder: (context, state) =>
+                    _detail(state, PairAcceptScreen(code: state.pathParameters['code']!)),
+              ),
+            ],
           ),
           GoRoute(
             path: 'leaderboard',
@@ -266,6 +280,7 @@ class _AuthRefresh extends ChangeNotifier {
           ProfileService.instance.load();
           EntitlementService.instance.load();
           RewardsService.instance.load();
+          PairService.instance.load();
           // Blocks are account-scoped, so they have to be in place before the
           // first room renders rather than fetched when one is opened.
           ModerationService.instance.load();
@@ -273,6 +288,7 @@ class _AuthRefresh extends ChangeNotifier {
           ProfileService.instance.clear();
           EntitlementService.instance.clear();
           RewardsService.instance.clear();
+          PairService.instance.clear();
           RoomService.instance.clear();
           ModerationService.instance.clear();
         default:

@@ -16,6 +16,9 @@ import 'package:synctogether/analytics.dart';
 import 'package:synctogether/app_router.dart';
 import 'package:synctogether/app_version.dart';
 import 'package:synctogether/auth/auth_service.dart';
+import 'package:synctogether/pairing/pair_lobby.dart';
+import 'package:synctogether/pairing/pair_models.dart';
+import 'package:synctogether/pairing/pair_service.dart';
 import 'package:synctogether/diagnostics.dart';
 import 'package:synctogether/env.dart';
 import 'package:synctogether/profile/entitlement_service.dart';
@@ -115,6 +118,8 @@ class _LobbyScreenState extends State<LobbyScreen> with WindowListener {
       }),
     );
     unawaited(RewardsService.instance.load());
+    unawaited(PairService.instance.load());
+    unawaited(PairService.instance.syncTimezone());
     unawaited(_loadMyRooms());
     _myRoomsPollTimer = Timer.periodic(kMyRoomsPollInterval, (_) {
       if (mounted && RoomService.instance.currentRoom == null && _appIsVisible()) {
@@ -200,6 +205,13 @@ class _LobbyScreenState extends State<LobbyScreen> with WindowListener {
 
   /// Invite deep link received before sign-in lands here after login.
   Future<void> _consumePendingJoin() async {
+    final pairCode = PairService.instance.pendingPairCode;
+    if (pairCode != null && mounted) {
+      PairService.instance.pendingPairCode = null;
+      trace('consuming a parked pair invite', category: 'deeplink');
+      context.go('/lobby/pair/accept/$pairCode');
+      return;
+    }
     final code = RoomService.instance.pendingJoinCode;
     if (code == null || !mounted) return;
     RoomService.instance.pendingJoinCode = null;
@@ -498,6 +510,9 @@ class _LobbyScreenState extends State<LobbyScreen> with WindowListener {
     } catch (e, s) {
       final failure = RoomErrorCode.fromError(e);
       if (failure == .unknown) reportNonFatal(e, s, during: 'joining a room by code');
+      // A pair code is typed into the same box: when it is not a room, it may be
+      // somebody asking to pair, so show that instead of "no room with that code".
+      if (failure == .roomNotFound && await _openPairInvite(code)) return;
       if (mounted) {
         _snack(failure.message);
         _codeKey.currentState?.clear();
@@ -510,6 +525,21 @@ class _LobbyScreenState extends State<LobbyScreen> with WindowListener {
       }
     } finally {
       if (mounted) setState(() => _joining = false);
+    }
+  }
+
+  /// Whether [code] is a live pair invite, opening its accept screen if so.
+  /// Quiet on every failure: this only ever runs after the room lookup already
+  /// failed, and its answer is the same "no room" message either way.
+  Future<bool> _openPairInvite(String code) async {
+    if (!PairService.instance.isSignedInAccount) return false;
+    try {
+      final invite = await PairService.instance.previewInvite(code);
+      if (!mounted || invite.status != PairInviteStatus.pending) return false;
+      context.go('/lobby/pair/accept/${invite.code}');
+      return true;
+    } catch (_) {
+      return false;
     }
   }
 
@@ -1247,6 +1277,10 @@ class _LobbyScreenState extends State<LobbyScreen> with WindowListener {
           ),
         ),
         SizedBox(height: compact ? 22 : 36),
+        _intro(
+          delay: const Duration(milliseconds: 90),
+          child: PairLobbySection(compact: compact),
+        ),
         if (compact)
           _intro(delay: const Duration(milliseconds: 120), child: _compactActions())
         else ...[

@@ -8,7 +8,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../rewards/rewards_models.dart';
 import 'room_models.dart';
 
-enum RoomJoinSource { code, deeplink, clipboard }
+enum RoomJoinSource { code, deeplink, clipboard, pair }
 
 class RoomService extends ChangeNotifier {
   RoomService();

@@ -44,13 +44,14 @@ jobs:
           flutter-version: '3.44.8'
           cache: true
 
+      # Exact key, no restore-keys fallback, and the runner image in it: build/windows holds
+      # CMakeCache.txt with absolute paths (the JDK the jni plugin links, among others), so a
+      # cache restored from an older image points at files that are gone (1.15.0: jvm.lib).
       - name: Cache Windows build outputs
         uses: actions/cache@v4
         with:
           path: build/windows
-          key: ${{ runner.os }}-flutter-build-store-${{ hashFiles('pubspec.lock', 'third_party/**') }}
-          restore-keys: |
-            ${{ runner.os }}-flutter-build-store-
+          key: ${{ runner.os }}-flutter-build-store-${{ env.ImageVersion }}-${{ hashFiles('pubspec.lock', 'third_party/**') }}
 
       - name: Extract version from pubspec.yaml
         id: version
@@ -67,34 +68,12 @@ jobs:
           restore-keys: |
             pub-${{ runner.os }}-
 
-      # The jni plugin (a transitive dependency) compiles against jni.h, which only a
-      # JDK ships. The runner image stopped exposing one (20261103), so name one.
-      - name: Set up Java (jni headers)
+      # The jni plugin (a transitive dependency) links a JDK; pin one so FindJNI is deterministic.
+      - name: Set up Java (jni plugin)
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
-          # The image's pre-cached JDK was missing lib\jvm.lib; take a complete one.
-          check-latest: true
-
-      # setup-java alone was not enough: CMake's FindJNI still left jni.h out of the
-      # jni plugin's compile line on the new image. cl.exe reads CL on every call.
-      - name: Put the JDK headers on the compiler's include path
-        shell: pwsh
-        run: |
-          $inc = Join-Path $env:JAVA_HOME 'include'
-          "CL=/I$inc /I$inc\win32" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
-          # link.exe reads LIB the same way; jvm.lib sits in the JDK's lib folder.
-          "LIB=$env:LIB;$env:JAVA_HOME\lib" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
-          # CMake's FindJNI picked the image's own JDK (17.0.20-101), whose jvm.lib is
-          # missing, over the one above. Leave only the complete JDK to be found.
-          $keep = (Resolve-Path $env:JAVA_HOME).Path
-          Get-ChildItem 'C:\hostedtoolcache\windows' -Directory -Filter 'Java_*' -ErrorAction SilentlyContinue |
-            ForEach-Object { Get-ChildItem $_.FullName -Directory } |
-            Where-Object { -not $keep.StartsWith($_.FullName) } |
-            ForEach-Object { Write-Host "removing stale JDK $($_.FullName)"; Remove-Item $_.FullName -Recurse -Force }
-          Write-Host "JAVA_HOME=$env:JAVA_HOME"
-          Get-ChildItem $env:JAVA_HOME -Recurse -Include jni.h,jvm.lib | ForEach-Object { Write-Host $_.FullName }
 
       - name: Install dependencies
         run: |

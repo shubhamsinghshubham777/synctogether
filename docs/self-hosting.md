@@ -220,9 +220,9 @@ Auth config is **not** part of `supabase db push` - a migrated database with un-
 > **Do not push `supabase/config.toml` as it is.** It is the official deployment's config: redirect allow-list for `synctogether.app`, Turnstile on, Google and Apple on with the official bundle ids. Generate your own copy instead (the tracked file is left alone; output goes to the gitignored `.selfhost/`):
 > ```bash
 > ./scripts/selfhost-config.sh https://watch.example.com [--no-captcha] [--google] [--apple]
-> supabase config push --workdir .selfhost --project-ref <your-ref>
+> (cd .selfhost && supabase config push --project-ref <your-ref>)   # run it from inside .selfhost; --workdir is ignored by config push
 > ```
-> `--no-captcha` skips Turnstile, `--google` / `--apple` keep those providers (both are off by default). On a self-hosted Docker stack `config push` does not apply: run `./scripts/selfhost-config.sh https://watch.example.com --gotrue` and paste the printed `GOTRUE_*` variables into that stack's `.env`.
+> Create `supabase/.env` first (it supplies the OAuth and captcha secrets; the script links it in, and warns if it is missing, because a push without it sends empty secrets). `--no-captcha` skips Turnstile, `--google` / `--apple` keep those providers (both are off by default). On a self-hosted Docker stack `config push` does not apply: run `./scripts/selfhost-config.sh https://watch.example.com --gotrue` and paste the printed `GOTRUE_*` variables into that stack's `.env`.
 
 The numbered list below describes what the settings mean; the script already applies the site URL, redirects, captcha and provider toggles.
 

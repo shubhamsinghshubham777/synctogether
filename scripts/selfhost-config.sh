@@ -8,12 +8,14 @@
 # tracked file alone, then you push that copy:
 #
 #   ./scripts/selfhost-config.sh https://watch.example.com [--no-captcha] [--google] [--apple]
-#   supabase config push --workdir .selfhost --project-ref <your-ref>
+#   (cd .selfhost && supabase config push --project-ref <your-ref>)
 #
 # Flags:
 #   --no-captcha  turn Cloudflare Turnstile off (guest sign-in needs no token)
 #   --google      keep Google OAuth on (needs SUPABASE_AUTH_EXTERNAL_GOOGLE_* in supabase/.env)
 #   --apple       keep Apple Sign-In on (edit client_id in the output to YOUR ids first)
+#   --site-only   change ONLY site_url and leave every other setting as in config.toml
+#                 (what the official project uses: its redirects and providers stay as they are)
 #
 # Running the full Supabase Docker stack instead? `config push` does not apply
 # there - add --gotrue to print the equivalent GOTRUE_* variables for its .env.
@@ -28,12 +30,14 @@ CAPTCHA=true
 GOOGLE=false
 APPLE=false
 GOTRUE=false
+SITE_ONLY=false
 for arg in "$@"; do
   case "$arg" in
     --no-captcha) CAPTCHA=false ;;
     --google) GOOGLE=true ;;
     --apple) APPLE=true ;;
     --gotrue) GOTRUE=true ;;
+    --site-only) SITE_ONLY=true ;;
     -h|--help) sed -n '2,22p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
     -*) echo "Unknown flag: $arg" >&2; exit 1 ;;
     *) SITE_URL="${arg%/}" ;;
@@ -65,10 +69,18 @@ mkdir -p "$OUT/supabase"
 cp "$REPO_ROOT/supabase/config.toml" "$OUT/supabase/config.toml"
 # content_path entries are resolved against the workdir.
 ln -s "$REPO_ROOT/supabase/templates" "$OUT/supabase/templates"
+# config.toml reads its secrets as env(...) from <project>/supabase/.env. Without this
+# the CLI resolves them to EMPTY and pushes empty OAuth/captcha secrets to the project.
+if [ -f "$REPO_ROOT/supabase/.env" ]; then
+  ln -s "$REPO_ROOT/supabase/.env" "$OUT/supabase/.env"
+else
+  echo "WARNING: supabase/.env not found - Google, Apple and captcha secrets will be pushed EMPTY." >&2
+  echo "         Create it from supabase/.env.example first, or turn those providers off." >&2
+fi
 
-python3 -I - "$OUT/supabase/config.toml" "$SITE_URL" "$CAPTCHA" "$GOOGLE" "$APPLE" <<'PY'
+python3 -I - "$OUT/supabase/config.toml" "$SITE_URL" "$CAPTCHA" "$GOOGLE" "$APPLE" "$SITE_ONLY" <<'PY'
 import re, sys
-path, site, captcha, google, apple = sys.argv[1:]
+path, site, captcha, google, apple, site_only = sys.argv[1:]
 s = open(path).read()
 
 def set_in_section(text, section, key, value):
@@ -83,6 +95,9 @@ def set_in_section(text, section, key, value):
 
 s, n = re.subn(r'^site_url\s*=.*$', 'site_url = "%s"' % site, s, count=1, flags=re.M)
 assert n == 1, 'site_url not found'
+if site_only == 'true':
+    open(path, 'w').write(s)
+    sys.exit(0)
 s, n = re.subn(
     r'^additional_redirect_urls\s*=\s*\[.*?\]',
     'additional_redirect_urls = [\n  "synctogether://auth-callback",\n  "synctogether://join/*",\n  "%s/**",\n]' % site,
@@ -96,10 +111,9 @@ PY
 
 cat <<EOF
 Wrote $OUT/supabase/config.toml
-  site_url, redirects : $SITE_URL
-  Turnstile captcha   : $CAPTCHA
-  Google / Apple      : $GOOGLE / $APPLE
+  site_url            : $SITE_URL
+$( [ "$SITE_ONLY" = true ] && echo "  everything else     : unchanged from supabase/config.toml" || printf "  redirects           : scheme links + %s/**\n  Turnstile captcha   : %s\n  Google / Apple      : %s / %s\n" "$SITE_URL" "$CAPTCHA" "$GOOGLE" "$APPLE" )
 
 Next:
-  supabase config push --workdir .selfhost --project-ref <your-ref>
+  (cd .selfhost && supabase config push --project-ref <your-ref>)
 EOF

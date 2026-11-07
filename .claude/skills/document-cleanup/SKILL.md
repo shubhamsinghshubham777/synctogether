@@ -39,7 +39,7 @@ Check each concrete claim: commands, paths, ports, env var names, defaults, vers
 | LiveKit self-host config | `docker-compose.selfhost.yml`, `docker/livekit.yaml` |
 | Things that ship switched off (for example `app_settings.r2_cleanup.endpoint_url`) | the seeding migration |
 | Tier limits and feature toggles | seeds in `supabase/migrations/*`, compared with `docs/feature-toggles.md` |
-| Hardcoded production URLs (`synctogether.app`) | `grep -rn "synctogether.app" lib` - self-hosters must be told about any that aren't configurable |
+| Operator-specific values in code (hostnames, support address, project refs) | `grep -rnE "synctogether\.app" lib scripts supabase/templates` must find nothing in `lib/` (the client takes `SITE_URL`/`SUPPORT_EMAIL` as defines); the only allowed hits elsewhere are `supabase/config.toml` and `deploy/media-edge/wrangler.toml`, which the guide names as the official deployment's files |
 | Scripts and their subcommands | `scripts/*.sh` headers |
 | Supabase CLI commands | real CLI subcommands only (for example, there is no `supabase functions logs`) |
 | Links | every relative link must resolve from the doc's own directory; no `file:///` links |

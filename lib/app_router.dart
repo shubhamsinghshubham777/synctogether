@@ -9,9 +9,16 @@ import 'package:supabase_flutter/supabase_flutter.dart' show AuthChangeEvent;
 
 import 'auth/auth_service.dart';
 import 'auth/login_screen.dart';
+import 'pairing/date_night_screen.dart';
+import 'pairing/history_screen.dart';
+import 'pairing/notification_settings_screen.dart';
 import 'pairing/pair_accept_screen.dart';
 import 'pairing/pair_screen.dart';
 import 'pairing/pair_service.dart';
+import 'pairing/pick_tonight_screen.dart';
+import 'pairing/push_service.dart';
+import 'pairing/watchlist_screen.dart';
+import 'pairing/year_recap_screen.dart';
 import 'profile/banned_screen.dart';
 import 'profile/entitlement_service.dart';
 import 'profile/profile_screen.dart';
@@ -119,6 +126,30 @@ GoRouter buildRouter([Player? player]) {
                 path: 'accept/:code',
                 pageBuilder: (context, state) =>
                     _detail(state, PairAcceptScreen(code: state.pathParameters['code']!)),
+              ),
+              GoRoute(
+                path: 'watchlist',
+                pageBuilder: (context, state) => _detail(state, const WatchlistScreen()),
+              ),
+              GoRoute(
+                path: 'pick',
+                pageBuilder: (context, state) => _detail(state, const PickTonightScreen()),
+              ),
+              GoRoute(
+                path: 'nights',
+                pageBuilder: (context, state) => _detail(state, const DateNightScreen()),
+              ),
+              GoRoute(
+                path: 'history',
+                pageBuilder: (context, state) => _detail(state, const HistoryScreen()),
+              ),
+              GoRoute(
+                path: 'year',
+                pageBuilder: (context, state) => _detail(state, const YearRecapScreen()),
+              ),
+              GoRoute(
+                path: 'notifications',
+                pageBuilder: (context, state) => _detail(state, const NotificationSettingsScreen()),
               ),
             ],
           ),
@@ -281,6 +312,7 @@ class _AuthRefresh extends ChangeNotifier {
           EntitlementService.instance.load();
           RewardsService.instance.load();
           PairService.instance.load();
+          PushService.instance.onSignedIn();
           // Blocks are account-scoped, so they have to be in place before the
           // first room renders rather than fetched when one is opened.
           ModerationService.instance.load();

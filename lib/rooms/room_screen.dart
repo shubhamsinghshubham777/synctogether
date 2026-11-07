@@ -23,6 +23,8 @@ import 'package:synctogether/av/background_call.dart';
 import 'package:synctogether/av/livekit_service.dart';
 import 'package:synctogether/av/video_trial.dart';
 import 'package:synctogether/diagnostics.dart';
+import 'package:synctogether/pairing/pair_logic.dart';
+import 'package:synctogether/pairing/pair_service.dart';
 import 'package:synctogether/platform.dart';
 import 'package:synctogether/player/local_video.dart';
 import 'package:synctogether/player/local_video_chooser.dart';
@@ -503,6 +505,10 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
   Map<String, RecapPerson> _recapPeople = const {};
   String _recapSelfId = '';
   bool _firstPresenceSeen = false;
+
+  /// Time the two partners spent in Our Room together, for the pair's history
+  /// and streak. Only ever ticks in a room that belongs to a pair.
+  final _together = TogetherClock();
   HeartbeatOutcome? _lastHeartbeatOutcome;
 
   MemberTally _tally(String userId, String displayName) {
@@ -697,6 +703,8 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     final start = _sessionStart;
     if (_sessionReported || start == null) return;
     _sessionReported = true;
+    // Presence still says who was here: this is the last moment it does.
+    _logTogether();
     // Captured here, not at the exit: this is the one point both `_leaveRoom`
     // and `_evictSelf` funnel through *before* the sync channel is torn down,
     // so it is the last moment presence still says who was in the room.
@@ -710,6 +718,40 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
       'facecam_used': _facecamUsed,
       'room_id': widget.roomId,
     });
+  }
+
+  /// Feeds the together-clock from who is present. Our Room only: in any other
+  /// room "together" means nothing. When the partner drops out, what has been
+  /// accrued so far is written straight away - so a closed laptop or a killed app
+  /// costs at most the minutes since, not the whole night. The server keeps the
+  /// longest report for a sitting, so the final write on exit simply supersedes.
+  void _trackTogether(List<PresentMember> present) {
+    if (_room?.isOurRoom != true) return;
+    final partnerId = PairService.instance.pair?.partner.id;
+    final myId = AuthService.instance.user?.id;
+    if (partnerId == null || myId == null) return;
+    final ids = {for (final m in present) m.userId};
+    final together = ids.contains(partnerId) && ids.contains(myId);
+    final wasTogether = _togetherNow;
+    _together.update(DateTime.now(), together: together);
+    _togetherNow = together;
+    if (wasTogether && !together) _logTogether();
+  }
+
+  bool _togetherNow = false;
+
+  void _logTogether() {
+    final startedAt = _together.startedAt;
+    if (_room?.isOurRoom != true || startedAt == null) return;
+    final total = _together.total(DateTime.now());
+    if (!isLoggableSitting(total)) return;
+    unawaited(
+      PairService.instance.logSession(
+        title: sittingTitle(_canonicalMedia.name),
+        startedAt: startedAt,
+        together: total,
+      ),
+    );
   }
 
   void _captureRecap(Duration length) {
@@ -1467,6 +1509,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     final sync = _sync;
     final prevCount = _present.length;
     setState(() => _present = present);
+    _trackTogether(present);
     final av = _av;
     if (av != null) {
       if (prevCount >= 2 && present.length < 2) {

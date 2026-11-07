@@ -3,6 +3,7 @@ import UIKit
 import AVFoundation
 import PhotosUI
 import UniformTypeIdentifiers
+import UserNotifications
 
 @main
 @objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
@@ -10,7 +11,47 @@ import UniformTypeIdentifiers
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
+    // The delegate has to be in place before launch finishes, or the tap that
+    // launched the app from a notification is delivered to nobody.
+    UNUserNotificationCenter.current().delegate = self
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
+  }
+
+  override func application(
+    _ application: UIApplication,
+    didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data
+  ) {
+    PushChannel.deliver(token: deviceToken)
+    super.application(application, didRegisterForRemoteNotificationsWithDeviceToken: deviceToken)
+  }
+
+  override func application(
+    _ application: UIApplication,
+    didFailToRegisterForRemoteNotificationsWithError error: Error
+  ) {
+    // No token is a normal outcome (no network, simulator without a profile).
+    // The Dart side keeps working without push.
+    NSLog("push registration failed: \(error.localizedDescription)")
+    super.application(application, didFailToRegisterForRemoteNotificationsWithError: error)
+  }
+
+  // A notification arriving while the app is open is still shown: a call or a
+  // reminder is the thing the person asked to hear about.
+  override func userNotificationCenter(
+    _ center: UNUserNotificationCenter,
+    willPresent notification: UNNotification,
+    withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
+  ) {
+    completionHandler([.banner, .list, .sound])
+  }
+
+  override func userNotificationCenter(
+    _ center: UNUserNotificationCenter,
+    didReceive response: UNNotificationResponse,
+    withCompletionHandler completionHandler: @escaping () -> Void
+  ) {
+    PushChannel.tapped(route: response.notification.request.content.userInfo["route"] as? String)
+    completionHandler()
   }
 
   func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
@@ -29,6 +70,9 @@ import UniformTypeIdentifiers
     }
     if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "DisplayRegionsChannel") {
       DisplayRegionsChannel.register(with: registrar.messenger())
+    }
+    if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "PushChannel") {
+      PushChannel.register(with: registrar.messenger())
     }
   }
 }
@@ -420,5 +464,108 @@ final class RegionProbeView: UIView {
   override func didMoveToWindow() {
     super.didMoveToWindow()
     DisplayRegionsChannel.push()
+  }
+}
+
+/// Push notifications over APNs - directly, with no third-party SDK. The server
+/// (`push-dispatch`) holds the key; this only registers the device and hands the
+/// token to Dart. Dart side: lib/pairing/push_service.dart (channel
+/// `app.synctogether/push`).
+///
+/// Nothing here prompts by itself. `permission` only reads; `request` is the one
+/// call that shows the system alert, and Dart only makes it because a person just
+/// turned a notification on.
+///
+/// A debug build's token only works on Apple's sandbox gateway and a release
+/// build's only on production, so the build configuration decides which one the
+/// server is told to use.
+enum PushChannel {
+  private static var channel: FlutterMethodChannel?
+  private static var lastToken: String?
+  // A tap that arrived before Dart was listening: the one that launched the app.
+  private static var pendingRoute: String?
+  private static var dartReady = false
+
+  #if DEBUG
+    private static let environment = "sandbox"
+  #else
+    private static let environment = "production"
+  #endif
+
+  static func register(with messenger: FlutterBinaryMessenger) {
+    let channel = FlutterMethodChannel(name: "app.synctogether/push", binaryMessenger: messenger)
+    self.channel = channel
+    channel.setMethodCallHandler { call, result in
+      switch call.method {
+      case "configure":
+        dartReady = true
+        result(nil)
+      case "permission":
+        status { granted in
+          // Already allowed: make sure the token callback fires this launch.
+          if granted == "granted" { registerForRemote() }
+          result(granted)
+        }
+      case "request":
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { ok, _ in
+          DispatchQueue.main.async {
+            if ok { registerForRemote() }
+            result(ok ? "granted" : "denied")
+          }
+        }
+      case "token":
+        guard let token = lastToken else { return result(nil) }
+        result(["token": token, "environment": environment])
+      case "launchRoute":
+        let route = pendingRoute
+        pendingRoute = nil
+        result(route)
+      case "openSettings":
+        // The notifications page itself is iOS 16+; older systems get the app's
+        // own settings page, which has the same switch one tap further in.
+        let target: String
+        if #available(iOS 16.0, *) {
+          target = UIApplication.openNotificationSettingsURLString
+        } else {
+          target = UIApplication.openSettingsURLString
+        }
+        if let url = URL(string: target) {
+          UIApplication.shared.open(url)
+        }
+        result(nil)
+      default:
+        result(FlutterMethodNotImplemented)
+      }
+    }
+  }
+
+  private static func status(_ done: @escaping (String) -> Void) {
+    UNUserNotificationCenter.current().getNotificationSettings { settings in
+      let value: String
+      switch settings.authorizationStatus {
+      case .authorized, .provisional, .ephemeral: value = "granted"
+      case .denied: value = "denied"
+      default: value = "unknown"
+      }
+      DispatchQueue.main.async { done(value) }
+    }
+  }
+
+  private static func registerForRemote() {
+    UIApplication.shared.registerForRemoteNotifications()
+  }
+
+  static func deliver(token data: Data) {
+    let token = data.map { String(format: "%02x", $0) }.joined()
+    lastToken = token
+    channel?.invokeMethod("token", arguments: ["token": token, "environment": environment])
+  }
+
+  static func tapped(route: String?) {
+    if dartReady, let channel = channel {
+      channel.invokeMethod("tap", arguments: ["route": route as Any])
+    } else {
+      pendingRoute = route
+    }
   }
 }

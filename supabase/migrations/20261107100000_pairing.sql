@@ -880,7 +880,6 @@ declare
   v_limits public.tier_limits;
   v_av text;
   v_code text;
-  v_has_host boolean;
   v_alphabet constant text := 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   v_minutes constant int := 240;
 begin
@@ -932,11 +931,12 @@ begin
     returning * into v_room;
   end if;
 
-  select exists (select 1 from public.room_members
-                 where room_id = v_room.id and role = 'host') into v_has_host;
+  -- Partners are equals here: both are hosts, so either can choose what plays.
+  -- Hosts cannot kick one another (kick_member refuses), so neither can remove
+  -- the other, and succession on leave still has a host to fall back on.
   insert into public.room_members (room_id, user_id, role)
-  values (v_room.id, v_uid, case when v_has_host then 'member' else 'host' end)
-  on conflict (room_id, user_id) do nothing;
+  values (v_room.id, v_uid, 'host')
+  on conflict (room_id, user_id) do update set role = 'host';
 
   return v_room;
 end $$;

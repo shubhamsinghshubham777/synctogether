@@ -12,6 +12,7 @@ import 'package:synctogether/rooms/room_service.dart';
 
 import 'pair_logic.dart';
 import 'pair_models.dart';
+import 'pair_pick.dart';
 
 /// Everything about "your person": the pair, its invite, Our Room, the shared
 /// watchlist, date nights and what you watched together.
@@ -98,6 +99,18 @@ class PairService extends ChangeNotifier {
 
   /// Answers to "Pick tonight" from the partner, as they arrive.
   Stream<Map<String, dynamic>> get partnerPicks => _pickController.stream;
+
+  /// Their latest answers and when they arrived, kept so that the person who
+  /// finishes second still sees them. A broadcast missed while nobody listened
+  /// is gone; this is what makes "Sam already finished" work.
+  ({List<String> yes, DateTime at})? _lastPartnerPicks;
+
+  /// Their answers if they are recent enough to still mean tonight.
+  List<String>? get freshPartnerPicks {
+    final p = _lastPartnerPicks;
+    if (p == null || !picksAreFresh(p.at, DateTime.now())) return null;
+    return p.yes;
+  }
 
   String? get _uid => _clientOrNull?.auth.currentUser?.id;
   bool get isSignedInAccount {
@@ -288,7 +301,12 @@ class PairService extends ChangeNotifier {
         ..onBroadcast(
           event: 'pick',
           callback: (payload) {
-            if (payload['from'] != uid) _pickController.add(payload);
+            if (payload['from'] == uid) return;
+            _lastPartnerPicks = (
+              yes: [for (final id in (payload['yes'] as List? ?? const [])) '$id'],
+              at: DateTime.now(),
+            );
+            _pickController.add(payload);
           },
         )
         ..subscribe((status, error) {
@@ -342,6 +360,7 @@ class PairService extends ChangeNotifier {
     _history = PairHistory.empty;
     _loaded = false;
     _dismissed.clear();
+    _lastPartnerPicks = null;
     pendingPairCode = null;
     notifyListeners();
   }
@@ -476,6 +495,17 @@ class PairService extends ChangeNotifier {
     } catch (e, s) {
       _reportUnexpected(e, s, 'opening Our Room');
       rethrow;
+    }
+  }
+
+  /// Loads a YouTube link into Our Room. Both partners are hosts there, so either
+  /// may. Quiet on failure: the room is open either way and the source picker is
+  /// one tap away.
+  Future<void> setOurRoomYouTube(String roomId, String url) async {
+    try {
+      await RoomService.instance.setRoomMedia(roomId: roomId, kind: .youtube, url: url);
+    } catch (e, s) {
+      reportNonFatal(e, s, during: 'loading a watchlist link into Our Room');
     }
   }
 

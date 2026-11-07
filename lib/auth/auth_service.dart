@@ -11,6 +11,7 @@ import 'package:synctogether/player/subtitles/subtitle_prefs.dart';
 import 'package:synctogether/analytics.dart';
 import 'package:synctogether/diagnostics.dart';
 import 'package:synctogether/env.dart';
+import 'package:synctogether/pairing/push_service.dart';
 import 'package:synctogether/profile/entitlement_service.dart';
 import 'package:synctogether/rooms/emoji/emoji_prefs.dart';
 import 'package:synctogether/rooms/local_media_store.dart';
@@ -341,6 +342,12 @@ class AuthService {
   }
 
   Future<void> signOut() async {
+    // While the session still exists: once it is gone the server can no longer
+    // be told that this device should stop receiving this account's pushes.
+    // Bounded, so a dead network cannot hold the sign-out hostage.
+    try {
+      await PushService.instance.forgetDevice().timeout(const Duration(seconds: 3));
+    } catch (_) {}
     try {
       await _client.auth.signOut();
     } catch (e) {

@@ -18,6 +18,7 @@ import 'package:synctogether/mock/store_capture.dart';
 import 'package:synctogether/pairing/pair_links.dart';
 import 'package:synctogether/pairing/pair_models.dart';
 import 'package:synctogether/pairing/pair_service.dart';
+import 'package:synctogether/pairing/push_service.dart';
 import 'package:synctogether/platform.dart';
 import 'package:synctogether/player/photo_picker.dart' show sweepPhotoExports;
 import 'package:synctogether/profile/apple_iap_service.dart';
@@ -149,6 +150,7 @@ class _MainAppState extends State<MainApp> with WidgetsBindingObserver {
   final _appLinks = AppLinks();
   StreamSubscription<Uri>? _linkSub;
   StreamSubscription<String>? _authFailureSub;
+  StreamSubscription<PushTarget?>? _pushTapSub;
 
   @override
   void initState() {
@@ -161,6 +163,13 @@ class _MainAppState extends State<MainApp> with WidgetsBindingObserver {
       (message) => showPTSnackVia(_scaffoldMessengerKey.currentState, message, kind: .error),
     );
     _linkSub = _appLinks.uriLinkStream.listen((uri) => _onDeepLink(uri, source: 'stream'));
+    // A tapped notification: Apple, Android and the Windows toast all arrive here
+    // as a route, through the same target mapping as `synctogether://push`.
+    _pushTapSub = PushService.instance.taps.listen(_followPushTarget);
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final launch = await PushService.instance.takeLaunchTarget();
+      if (launch != null) await _followPushTarget(launch);
+    });
     // The native side replays the launch URL only to the FIRST stream
     // subscriber - which is supabase_flutter (it subscribes inside
     // Supabase.initialize, before runApp). Cold-start invite links must
@@ -309,6 +318,7 @@ class _MainAppState extends State<MainApp> with WidgetsBindingObserver {
     WidgetsBinding.instance.removeObserver(this);
     _linkSub?.cancel();
     _authFailureSub?.cancel();
+    _pushTapSub?.cancel();
     super.dispose();
   }
 

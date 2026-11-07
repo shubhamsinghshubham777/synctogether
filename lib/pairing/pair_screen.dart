@@ -21,7 +21,9 @@ import 'pair_logic.dart';
 import 'pair_models.dart';
 import 'pair_page.dart';
 import 'pair_service.dart';
+import 'pair_share.dart';
 import 'pair_widgets.dart';
+import 'push_service.dart';
 
 /// "Your person": pair up, or - once paired - the hub for everything the two of
 /// you share. One route, three states: a guest sees why pairing needs an
@@ -66,14 +68,22 @@ class _PairScreenState extends State<PairScreen> {
     }
   }
 
+  String _message(PairInvite invite) =>
+      "Come watch with me on SyncTogether: ${pairInviteLink(invite.code)}\n"
+      "Or open the app and enter ${invite.code}.";
+
+  /// The native share sheet - Messages, WhatsApp, whatever the two of you use.
+  /// Where there is none, the same message is copied instead.
+  Future<void> _share(PairInvite invite, BuildContext buttonContext) async {
+    final shared = await shareText(buttonContext, _message(invite), subject: 'Pair with me');
+    Analytics.instance.track('pair_invite_shared', {'via': 'share'});
+    if (shared || !mounted) return;
+    await Clipboard.setData(ClipboardData(text: _message(invite)));
+    if (mounted) showPTSnack(context, 'Copied. Paste it to your person.', kind: .success);
+  }
+
   Future<void> _copyLink(PairInvite invite) async {
-    await Clipboard.setData(
-      ClipboardData(
-        text:
-            "Come watch with me on SyncTogether: ${pairInviteLink(invite.code)}\n"
-            "Or open the app and enter ${invite.code}.",
-      ),
-    );
+    await Clipboard.setData(ClipboardData(text: _message(invite)));
     Analytics.instance.track('pair_invite_shared', {'via': 'link'});
     if (mounted) showPTSnack(context, 'Copied. Paste it to your person.', kind: .success);
   }
@@ -145,7 +155,8 @@ class _PairScreenState extends State<PairScreen> {
         return _InviteFlow(
           invite: svc.sentInvite,
           busy: _creating,
-          onShare: _copyLink,
+          onShare: _share,
+          onCopyLink: _copyLink,
           onCopyCode: _copyCode,
           onCancel: () async {
             await PairService.instance.cancelInvite();
@@ -213,6 +224,7 @@ class _InviteFlow extends StatelessWidget {
     required this.busy,
     required this.loading,
     required this.onShare,
+    required this.onCopyLink,
     required this.onCopyCode,
     required this.onCancel,
   });
@@ -220,7 +232,8 @@ class _InviteFlow extends StatelessWidget {
   final PairInvite? invite;
   final bool busy;
   final bool loading;
-  final void Function(PairInvite) onShare;
+  final void Function(PairInvite, BuildContext) onShare;
+  final void Function(PairInvite) onCopyLink;
   final void Function(PairInvite) onCopyCode;
   final VoidCallback onCancel;
 
@@ -284,16 +297,33 @@ class _InviteFlow extends StatelessWidget {
               ),
             ),
           ),
-          PTButton(
-            label: 'Copy invite link',
-            icon: BoothIcons.share,
-            onPressed: () => onShare(inv),
+          Builder(
+            builder: (buttonContext) => PTButton(
+              label: 'Share invite',
+              icon: BoothIcons.share,
+              onPressed: () => onShare(inv, buttonContext),
+            ),
           ),
-          PTButton(
-            label: 'Copy code',
-            variant: .secondary,
-            icon: BoothIcons.link,
-            onPressed: () => onCopyCode(inv),
+          Row(
+            spacing: 10,
+            children: [
+              Expanded(
+                child: PTButton(
+                  label: 'Copy link',
+                  variant: .secondary,
+                  icon: BoothIcons.link,
+                  onPressed: () => onCopyLink(inv),
+                ),
+              ),
+              Expanded(
+                child: PTButton(
+                  label: 'Copy code',
+                  variant: .secondary,
+                  icon: BoothIcons.file,
+                  onPressed: () => onCopyCode(inv),
+                ),
+              ),
+            ],
           ),
           Row(
             spacing: 10,
@@ -396,6 +426,37 @@ class _Hub extends StatelessWidget {
               ),
             ],
           ),
+        ),
+        ListenableBuilder(
+          listenable: PushService.instance,
+          builder: (context, _) {
+            final push = PushService.instance;
+            // Asked here, beside the person it is for, rather than at launch.
+            if (!push.supported || push.enabled) return const SizedBox.shrink();
+            return PairPanel(
+              padding: const EdgeInsets.all(14),
+              child: Row(
+                spacing: 12,
+                children: [
+                  const Icon(BoothIcons.bell, size: 20, color: PTColors.primary),
+                  Expanded(
+                    child: Text(
+                      'Hear it when ${partner.displayName.split(' ').first} calls.',
+                      style: PTText.body.copyWith(
+                        fontSize: 14,
+                        color: PTColors.fgDim,
+                        height: 1.35,
+                      ),
+                    ),
+                  ),
+                  DialogTextButton(
+                    label: 'Turn on',
+                    onPressed: () => openPage(context, '/lobby/pair/notifications'),
+                  ),
+                ],
+              ),
+            );
+          },
         ),
         const SizedBox(height: 4),
         const PairKicker('Shared'),

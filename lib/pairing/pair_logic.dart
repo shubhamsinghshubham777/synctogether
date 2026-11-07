@@ -370,3 +370,63 @@ String buildDateNightIcs({
 /// while the new year has nothing in it yet.
 int recapYear(DateTime now, {required bool thisYearHasNights}) =>
     now.month == 1 && !thisYearHasNights ? now.year - 1 : now.year;
+
+/// One CSV cell: quoted when it has a comma, quote or line break, quotes
+/// doubled. A cell that would be read as a formula by a spreadsheet (`=`, `+`,
+/// `-`, `@` first) is prefixed with an apostrophe, since a film title is typed
+/// by a person and this file is opened in Excel.
+String _csvCell(String v) {
+  var s = v;
+  if (s.isNotEmpty && '=+-@'.contains(s[0])) s = "'$s";
+  if (s.contains(RegExp(r'[",\r\n]'))) s = '"${s.replaceAll('"', '""')}"';
+  return s;
+}
+
+/// The export of everything you watched together, for anyone, on any plan.
+String historyToCsv(Iterable<PairSession> sessions) {
+  final rows = <String>['title,started_at_utc,minutes'];
+  for (final s in sessions) {
+    rows.add(
+      [
+        _csvCell(s.title ?? ''),
+        s.startedAt.toUtc().toIso8601String(),
+        (s.seconds / 60).round().toString(),
+      ].join(','),
+    );
+  }
+  return '${rows.join('\r\n')}\r\n';
+}
+
+/// "November 2026"
+String monthHeading(DateTime t) {
+  const names = [
+    'January',
+    'February',
+    'March',
+    'April',
+    'May',
+    'June',
+    'July',
+    'August',
+    'September',
+    'October',
+    'November',
+    'December',
+  ];
+  return '${names[t.month - 1]} ${t.year}';
+}
+
+/// What to call a sitting in the history: the file's name without its extension
+/// (`Spirited.Away.2001.mkv` -> `Spirited Away 2001`), or null when there is no
+/// name worth keeping. Only ever the basename - never a path.
+String? sittingTitle(String? mediaName) {
+  if (mediaName == null) return null;
+  var name = mediaName.split(RegExp(r'[\\/]')).last.trim();
+  final dot = name.lastIndexOf('.');
+  // A real extension is short and has no spaces; "Mr. Robot" does not lose its end.
+  if (dot > 0 && name.length - dot <= 5 && !name.substring(dot).contains(' ')) {
+    name = name.substring(0, dot);
+  }
+  name = name.replaceAll(RegExp(r'[._]+'), ' ').replaceAll(RegExp(r'\s+'), ' ').trim();
+  return name.isEmpty ? null : name;
+}

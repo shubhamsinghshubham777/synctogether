@@ -83,6 +83,7 @@ class Room {
     this.mediaSharingLevel = 'none',
     this.videoTrialEndsAt,
     this.isBanned = false,
+    this.pairId,
   });
 
   final String id;
@@ -94,6 +95,12 @@ class Room {
   final DateTime expiresAt;
   final DateTime? endedAt;
   final bool isBanned;
+
+  /// Set only on Our Room: the pair this room belongs to. It is what tells the
+  /// room screen to log the time you spend together and to show your person.
+  final String? pairId;
+
+  bool get isOurRoom => pairId != null;
 
   /// Canonical media - set by the host only, via `set_room_media`.
   final RoomMediaKind mediaKind;
@@ -166,6 +173,7 @@ class Room {
     String? mediaSharingLevel,
     DateTime? videoTrialEndsAt,
     bool? isBanned,
+    String? pairId,
   }) {
     return Room(
       id: id ?? this.id,
@@ -177,6 +185,7 @@ class Room {
       expiresAt: expiresAt ?? this.expiresAt,
       endedAt: endedAt ?? this.endedAt,
       isBanned: isBanned ?? this.isBanned,
+      pairId: pairId ?? this.pairId,
       mediaKind: mediaKind ?? this.mediaKind,
       mediaName: mediaName ?? this.mediaName,
       mediaDuration: mediaDuration ?? this.mediaDuration,
@@ -210,6 +219,7 @@ class Room {
       expiresAt: DateTime.parse(json['expires_at'] as String),
       endedAt: json['ended_at'] != null ? DateTime.parse(json['ended_at'] as String) : null,
       isBanned: json['is_banned'] as bool? ?? false,
+      pairId: json['pair_id'] as String?,
       mediaKind: RoomMediaKind.fromWire(json['media_kind'] as String?),
       mediaName: json['media_name'] as String?,
       mediaDuration: json['media_duration_ms'] != null

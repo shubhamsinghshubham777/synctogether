@@ -19,6 +19,10 @@ class Env {
   static const String _envPosthogHost = String.fromEnvironment('POSTHOG_HOST');
   static const String _envSiteUrl = String.fromEnvironment('SITE_URL');
   static const String _envSupportEmail = String.fromEnvironment('SUPPORT_EMAIL');
+  static const String _envFirebaseApiKey = String.fromEnvironment('FIREBASE_API_KEY');
+  static const String _envFirebaseAppId = String.fromEnvironment('FIREBASE_APP_ID');
+  static const String _envFirebaseProjectId = String.fromEnvironment('FIREBASE_PROJECT_ID');
+  static const String _envFirebaseSenderId = String.fromEnvironment('FIREBASE_SENDER_ID');
 
   /// Well-known local development defaults used when running locally in debug mode
   /// without explicit compile-time defines.
@@ -58,6 +62,8 @@ class Env {
   @visibleForTesting
   static String? overrideSupportEmail;
   @visibleForTesting
+  static Map<String, String>? overrideFirebaseOptions;
+  @visibleForTesting
   static bool? overrideReleaseMode;
   @visibleForTesting
   static bool? overrideStreamProxy;
@@ -75,6 +81,7 @@ class Env {
     overridePosthogHost = null;
     overrideSiteUrl = null;
     overrideSupportEmail = null;
+    overrideFirebaseOptions = null;
     overrideReleaseMode = null;
     overrideStreamProxy = null;
   }
@@ -180,6 +187,22 @@ class Env {
 
   /// Where reports and appeals are sent. Null (unset) hides the "email us" copy.
   static String? get supportEmail => _opt((overrideSupportEmail ?? _envSupportEmail).trim());
+
+  /// Firebase options for Android push (FCM), or null unless all four are set -
+  /// half a configuration is no configuration, and without it the Android build
+  /// simply offers no push. There is deliberately no built-in project: a fork
+  /// must never send its users' push tokens to someone else's Firebase.
+  static Map<String, String>? get firebaseOptions {
+    final override = overrideFirebaseOptions;
+    if (override != null) return override;
+    final options = {
+      'apiKey': _envFirebaseApiKey.trim(),
+      'appId': _envFirebaseAppId.trim(),
+      'projectId': _envFirebaseProjectId.trim(),
+      'senderId': _envFirebaseSenderId.trim(),
+    };
+    return options.values.any((v) => v.isEmpty) ? null : options;
+  }
 
   static String? _opt(String value) => value.isEmpty ? null : value;
 }

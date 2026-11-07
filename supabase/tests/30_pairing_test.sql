@@ -1,5 +1,5 @@
 begin;
-select plan(42);
+select plan(43);
 
 create function pg_temp.mk_user(p_guest boolean default false) returns uuid
 language plpgsql as $$
@@ -126,8 +126,10 @@ select throws_ok(format($$ select public.join_room(%L) $$, (select code from pub
 -- Sam opens it too, as a member; chat survives retirement.
 select pg_temp.act_as((select v from t where k = 'sam'));
 select is((public.open_our_room()).id, (select v from t where k = 'room'), 'Sam opens the same room');
-select is((select role from public.room_members where room_id = (select v from t where k = 'room') and user_id = (select v from t where k = 'sam')),
-  'member', 'as a member');
+select is((select count(*)::int from public.room_members where room_id = (select v from t where k = 'room') and role = 'host'), 2,
+  'and both partners are hosts, so either can choose what plays');
+select throws_ok(format($$ select public.kick_member(%L, %L, true) $$, (select v from t where k = 'room'), (select v from t where k = 'maya')),
+  'cannot_kick_host', 'yet neither can remove the other');
 
 insert into public.messages (room_id, sender_id, content)
   select (select v from t where k = 'room'), (select v from t where k = 'sam'), 'hello';

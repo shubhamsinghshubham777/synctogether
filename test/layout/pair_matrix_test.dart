@@ -113,7 +113,8 @@ void main() {
     await pumpAtSize(tester, const PairScreen(), c, textScale: s, singlePane: true);
     await tester.pump(const Duration(milliseconds: 500));
     expect(find.text('M4YA7K'), findsOneWidget);
-    expect(find.text('Copy invite link'), findsOneWidget);
+    expect(find.text('Share invite'), findsOneWidget);
+    expect(find.text('Copy code'), findsOneWidget);
     await finishCase(tester);
   });
 

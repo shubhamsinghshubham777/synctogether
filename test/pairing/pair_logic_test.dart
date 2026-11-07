@@ -334,4 +334,73 @@ void main() {
       expect(h.lockedCount, 45);
     });
   });
+  historyExportTests();
+  sittingTitleTests();
+}
+
+void historyExportTests() {
+  group('history export', () {
+    final t = DateTime.utc(2026, 11, 14, 21);
+
+    test('a header and one row per sitting, rounded to minutes', () {
+      final csv = historyToCsv([
+        PairSession(title: 'Spirited Away', startedAt: t, seconds: 7500),
+        PairSession(title: null, startedAt: t, seconds: 90),
+      ]);
+      expect(
+        csv,
+        'title,started_at_utc,minutes\r\n'
+        'Spirited Away,2026-11-14T21:00:00.000Z,125\r\n'
+        ',2026-11-14T21:00:00.000Z,2\r\n',
+      );
+    });
+
+    test('commas, quotes and breaks are quoted', () {
+      final csv = historyToCsv([
+        PairSession(title: 'Aftersun, "the one"\nagain', startedAt: t, seconds: 60),
+      ]);
+      expect(csv, contains('"Aftersun, ""the one""\nagain"'));
+    });
+
+    test('a title a spreadsheet would run as a formula is defused', () {
+      for (final bad in ['=HYPERLINK("x")', '+1', '-2', '@SUM(A1)']) {
+        final csv = historyToCsv([PairSession(title: bad, startedAt: t, seconds: 60)]);
+        final cell = csv.split('\r\n')[1].split(',2026').first;
+        expect(cell.replaceAll('"', ''), startsWith("'"), reason: bad);
+      }
+    });
+
+    test('an empty history is just the header', () {
+      expect(historyToCsv(const []), 'title,started_at_utc,minutes\r\n');
+    });
+
+    test('month headings', () {
+      expect(monthHeading(DateTime(2026, 11, 14)), 'November 2026');
+      expect(monthHeading(DateTime(2027, 1, 1)), 'January 2027');
+    });
+  });
+}
+
+void sittingTitleTests() {
+  group('sitting titles', () {
+    test('the extension and the separators go, the name stays', () {
+      expect(sittingTitle('Spirited.Away.2001.mkv'), 'Spirited Away 2001');
+      expect(sittingTitle('past_lives.mp4'), 'past lives');
+      expect(sittingTitle('Aftersun.mov'), 'Aftersun');
+    });
+
+    test('a path is reduced to its basename', () {
+      expect(sittingTitle('/Users/maya/Movies/Perfect Days.mkv'), 'Perfect Days');
+      expect(sittingTitle(r'C:\Videos\Perfect Days.mkv'), 'Perfect Days');
+    });
+
+    test('a title that merely contains a dot is not mangled', () {
+      expect(sittingTitle('Mr. Robot S01E01'), 'Mr Robot S01E01');
+    });
+
+    test('nothing worth keeping is null', () {
+      expect(sittingTitle(null), isNull);
+      expect(sittingTitle('   '), isNull);
+    });
+  });
 }

@@ -16,7 +16,7 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application
-        android:name="${applicationName}"
+        android:name="app.synctogether.android.App"
         android:icon="@mipmap/ic_launcher"
         android:label="SyncTogether">
         <activity
@@ -52,6 +52,15 @@
                 <data android:scheme="synctogether" />
             </intent-filter>
         </activity>
+        <!-- Push over FCM. Firebase is initialised from build-time options, not a
+             google-services file, so there is nothing here to configure. -->
+        <service
+            android:name="app.synctogether.android.PushMessagingService"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
         <service
             android:name="app.synctogether.android.CallForegroundService"
             android:exported="false"

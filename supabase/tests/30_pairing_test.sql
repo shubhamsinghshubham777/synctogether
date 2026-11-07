@@ -1,5 +1,5 @@
 begin;
-select plan(47);
+select plan(52);
 
 create function pg_temp.mk_user(p_guest boolean default false) returns uuid
 language plpgsql as $$
@@ -175,6 +175,24 @@ insert into c select 'N', (public.create_pair_invite()).code;
 select pg_temp.act_as((select v from t where k = 'kai'));
 select throws_ok(format($$ select public.accept_pair_invite(%L) $$, (select v from c where k = 'N')),
   'already_paired', 'someone with a partner cannot accept a second');
+
+-- ---------------------------------------------------------------------------
+-- Nothing reachable by anonymous callers, and no stray grants on the helpers
+-- ---------------------------------------------------------------------------
+select ok(not has_function_privilege('anon', 'public.pair_member_removed()', 'execute'),
+  'a trigger function is not callable by anon');
+select ok(not has_function_privilege('authenticated', 'public.pair_member_removed()', 'execute'),
+  'nor by signed-in users');
+select ok(not has_function_privilege('anon', 'public.pair_id_from_topic(text)', 'execute'),
+  'the realtime topic helper is not callable by anon');
+select ok(has_function_privilege('authenticated', 'public.pair_id_from_topic(text)', 'execute'),
+  'but the realtime policies can still use it');
+select is((select count(*)::int from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+           where n.nspname = 'public' and p.prosecdef
+             and (p.proname like 'pair%' or p.proname in ('open_our_room', 'invite_pair_by_email', 'call_partner',
+                  'register_push_token', 'claim_push_batch', 'enqueue_push', 'my_pair'))
+             and has_function_privilege('anon', p.oid, 'execute')),
+  0, 'no security definer pairing function can be called anonymously');
 
 select * from finish();
 rollback;

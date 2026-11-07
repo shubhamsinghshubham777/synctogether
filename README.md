@@ -53,6 +53,8 @@ SyncTogether is a modern cross-platform application for synchronized media playb
 
 SyncTogether is designed to be easily self-hosted on a VPS, home server, or local LAN. Deploy the complete stack (Postgres database, Realtime engine, Edge Functions, LiveKit SFU server, and Web portal) using managed free tiers or fully self-hosted Docker containers.
 
+> 🧭 **Fastest start**: run `python3 scripts/selfhost-setup.py`. It asks a few questions (who you are, your domains, sign-in, voice/video, file storage), writes your config files and prints the exact commands left to run. When you are done, `python3 scripts/selfhost-verify.py` checks the whole deployment against your real servers and tells you whether it is ready.
+
 > 📖 **Complete Guide**: See **[docs/self-hosting.md](docs/self-hosting.md)** for step-by-step setup, Docker Compose recipes, environment configuration, and production deployment paths.
 
 ---

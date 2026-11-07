@@ -4,6 +4,9 @@ This guide provides complete instructions for self-hosting your own SyncTogether
 
 ---
 
+> [!TIP]
+> **Two scripts do most of the work.** `python3 scripts/selfhost-setup.py` is a guided wizard: it asks for your details and addresses, writes every config file and prints the commands left to run for your choices (Section 4). `python3 scripts/selfhost-verify.py` then checks the finished deployment against your real servers and says whether it is ready (Step 7). The rest of this guide explains what they automate, so you can also do any step by hand.
+
 ## 1. System Architecture
 
 SyncTogether consists of four modular layers designed for low latency, secure room state synchronization, and SFU-routed AV facecams (LiveKit relays media; clients never connect peer-to-peer):
@@ -321,6 +324,8 @@ The web portal (`website/`) provides the Terms and Privacy pages, shareable invi
 ---
 
 ### Step 7: Verify the deployment
+
+*(The setup wizard, `scripts/selfhost-setup.py`, offers to run this for you at its end and prints the right `--require` flags for your choices.)*
 
 Do not trust a setup because each step printed no error. `scripts/selfhost-verify.py` checks the whole thing against your real servers - not just that values are set, but that they work together:
 

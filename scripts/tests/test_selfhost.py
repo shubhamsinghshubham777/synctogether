@@ -428,6 +428,15 @@ class ShippedFiles(unittest.TestCase):
             self.assertNotIn("devkey", text, rel)
             self.assertNotRegex(text, r"eyJ[A-Za-z0-9_-]{30,}", rel)
 
+    def test_the_two_self_hosting_scripts_are_findable_from_where_people_start(self):
+        for rel in ("README.md", "docs/self-hosting.md", ".env.example"):
+            self.assertIn("selfhost-setup.py", (REPO / rel).read_text(), rel)
+        for rel in ("README.md", "docs/self-hosting.md"):
+            self.assertIn("selfhost-verify.py", (REPO / rel).read_text(), rel)
+        guide = (REPO / "docs" / "self-hosting.md").read_text()
+        self.assertLess(guide.index("selfhost-setup.py"), guide.index("## 1. System Architecture") + 600,
+                        "the wizard should be named at the top of the guide, before the architecture section")
+
     def test_the_client_has_no_built_in_official_hostname(self):
         hits = []
         for f in (REPO / "lib").rglob("*.dart"):

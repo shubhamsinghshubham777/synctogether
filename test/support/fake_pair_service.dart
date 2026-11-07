@@ -16,6 +16,7 @@ class FakePairService extends PairService {
     PairHistory history = PairHistory.empty,
     PushPrefs prefs = const PushPrefs(),
     this.online = false,
+    this.failInviteWith,
     this.isLoaded = true,
   }) : _fakePair = pair,
        _fakePending = pending,
@@ -27,6 +28,9 @@ class FakePairService extends PairService {
 
   final bool account;
   final bool online;
+
+  /// Makes `inviteByEmail` throw, to drive the error copy.
+  final Object? failInviteWith;
   final bool isLoaded;
   PairInfo? _fakePair;
   final PairInvite? _fakePending;
@@ -102,6 +106,13 @@ class FakePairService extends PairService {
     );
     notifyListeners();
     return _fakeSent!;
+  }
+
+  @override
+  Future<PairInvite> inviteByEmail(String email) async {
+    calls.add('inviteByEmail:$email');
+    if (failInviteWith != null) throw failInviteWith!;
+    return createInvite();
   }
 
   @override

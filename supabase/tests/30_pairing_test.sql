@@ -1,5 +1,5 @@
 begin;
-select plan(46);
+select plan(47);
 
 create function pg_temp.mk_user(p_guest boolean default false) returns uuid
 language plpgsql as $$
@@ -160,6 +160,9 @@ select pg_temp.act_as((select v from t where k = 'kai'));
 insert into c select 'K', (public.create_pair_invite()).code;
 select pg_temp.act_as((select v from t where k = 'lee'));
 select lives_ok(format($$ select public.accept_pair_invite(%L) $$, (select v from c where k = 'K')), 'Lee accepts Kai, so both are paired');
+
+select is((select status from public.pair_invites where code = (select v from c where k = 'L')), 'cancelled',
+  'and the invite Lee had open is tidied away, not left pending');
 
 -- Noor opens Lee's older invite: Lee has a partner now.
 select pg_temp.act_as((select v from t where k = 'noor'));

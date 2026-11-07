@@ -717,6 +717,9 @@ begin
     'code', v_inv.code,
     'status', v_status,
     'is_mine', v_inv.inviter_id = v_uid,
+    -- Someone who has since paired cannot be paired with, whatever the invite
+    -- itself says: the accept screen reads this to say so up front.
+    'inviter_paired', exists (select 1 from public.pair_members where user_id = v_inv.inviter_id),
     'created_at', v_inv.created_at,
     'expires_at', v_inv.expires_at,
     'inviter', jsonb_build_object(

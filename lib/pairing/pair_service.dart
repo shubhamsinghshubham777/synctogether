@@ -358,6 +358,28 @@ class PairService extends ChangeNotifier {
     }
   }
 
+  /// Invites by email. The answer is the same whether or not an account matched -
+  /// that is the point: a different one would let anybody test which addresses
+  /// have accounts - so callers say "sent, if they have an account" and nothing
+  /// more. The invite is also returned so the sender can always share its link.
+  Future<PairInvite> inviteByEmail(String email) async {
+    try {
+      final row = await _client.rpc('invite_pair_by_email', params: {'p_email': email});
+      final invite = PairInvite.mine(
+        (row as Map).cast<String, dynamic>(),
+        PairPartner(id: _uid ?? '', displayName: 'You'),
+      );
+      _sent = invite;
+      notifyListeners();
+      Analytics.instance.track('pair_invite_emailed');
+      trace('pair invite sent by email', category: 'room');
+      return invite;
+    } catch (e, s) {
+      _reportUnexpected(e, s, 'inviting a partner by email');
+      rethrow;
+    }
+  }
+
   Future<void> cancelInvite() async {
     await _client.rpc('cancel_pair_invite');
     _sent = null;

@@ -115,6 +115,8 @@ void main() {
     expect(find.text('M4YA7K'), findsOneWidget);
     expect(find.text('Share invite'), findsOneWidget);
     expect(find.text('Copy code'), findsOneWidget);
+    await tester.ensureVisible(find.text('Send invite'));
+    expect(find.text('Send invite'), findsOneWidget, reason: 'the email option is on the page');
     await finishCase(tester);
   });
 
@@ -175,6 +177,28 @@ void main() {
     await tester.pump(const Duration(milliseconds: 500));
     expect(find.text(PairErrorCode.alreadyPaired.message), findsOneWidget);
     expect(find.text('Pair with Sam Rivera'), findsNothing, reason: 'a button that can only fail');
+    await finishCase(tester);
+  });
+
+  screenMatrix('pair/accept-partner-paired', (tester, c, s) async {
+    PairService.instance = FakePairService(
+      preview: PairInvite(
+        code: 'M4YA7K',
+        inviter: const PairPartner(id: 'sam', displayName: 'Sam Rivera'),
+        inviterPaired: true,
+        expiresAt: DateTime.now().toUtc().add(const Duration(hours: 40)),
+      ),
+    );
+    await pumpAtSize(
+      tester,
+      const PairAcceptScreen(code: 'M4YA7K'),
+      c,
+      textScale: s,
+      singlePane: true,
+    );
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.text(PairErrorCode.partnerAlreadyPaired.message), findsOneWidget);
+    expect(find.text('Pair with Sam Rivera'), findsNothing);
     await finishCase(tester);
   });
 }

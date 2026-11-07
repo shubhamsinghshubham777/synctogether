@@ -378,26 +378,34 @@ begin
   if v_inv.status = 'accepted' then
     raise exception 'invite_used';
   end if;
-  if v_inv.status = 'cancelled' then
-    raise exception 'invite_cancelled';
-  end if;
-  if v_inv.expires_at <= now() then
-    raise exception 'invite_expired';
-  end if;
   if v_inv.inviter_id = v_uid then
     raise exception 'cannot_pair_self';
   end if;
   if exists (select 1 from public.pair_members where user_id = v_uid) then
     raise exception 'already_paired';
   end if;
+  -- Before cancelled/expired: when somebody pairs, their other pending invites
+  -- are cancelled (below), and "they paired with someone else" is the true and
+  -- kinder answer for anyone still holding one.
   if exists (select 1 from public.pair_members where user_id = v_inv.inviter_id) then
     raise exception 'partner_already_paired';
+  end if;
+  if v_inv.status = 'cancelled' then
+    raise exception 'invite_cancelled';
+  end if;
+  if v_inv.expires_at <= now() then
+    raise exception 'invite_expired';
   end if;
 
   insert into public.pairs default values returning id into v_pair;
   insert into public.pair_members (user_id, pair_id)
     values (v_inv.inviter_id, v_pair), (v_uid, v_pair);
   update public.pair_invites set status = 'accepted', pair_id = v_pair where id = v_inv.id;
+
+  -- Two people who have paired have no use for any other open invite of theirs.
+  update public.pair_invites set status = 'cancelled'
+    where status = 'pending' and id <> v_inv.id
+      and inviter_id in (v_inv.inviter_id, v_uid);
 
   perform public.enqueue_push(
     v_inv.inviter_id, 'pair_accepted',
@@ -406,6 +414,74 @@ begin
     jsonb_build_object('route', 'our-room'),
     now(), now() + interval '2 days', 'pair:' || v_pair::text);
   return v_pair;
+end $$;
+
+-- Invite by email: the sender types an address, the invite is made (or reused)
+-- as usual, and if that address belongs to a signed-in account the invite is put
+-- in front of them (the lobby banner) and a push is queued.
+--
+-- The answer is the same whether or not an account matched. A different answer
+-- would let anyone test which addresses have accounts, so this returns the
+-- invite (which the sender can always share as a link) and nothing else, and
+-- rate-limits attempts per sender whether they matched or not. A match is also
+-- never made against a guest, the sender themself, someone already paired, or
+-- someone who has blocked the sender.
+create table public.pair_email_invites (
+  id bigint generated always as identity primary key,
+  inviter_id uuid not null references public.profiles (id) on delete cascade,
+  created_at timestamptz not null default now()
+);
+create index idx_pair_email_invites on public.pair_email_invites (inviter_id, created_at desc);
+alter table public.pair_email_invites enable row level security;
+revoke all on public.pair_email_invites from public, anon, authenticated;
+
+create or replace function public.invite_pair_by_email(p_email text)
+returns public.pair_invites
+language plpgsql security definer set search_path = ''
+as $$
+declare
+  v_uid uuid := auth.uid();
+  v_email text := lower(trim(coalesce(p_email, '')));
+  v_inv public.pair_invites;
+  v_target uuid;
+begin
+  perform public.assert_can_pair(v_uid);
+
+  if char_length(v_email) > 254 or v_email !~ '^[^@[:space:]]+@[^@[:space:]]+\.[^@[:space:]]+$' then
+    raise exception 'invalid_email';
+  end if;
+
+  if (select count(*) from public.pair_email_invites
+      where inviter_id = v_uid and created_at > now() - interval '24 hours') >= 5 then
+    raise exception 'too_many_invites';
+  end if;
+  insert into public.pair_email_invites (inviter_id) values (v_uid);
+
+  -- Makes the invite (raising already_paired for someone who has a partner).
+  v_inv := public.create_pair_invite();
+
+  select p.id into v_target
+  from public.profiles p
+  where lower(p.email) = v_email
+    and not p.is_guest
+    and p.id <> v_uid
+    and not exists (select 1 from public.pair_members m where m.user_id = p.id)
+    and not exists (select 1 from public.user_blocks b
+                    where b.blocker_id = p.id and b.blocked_id = v_uid)
+  limit 1;
+
+  if v_target is not null then
+    update public.pair_invites set seen_by = v_target where id = v_inv.id
+      returning * into v_inv;
+    perform public.enqueue_push(
+      v_target, 'pair_request',
+      public.display_name_of(v_uid) || ' wants to pair with you',
+      'Open SyncTogether to answer.',
+      jsonb_build_object('route', 'lobby'),
+      now(), now() + interval '2 days', 'pairreq:' || v_inv.id::text);
+  end if;
+
+  return v_inv;
 end $$;
 
 -- ---------------------------------------------------------------------------
@@ -865,6 +941,7 @@ begin
     'call_partner()', 'create_date_night(text, timestamptz)',
     'respond_date_night(uuid, boolean)', 'reschedule_date_night(uuid, timestamptz)',
     'cancel_date_night(uuid)', 'log_pair_session(text, timestamptz, int)', 'pair_history()',
+    'invite_pair_by_email(text)',
     'pair_history_export()', 'pair_stats(int)', 'accept_pair_invite(text)']
   loop
     execute format('revoke execute on function public.%s from public, anon', f);

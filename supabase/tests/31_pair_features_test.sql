@@ -1,5 +1,5 @@
 begin;
-select plan(49);
+select plan(66);
 
 create function pg_temp.mk_user() returns uuid
 language plpgsql as $$
@@ -152,6 +152,74 @@ values ((select v from t where k = 'sam'), 'premium', now() + interval '30 days'
 select is(jsonb_array_length((public.pair_history())->'items'), 3, 'either partner being Patron unlocks the archive');
 select is(((public.pair_stats())->>'nights')::int, 3, 'stats count the nights');
 select is(((public.pair_stats())->>'films')::int, 3, 'and the films');
+
+-- ---------------------------------------------------------------------------
+-- Invite by email: the same answer whether or not an account matched
+-- ---------------------------------------------------------------------------
+insert into t values ('zed', pg_temp.mk_user()), ('amy', pg_temp.mk_user()), ('yan', pg_temp.mk_user()),
+  ('xia', pg_temp.mk_user()), ('blk', pg_temp.mk_user()), ('rate', pg_temp.mk_user());
+insert into t values ('guest', (select pg_temp.mk_user()));
+update auth.users set is_anonymous = true, email = null where id = (select v from t where k = 'guest');
+update public.profiles set is_guest = true, email = null where id = (select v from t where k = 'guest');
+
+select pg_temp.act_as((select v from t where k = 'amy'));
+select lives_ok($$ select public.register_push_token('ios', 'amy-ios-token-0001', 'sandbox') $$, 'Amy has a device');
+
+select pg_temp.act_as((select v from t where k = 'zed'));
+select throws_ok($$ select public.invite_pair_by_email('not an email') $$, 'invalid_email', 'a malformed address is refused');
+select is((public.invite_pair_by_email((select email from public.profiles where id = (select v from t where k = 'amy')))).status,
+  'pending', 'inviting a real account returns the invite');
+select is((select seen_by from public.pair_invites where inviter_id = (select v from t where k = 'zed') and status = 'pending'),
+  (select v from t where k = 'amy'), 'which is put in front of that account');
+select is((select count(*)::int from public.push_outbox where kind = 'pair_request' and user_id = (select v from t where k = 'amy')),
+  1, 'with a push queued');
+select pg_temp.act_as((select v from t where k = 'amy'));
+select is((public.my_pending_pair_invite())->'inviter'->>'id', (select v::text from t where k = 'zed'),
+  'and it shows in their lobby banner');
+
+-- An address with no account looks exactly the same to the sender.
+select pg_temp.act_as((select v from t where k = 'yan'));
+select is((public.invite_pair_by_email('nobody-at-all@example.test')).status, 'pending',
+  'an unknown address returns the same kind of answer');
+select is((select seen_by from public.pair_invites where inviter_id = (select v from t where k = 'yan') and status = 'pending'),
+  null::uuid, 'but reaches no one');
+select is((select count(*)::int from public.push_outbox where kind = 'pair_request' and user_id = (select v from t where k = 'yan')),
+  0, 'and no push goes anywhere');
+
+-- Never matched: yourself, someone already paired, a guest, someone who blocked you.
+select pg_temp.act_as((select v from t where k = 'xia'));
+select lives_ok(format($$ select public.invite_pair_by_email(%L) $$, (select email from public.profiles where id = (select v from t where k = 'xia'))),
+  'your own address is accepted quietly');
+select is((select seen_by from public.pair_invites where inviter_id = (select v from t where k = 'xia') and status = 'pending'),
+  null::uuid, 'and matches no one');
+
+select pg_temp.act_as((select v from t where k = 'yan'));
+select lives_ok(format($$ select public.invite_pair_by_email(%L) $$, (select email from public.profiles where id = (select v from t where k = 'sam'))),
+  'inviting someone who is already paired is accepted quietly');
+select is((select seen_by from public.pair_invites where inviter_id = (select v from t where k = 'yan') and status = 'pending'),
+  null::uuid, 'and they are not told');
+
+insert into public.user_blocks (blocker_id, blocked_id)
+  values ((select v from t where k = 'blk'), (select v from t where k = 'yan'));
+select lives_ok(format($$ select public.invite_pair_by_email(%L) $$, (select email from public.profiles where id = (select v from t where k = 'blk'))),
+  'inviting someone who blocked you is accepted quietly');
+select is((select count(*)::int from public.push_outbox where kind = 'pair_request' and user_id = (select v from t where k = 'blk')),
+  0, 'and they hear nothing');
+
+select pg_temp.act_as((select v from t where k = 'guest'));
+select throws_ok($$ select public.invite_pair_by_email('someone@example.test') $$, 'sign_in_required', 'a guest cannot invite by email');
+
+-- Attempts are rate-limited per sender, matched or not.
+select pg_temp.act_as((select v from t where k = 'rate'));
+do $$
+declare i int;
+begin
+  for i in 1..5 loop
+    perform public.invite_pair_by_email('nobody' || i || '@example.test');
+  end loop;
+end $$;
+select throws_ok($$ select public.invite_pair_by_email('nobody6@example.test') $$, 'too_many_invites',
+  'the sixth address in a day is refused');
 
 select * from finish();
 rollback;

@@ -376,6 +376,13 @@ const kAnalyticsEvents = <AnalyticsEventDoc>[
     properties: ['whether you copied the link or the code'],
   ),
   AnalyticsEventDoc(
+    event: 'pair_invite_emailed',
+    group: .pair,
+    what: 'You invited your person by email.',
+    why:
+        'Whether people prefer typing an address to sending a link. The address itself is never sent to us as analytics.',
+  ),
+  AnalyticsEventDoc(
     event: 'pair_accepted',
     group: .pair,
     what: 'You accepted a pair invite.',

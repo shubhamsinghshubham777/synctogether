@@ -325,6 +325,7 @@ class _InviteFlow extends StatelessWidget {
               ),
             ],
           ),
+          const _EmailInvite(),
           Row(
             spacing: 10,
             children: [
@@ -596,4 +597,89 @@ Future<void> editReunion(BuildContext context) async {
     ),
   );
   labelController.dispose();
+}
+
+/// Invite by email. The wording is deliberate: the answer is the same whether or
+/// not an account matched, because a different one would tell anybody which
+/// addresses have accounts. The invite link above stays the sure way to reach
+/// someone who has not signed up yet.
+class _EmailInvite extends StatefulWidget {
+  const _EmailInvite();
+
+  @override
+  State<_EmailInvite> createState() => _EmailInviteState();
+}
+
+class _EmailInviteState extends State<_EmailInvite> {
+  final _email = TextEditingController();
+  bool _busy = false;
+  bool _sent = false;
+  String? _problem;
+
+  @override
+  void dispose() {
+    _email.dispose();
+    super.dispose();
+  }
+
+  Future<void> _send() async {
+    setState(() {
+      _busy = true;
+      _problem = null;
+      _sent = false;
+    });
+    try {
+      await PairService.instance.inviteByEmail(_email.text);
+      if (!mounted) return;
+      setState(() {
+        _busy = false;
+        _sent = true;
+        _email.clear();
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _busy = false;
+        _problem = PairErrorCode.fromError(e).message;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: .stretch,
+      spacing: 10,
+      children: [
+        const SizedBox(height: 4),
+        const PairKicker('Or invite by email'),
+        TextField(
+          controller: _email,
+          keyboardType: TextInputType.emailAddress,
+          autocorrect: false,
+          enableSuggestions: false,
+          textInputAction: TextInputAction.send,
+          onSubmitted: (_) => _busy ? null : _send(),
+          style: PTText.body,
+          decoration: const InputDecoration(hintText: 'Their email address'),
+        ),
+        PTButton(
+          label: 'Send invite',
+          variant: .secondary,
+          icon: BoothIcons.mail,
+          height: 44,
+          loading: _busy,
+          onPressed: _send,
+        ),
+        if (_sent)
+          Text(
+            'Invite on its way. If that address has an account, they will see it in the app. '
+            'Not sure they have one? The link above works either way.',
+            style: PTText.caption.copyWith(color: PTColors.fgSoft, height: 1.45),
+          ),
+        if (_problem != null)
+          Text(_problem!, style: PTText.body.copyWith(color: PTColors.danger, fontSize: 14)),
+      ],
+    );
+  }
 }

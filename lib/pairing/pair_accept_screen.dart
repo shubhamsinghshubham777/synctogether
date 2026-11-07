@@ -53,6 +53,12 @@ class _PairAcceptScreenState extends State<PairAcceptScreen> {
         _invite = invite;
         _loading = false;
         _problem = switch (invite.status) {
+          // Whatever the invite says, there is nobody left to pair with.
+          _
+              when invite.inviterPaired &&
+                  !invite.isMine &&
+                  invite.status != PairInviteStatus.accepted =>
+            PairErrorCode.partnerAlreadyPaired,
           PairInviteStatus.expired => PairErrorCode.inviteExpired,
           PairInviteStatus.accepted => PairErrorCode.inviteUsed,
           PairInviteStatus.cancelled => PairErrorCode.inviteCancelled,

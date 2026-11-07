@@ -84,6 +84,7 @@ class PairInvite {
     required this.expiresAt,
     this.status = PairInviteStatus.pending,
     this.isMine = false,
+    this.inviterPaired = false,
     this.createdAt,
   });
 
@@ -92,6 +93,7 @@ class PairInvite {
     inviter: PairPartner.fromJson((json['inviter'] as Map).cast<String, dynamic>()),
     status: PairInviteStatus.fromWire(json['status'] as String?),
     isMine: json['is_mine'] as bool? ?? false,
+    inviterPaired: json['inviter_paired'] as bool? ?? false,
     createdAt: _time(json['created_at']),
     expiresAt: _time(json['expires_at']) ?? DateTime.now().toUtc(),
   );
@@ -109,6 +111,10 @@ class PairInvite {
   final PairPartner inviter;
   final PairInviteStatus status;
   final bool isMine;
+
+  /// The sender has since paired with somebody. Whatever else is true of the
+  /// invite, there is nobody to pair with now.
+  final bool inviterPaired;
   final DateTime? createdAt;
   final DateTime expiresAt;
 
@@ -280,6 +286,11 @@ enum PairErrorCode {
   inviteExpired('invite_expired', 'That invite has expired. Ask for a fresh one.'),
   inviteUsed('invite_used', 'That invite was already used.'),
   inviteCancelled('invite_cancelled', 'That invite was cancelled. Ask for a fresh one.'),
+  invalidEmail('invalid_email', "Hmm, that doesn't look like an email address."),
+  tooManyInvites(
+    'too_many_invites',
+    "That's a lot of invites for one day. Share your link instead, or try again tomorrow.",
+  ),
   notPaired('not_paired', "You're not paired yet."),
   patronRequired(
     'patron_required',

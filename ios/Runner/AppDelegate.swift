@@ -4,6 +4,8 @@ import AVFoundation
 import PhotosUI
 import UniformTypeIdentifiers
 import UserNotifications
+import EventKit
+import EventKitUI
 
 @main
 @objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
@@ -73,6 +75,9 @@ import UserNotifications
     }
     if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "PushChannel") {
       PushChannel.register(with: registrar.messenger())
+    }
+    if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "CalendarChannel") {
+      CalendarChannel.register(with: registrar.messenger())
     }
   }
 }
@@ -567,5 +572,94 @@ enum PushChannel {
     } else {
       pendingRoute = route
     }
+  }
+}
+
+/// "Add to Calendar": the system's own event editor, pre-filled. Dart side:
+/// lib/pairing/calendar_bridge.dart (channel `app.synctogether/calendar`).
+///
+/// On iOS 17+ `EKEventEditViewController` runs out of process and needs no
+/// permission at all - the app never sees the calendar, only whether the person
+/// saved. Before 17 the editor needs calendar access, so it is requested then
+/// (and only then, when the person has just asked to add an event); refused
+/// access answers `unsupported` and Dart falls back to a calendar file.
+final class CalendarChannel: NSObject, EKEventEditViewDelegate {
+  private static let shared = CalendarChannel()
+  private var pending: FlutterResult?
+
+  static func register(with messenger: FlutterBinaryMessenger) {
+    let channel = FlutterMethodChannel(name: "app.synctogether/calendar", binaryMessenger: messenger)
+    channel.setMethodCallHandler { call, result in
+      guard call.method == "addEvent", let args = call.arguments as? [String: Any],
+        let title = args["title"] as? String,
+        let start = (args["start"] as? NSNumber)?.doubleValue,
+        let end = (args["end"] as? NSNumber)?.doubleValue
+      else { return result(FlutterMethodNotImplemented) }
+      shared.present(
+        title: title,
+        start: Date(timeIntervalSince1970: start / 1000),
+        end: Date(timeIntervalSince1970: end / 1000),
+        notes: args["notes"] as? String,
+        result: result)
+    }
+  }
+
+  private func present(title: String, start: Date, end: Date, notes: String?, result: @escaping FlutterResult) {
+    // A second request while the sheet is up replaces the first.
+    pending?("dismissed")
+    pending = result
+    let store = EKEventStore()
+
+    let show = {
+      let event = EKEvent(eventStore: store)
+      event.title = title
+      event.startDate = start
+      event.endDate = end
+      event.notes = notes
+      // The reminder the push would have sent, in the person's own calendar too.
+      event.addAlarm(EKAlarm(relativeOffset: -15 * 60))
+      if let calendar = store.defaultCalendarForNewEvents { event.calendar = calendar }
+
+      let controller = EKEventEditViewController()
+      controller.eventStore = store
+      controller.event = event
+      controller.editViewDelegate = self
+      guard let top = CalendarChannel.topController() else {
+        self.finish("unsupported")
+        return
+      }
+      top.present(controller, animated: true)
+    }
+
+    if #available(iOS 17.0, *) {
+      show()
+    } else {
+      store.requestAccess(to: .event) { granted, _ in
+        DispatchQueue.main.async {
+          if granted { show() } else { self.finish("unsupported") }
+        }
+      }
+    }
+  }
+
+  private func finish(_ value: String) {
+    pending?(value)
+    pending = nil
+  }
+
+  func eventEditViewController(
+    _ controller: EKEventEditViewController, didCompleteWith action: EKEventEditViewAction
+  ) {
+    controller.dismiss(animated: true)
+    finish(action == .saved ? "added" : "dismissed")
+  }
+
+  private static func topController() -> UIViewController? {
+    let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+    let scene = scenes.first { $0.activationState == .foregroundActive } ?? scenes.first
+    var top = scene?.windows.first(where: { $0.isKeyWindow })?.rootViewController
+      ?? scene?.windows.first?.rootViewController
+    while let presented = top?.presentedViewController { top = presented }
+    return top
   }
 }

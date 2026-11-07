@@ -12,6 +12,7 @@ import '../ui/booth_icons.g.dart';
 import '../ui/buttons.dart';
 import '../ui/glass.dart';
 import '../ui/pt_theme.dart';
+import 'calendar_bridge.dart';
 import 'pair_logic.dart';
 import 'pair_models.dart';
 import 'pair_page.dart';
@@ -118,19 +119,39 @@ class _NightCard extends StatelessWidget {
 
   String get _first => partner?.displayName.split(' ').first ?? 'your person';
 
+  /// The system's own add-to-calendar sheet where there is one (iOS, Android);
+  /// otherwise - desktop, or access refused - a calendar file through the share
+  /// sheet, which any calendar app opens. Either way the event carries the start
+  /// in UTC, so it lands at the right moment in whichever zone opens it.
   Future<void> _calendar(BuildContext context) async {
-    final ics = buildDateNightIcs(
-      id: night.id,
-      title: night.title,
-      startsAt: night.startsAt,
-      withName: _first,
+    const length = Duration(hours: 2);
+    final result = await calendarBridge.addEvent(
+      title: 'Date night: ${night.title}',
+      start: night.startsAt,
+      end: night.startsAt.add(length),
+      notes: 'Watching ${night.title} with $_first in Our Room.',
     );
-    await shareBytes(
-      context,
-      bytes: utf8.encode(ics),
-      name: 'date-night.ics',
-      mimeType: 'text/calendar',
-    );
+    if (!context.mounted) return;
+    switch (result) {
+      case CalendarResult.added:
+        showPTSnack(context, 'Added to your calendar.', kind: .success);
+      case CalendarResult.opened || CalendarResult.dismissed:
+        break;
+      case CalendarResult.unsupported:
+        final ics = buildDateNightIcs(
+          id: night.id,
+          title: night.title,
+          startsAt: night.startsAt,
+          withName: _first,
+          length: length,
+        );
+        await shareBytes(
+          context,
+          bytes: utf8.encode(ics),
+          name: 'date-night.ics',
+          mimeType: 'text/calendar',
+        );
+    }
   }
 
   Future<void> _answer(BuildContext context, bool accept) async {

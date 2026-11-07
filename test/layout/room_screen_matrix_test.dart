@@ -1545,6 +1545,48 @@ void main() {
     }
   });
 
+  group('facecam rail beside the control bar', () {
+    // The rail's column ends where the floating control bar begins, so no tile
+    // is parked behind it; a roster too long for the column scrolls, and the
+    // last member scrolls clear of the bar.
+    screenMatrix(
+      'a long roster stays above the control bar and scrolls to the last member',
+      (tester, c, s) async {
+        await _pumpRoom(tester, c, s, av: true, members: 8, playing: false);
+        await tester.pump(const Duration(seconds: 1));
+        final rail = find.byType(FacecamRail);
+        final bar = find.byType(RoomControlBar);
+        if (rail.evaluate().isEmpty || bar.evaluate().isEmpty) {
+          await _finish(tester);
+          return;
+        }
+        final barTop = tester.getRect(bar).top;
+        expect(
+          tester.getRect(rail).bottom,
+          lessThanOrEqualTo(barTop + 0.5),
+          reason: '${c.name} x$s: the rail runs under the control bar',
+        );
+        final scroll = find.descendant(of: rail, matching: find.byType(SingleChildScrollView));
+        if (scroll.evaluate().isNotEmpty) {
+          await tester.drag(scroll.first, const Offset(0, -3000));
+          await tester.pump(const Duration(milliseconds: 600));
+          final last = tiles().last;
+          expect(
+            tester.getRect(last).bottom,
+            lessThanOrEqualTo(barTop + 0.5),
+            reason: '${c.name} x$s: the last member is still behind the bar after scrolling',
+          );
+        }
+        await _finish(tester);
+      },
+      cases: [
+        kScreenMatrix.firstWhere((c) => c.name == 'iphone-duo-inner-land'),
+        kScreenMatrix.firstWhere((c) => c.name == 'ipad-land'),
+      ],
+      textScales: const [1.0],
+    );
+  });
+
   group('busy portrait room with the soft keyboard', () {
     // Exactly what a TestFlight recording showed: the host's file would not
     // open, our camera is on, the reaction strip is open, one chat bubble and
@@ -1638,6 +1680,52 @@ void main() {
         final input = tester.getRect(find.byType(EditableText).first);
         expect(input.bottom, lessThanOrEqualTo(visible.bottom + 0.5));
         expect(input.top, greaterThanOrEqualTo(tester.getRect(bar).bottom - 0.5));
+        await _finish(tester);
+      },
+      cases: busyCases,
+      textScales: const [1.0, 1.5],
+    );
+
+    // The reaction strip is open, the keys are up and the transport floats over
+    // the picture. The strip is either shown whole - under the picture, above the
+    // keyboard, clear of the bar, taking touches - or hidden because there is no
+    // room (the chat is already at its floor): never clipped, never covered.
+    screenMatrix(
+      'the open reaction strip is whole and clear of the floating bar, or hidden for lack of room',
+      (tester, c, s) async {
+        await pumpBusy(tester, c, s);
+        final visible = Rect.fromLTWH(0, 0, c.size.width, c.size.height - c.keyboard);
+        final strip = find.byType(ReactionStrip);
+        expect(strip, findsOneWidget, reason: '${c.name}: the strip is open');
+        final sr = tester.getRect(strip);
+        final br = tester.getRect(find.byType(RoomControlBar));
+        // A touch in the middle of the strip lands in the strip itself only
+        // while it is shown (a folded-away piece takes none).
+        final hit = HitTestResult();
+        tester.binding.hitTestInView(hit, sr.center, tester.view.viewId);
+        final stripBox = tester.renderObject(strip);
+        final shown = hit.path.any((e) => identical(e.target, stripBox));
+        if (shown) {
+          expect(sr.height, greaterThan(20), reason: '${c.name} x$s: strip clipped');
+          expect(
+            visible.inflate(0.5).contains(sr.topLeft) &&
+                visible.inflate(0.5).contains(sr.bottomRight),
+            isTrue,
+            reason: '${c.name} x$s: strip $sr outside the visible area $visible',
+          );
+          expect(
+            sr.bottom <= br.top + 0.5 || sr.top >= br.bottom - 0.5,
+            isTrue,
+            reason: '${c.name} x$s: strip $sr overlaps the bar $br',
+          );
+        } else {
+          final chat = tester.getRect(find.byType(RoomChatPanel).first);
+          expect(
+            chat.height,
+            lessThanOrEqualTo(160 * s + 1),
+            reason: '${c.name} x$s: strip hidden although the chat ($chat) had room to give',
+          );
+        }
         await _finish(tester);
       },
       cases: busyCases,

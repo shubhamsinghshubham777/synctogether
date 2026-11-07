@@ -364,7 +364,17 @@ class _RoomRoomyLayoutState extends State<RoomRoomyLayout> {
                     curve: widget.controlsVisible ? PTMotion.enter : PTMotion.exit,
                     top: facecamTop,
                     left: 24,
-                    child: widget.facecamRail!,
+                    // On touch the column ends where the floating control bar
+                    // begins (a gap above it), so no tile is parked behind the
+                    // bar and a roster too long for the column scrolls inside
+                    // it. Align keeps the rail as short as its tiles: only the
+                    // tiles take touches, not the empty column under them.
+                    bottom: widget.touch
+                        ? (widget.controlsVisible ? math.max(20.0, 14 + _stackHeight + 12) : 20.0)
+                        : null,
+                    child: widget.touch
+                        ? Align(alignment: Alignment.topLeft, child: widget.facecamRail!)
+                        : widget.facecamRail!,
                   ),
                 if (widget.showCamsPill != null)
                   AnimatedPositioned(

@@ -10,7 +10,7 @@ export default function robots(): MetadataRoute.Robots {
       allow: "/",
       // `/r/` is an unguessable URL the owner shared with particular
       // people - it is not content, and indexing one would outlive any
-      // later change of mind. `/join/` is a capability, not a page.
+      // later change of mind. `/join/` and `/pair/` are capabilities, not pages.
       disallow: [
         "/api/",
         "/auth/callback",
@@ -19,6 +19,7 @@ export default function robots(): MetadataRoute.Robots {
         "/admin",
         "/r/",
         "/join/",
+        "/pair/",
       ],
     },
     sitemap: `${baseUrl}/sitemap.xml`,

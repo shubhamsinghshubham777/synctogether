@@ -1,5 +1,6 @@
 import Image from "next/image";
 import { Ticket } from "@/components/Ticket";
+import { SITE_HOST } from "@/lib/constants";
 
 /** A real 1280x720 capture of the app's theatre room (lib/mock/store_capture.dart). */
 const SHOT = "/shots/room-theater.jpg";
@@ -48,7 +49,7 @@ export function HeroPoster() {
           <p className="mt-1.5 font-[family-name:var(--font-space-grotesk)] text-[clamp(18px,4.83cqw,28px)] font-extrabold tracking-[-0.035em] leading-[0.98]">
             Friday Horror Club
           </p>
-          <p className="mt-2 text-[clamp(11px,2.41cqw,14px)] text-[#5A4F44] truncate">synctogether.app/join/K7Q2ZP</p>
+          <p className="mt-2 text-[clamp(11px,2.41cqw,14px)] text-[#5A4F44] truncate">{SITE_HOST}/join/K7Q2ZP</p>
         </Ticket>
       </div>
       </div>

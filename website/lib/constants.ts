@@ -1,10 +1,33 @@
+/// No operator-specific value has a built-in fallback in a production build: a
+/// fork that forgets to set one fails the build with this message instead of
+/// quietly serving someone else's site URL, support address or legal contacts.
+/// Development and tests get harmless local values.
+export function requiredEnv(
+  value: string | undefined,
+  name: string,
+  devFallback: string,
+  nodeEnv: string | undefined = process.env.NODE_ENV,
+): string {
+  const v = (value ?? "").trim();
+  if (v) return v;
+  if (nodeEnv === "production") {
+    throw new Error(`${name} must be set for a production build (see website/.env.example).`);
+  }
+  return devFallback;
+}
+
+const SITE_URL = requiredEnv(process.env.NEXT_PUBLIC_SITE_URL, "NEXT_PUBLIC_SITE_URL", "http://localhost:3000").replace(/\/+$/, "");
+
+/// The site's host without the scheme, for copy like "<host>/u/yourhandle".
+export const SITE_HOST = SITE_URL.replace(/^https?:\/\//, "");
+
 export const SITE_CONFIG = {
   name: "SyncTogether",
   tagline: "Movie night, even when you're not in the same room.",
   description:
     "Watch movies together when you are apart. SyncTogether keeps your own video files and YouTube on the same frame for everyone, with voice and facecams beside the film. Free on Mac and Windows.",
-  url: process.env.NEXT_PUBLIC_SITE_URL || "https://synctogether.app",
-  supportEmail: "support@synctogether.app",
+  url: SITE_URL,
+  supportEmail: requiredEnv(process.env.NEXT_PUBLIC_SUPPORT_EMAIL, "NEXT_PUBLIC_SUPPORT_EMAIL", "support@localhost"),
   githubRepo: "https://github.com/shubhamsinghshubham777/synctogether",
   microsoftStoreUrl: "https://apps.microsoft.com/detail/9P1BZTSXHDFS",
   appStoreUrl: "https://apps.apple.com/in/app/synctogether-watch-party/id6809185202?mt=12",
@@ -26,7 +49,7 @@ export const DMCA_AGENT = {
   registrationNumber: "DMCA-1080733",
   serviceProvider: "Shubham Singh",
   agentName: "DMCA Agent, SyncTogether",
-  email: "copyright@synctogether.app",
+  email: requiredEnv(process.env.NEXT_PUBLIC_COPYRIGHT_EMAIL, "NEXT_PUBLIC_COPYRIGHT_EMAIL", "copyright@localhost"),
   address: [
     "House No. 1282, First Floor, Sector-9",
     "Bahadurgarh, Haryana 124507",
@@ -182,7 +205,7 @@ export const PRICING_TIERS = {
       "Video + Voice facecams",
       "24 animated Lottie reaction emoji",
       "Saved rooms (kept until 90 idle days)",
-      "Public profile page at synctogether.app/u/yourhandle",
+      `Public profile page at ${SITE_HOST}/u/yourhandle`,
       "Extra streak freeze, so a busy week doesn't cost you",
       "Host's Premium perks shared with all room members",
       "Priority customer support",

@@ -48,6 +48,7 @@ Test suites runnable locally and in CI:
 fvm flutter test                    # Flutter Dart suite (test/)
 supabase start && supabase test db  # RPC suite (pgTAP, supabase/tests/)
 npm --prefix website test           # Website Node.js test suite (website/tests/)
+python3 -m unittest discover -s scripts/tests -v   # self-hosting guards: verifier, config generator, compose, .env.example drift
 ```
 
 The pgTAP suite runs each file as one transaction that rolls back, against the **local** stack only; it never touches a deployed project. `now()` is transaction-time in Postgres, so a test cannot observe a timestamp *advance* across statements in the same file - assert against a value you back-dated yourself instead.

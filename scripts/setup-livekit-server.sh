@@ -24,6 +24,21 @@ fi
 
 DIR="$(cd "$(dirname "$0")/../deploy/livekit" && pwd)"
 
+echo "==> Waiting for the server's first-boot updates to finish"
+# A brand-new cloud VM runs cloud-init and unattended upgrades in the background and
+# holds the apt lock for a minute or two; installing Docker meanwhile fails at once.
+if command -v cloud-init >/dev/null; then
+  cloud-init status --wait >/dev/null 2>&1 || true
+fi
+for _ in $(seq 1 90); do
+  # fuser exits 0 while any process holds a lock; if it is missing the loop ends (no worse than before).
+  if fuser /var/lib/dpkg/lock-frontend /var/lib/dpkg/lock /var/lib/apt/lists/lock >/dev/null 2>&1; then
+    sleep 5
+  else
+    break
+  fi
+done
+
 echo "==> Installing Docker"
 if ! command -v docker >/dev/null; then
   curl -fsSL https://get.docker.com | sh

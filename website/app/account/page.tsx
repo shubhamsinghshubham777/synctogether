@@ -7,6 +7,7 @@ import Link from "next/link";
 import { Ticket } from "@/components/Ticket";
 import { Headline, Stamp, Warming, display, mono } from "@/components/booth/Booth";
 import { createClient } from "@/lib/supabase/client";
+import { SITE_CONFIG } from "@/lib/constants";
 import type { User } from "@supabase/supabase-js";
 import { RefreshCw, AlertCircle, X } from "lucide-react";
 
@@ -502,7 +503,7 @@ function AccountDashboard() {
                     ? "Subscriptions are bought, renewed and cancelled in the store you bought them from: App Store settings on an Apple device, or your Microsoft account. The store also handles refunds."
                     : "Nothing renews. This seat was granted, not bought, and ends on the date above."}{" "}
                   <a
-                    href="mailto:support@synctogether.app?subject=Subscription%20Support"
+                    href={`mailto:${SITE_CONFIG.supportEmail}?subject=Subscription%20Support`}
                     className="text-gray-300 underline underline-offset-4 hover:text-white"
                   >
                     Contact support

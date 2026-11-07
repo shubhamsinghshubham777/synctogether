@@ -135,8 +135,8 @@ export default function PrivacyPage() {
             </li>
             <li>
               The official website, documentation, and subscription management portal located at{" "}
-              <a href="https://synctogether.app" className="text-purple-300 underline hover:text-white">
-                https://synctogether.app
+              <a href={SITE_CONFIG.url} className="text-purple-300 underline hover:text-white">
+                {SITE_CONFIG.url}
               </a>.
             </li>
             <li>

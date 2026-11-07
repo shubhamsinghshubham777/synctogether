@@ -304,7 +304,7 @@ The web portal (`website/`) provides the Terms and Privacy pages, shareable invi
    cp .env.example .env.local
    npm install
    ```
-2. Set `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SERVICE_ROLE_KEY` and `NEXT_PUBLIC_SITE_URL` in `website/.env.local`. PostHog and the `PROD_*` variables are optional: `PROD_SUPABASE_*` only feed the internal `/internal/metrics` page, which you can ignore; see `website/.env.example` for the full list.
+2. Set `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `NEXT_PUBLIC_SITE_URL`, `NEXT_PUBLIC_SUPPORT_EMAIL` and `NEXT_PUBLIC_COPYRIGHT_EMAIL` in `website/.env.local`. **A production build refuses to start without the site URL and the two addresses** - there are no built-in values, so a build can never serve someone else's contacts. (The Terms, Privacy and DMCA pages still name the operator's own legal details in their text; replace those with yours before you publish the site.) PostHog and the `PROD_*` variables are optional: `PROD_SUPABASE_*` only feed the internal `/internal/metrics` page, which you can ignore; see `website/.env.example` for the full list.
 3. Run or deploy:
    ```bash
    # Development

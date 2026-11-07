@@ -12,9 +12,6 @@ on:
       - '.github/scripts/**'
       - '.github/workflows/build_*.yaml'
       - '.github/workflows/publish_*.yaml'
-      - 'docker/**'
-      - 'docker-compose*.yml'
-      - '.env.example'
       - '.ghcontext'
       - '.gitignore'
       - '.metadata'
@@ -30,9 +27,6 @@ on:
       - '.github/scripts/**'
       - '.github/workflows/build_*.yaml'
       - '.github/workflows/publish_*.yaml'
-      - 'docker/**'
-      - 'docker-compose*.yml'
-      - '.env.example'
       - '.ghcontext'
       - '.gitignore'
       - '.metadata'
@@ -57,6 +51,8 @@ jobs:
       dart: ${{ steps.filter.outputs.dart }}
       database: ${{ steps.filter.outputs.database }}
       website: ${{ steps.filter.outputs.website }}
+      selfhost_guards: ${{ steps.filter.outputs.selfhost_guards }}
+      selfhost_e2e: ${{ steps.filter.outputs.selfhost_e2e }}
     steps:
       - name: Checkout Repo
         uses: actions/checkout@v6
@@ -82,6 +78,23 @@ jobs:
               - 'supabase/**'
             website:
               - 'website/**'
+            # What a self-hoster relies on, checked statically (fast).
+            selfhost_guards:
+              - 'scripts/**'
+              - 'docker/**'
+              - 'docker-compose*.yml'
+              - 'deploy/livekit/**'
+              - '**/.env.example'
+              - 'lib/**'
+              - 'supabase/**'
+              - '.github/workflows/publish_*.yaml'
+            # What the verifier exercises end to end (slow): backend, website, the verifier itself.
+            selfhost_e2e:
+              - 'scripts/selfhost-*'
+              - 'scripts/tests/**'
+              - 'supabase/**'
+              - 'website/**'
+              - '**/.env.example'
 
   dart:
     name: Analyze and test
@@ -178,3 +191,75 @@ jobs:
       - name: Test
         # Billing code without CI is how the old fail-open webhook bug shipped.
         run: npm test
+
+  selfhost-guards:
+    name: Self-hosting guards
+    needs: changes
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    if: >-
+      (github.event_name == 'workflow_call' || github.event_name == 'workflow_dispatch' || needs.changes.outputs.selfhost_guards == 'true') &&
+      (github.event_name != 'push' || !startsWith(github.event.head_commit.message, 'Bump app version to '))
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v6
+
+      - name: Verifier, config generator, compose file and .env.example drift
+        # Runs the real scripts against a scratch copy of the repo layout and fails if
+        # the client or the functions read a setting the .env.example files don't list,
+        # if an official hostname creeps back into lib/, or if a store workflow stops
+        # passing SITE_URL / SUPPORT_EMAIL.
+        run: python3 -m unittest discover -s scripts/tests -v
+
+  selfhost-e2e:
+    name: Self-host verifier (end to end)
+    needs: changes
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    if: >-
+      (github.event_name == 'workflow_call' || github.event_name == 'workflow_dispatch' || needs.changes.outputs.selfhost_e2e == 'true') &&
+      (github.event_name != 'push' || !startsWith(github.event.head_commit.message, 'Bump app version to '))
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v6
+
+      - name: Get the Supabase CLI
+        uses: supabase/setup-cli@3c2f5e2ae34c34e428e8e206e2c4d21fa2d20fbf # v2.1.1
+        with:
+          version: 2.111.0
+
+      - name: Start the local stack
+        # A throwaway local stack with supabase/migrations applied: the backend a
+        # self-hoster ends up with, minus the cloud.
+        run: supabase start
+
+      - name: Get Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: website/package-lock.json
+
+      - name: Build and serve the website
+        # A production build, which refuses to start without its operator values -
+        # the same rule a self-hoster's build lives under.
+        working-directory: website
+        run: |
+          eval "$(supabase status -o env | sed 's/^/export SB_/')"
+          export NEXT_PUBLIC_SUPABASE_URL="$SB_API_URL" NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY="$SB_PUBLISHABLE_KEY"
+          export SUPABASE_SERVICE_ROLE_KEY="$SB_SERVICE_ROLE_KEY"
+          export NEXT_PUBLIC_SITE_URL=http://localhost:3000 NEXT_PUBLIC_SUPPORT_EMAIL=support@example.com NEXT_PUBLIC_COPYRIGHT_EMAIL=copyright@example.com
+          npm ci
+          npm run build
+          nohup npm run start > "$RUNNER_TEMP/website.log" 2>&1 &
+          for i in $(seq 1 40); do curl -sf -o /dev/null http://localhost:3000/ && exit 0; sleep 2; done
+          echo "::error::the website did not come up"; cat "$RUNNER_TEMP/website.log"; exit 1
+
+      - name: Run the verifier
+        # Everything it checks - schema, RLS, auth, the private Realtime channel, the
+        # minute cron (about two minutes), the web pages - must pass. Exit 0 = READY.
+        run: |
+          eval "$(supabase status -o env | sed 's/^/export SB_/')"
+          printf 'SUPABASE_URL=%s\nSUPABASE_PUBLISHABLE_KEY=%s\nSITE_URL=http://localhost:3000\nSUPPORT_EMAIL=support@example.com\nTURNSTILE_SITE_KEY=1x00000000000000000000AA\n' "$SB_API_URL" "$SB_PUBLISHABLE_KEY" > "$RUNNER_TEMP/client.env"
+          : > "$RUNNER_TEMP/functions.env"
+          SUPABASE_SERVICE_ROLE_KEY="$SB_SERVICE_ROLE_KEY" python3 scripts/selfhost-verify.py --client-env "$RUNNER_TEMP/client.env" --functions-env "$RUNNER_TEMP/functions.env"

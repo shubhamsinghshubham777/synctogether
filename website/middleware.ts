@@ -16,7 +16,13 @@ export async function middleware(request: NextRequest) {
   // already holds in every currency (components/ByCurrency.tsx). Readable by the
   // layout's inline script, so it is deliberately not httpOnly; it carries a
   // currency code and nothing else. Only written when it changes.
-  const currency = currencyForCountry(countryFromHeaders(request.headers));
+  const country = countryFromHeaders(request.headers);
+  const currency = currencyForCountry(country);
+  // Diagnostic: what the edge decided for this request, visible in DevTools'
+  // Network tab, so "wrong currency" reports can be told apart (VPN/relay
+  // country vs. a script or CSS fault).
+  response.headers.set("x-pt-country", country ?? "unknown");
+  response.headers.set("x-pt-currency", currency);
   if (request.cookies.get(CURRENCY_COOKIE)?.value !== currency) {
     response.cookies.set(CURRENCY_COOKIE, currency, { path: "/", maxAge: 60 * 60 * 24, sameSite: "lax", secure: process.env.NODE_ENV === "production" });
   }

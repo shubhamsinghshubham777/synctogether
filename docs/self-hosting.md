@@ -210,6 +210,22 @@ supabase functions deploy cleanup-r2
 > [!TIP]
 > **Optional: faster streaming with the edge Worker.** Members stream the host's file from your bucket's S3 endpoint, which is neither CDN-cached nor close to them. `deploy/media-edge/` is a small Cloudflare Worker that reads the same bucket through an R2 *binding* (no S3 keys in it), honours HTTP Range and caches 4 MiB chunks at the edge so the 2nd..Nth viewer never reaches R2. It never alters the file. `deploy/media-edge/wrangler.toml` ships the official deployment's hostname - change the `[[routes]]` pattern to your own zone first. It needs a Cloudflare account, a hostname on a zone you own and Workers Paid for a busy room (the Free plan's 10 ms CPU and 50-subrequest limits are tight). If you skip it nothing changes: with `MEDIA_EDGE_SECRET` unset or `app_settings.media_edge.enabled = false`, `download-url` returns the presigned S3 URL exactly as before. Setup and rollback: [media-edge.md](media-edge.md).
 
+### Push notifications (optional)
+
+Pairing, date-night reminders and "is calling" use push. The database queues what to send (`push_outbox`, with per-person switches and quiet hours in the recipient's own time zone) and the `push-dispatch` function delivers it. Everything is optional and each platform stands alone: set only the secrets for the platforms you ship (see `supabase/functions/.env.example`: `APNS_*` for iOS and macOS, `FCM_SERVICE_ACCOUNT` for Android, `WNS_PACKAGE_SID` / `WNS_CLIENT_SECRET` for Windows), deploy the function, then point the database at it:
+
+```sql
+update public.app_settings set value = jsonb_build_object('enabled', true,
+  'endpoint_url', 'https://<your-supabase-host>/functions/v1/push-dispatch',
+  'service_role_key', '<your-service-role-key>') where key = 'push';
+```
+
+```bash
+supabase functions deploy push-dispatch
+```
+
+Until `endpoint_url` is set nothing is delivered and nothing fails; the queue is pruned after two days. The Android client also needs `FIREBASE_API_KEY`, `FIREBASE_APP_ID`, `FIREBASE_PROJECT_ID` and `FIREBASE_SENDER_ID` as `--dart-define`s, and an iOS or macOS build needs the Push Notifications capability and an `aps-environment` entitlement.
+
 `apple-iap` is only needed if you sell Premium through the Mac App Store (secrets `APPLE_BUNDLE_ID`, `APPLE_APP_APPLE_ID`); a self-hosted instance can skip it. `ms-iap` is the Microsoft Store equivalent (secrets `MS_STORE_TENANT_ID`, `MS_STORE_CLIENT_ID`, `MS_STORE_CLIENT_SECRET`, `MS_STORE_PRODUCT_IDS`), also optional.
 
 ---
@@ -397,6 +413,7 @@ In debug builds with no local values set, the client falls back to `http://127.0
 | `MEDIA_EDGE_SECRET` | *No* | HMAC secret shared with the optional media-edge Worker (see below). Unset = presigned S3 URLs, as before |
 | `APPLE_BUNDLE_ID` / `APPLE_APP_APPLE_ID` | *No* | Only for the `apple-iap` function (Mac App Store purchases) |
 | `MS_STORE_TENANT_ID` / `MS_STORE_CLIENT_ID` / `MS_STORE_CLIENT_SECRET` / `MS_STORE_PRODUCT_IDS` | *No* | Only for the `ms-iap` function (Microsoft Store purchases) |
+| `APNS_*` / `FCM_SERVICE_ACCOUNT` / `WNS_PACKAGE_SID` + `WNS_CLIENT_SECRET` | *No* | Only for the `push-dispatch` function, one set per platform you ship |
 
 `SUPABASE_URL`, `SUPABASE_ANON_KEY` and `SUPABASE_SERVICE_ROLE_KEY` are injected into Edge Functions by Supabase automatically; don't set them yourself.
 

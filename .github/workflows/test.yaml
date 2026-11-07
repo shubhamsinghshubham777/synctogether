@@ -93,7 +93,13 @@ jobs:
               - 'scripts/selfhost-*'
               - 'scripts/tests/**'
               - 'supabase/**'
-              - 'website/**'
+              - 'website/package*.json'
+              - 'website/next.config.ts'
+              - 'website/middleware.ts'
+              - 'website/lib/**'
+              - 'website/app/terms/**'
+              - 'website/app/privacy/**'
+              - 'website/app/join/**'
               - '**/.env.example'
 
   dart:
@@ -191,6 +197,22 @@ jobs:
       - name: Test
         # Billing code without CI is how the old fail-open webhook bug shipped.
         run: npm test
+
+      - name: Build
+        # Type-checks and builds every page, so a UI change that breaks the site fails
+        # here in about a minute instead of waiting on the end-to-end job. Operator
+        # values are placeholders: the production build refuses to start without them.
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: placeholder
+          SUPABASE_SERVICE_ROLE_KEY: placeholder
+          NEXT_PUBLIC_SITE_URL: http://localhost:3000
+          NEXT_PUBLIC_SUPPORT_EMAIL: support@example.com
+          NEXT_PUBLIC_COPYRIGHT_EMAIL: copyright@example.com
+          NEXT_PUBLIC_OPERATOR_NAME: Example Operator
+          NEXT_PUBLIC_OPERATOR_ADDRESS: 1 Example Street|Springfield|Freedonia
+          NEXT_PUBLIC_GOVERNING_LAW: Freedonia
+        run: npm run build
 
   selfhost-guards:
     name: Self-hosting guards

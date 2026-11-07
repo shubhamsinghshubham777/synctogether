@@ -290,7 +290,7 @@ fvm flutter build windows --release \
 > **`SITE_URL` and `SUPPORT_EMAIL` have no built-in values - set both.** `--dart-define=SITE_URL=https://watch.example.com` is the origin of your web portal (Step 6); the client builds invite links (`/join/<code>`), recap and profile links, the Terms/Privacy links and the Google sign-in bridge (`/auth/desktop-callback`) from it. `--dart-define=SUPPORT_EMAIL=help@example.com` is where reports and appeals point. Nothing falls back to the official site, so a build can never send your users' invites or sign-ins through someone else's. Left unset the client still runs, but invites share the `synctogether://join/<code>` link instead, the Terms/Privacy and share-link buttons disappear and Google sign-in says it isn't set up. The verifier in Step 7 fails a release configuration without them.
 
 > [!TIP]
-> **VS Code & Define Files**: Instead of passing command-line arguments manually, you can configure these defines under `args` in `.vscode/launch.json` or maintain a local JSON file passed with `--dart-define-from-file=my_config.json`.
+> **One file for all the defines.** Copy `.env.example` to `.env`, fill in your values, and build with `--dart-define-from-file=.env` instead of repeating each `--dart-define`. It lists every client define (`SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `SITE_URL`, `SUPPORT_EMAIL`, `LIVEKIT_URL`, `TURNSTILE_SITE_KEY`, telemetry) with what each is for, and the Step 7 verifier reads the same file, so what you verify is what you ship. It is also what VS Code's `.vscode/launch.json` `args` can point at. Client-safe values only; never put server secrets in it.
 
 ---
 

@@ -284,6 +284,13 @@ class Ctx:
 def check_config(x: Ctx) -> bool:
     head("1. Configuration")
     ok = True
+    # A value copied from an .env.example and never edited.
+    ph = lambda v: bool(re.search(r"xxxxx|<[^>]*>|\.\.\.$", v or ""))
+    for label, vals in (("client", x.client), ("server", x.server)):
+        for k, v in vals.items():
+            if v and ph(v) and not k.endswith("_LOCAL") and k not in ("APPLE_APP_APPLE_ID",):
+                x.placeholders = True  # type: ignore[attr-defined]
+                ok = report(FAIL, f"{k} is still a placeholder", f"{label} file: {v[:40]}", "replace it with your real value (or delete the line if the feature is unused)") and ok
     if not x.base:
         ok = report(FAIL, "SUPABASE_URL", "not set in the client env file", "set it in .env (client defines) or pass --client-env") and ok
     elif not x.base.startswith("https://"):
@@ -712,7 +719,7 @@ def main() -> int:
     ap.add_argument("--skip-cron-wait", action="store_true", help="skip the 2-minute pg_cron test (verdict becomes INCOMPLETE)")
     x = Ctx(ap.parse_args())
     print(c("1", "SyncTogether self-host verification"))
-    if not check_config(x) and (not x.base or not x.anon or not x.service):
+    if not check_config(x) and (not x.base or not x.anon or not x.service or getattr(x, "placeholders", False)):
         print(c("31", "\nStopped: fix the configuration above first."))
         return 1
     try:

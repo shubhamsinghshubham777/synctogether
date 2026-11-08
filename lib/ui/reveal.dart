@@ -119,3 +119,54 @@ class _PTRevealState extends State<PTReveal> with SingleTickerProviderStateMixin
     );
   }
 }
+
+/// A [PTReveal] for something that is only there on some condition and whose words
+/// come from live state: it keeps what it last showed, so it folds shut with its
+/// content intact (a link field whose controller was just cleared, a message whose
+/// error just went away) instead of blanking first.
+///
+/// [gap] is the space above it, carried inside the fold: put a PTRevealKeep in a column
+/// with no `spacing`, so a hidden one leaves no gap behind. Group the fold with the
+/// widget above it in a nested column when the parent has spacing.
+class PTRevealKeep extends StatefulWidget {
+  const PTRevealKeep({
+    super.key,
+    required this.visible,
+    required this.child,
+    this.gap = 0,
+    this.axis = Axis.vertical,
+    this.alignment = Alignment.topCenter,
+    this.slide = 0,
+  });
+
+  final bool visible;
+  final Widget child;
+  final double gap;
+  final Axis axis;
+  final Alignment alignment;
+  final double slide;
+
+  @override
+  State<PTRevealKeep> createState() => _PTRevealKeepState();
+}
+
+class _PTRevealKeepState extends State<PTRevealKeep> {
+  Widget? _last;
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.visible) _last = widget.child;
+    return PTReveal(
+      visible: widget.visible,
+      axis: widget.axis,
+      alignment: widget.alignment,
+      slide: widget.slide,
+      child: Padding(
+        padding: widget.axis == Axis.vertical
+            ? EdgeInsets.only(top: widget.gap)
+            : EdgeInsets.only(left: widget.gap),
+        child: _last ?? widget.child,
+      ),
+    );
+  }
+}

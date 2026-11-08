@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../ui/optical.dart';
 import '../../ui/booth_icons.g.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:synctogether/rooms/room_models.dart';
@@ -474,7 +475,12 @@ class _ClearEndedButtonState extends State<_ClearEndedButton> {
               mainAxisSize: .min,
               spacing: 6,
               children: [
-                Icon(BoothIcons.delete, size: 16, color: PTColors.white(_hovered ? 0.9 : 0.65)),
+                PTOpticalIcon(
+                  BoothIcons.delete,
+                  beside: PTText.mono.copyWith(fontSize: 12),
+                  size: 16,
+                  color: PTColors.white(_hovered ? 0.9 : 0.65),
+                ),
                 Text(
                   'Clear ended',
                   style: PTText.mono.copyWith(

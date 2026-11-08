@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../ui/progress_bar.dart';
 import '../ui/booth_icons.g.dart';
 import 'dart:io';
 
@@ -1469,16 +1470,10 @@ class _ProfileScreenState extends State<ProfileScreen> with WindowListener {
               ),
             ],
           ),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(2),
-            child: LinearProgressIndicator(
-              value: fractionUsed,
-              backgroundColor: PTColors.aisle,
-              valueColor: AlwaysStoppedAnimation<Color>(
-                fractionUsed > 0.85 ? PTColors.warning : PTColors.textAccent,
-              ),
-              minHeight: 3,
-            ),
+          PTProgressBar(
+            value: fractionUsed,
+            color: fractionUsed > 0.85 ? PTColors.warning : PTColors.textAccent,
+            height: 3,
           ),
         ] else
           Text(

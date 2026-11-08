@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../ui/progress_bar.dart';
 import '../ui/booth_icons.g.dart';
 
 import 'package:flutter/foundation.dart' show defaultTargetPlatform, visibleForTesting;
@@ -1869,15 +1870,7 @@ class _LobbyScreenState extends State<LobbyScreen> with WindowListener {
                 ),
               ],
             ),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(2),
-              child: LinearProgressIndicator(
-                value: fraction,
-                backgroundColor: PTColors.white(0.1),
-                valueColor: const AlwaysStoppedAnimation<Color>(PTColors.textAccent),
-                minHeight: 4,
-              ),
-            ),
+            PTProgressBar(value: fraction, color: PTColors.textAccent, track: PTColors.white(0.1)),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [

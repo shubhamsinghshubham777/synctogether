@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../ui/optical.dart';
 import '../ui/booth_icons.g.dart';
 
 import 'package:flutter/material.dart';
@@ -991,21 +992,24 @@ class _BoardRow extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, box) {
         final compact = box.maxWidth < MediaQuery.textScalerOf(context).scale(360);
-        return _build(compact);
+        return _build(context, compact);
       },
     );
   }
 
-  Widget _streak() => Row(
+  Widget _streak(BuildContext context) => Row(
     mainAxisSize: .min,
     spacing: 3,
     children: [
-      const Icon(BoothIcons.fire, size: 14, fill: 1, color: PTColors.streak),
+      Transform.translate(
+        offset: Offset(0, opticalShift(context, PTText.mono.copyWith(fontSize: 12))),
+        child: const Icon(BoothIcons.fire, size: 14, fill: 1, color: PTColors.streak),
+      ),
       Text('${row.streak}', style: PTText.mono.copyWith(fontSize: 12)),
     ],
   );
 
-  Widget _build(bool compact) {
+  Widget _build(BuildContext context, bool compact) {
     // The podium: the top three set their rank as a display numeral in the
     // medal's colour, a touch more air, a bigger seat. Everyone else is mono.
     final medal = switch (row.rank) {
@@ -1087,7 +1091,7 @@ class _BoardRow extends StatelessWidget {
                   Row(
                     spacing: 8,
                     children: [
-                      _streak(),
+                      _streak(context),
                       Flexible(child: watched),
                     ],
                   )
@@ -1101,7 +1105,7 @@ class _BoardRow extends StatelessWidget {
               width: 64,
               child: Align(
                 alignment: .centerRight,
-                child: row.streak > 0 ? _streak() : const SizedBox.shrink(),
+                child: row.streak > 0 ? _streak(context) : const SizedBox.shrink(),
               ),
             ),
           SizedBox(

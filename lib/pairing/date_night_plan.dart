@@ -13,6 +13,7 @@ import '../profile/entitlement_service.dart';
 import '../profile/profile_models.dart';
 import '../profile/profile_service.dart';
 import '../rooms/media_sharing_service.dart';
+import '../ui/optical.dart';
 import '../ui/banners.dart';
 import '../ui/booth_icons.g.dart';
 import '../ui/buttons.dart';
@@ -23,6 +24,8 @@ import '../ui/pt_date_time_picker.dart';
 import '../ui/pt_motion.dart';
 import '../ui/pt_theme.dart';
 import '../ui/responsive.dart';
+import '../ui/reveal.dart';
+import '../ui/rolling_text.dart';
 import 'date_night_upload.dart';
 import 'pair_logic.dart';
 import 'pair_models.dart';
@@ -109,7 +112,7 @@ Future<void> showPlanNight(BuildContext context) async {
                   variant: .secondary,
                   height: 44,
                   onPressed: form.lateForThem
-                      ? () => form.pickTime(ctx)
+                      ? () => form.pickWhen(ctx, part: PickerPart.time)
                       : () => Navigator.of(ctx).pop(),
                 ),
               ),
@@ -289,14 +292,9 @@ class PlanNightController extends ChangeNotifier {
     });
   }
 
-  Future<void> pickDay(BuildContext context) => _pick(context, PickerPart.date);
-
-  Future<void> pickClock(BuildContext context) => _pick(context, PickerPart.time);
-
-  /// The late-for-them warning's "Pick another time".
-  Future<void> pickTime(BuildContext context) => _pick(context, PickerPart.time);
-
-  Future<void> _pick(BuildContext context, PickerPart part) async {
+  /// Open the picker on the date (the "When" panel) or straight on the time (the
+  /// late-for-them warning's "Pick another time").
+  Future<void> pickWhen(BuildContext context, {PickerPart part = PickerPart.date}) async {
     final picked = await pickNightTime(context, initial: when, part: part);
     if (picked == null) return;
     when = picked;
@@ -421,27 +419,11 @@ class PlanNightBody extends StatelessWidget {
           prefixIcon: BoothIcons.film,
           maxLength: 120,
         ),
-        Row(
-          spacing: 10,
-          children: [
-            Expanded(
-              child: _PickerField(
-                label: 'Day',
-                icon: BoothIcons.calendar,
-                value: formatDay(form.when),
-                onTap: () => form.pickDay(context),
-              ),
-            ),
-            Expanded(
-              child: _PickerField(
-                label: 'Your time',
-                icon: BoothIcons.clock,
-                value: formatClock(form.when),
-                onTap: () => form.pickClock(context),
-              ),
-            ),
-          ],
-        ),
+        const PairKicker('When'),
+        // One control for the whole answer: it shows the day and your time together
+        // and opens the one picker. (It used to be a Day button and a Time button
+        // that opened the same window, with this line repeated underneath.)
+        _WhenField(form: form),
         if (differ) ...[
           const PairKicker('Both of you, side by side'),
           _Strips(placement: placement, partnerName: form.first),
@@ -459,23 +441,7 @@ class PlanNightBody extends StatelessWidget {
                   '${daypart(placement.theirs!.hour)} for ${form.first}.'
                   '${placement.meAwake ? ' Both of you are awake.' : ''}',
             ),
-        ] else
-          // Same zone, or theirs is unknown: one clock is the whole story.
-          PairPanel(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-            child: Row(
-              spacing: 10,
-              children: [
-                const Icon(BoothIcons.clock, size: 18, color: PTColors.primary),
-                Expanded(
-                  child: Text(
-                    formatMoment(form.when),
-                    style: PTText.mono.copyWith(fontSize: 15, color: PTColors.fg),
-                  ),
-                ),
-              ],
-            ),
-          ),
+        ],
         const PairKicker('What are you watching? · optional'),
         _AttachRow(
           icon: BoothIcons.youtube,
@@ -491,17 +457,39 @@ class PlanNightBody extends StatelessWidget {
           selected: form.watchingFile,
           onTap: () => form.chooseFile(context),
         ),
-        _AttachRow(
-          icon: BoothIcons.film,
-          title: "We'll choose together",
-          caption: 'Pick something in Our Room on the night.',
-          selected: form.attach == PlanAttach.none,
-          onTap: () => form.setWatching(link: false),
+        // The last option and what it reveals share one column: a field that is not
+        // there takes no space, and one that is folds open under the choice that
+        // asked for it instead of snapping in.
+        Column(
+          crossAxisAlignment: .stretch,
+          children: [
+            _AttachRow(
+              icon: BoothIcons.film,
+              title: "We'll choose together",
+              caption: 'Pick something in Our Room on the night.',
+              selected: form.attach == PlanAttach.none,
+              onTap: () => form.setWatching(link: false),
+            ),
+            PTRevealKeep(
+              visible: form.watchingLink,
+              gap: 12,
+              child: _LinkField(form: form),
+            ),
+            PTRevealKeep(
+              visible: form.watchingFile && form.video != null,
+              gap: 12,
+              child: _FilePanel(form: form),
+            ),
+            PTRevealKeep(
+              visible: form.problem != null,
+              gap: 12,
+              child: Text(
+                form.problem ?? '',
+                style: PTText.body.copyWith(color: PTColors.danger, fontSize: 14),
+              ),
+            ),
+          ],
         ),
-        if (form.watchingLink) _LinkField(form: form),
-        if (form.watchingFile && form.video != null) _FilePanel(form: form),
-        if (form.problem != null)
-          Text(form.problem!, style: PTText.body.copyWith(color: PTColors.danger, fontSize: 14)),
       ],
     );
   }
@@ -515,28 +503,50 @@ String daypart(int hour) => hour < 12
     ? 'Evening'
     : 'Night';
 
-class _PickerField extends StatelessWidget {
-  const _PickerField({
-    required this.label,
-    required this.icon,
-    required this.value,
-    required this.onTap,
-  });
+/// The moment of the night, as one tappable panel: "Mon 9 Nov · 9:00 PM" in your own
+/// time. Tapping it opens the date and time picker; what you pick rolls into place
+/// character by character, in the direction it moved.
+class _WhenField extends StatefulWidget {
+  const _WhenField({required this.form});
 
-  final String label;
-  final IconData icon;
-  final String value;
-  final VoidCallback onTap;
+  final PlanNightController form;
+
+  @override
+  State<_WhenField> createState() => _WhenFieldState();
+}
+
+class _WhenFieldState extends State<_WhenField> {
+  DateTime? _was;
+  int _dir = 1;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: .stretch,
-      spacing: 6,
-      children: [
-        PairKicker(label),
-        PTButton(label: value, variant: .secondary, icon: icon, height: 46, onPressed: onTap),
-      ],
+    final when = widget.form.when;
+    final was = _was;
+    if (was != null && was != when) _dir = when.isAfter(was) ? 1 : -1;
+    _was = when;
+    final style = PTText.mono.copyWith(fontSize: 15, color: PTColors.fg);
+    return Semantics(
+      button: true,
+      label: 'When: ${formatMoment(when)}. Change',
+      excludeSemantics: true,
+      child: PTPressable(
+        onTap: () => widget.form.pickWhen(context),
+        pressedScale: 0.99,
+        child: PairPanel(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+          child: Row(
+            spacing: 10,
+            children: [
+              PTOpticalIcon(BoothIcons.calendar, beside: style, size: 18, color: PTColors.primary),
+              Expanded(
+                child: PTRollingText(formatMoment(when), style: style, dir: _dir),
+              ),
+              PTOpticalIcon(BoothIcons.edit, beside: style, size: 15, color: PTColors.fgMute),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
@@ -567,7 +577,11 @@ class _AttachRow extends StatelessWidget {
       child: PTPressable(
         onTap: onTap,
         pressedScale: 0.99,
-        child: Container(
+        child: AnimatedContainer(
+          // Choosing an option lights it up over a beat, and the one it replaces
+          // dims over the same beat, instead of both flipping at once.
+          duration: PTMotion.functional(context, PTMotion.hover),
+          curve: PTMotion.enter,
           constraints: const BoxConstraints(minHeight: 56),
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           decoration: BoxDecoration(
@@ -613,29 +627,50 @@ class _Radio extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    final duration = PTMotion.functional(context, PTMotion.hover);
+    return AnimatedContainer(
+      duration: duration,
+      curve: PTMotion.enter,
       width: 22,
       height: 22,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: selected ? PTColors.primary : null,
-        border: selected ? null : Border.all(color: PTColors.railStrong, width: 1.5),
+        color: selected ? PTColors.primary : Colors.transparent,
+        border: Border.all(color: selected ? PTColors.primary : PTColors.railStrong, width: 1.5),
       ),
-      child: selected ? const Icon(BoothIcons.checkBold, size: 13, color: PTColors.canvas) : null,
+      // The tick pops in as the fill arrives.
+      child: AnimatedScale(
+        duration: duration,
+        curve: PTMotion.enter,
+        scale: selected ? 1 : 0,
+        child: const Icon(BoothIcons.checkBold, size: 13, color: PTColors.canvas),
+      ),
     );
   }
 }
 
 /// The chosen file: its name and size, the planner's allowance for it, and what
 /// to do if it does not fit. All of it is judged before sending.
-class _FilePanel extends StatelessWidget {
+class _FilePanel extends StatefulWidget {
   const _FilePanel({required this.form});
 
   final PlanNightController form;
 
   @override
+  State<_FilePanel> createState() => _FilePanelState();
+}
+
+class _FilePanelState extends State<_FilePanel> {
+  // The chosen file, kept while the panel folds shut after it was cleared.
+  LocalVideo? _lastVideo;
+
+  PlanNightController get form => widget.form;
+
+  @override
   Widget build(BuildContext context) {
-    final video = form.video!;
+    _lastVideo = form.video ?? _lastVideo;
+    final video = _lastVideo;
+    if (video == null) return const SizedBox.shrink();
     final size = form.fileSize ?? 0;
     final limits = EntitlementService.instance.limitsOrFallback;
     final profile = ProfileService.instance.profile;
@@ -891,7 +926,6 @@ class _LinkField extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: .stretch,
-      spacing: 8,
       children: [
         PTTextField(
           controller: form.link,
@@ -903,8 +937,10 @@ class _LinkField extends StatelessWidget {
               : null,
           onChanged: form.linkChanged,
         ),
-        if (form.linkCheck == LinkCheck.valid)
-          Row(
+        PTRevealKeep(
+          visible: form.linkCheck == LinkCheck.valid,
+          gap: 8,
+          child: Row(
             spacing: 8,
             children: [
               const Icon(BoothIcons.check, size: 16, color: PTColors.online),
@@ -916,6 +952,7 @@ class _LinkField extends StatelessWidget {
               ),
             ],
           ),
+        ),
       ],
     );
   }

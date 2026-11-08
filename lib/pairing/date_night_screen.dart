@@ -8,6 +8,8 @@ import '../nav.dart';
 import '../platform.dart';
 import '../profile/profile_models.dart';
 import '../profile/profile_service.dart';
+import '../ui/progress_bar.dart';
+import '../ui/optical.dart';
 import '../ui/banners.dart';
 import '../ui/booth.dart';
 import '../ui/booth_icons.g.dart';
@@ -326,7 +328,12 @@ class _GhostTicket extends StatelessWidget {
             mainAxisSize: .min,
             spacing: 10,
             children: [
-              const Icon(BoothIcons.reunion, size: 18, color: PTColors.fgMute),
+              PTOpticalIcon(
+                BoothIcons.reunion,
+                beside: PTText.mono.copyWith(fontSize: 12),
+                size: 18,
+                color: PTColors.fgMute,
+              ),
               Text(
                 'NOTHING PLANNED',
                 style: PTText.mono.copyWith(
@@ -885,15 +892,7 @@ class _ProgressBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(2),
-      child: LinearProgressIndicator(
-        value: fraction,
-        minHeight: 4,
-        backgroundColor: PTColors.aisle,
-        valueColor: AlwaysStoppedAnimation(warn ? PTColors.warning : PTColors.primary),
-      ),
-    );
+    return PTProgressBar(value: fraction, color: warn ? PTColors.warning : PTColors.primary);
   }
 }
 

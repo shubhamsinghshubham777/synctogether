@@ -1,8 +1,10 @@
 import 'dart:async';
 
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:synctogether/mock/mock_dependencies.dart';
+import 'package:synctogether/pairing/date_night_plan.dart';
 import 'package:synctogether/pairing/date_night_screen.dart';
 import 'package:synctogether/pairing/history_screen.dart';
 import 'package:synctogether/pairing/notification_settings_screen.dart';
@@ -10,7 +12,9 @@ import 'package:synctogether/pairing/pair_models.dart';
 import 'package:synctogether/pairing/pair_service.dart';
 import 'package:synctogether/pairing/push_service.dart';
 import 'package:synctogether/pairing/year_recap_screen.dart';
+import 'package:synctogether/platform.dart';
 import 'package:synctogether/rewards/rewards_service.dart';
+import 'package:synctogether/ui/pt_theme.dart';
 
 import '../support/fake_pair_service.dart';
 import '../support/screen_matrix.dart';
@@ -67,16 +71,119 @@ void main() {
     await pumpAtSize(tester, const DateNightScreen(), c, textScale: s, singlePane: true);
     await tester.pump(const Duration(milliseconds: 500));
     expect(find.text("I'm in"), findsOneWidget, reason: 'only the one proposed by Sam awaits me');
-    expect(find.text('Plan a date night'), findsOneWidget);
+    expect(find.text('COMING UP · 4'), findsOneWidget);
+    expect(find.text('Plan'), findsOneWidget, reason: 'with a list, Plan moves into the header');
+    expect(find.text('Plan a date night'), findsNothing);
     await finishCase(tester);
   });
 
+  screenMatrix('pair/nights-empty', (tester, c, s) async {
+    // No known zone for them is the "same clock" case: one time, shown once.
+    PairService.instance = FakePairService(pair: samePairInfo(patron: true, partnerZone: null));
+    await pumpAtSize(tester, const DateNightScreen(), c, textScale: s, singlePane: true);
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.text('NOTHING PLANNED'), findsOneWidget);
+    expect(find.text('Pick a night. Pick a movie.'), findsOneWidget);
+    await tester.ensureVisible(find.text('Plan a date night'));
+    expect(find.text('Plan a date night'), findsOneWidget, reason: 'the one amber button');
+    expect(
+      find.textContaining('The time is shown once'),
+      findsOneWidget,
+      reason: 'same zone, so the clocks are not promised twice',
+    );
+    await finishCase(tester);
+  });
+
+  testWidgets('with two different clocks the first step promises both', (tester) async {
+    PairService.instance = FakePairService(pair: samePairInfo(patron: true));
+    tester.view.physicalSize = const Size(900, 1800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(MaterialApp(theme: buildPTTheme(), home: const DateNightScreen()));
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.textContaining('Both clocks are shown.'), findsOneWidget);
+    expect(find.textContaining('The time is shown once'), findsNothing);
+  });
+
   screenMatrix('pair/nights-empty-free', (tester, c, s) async {
+    canSellPremiumOverride = true;
+    addTearDown(() => canSellPremiumOverride = null);
     PairService.instance = FakePairService(pair: samePairInfo());
     await pumpAtSize(tester, const DateNightScreen(), c, textScale: s, singlePane: true);
     await tester.pump(const Duration(milliseconds: 500));
-    expect(find.text('Nothing planned'), findsOneWidget);
-    expect(find.textContaining('needs Patron on either side'), findsOneWidget);
+    expect(find.text('Date nights come with a Patron seat.'), findsOneWidget);
+    await tester.ensureVisible(find.text('See Patron'));
+    expect(find.text('See Patron'), findsOneWidget);
+    expect(find.textContaining('Answering never needs Patron'), findsOneWidget);
+    expect(find.text('Plan a date night'), findsNothing, reason: 'absent, not disabled');
+    await finishCase(tester);
+  });
+
+  screenMatrix('pair/nights-loading', (tester, c, s) async {
+    PairService.instance = FakePairService(
+      pair: samePairInfo(patron: true),
+      nightsAreLoaded: false,
+    );
+    await pumpAtSize(tester, const DateNightScreen(), c, textScale: s, singlePane: true);
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.text('COMING UP'), findsOneWidget);
+    expect(
+      find.text('Pick a night. Pick a movie.'),
+      findsNothing,
+      reason: 'not yet an empty state',
+    );
+    expect(find.text("Couldn't load your date nights just now."), findsNothing);
+    await finishCase(tester);
+  });
+
+  screenMatrix('pair/nights-error', (tester, c, s) async {
+    final fake = FakePairService(
+      pair: samePairInfo(patron: true),
+      nightsAreLoaded: true,
+      nightsDidFail: true,
+    );
+    PairService.instance = fake;
+    await pumpAtSize(tester, const DateNightScreen(), c, textScale: s, singlePane: true);
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.text("Couldn't load your date nights just now."), findsOneWidget);
+    expect(find.textContaining("Nights you've already planned are safe"), findsOneWidget);
+    await tester.ensureVisible(find.text('Try again'));
+    await tester.tap(find.text('Try again'));
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(fake.calls, contains('retryNights'));
+    await finishCase(tester);
+  });
+
+  screenMatrix('pair/nights-free-booked', (tester, c, s) async {
+    canSellPremiumOverride = true;
+    addTearDown(() => canSellPremiumOverride = null);
+    PairService.instance = FakePairService(
+      pair: samePairInfo(),
+      nights: [_night('a', DateNightStatus.accepted, const Duration(days: 6))],
+    );
+    await pumpAtSize(tester, const DateNightScreen(), c, textScale: s, singlePane: true);
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.ensureVisible(find.text('See Patron'));
+    expect(find.textContaining('Booked nights keep running'), findsOneWidget);
+    expect(find.text('Plan'), findsNothing, reason: 'planning another needs Patron');
+    await finishCase(tester);
+  });
+
+  screenMatrix('pair/plan-night', (tester, c, s) async {
+    PairService.instance = FakePairService(pair: samePairInfo(patron: true));
+    await pumpAtSize(tester, const PlanNightScreen(), c, textScale: s, singlePane: true);
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.text('Send to Sam'), findsOneWidget);
+    expect(find.text('BOTH OF YOU, SIDE BY SIDE'), findsOneWidget);
+    await finishCase(tester);
+  });
+
+  screenMatrix('pair/plan-night-same-zone', (tester, c, s) async {
+    PairService.instance = FakePairService(pair: samePairInfo(patron: true, partnerZone: null));
+    await pumpAtSize(tester, const PlanNightScreen(), c, textScale: s, singlePane: true);
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.text('Send to Sam'), findsOneWidget);
+    expect(find.text('BOTH OF YOU, SIDE BY SIDE'), findsNothing);
     await finishCase(tester);
   });
 

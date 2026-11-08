@@ -19,6 +19,8 @@ class FakePairService extends PairService {
     this.failInviteWith,
     this.isLoaded = true,
     this.failCreateInvite = false,
+    this.nightsAreLoaded = true,
+    this.nightsDidFail = false,
   }) : _fakePair = pair,
        _fakePending = pending,
        _fakeSent = sent,
@@ -35,6 +37,11 @@ class FakePairService extends PairService {
 
   /// Makes `createInvite` fail, as it would offline.
   bool failCreateInvite;
+
+  /// Whether the nights list has been fetched, and whether that failed: the
+  /// skeleton and error states of the Date nights screen.
+  bool nightsAreLoaded;
+  bool nightsDidFail;
   final bool isLoaded;
   PairInfo? _fakePair;
   final PairInvite? _fakePending;
@@ -53,6 +60,20 @@ class FakePairService extends PairService {
 
   @override
   bool get loaded => isLoaded;
+
+  @override
+  bool get nightsLoaded => nightsAreLoaded;
+
+  @override
+  bool get nightsFailed => nightsDidFail;
+
+  @override
+  Future<void> retryNights() async {
+    calls.add('retryNights');
+    nightsAreLoaded = true;
+    nightsDidFail = false;
+    notifyListeners();
+  }
 
   @override
   PairInfo? get pair => _fakePair;
@@ -179,18 +200,45 @@ class FakePairService extends PairService {
   }
 
   @override
-  Future<DateNight> planNight({required String title, required DateTime startsAt}) async {
-    calls.add('planNight:$title');
+  Future<DateNight> planNight({
+    required String title,
+    required DateTime startsAt,
+    String? youtubeUrl,
+  }) async {
+    calls.add('planNight:$title:${youtubeUrl ?? ''}');
     final night = DateNight(
       id: 'n-${_fakeNights.length}',
       title: title,
       startsAt: startsAt.toUtc(),
       proposedBy: 'me',
       status: DateNightStatus.proposed,
+      attachKind: youtubeUrl == null ? 'none' : 'youtube',
+      youtubeUrl: youtubeUrl,
     );
     _fakeNights = [..._fakeNights, night];
     notifyListeners();
     return night;
+  }
+
+  @override
+  Future<void> setNightAttachment(String id, String? youtubeUrl) async {
+    calls.add('setNightAttachment:$id:${youtubeUrl ?? ''}');
+    _fakeNights = [
+      for (final n in _fakeNights)
+        if (n.id == id)
+          DateNight(
+            id: n.id,
+            title: n.title,
+            startsAt: n.startsAt,
+            proposedBy: n.proposedBy,
+            status: n.status,
+            attachKind: youtubeUrl == null ? 'none' : 'youtube',
+            youtubeUrl: youtubeUrl,
+          )
+        else
+          n,
+    ];
+    notifyListeners();
   }
 
   @override
@@ -219,7 +267,7 @@ class FakePairService extends PairService {
 }
 
 PairInfo samePairInfo({
-  String partnerZone = 'America/New_York',
+  String? partnerZone = 'America/New_York',
   bool patron = false,
   DateTime? reunionOn,
   String? reunionLabel,

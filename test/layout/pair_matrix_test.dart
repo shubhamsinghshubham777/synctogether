@@ -68,6 +68,39 @@ void main() {
     await finishCase(tester);
   });
 
+  DateNight soon({String? link}) => DateNight(
+    id: 'n1',
+    title: 'Spirited Away',
+    startsAt: DateTime.now().toUtc().add(const Duration(minutes: 10)),
+    proposedBy: 'sam',
+    status: DateNightStatus.accepted,
+    attachKind: link == null ? 'none' : 'youtube',
+    youtubeUrl: link,
+  );
+
+  screenMatrix('pair/lobby-night-ready', (tester, c, s) async {
+    PairService.instance = FakePairService(
+      pair: samePairInfo(patron: true),
+      online: true,
+      nights: [soon(link: 'https://www.youtube.com/watch?v=ByXuk9QqQkk')],
+    );
+    await lobby(tester, c, s);
+    expect(find.text('Your movie is ready'), findsOneWidget);
+    expect(find.textContaining('DATE NIGHT'), findsOneWidget);
+    await finishCase(tester);
+  });
+
+  screenMatrix('pair/lobby-night-nothing-attached', (tester, c, s) async {
+    PairService.instance = FakePairService(
+      pair: samePairInfo(patron: true),
+      online: true,
+      nights: [soon()],
+    );
+    await lobby(tester, c, s);
+    expect(find.text('Your movie is ready'), findsNothing, reason: 'never promised early');
+    await finishCase(tester);
+  });
+
   screenMatrix('pair/lobby-offline', (tester, c, s) async {
     PairService.instance = FakePairService(pair: samePairInfo());
     await lobby(tester, c, s);

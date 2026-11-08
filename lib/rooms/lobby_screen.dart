@@ -59,6 +59,39 @@ import 'package:synctogether/ui/scroll_fade.dart';
 /// fold beside empty margins), while the 900 px desktop minimum still stacks.
 const double kLobbySplitWidth = 940;
 
+/// The two ends under the duration slider: the shortest room, and what the
+/// longest can be. The short label keeps its own width and the caption takes the
+/// rest - two Flexibles would split the row evenly and cut the longer one short
+/// while the other left space unused.
+@visibleForTesting
+class DurationBounds extends StatelessWidget {
+  const DurationBounds({super.key, required this.caption});
+
+  final String caption;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Text('5 MIN', style: PTText.label.copyWith(fontSize: 10)),
+        const SizedBox(width: 12),
+        Expanded(
+          // A narrow phone wraps the caption (a 320 px one needs two lines, and
+          // three at large text) rather than cutting a word off the one thing
+          // that explains the limit.
+          child: Text(
+            caption,
+            maxLines: 3,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.end,
+            style: PTText.label.copyWith(fontSize: 10),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 /// Under the duration slider's right end. A Patron room starts at the slider's
 /// maximum and grows from inside the room, so say so: "4 HOURS MAX" alone reads
 /// as the whole story and hides the 24 hours they pay for.
@@ -1414,22 +1447,7 @@ class _LobbyScreenState extends State<LobbyScreen> with WindowListener {
               onChanged: (v) =>
                   setState(() => _durationMinutes = 5 + ((v * (_durationCap - 5)) / 5).round() * 5),
             ),
-            Row(
-              mainAxisAlignment: .spaceBetween,
-              children: [
-                Flexible(child: Text('5 MIN', style: PTText.label.copyWith(fontSize: 10))),
-                const SizedBox(width: 12),
-                Flexible(
-                  child: Text(
-                    _durationCaption,
-                    maxLines: 1,
-                    overflow: .ellipsis,
-                    textAlign: .end,
-                    style: PTText.label.copyWith(fontSize: 10),
-                  ),
-                ),
-              ],
-            ),
+            DurationBounds(caption: _durationCaption),
           ],
         ),
         _stagedMediaSection(compact),

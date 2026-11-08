@@ -178,6 +178,8 @@ class DateNight {
     required this.startsAt,
     required this.proposedBy,
     required this.status,
+    this.attachKind = 'none',
+    this.youtubeUrl,
   });
 
   factory DateNight.fromJson(Map<String, dynamic> json) => DateNight(
@@ -186,6 +188,8 @@ class DateNight {
     startsAt: _time(json['starts_at']) ?? DateTime.now().toUtc(),
     proposedBy: json['proposed_by'] as String,
     status: DateNightStatus.fromWire(json['status'] as String?),
+    attachKind: json['attach_kind'] as String? ?? 'none',
+    youtubeUrl: json['youtube_url'] as String?,
   );
 
   final String id;
@@ -195,6 +199,13 @@ class DateNight {
   /// Whoever made the latest proposal. The other person answers it.
   final String proposedBy;
   final DateNightStatus status;
+
+  /// What the planner attached: `none` ("we'll choose together"), `youtube`, or
+  /// (later) `file`. When the night starts Our Room opens with it loaded.
+  final String attachKind;
+  final String? youtubeUrl;
+
+  bool get hasLink => attachKind == 'youtube' && youtubeUrl != null;
 }
 
 @immutable
@@ -330,6 +341,8 @@ enum PairErrorCode {
   inviteUsed('invite_used', 'That invite was already used.'),
   inviteCancelled('invite_cancelled', 'That invite was cancelled. Ask for a fresh one.'),
   invalidNickname('invalid_nickname', 'Keep that to 40 characters.'),
+  invalidLink('invalid_link', "Hmm, that doesn't look like a YouTube link."),
+  notPlanner('not_planner', 'Only whoever planned the night can change that.'),
   invalidEmail('invalid_email', "Hmm, that doesn't look like an email address."),
   tooManyInvites(
     'too_many_invites',

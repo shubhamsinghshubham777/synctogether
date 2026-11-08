@@ -10,14 +10,22 @@ import 'pair_models.dart';
 
 /// `// LABEL` kicker over a section.
 class PairKicker extends StatelessWidget {
-  const PairKicker(this.text, {super.key, this.color});
+  const PairKicker(this.text, {super.key, this.color, this.oneLine = false});
 
   final String text;
   final Color? color;
 
+  /// Keep it to a single line and end with an ellipsis, for a kicker that shares
+  /// its row with other things and carries a title that can be long.
+  final bool oneLine;
+
   @override
-  Widget build(BuildContext context) =>
-      Text(text.toUpperCase(), style: PTText.label.copyWith(color: color ?? PTColors.fgMute));
+  Widget build(BuildContext context) => Text(
+    text.toUpperCase(),
+    maxLines: oneLine ? 1 : null,
+    overflow: oneLine ? TextOverflow.ellipsis : null,
+    style: PTText.label.copyWith(color: color ?? PTColors.fgMute),
+  );
 }
 
 /// A Seat panel with the pair screens' standard padding.

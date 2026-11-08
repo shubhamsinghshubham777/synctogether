@@ -340,6 +340,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
   Timer? _countdownTimer;
   Duration _timeLeft = Duration.zero;
   bool _warningDismissed = false;
+  bool _dateNightBannerDismissed = false;
   bool _connected = true;
   bool _ended = false;
   Timer? _idleSourceTimer;
@@ -5578,8 +5579,37 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
   /// what stops `_tickCountdown`'s per-second rebuild from restarting the T-5
   /// auto-dismiss ring, and an unkeyed wrapper would reintroduce that by making
   /// the list match children positionally again.
+  /// The date night that is on, when its planner attached a film and nobody has
+  /// started it yet: Our Room opened with the film loaded, and this says so.
+  Widget? _dateNightBanner() {
+    final room = _room;
+    if (room == null || !room.isOurRoom || _dateNightBannerDismissed || _playing) return null;
+    final svc = PairService.instance;
+    final now = DateTime.now().toUtc();
+    final night = featuredNight(now, svc.nights);
+    if (night == null || !night.hasLink || !isNightImminent(now, night)) return null;
+    final mine = night.proposedBy == _sync?.userId;
+    final first = svc.pair?.partner.displayName.split(' ').first ?? 'Your person';
+    return PTEntrance(
+      key: const ValueKey('date-night-ready'),
+      offset: -8,
+      duration: PTMotion.state,
+      child: PTBanner(
+        kind: .info,
+        icon: BoothIcons.film,
+        title: 'Date night · ${night.title}',
+        subtitle: mine
+            ? "Tonight's film is loaded. Press play when you're both here."
+            : "$first picked tonight's film. Press play when you're both here.",
+        onDismiss: () => setState(() => _dateNightBannerDismissed = true),
+      ),
+    );
+  }
+
   List<Widget> _banners() {
+    final dateNight = _dateNightBanner();
     return [
+      ?dateNight,
       if (!_warningDismissed &&
           _timeLeft > Duration.zero &&
           _timeLeft <= const Duration(minutes: 5))

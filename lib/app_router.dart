@@ -9,6 +9,7 @@ import 'package:supabase_flutter/supabase_flutter.dart' show AuthChangeEvent;
 
 import 'auth/auth_service.dart';
 import 'auth/login_screen.dart';
+import 'pairing/date_night_plan.dart' show PlanNightScreen;
 import 'pairing/date_night_screen.dart';
 import 'pairing/history_screen.dart';
 import 'pairing/notification_settings_screen.dart';
@@ -128,6 +129,10 @@ GoRouter buildRouter([Player? player]) {
               GoRoute(
                 path: 'nights',
                 pageBuilder: (context, state) => _detail(state, const DateNightScreen()),
+              ),
+              GoRoute(
+                path: 'plan-night',
+                pageBuilder: (context, state) => _detail(state, const PlanNightScreen()),
               ),
               GoRoute(
                 path: 'history',

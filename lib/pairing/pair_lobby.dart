@@ -284,37 +284,47 @@ class _OurRoomCardState extends State<OurRoomCard> {
                 child: PairKicker(
                   night == null ? 'Our Room' : 'Date night · ${night.title}',
                   color: live ? PTColors.primary : null,
+                  oneLine: true,
                 ),
               ),
               // The way back to the pair hub, said in words: the names row below
               // is a target too, but nothing about it says so.
-              Semantics(
-                button: true,
-                excludeSemantics: true,
-                label: 'Your person',
-                child: PTPressable(
-                  onTap: () => openPage(context, '/lobby/pair'),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 4),
-                    child: Row(
-                      mainAxisSize: .min,
-                      spacing: 2,
-                      children: [
-                        Text(
-                          'Your person',
-                          style: PTText.caption.copyWith(color: PTColors.link, fontWeight: .w500),
-                        ),
-                        // The label is mostly lowercase, so its optical centre is the
-                        // x-height, a pixel below the glyph's own centre.
-                        Transform.translate(
-                          offset: const Offset(0, 1),
-                          child: const Icon(
-                            BoothIcons.chevronRight,
-                            size: 14,
-                            color: PTColors.link,
+              Flexible(
+                child: Semantics(
+                  button: true,
+                  excludeSemantics: true,
+                  label: 'Your person',
+                  child: PTPressable(
+                    onTap: () => openPage(context, '/lobby/pair'),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      child: Row(
+                        mainAxisSize: .min,
+                        spacing: 2,
+                        children: [
+                          Flexible(
+                            child: Text(
+                              'Your person',
+                              maxLines: 1,
+                              overflow: .ellipsis,
+                              style: PTText.caption.copyWith(
+                                color: PTColors.link,
+                                fontWeight: .w500,
+                              ),
+                            ),
                           ),
-                        ),
-                      ],
+                          // The label is mostly lowercase, so its optical centre is the
+                          // x-height, a pixel below the glyph's own centre.
+                          Transform.translate(
+                            offset: const Offset(0, 1),
+                            child: const Icon(
+                              BoothIcons.chevronRight,
+                              size: 14,
+                              color: PTColors.link,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -376,6 +386,21 @@ class _OurRoomCardState extends State<OurRoomCard> {
               ),
             ],
           ),
+          // The film its planner attached is already waiting: said only when it is
+          // true and the night is close, so the card never promises early.
+          if (night != null && imminent && night.hasLink)
+            Row(
+              spacing: 8,
+              children: [
+                const Icon(BoothIcons.check, size: 16, color: PTColors.online),
+                Expanded(
+                  child: Text(
+                    'Your movie is ready',
+                    style: PTText.caption.copyWith(color: PTColors.online),
+                  ),
+                ),
+              ],
+            ),
           if (widget.online)
             LayoutBuilder(
               builder: (context, box) {

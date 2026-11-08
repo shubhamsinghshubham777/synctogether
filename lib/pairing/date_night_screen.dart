@@ -8,17 +8,22 @@ import '../nav.dart';
 import '../platform.dart';
 import '../profile/profile_service.dart';
 import '../ui/banners.dart';
+import '../ui/booth.dart';
 import '../ui/booth_icons.g.dart';
 import '../ui/buttons.dart';
 import '../ui/glass.dart';
+import '../ui/pt_motion.dart';
 import '../ui/pt_theme.dart';
 import 'calendar_bridge.dart';
+import 'date_night_plan.dart';
 import 'pair_logic.dart';
 import 'pair_models.dart';
 import 'pair_page.dart';
 import 'pair_service.dart';
 import 'pair_share.dart';
 import 'pair_widgets.dart';
+
+export 'date_night_plan.dart' show pickNightTime, showPlanNight;
 
 /// Date nights: the ones coming up, answered or waiting, and the way to plan
 /// another. Planning needs Patron on either side; answering, moving and
@@ -59,63 +64,443 @@ class _DateNightScreenState extends State<DateNightScreen> {
         final me = ProfileService.instance.profile?.id ?? '';
         final now = DateTime.now().toUtc();
         final nights = upcomingNights(now, svc.nights);
+        final patron = pair?.patron ?? false;
+        final first = pair?.partner.displayName.split(' ').first ?? 'your person';
+        final sameZone =
+            pair == null || !placeNight(now, partnerZone: pair.partner.timezone).zonesDiffer;
+
+        final Widget body;
+        if (!svc.loaded || !svc.nightsLoaded) {
+          body = const _Skeleton();
+        } else if (svc.nightsFailed && nights.isEmpty) {
+          body = _LoadError(onRetry: svc.retryNights);
+        } else if (nights.isEmpty) {
+          body = patron ? _EmptyPatron(first: first, sameZone: sameZone) : _EmptyFree(first: first);
+        } else {
+          body = _Upcoming(nights: nights, me: me, now: now, pair: pair, patron: patron);
+        }
+
+        final showPlan = svc.nightsLoaded && nights.isNotEmpty && patron;
         return PairPage(
           title: 'Date nights',
-          footer: PTButton(
-            label: 'Plan a date night',
-            icon: BoothIcons.add,
-            onPressed: pair == null ? null : () => showPlanNight(context),
-          ),
-          children: [
-            if (nights.isEmpty)
-              PairPanel(
-                child: Column(
-                  crossAxisAlignment: .start,
-                  spacing: 6,
-                  children: [
-                    Text('Nothing planned', style: PTText.cardHeading.copyWith(fontSize: 18)),
-                    Text(
-                      'Pick a night, see it on both your clocks, and get a nudge fifteen minutes before.',
-                      style: PTText.body.copyWith(
-                        color: PTColors.fgSoft,
-                        fontSize: 14,
-                        height: 1.45,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            for (final night in nights)
-              _NightCard(
-                night: night,
-                standing: nightStanding(now, night, me),
-                partner: pair?.partner,
-                now: now,
-              ),
-            if (pair != null && !pair.patron)
-              const PairNote(
-                'Planning a date night needs Patron on either side. Answering one never does.',
-                center: true,
-              ),
-          ],
+          trailing: showPlan
+              ? DialogTextButton(label: 'Plan', onPressed: () => showPlanNight(context))
+              : null,
+          children: [body],
         );
       },
     );
   }
 }
 
+// ------------------------------------------------------------------- states
+
+/// The list once there is one: the soonest night first, and a way to the
+/// history for the ones that are over.
+class _Upcoming extends StatelessWidget {
+  const _Upcoming({
+    required this.nights,
+    required this.me,
+    required this.now,
+    required this.pair,
+    required this.patron,
+  });
+
+  final List<DateNight> nights;
+  final String me;
+  final DateTime now;
+  final PairInfo? pair;
+  final bool patron;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: .stretch,
+      spacing: 14,
+      children: [
+        PairKicker('Coming up · ${nights.length}'),
+        for (final night in nights)
+          _NightCard(
+            night: night,
+            standing: nightStanding(now, night, me),
+            partner: pair?.partner,
+            now: now,
+            mine: night.proposedBy == me,
+          ),
+        if (!patron && canSellPremium) const _PatronRow(),
+        PTPressable(
+          onTap: () => openPage(context, '/lobby/pair/history'),
+          pressedScale: 0.99,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 10),
+            child: Row(
+              spacing: 10,
+              children: [
+                const Icon(BoothIcons.fire, size: 16, color: PTColors.fgDim),
+                Expanded(
+                  child: Text(
+                    'Finished nights live in Streak and history',
+                    style: PTText.body.copyWith(fontSize: 14, color: PTColors.fgDim),
+                  ),
+                ),
+                const Icon(BoothIcons.chevronRight, size: 16, color: PTColors.fgMute),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// "Booked nights keep running. Planning another needs Patron": a pair that has
+/// no Patron but still has a night booked. Quiet, brass-edged, never a wall.
+class _PatronRow extends StatelessWidget {
+  const _PatronRow();
+
+  @override
+  Widget build(BuildContext context) {
+    return PairPanel(
+      brass: true,
+      padding: const EdgeInsets.all(14),
+      child: Row(
+        spacing: 12,
+        children: [
+          const Icon(BoothIcons.crown, size: 20, color: PTColors.premium),
+          Expanded(
+            child: Text(
+              'Booked nights keep running. Planning another needs a Patron seat on either side.',
+              style: PTText.body.copyWith(fontSize: 14, color: PTColors.fgDim, height: 1.35),
+            ),
+          ),
+          DialogTextButton(
+            label: 'See Patron',
+            onPressed: () {
+              Analytics.instance.track('upgrade_cta_clicked', {
+                'surface': 'date_night',
+                'action': 'subscribe',
+              });
+              openPage(context, '/lobby/subscribe?source=date_night');
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Nothing planned yet, and planning is available: the pitch, in three steps,
+/// and the one amber button.
+class _EmptyPatron extends StatelessWidget {
+  const _EmptyPatron({required this.first, required this.sameZone});
+
+  final String first;
+  final bool sameZone;
+
+  @override
+  Widget build(BuildContext context) {
+    final steps = [
+      'Choose a day and a time. ${sameZone ? 'The time is shown once.' : 'Both clocks are shown.'}',
+      'Attach a YouTube link, or skip it.',
+      '$first says yes. You get a nudge 15 minutes before.',
+    ];
+    return Column(
+      crossAxisAlignment: .stretch,
+      spacing: 14,
+      children: [
+        const _GhostTicket(),
+        Text(
+          'Pick a night. Pick a movie.',
+          style: PTText.display.copyWith(fontSize: 34, height: 1),
+        ),
+        Text(
+          "Plan it, attach what you're watching, and on the night you both just open Our Room and press play.",
+          style: PTText.body.copyWith(color: PTColors.fgSoft, height: 1.5),
+        ),
+        for (final (i, step) in steps.indexed)
+          Row(
+            crossAxisAlignment: .start,
+            spacing: 12,
+            children: [
+              Text('0${i + 1}', style: PTText.mono.copyWith(fontSize: 12, color: PTColors.primary)),
+              Expanded(
+                child: Text(
+                  step,
+                  style: PTText.body.copyWith(fontSize: 14, color: PTColors.fgDim, height: 1.4),
+                ),
+              ),
+            ],
+          ),
+        PTButton(
+          label: 'Plan a date night',
+          icon: BoothIcons.add,
+          onPressed: () => showPlanNight(context),
+        ),
+      ],
+    );
+  }
+}
+
+/// Nothing planned and no Patron on either side: an explanation, not a wall.
+/// Answering never needs Patron, which is the reassurance that matters.
+class _EmptyFree extends StatelessWidget {
+  const _EmptyFree({required this.first});
+
+  final String first;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: .stretch,
+      spacing: 14,
+      children: [
+        const _GhostTicket(),
+        Text(
+          'Date nights come with a Patron seat.',
+          style: PTText.display.copyWith(fontSize: 34, height: 1),
+        ),
+        Text(
+          'A Patron seat on either side gives you both video, date nights and your full history. '
+          'One seat covers the two of you.',
+          style: PTText.body.copyWith(color: PTColors.fgSoft, height: 1.5),
+        ),
+        PairPanel(
+          padding: const EdgeInsets.all(14),
+          child: Row(
+            crossAxisAlignment: .start,
+            spacing: 10,
+            children: [
+              const Padding(
+                padding: EdgeInsets.only(top: 2),
+                child: Icon(BoothIcons.check, size: 16, color: PTColors.online),
+              ),
+              Expanded(
+                child: Text(
+                  'If $first plans one, you can answer it any time. Answering never needs Patron.',
+                  style: PTText.body.copyWith(fontSize: 14, color: PTColors.fgDim, height: 1.4),
+                ),
+              ),
+            ],
+          ),
+        ),
+        if (canSellPremium)
+          PTButton(
+            label: 'See Patron',
+            icon: BoothIcons.crown,
+            variant: .secondary,
+            onPressed: () {
+              Analytics.instance.track('upgrade_cta_clicked', {
+                'surface': 'date_night',
+                'action': 'subscribe',
+              });
+              openPage(context, '/lobby/subscribe?source=date_night');
+            },
+          ),
+        Center(
+          child: DialogTextButton(
+            label: 'Not now',
+            onPressed: () => Navigator.of(context).maybePop(),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// A ticket-shaped outline with nothing in it yet: Rail-dashed, never filled.
+class _GhostTicket extends StatelessWidget {
+  const _GhostTicket();
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 112,
+      child: CustomPaint(
+        painter: _DashedBox(),
+        child: Center(
+          child: Row(
+            mainAxisSize: .min,
+            spacing: 10,
+            children: [
+              const Icon(BoothIcons.reunion, size: 18, color: PTColors.fgMute),
+              Text(
+                'NOTHING PLANNED',
+                style: PTText.mono.copyWith(
+                  fontSize: 12,
+                  color: PTColors.fgMute,
+                  letterSpacing: 1.4,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DashedBox extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = PTColors.railStrong
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2;
+    final rect = RRect.fromRectAndRadius(Offset.zero & size, const Radius.circular(PTRadius.panel));
+    final path = Path()..addRRect(rect);
+    for (final metric in path.computeMetrics()) {
+      var d = 0.0;
+      while (d < metric.length) {
+        canvas.drawPath(metric.extractPath(d, d + 7), paint);
+        d += 12;
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(_DashedBox old) => false;
+}
+
+/// Three ticket-shaped blocks while the list is on its way. They breathe once
+/// every 1.6 s, not shimmer, and hold still when motion is reduced.
+class _Skeleton extends StatefulWidget {
+  const _Skeleton();
+
+  @override
+  State<_Skeleton> createState() => _SkeletonState();
+}
+
+class _SkeletonState extends State<_Skeleton> with SingleTickerProviderStateMixin {
+  late final AnimationController _c = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1600),
+  );
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (reducedMotion(context)) {
+      _c
+        ..stop()
+        ..value = 0;
+    } else if (!_c.isAnimating) {
+      _c.repeat(reverse: true);
+    }
+  }
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      label: 'Loading your date nights',
+      child: ExcludeSemantics(
+        child: Column(
+          crossAxisAlignment: .stretch,
+          spacing: 14,
+          children: [
+            const PairKicker('Coming up'),
+            for (var i = 0; i < 3; i++)
+              AnimatedBuilder(
+                animation: _c,
+                builder: (context, _) =>
+                    Opacity(opacity: 0.55 + 0.45 * _c.value, child: const _SkeletonTicket()),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SkeletonTicket extends StatelessWidget {
+  const _SkeletonTicket();
+
+  @override
+  Widget build(BuildContext context) {
+    Widget block(double w, double h) => Container(
+      width: w,
+      height: h,
+      decoration: BoxDecoration(
+        color: PTColors.aisle,
+        borderRadius: BorderRadius.circular(PTRadius.control),
+      ),
+    );
+    return PTTicket(
+      stubWidth: 118,
+      body: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 18, 14, 18),
+        child: Column(
+          crossAxisAlignment: .start,
+          mainAxisSize: .min,
+          spacing: 10,
+          children: [block(86, 9), block(150, 18), block(112, 9)],
+        ),
+      ),
+      stub: Center(
+        child: Column(mainAxisSize: .min, spacing: 8, children: [block(54, 9), block(40, 14)]),
+      ),
+    );
+  }
+}
+
+/// The list could not be fetched. Said calmly: what you planned is safe, only
+/// the list failed; the real cause went to reportNonFatal, not onto the screen.
+class _LoadError extends StatelessWidget {
+  const _LoadError({required this.onRetry});
+
+  final Future<void> Function() onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 56),
+      child: Column(
+        spacing: 12,
+        children: [
+          const Icon(BoothIcons.reunion, size: 36, color: PTColors.fgMute),
+          Text(
+            "Couldn't load your date nights just now.",
+            textAlign: TextAlign.center,
+            style: PTText.cardHeading.copyWith(fontSize: 24, height: 1.1),
+          ),
+          Text(
+            "Nights you've already planned are safe. This is only the list.",
+            textAlign: TextAlign.center,
+            style: PTText.body.copyWith(color: PTColors.fgSoft, height: 1.45),
+          ),
+          const SizedBox(height: 4),
+          PTButton(label: 'Try again', variant: .secondary, expand: false, onPressed: onRetry),
+        ],
+      ),
+    );
+  }
+}
+
+// -------------------------------------------------------------------- cards
+
+/// A night as a paper ticket: the day and your clock on the left, the countdown
+/// on the stub, and beneath it what you are watching and what you can do.
 class _NightCard extends StatelessWidget {
   const _NightCard({
     required this.night,
     required this.standing,
     required this.partner,
     required this.now,
+    required this.mine,
   });
 
   final DateNight night;
   final NightStanding standing;
   final PairPartner? partner;
   final DateTime now;
+
+  /// Whether I planned it.
+  final bool mine;
 
   String get _first => partner?.displayName.split(' ').first ?? 'your person';
 
@@ -212,59 +597,119 @@ class _NightCard extends StatelessWidget {
     if (go == true) await PairService.instance.cancelNight(night.id);
   }
 
+  bool get _over =>
+      standing == NightStanding.cancelled ||
+      standing == NightStanding.declined ||
+      standing == NightStanding.done;
+
+  ({String text, Color color}) get _badge => switch (standing) {
+    NightStanding.awaitingMe => (text: 'YOUR ANSWER', color: PTColors.link),
+    NightStanding.awaitingThem => (
+      text: 'WAITING FOR ${_first.toUpperCase()}',
+      color: PTColors.fgSoft,
+    ),
+    NightStanding.accepted when night.hasLink => (text: 'READY', color: PTColors.online),
+    NightStanding.accepted => (text: 'LOCKED IN', color: PTColors.online),
+    NightStanding.done => (text: 'IN YOUR HISTORY', color: PTColors.fgSoft),
+    NightStanding.declined => (text: 'DECLINED', color: PTColors.fgMute),
+    NightStanding.cancelled => (text: 'CANCELLED', color: PTColors.fgMute),
+  };
+
   @override
   Widget build(BuildContext context) {
     final placement = placeNight(night.startsAt, partnerZone: partner?.timezone);
     final imminent = isNightImminent(now, night);
-    final label = switch (standing) {
-      NightStanding.awaitingMe => '$_first proposed this',
-      NightStanding.awaitingThem => 'Waiting for $_first',
-      NightStanding.accepted => 'Locked in',
-      NightStanding.done => 'Just finished',
-      NightStanding.declined => 'Declined',
-      NightStanding.cancelled => 'Cancelled',
-    };
-    return PairPanel(
-      live: imminent && standing == NightStanding.accepted,
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: .stretch,
-        spacing: 12,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: PairKicker(
-                  label,
-                  color: standing == NightStanding.awaitingMe ? PTColors.primary : null,
-                ),
-              ),
-              if (standing == NightStanding.accepted)
-                PairPill(
-                  countdownTo(night.startsAt, now).label,
-                  color: imminent ? PTColors.primary : PTColors.online,
-                  fill: imminent ? PTColors.pillWarning : null,
-                ),
-            ],
-          ),
-          Text(night.title, style: PTText.cardHeading.copyWith(fontSize: 22, height: 1.1)),
-          _When(placement: placement, partnerName: _first),
-          if (placement.lateForThem && standing != NightStanding.cancelled)
-            Row(
-              spacing: 8,
+    final badge = _badge;
+    final ink = _over ? PTColors.fgMute : PTColors.canvas;
+    final sub = placement.zonesDiffer && placement.theirs != null
+        ? '$_first · ${formatClock(placement.theirs!)}'
+              '${placement.theirCity.isEmpty ? '' : ' ${placement.theirCity}'}'
+        : null;
+
+    return Column(
+      crossAxisAlignment: .stretch,
+      spacing: 10,
+      children: [
+        PTTicket(
+          paper: !_over,
+          stubWidth: 118,
+          semanticLabel: '${night.title}, ${formatMoment(placement.mine)}',
+          body: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 12, 16),
+            child: Column(
+              crossAxisAlignment: .start,
+              mainAxisSize: .min,
+              spacing: 6,
               children: [
-                const Icon(BoothIcons.clock, size: 16, color: PTColors.warning),
-                Expanded(
-                  child: Text(
-                    "That's the middle of the night for $_first.",
-                    style: PTText.caption.copyWith(color: PTColors.warning),
+                Text(
+                  '${formatDay(placement.mine).toUpperCase()} · YOUR TIME',
+                  style: PTText.label.copyWith(
+                    color: _over ? PTColors.fgMute : PTColors.liveInk,
+                    letterSpacing: 1.1,
+                  ),
+                ),
+                Text(
+                  night.title,
+                  maxLines: 2,
+                  overflow: .ellipsis,
+                  style: PTText.cardHeading.copyWith(fontSize: 19, height: 1.1, color: ink),
+                ),
+                Text(
+                  sub ?? formatClock(placement.mine),
+                  style: PTText.mono.copyWith(
+                    fontSize: 11.5,
+                    color: _over ? PTColors.fgMute : PTColors.canvas.withValues(alpha: 0.62),
                   ),
                 ),
               ],
             ),
-          ..._actions(context),
-        ],
-      ),
+          ),
+          stub: Padding(
+            padding: const EdgeInsets.fromLTRB(6, 10, 10, 10),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              spacing: 6,
+              children: [
+                _Badge(text: badge.text, color: badge.color),
+                if (standing == NightStanding.accepted ||
+                    standing == NightStanding.awaitingMe ||
+                    standing == NightStanding.awaitingThem) ...[
+                  Text(
+                    'STARTS IN',
+                    style: PTText.label.copyWith(
+                      fontSize: 9,
+                      color: PTColors.canvas.withValues(alpha: 0.55),
+                    ),
+                  ),
+                  Text(
+                    countdownTo(night.startsAt, now).label,
+                    style: PTText.mono.copyWith(
+                      fontSize: 16,
+                      fontWeight: .w600,
+                      color: imminent ? PTColors.liveInk : PTColors.canvas,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+        if (!_over) _Attachment(night: night, mine: mine, first: _first),
+        if (placement.lateForThem && !_over)
+          Row(
+            spacing: 8,
+            children: [
+              const Icon(BoothIcons.clock, size: 16, color: PTColors.warning),
+              Expanded(
+                child: Text(
+                  "That's the middle of the night for $_first.",
+                  style: PTText.caption.copyWith(color: PTColors.warning),
+                ),
+              ),
+            ],
+          ),
+        ..._actions(context),
+      ],
     );
   }
 
@@ -348,334 +793,64 @@ class _NightCard extends StatelessWidget {
   }
 }
 
-/// A night's time on your clock, and on theirs only when theirs is different.
-class _When extends StatelessWidget {
-  const _When({required this.placement, required this.partnerName});
+/// What the night is for: the attached link, or "we'll choose together". Its
+/// planner can change it from here for as long as the night is open.
+class _Attachment extends StatelessWidget {
+  const _Attachment({required this.night, required this.mine, required this.first});
 
-  final NightPlacement placement;
-  final String partnerName;
+  final DateNight night;
+  final bool mine;
+  final String first;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: .start,
-      spacing: 4,
+    final link = night.hasLink;
+    final text = link
+        ? (mine ? 'A YouTube link is attached.' : '$first attached a YouTube link.')
+        : "We'll choose together in Our Room.";
+    return Row(
+      spacing: 10,
       children: [
-        Text(
-          formatMoment(placement.mine),
-          style: PTText.mono.copyWith(fontSize: 14, color: PTColors.fg),
+        Icon(
+          link ? BoothIcons.youtube : BoothIcons.film,
+          size: 16,
+          color: link ? PTColors.primary : PTColors.fgDim,
         ),
-        if (placement.zonesDiffer && placement.theirs != null)
-          Text(
-            '${formatClock(placement.theirs!)} for $partnerName'
-            '${placement.theirCity.isEmpty ? '' : ' in ${placement.theirCity}'}',
-            style: PTText.mono.copyWith(fontSize: 12.5, color: PTColors.fgSoft),
-          ),
+        Expanded(
+          child: Text(text, style: PTText.body.copyWith(fontSize: 13.5, color: PTColors.fgDim)),
+        ),
+        if (mine)
+          DialogTextButton(label: 'Change', onPressed: () => showChangeWatching(context, night)),
       ],
     );
   }
 }
 
-// ------------------------------------------------------------------ planning
+class _Badge extends StatelessWidget {
+  const _Badge({required this.text, required this.color});
 
-/// Date then time, as the platform's own pickers. Returns the chosen local
-/// moment, or null if either was dismissed.
-Future<DateTime?> pickNightTime(BuildContext context, {DateTime? initial}) async {
-  final now = DateTime.now();
-  final start = initial ?? DateTime(now.year, now.month, now.day + 1, 21);
-  final day = await showDatePicker(
-    context: context,
-    initialDate: start.isBefore(now) ? now : start,
-    firstDate: DateTime(now.year, now.month, now.day),
-    lastDate: now.add(const Duration(days: 365)),
-  );
-  if (day == null || !context.mounted) return null;
-  final time = await showTimePicker(
-    context: context,
-    initialTime: TimeOfDay(hour: start.hour, minute: start.minute),
-  );
-  if (time == null) return null;
-  return DateTime(day.year, day.month, day.day, time.hour, time.minute);
-}
-
-/// Plan a date night: what, when, and how that lands on each clock. Shows the
-/// Patron gate instead when neither partner has it.
-Future<void> showPlanNight(BuildContext context) async {
-  final svc = PairService.instance;
-  final pair = svc.pair;
-  if (pair == null) return;
-  if (!pair.patron) {
-    await _showGate(context);
-    return;
-  }
-  final title = TextEditingController();
-  var when = DateTime.now().add(const Duration(days: 1)).copyWith(hour: 21, minute: 0, second: 0);
-  var busy = false;
-  String? problem;
-  await showGlassDialog<void>(
-    context: context,
-    width: 440,
-    sheetOnCompact: true,
-    builder: (ctx) => StatefulBuilder(
-      builder: (ctx, setState) {
-        final placement = placeNight(when.toUtc(), partnerZone: pair.partner.timezone);
-        final first = pair.partner.displayName.split(' ').first;
-
-        Future<void> send() async {
-          setState(() {
-            busy = true;
-            problem = null;
-          });
-          try {
-            await svc.planNight(title: title.text, startsAt: when);
-            if (ctx.mounted) Navigator.of(ctx).pop();
-          } catch (e) {
-            setState(() {
-              busy = false;
-              problem = PairErrorCode.fromError(e).message;
-            });
-          }
-        }
-
-        return Column(
-          crossAxisAlignment: .stretch,
-          spacing: 14,
-          children: [
-            Text('Plan a date night', style: PTText.screenTitle.copyWith(fontSize: 24)),
-            TextField(
-              controller: title,
-              maxLength: 120,
-              textCapitalization: TextCapitalization.sentences,
-              style: PTText.body,
-              decoration: const InputDecoration(hintText: 'What are you watching?'),
-            ),
-            PTButton(
-              label: formatMoment(when),
-              variant: .secondary,
-              icon: BoothIcons.calendar,
-              height: 46,
-              onPressed: () async {
-                final picked = await pickNightTime(ctx, initial: when);
-                if (picked != null) setState(() => when = picked);
-              },
-            ),
-            _Strips(placement: placement, partnerName: first),
-            if (placement.lateForThem)
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: PTColors.pillWarning,
-                  borderRadius: BorderRadius.circular(PTRadius.control),
-                  border: Border.all(color: PTColors.primary.withValues(alpha: 0.4)),
-                ),
-                child: Row(
-                  spacing: 10,
-                  children: [
-                    const Icon(BoothIcons.clock, size: 18, color: PTColors.warning),
-                    Expanded(
-                      child: Text(
-                        'That is ${formatClock(placement.theirs!)} for $first. Send it anyway, '
-                        'or try a time that lands in their evening.',
-                        style: PTText.caption.copyWith(color: PTColors.warning, height: 1.4),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            if (problem != null)
-              Text(problem!, style: PTText.body.copyWith(color: PTColors.danger, fontSize: 14)),
-            Row(
-              spacing: 10,
-              children: [
-                Expanded(
-                  child: PTButton(
-                    label: 'Cancel',
-                    variant: .secondary,
-                    height: 44,
-                    onPressed: () => Navigator.of(ctx).pop(),
-                  ),
-                ),
-                Expanded(
-                  child: PTButton(
-                    label: placement.lateForThem ? 'Send anyway' : 'Send to $first',
-                    height: 44,
-                    loading: busy,
-                    onPressed: send,
-                  ),
-                ),
-              ],
-            ),
-          ],
-        );
-      },
-    ),
-  );
-  title.dispose();
-}
-
-Future<void> _showGate(BuildContext context) async {
-  Analytics.instance.track('upgrade_cta_shown', {'surface': 'date_night'});
-  await showGlassDialog<void>(
-    context: context,
-    width: 420,
-    sheetOnCompact: true,
-    builder: (ctx) => Column(
-      crossAxisAlignment: .stretch,
-      spacing: 14,
-      children: [
-        Row(
-          spacing: 10,
-          children: [
-            Expanded(child: Text('Date nights', style: PTText.screenTitle.copyWith(fontSize: 24))),
-            const PatronTag(),
-          ],
-        ),
-        Text(
-          "Planning a date night needs Patron on either side - one seat covers the both of you. "
-          "Answering, moving or cancelling one you're sent never does.",
-          style: PTText.body.copyWith(color: PTColors.fgSoft, height: 1.5),
-        ),
-        if (canSellPremium)
-          PTButton(
-            label: 'Get a Patron seat',
-            icon: BoothIcons.crown,
-            onPressed: () {
-              Analytics.instance.track('upgrade_cta_clicked', {
-                'surface': 'date_night',
-                'action': 'subscribe',
-              });
-              Navigator.of(ctx).pop();
-              openPage(context, '/lobby/subscribe?source=date_night');
-            },
-          ),
-        PTButton(label: 'Not now', variant: .secondary, onPressed: () => Navigator.of(ctx).pop()),
-      ],
-    ),
-  );
-}
-
-/// Both people's day as two 24-hour strips with the proposed time marked, night
-/// shaded: the "is this a bad hour for them" answer, at a glance.
-class _Strips extends StatelessWidget {
-  const _Strips({required this.placement, required this.partnerName});
-
-  final NightPlacement placement;
-  final String partnerName;
+  final String text;
+  final Color color;
 
   @override
   Widget build(BuildContext context) {
-    return PairPanel(
-      padding: const EdgeInsets.all(14),
-      child: Column(
-        crossAxisAlignment: .stretch,
-        spacing: 12,
-        children: [
-          _Strip(label: 'You', wall: placement.mine, warn: false),
-          if (placement.theirs != null)
-            _Strip(
-              label: placement.theirCity.isEmpty
-                  ? partnerName
-                  : '$partnerName · ${placement.theirCity}',
-              wall: placement.theirs!,
-              warn: placement.lateForThem,
-            ),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              for (final h in const ['00', '06', '12', '18', '24'])
-                Text(h, style: PTText.mono.copyWith(fontSize: 9, color: PTColors.fgMute)),
-            ],
-          ),
-        ],
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: PTColors.canvas,
+        borderRadius: BorderRadius.circular(100),
+        border: Border.all(color: color.withValues(alpha: 0.55)),
       ),
-    );
-  }
-}
-
-class _Strip extends StatelessWidget {
-  const _Strip({required this.label, required this.wall, required this.warn});
-
-  final String label;
-  final DateTime wall;
-  final bool warn;
-
-  @override
-  Widget build(BuildContext context) {
-    final start = wall.hour + wall.minute / 60;
-    final color = warn ? PTColors.warning : PTColors.primary;
-    return Column(
-      crossAxisAlignment: .stretch,
-      spacing: 6,
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                label,
-                maxLines: 1,
-                overflow: .ellipsis,
-                style: PTText.body.copyWith(fontSize: 13, color: PTColors.fgDim),
-              ),
-            ),
-            Text(
-              formatClock(wall),
-              style: PTText.mono.copyWith(
-                fontSize: 13,
-                color: warn ? PTColors.warning : PTColors.fg,
-              ),
-            ),
-          ],
+      // A long name ("WAITING FOR SAMANTHA") shrinks to fit the stub rather than
+      // being cut off: the whole badge is the answer to "where does this stand".
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Text(
+          text,
+          maxLines: 1,
+          style: PTText.mono.copyWith(fontSize: 9.5, color: color, letterSpacing: 0.6),
         ),
-        LayoutBuilder(
-          builder: (context, box) {
-            double x(double h) => box.maxWidth * h / 24;
-            final window = (start + 3 > 24) ? 24 - start : 3.0;
-            return SizedBox(
-              height: 18,
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  color: PTColors.glassBase,
-                  borderRadius: BorderRadius.circular(PTRadius.control),
-                  border: Border.all(color: PTColors.rail),
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(PTRadius.control),
-                  child: Stack(
-                    children: [
-                      Positioned(
-                        left: 0,
-                        width: x(7),
-                        top: 0,
-                        bottom: 0,
-                        child: const ColoredBox(color: PTColors.aisle),
-                      ),
-                      Positioned(
-                        left: x(22),
-                        right: 0,
-                        top: 0,
-                        bottom: 0,
-                        child: const ColoredBox(color: PTColors.aisle),
-                      ),
-                      Positioned(
-                        left: x(start),
-                        width: x(window),
-                        top: 2,
-                        bottom: 2,
-                        child: DecoratedBox(
-                          decoration: BoxDecoration(
-                            color: color,
-                            borderRadius: BorderRadius.circular(2),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            );
-          },
-        ),
-      ],
+      ),
     );
   }
 }

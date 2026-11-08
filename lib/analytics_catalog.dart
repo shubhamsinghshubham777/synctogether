@@ -411,6 +411,7 @@ const kAnalyticsEvents = <AnalyticsEventDoc>[
     group: .pair,
     what: 'You planned a date night.',
     why: 'Whether scheduling is a reason to have Patron, measured before it is priced.',
+    properties: ['whether you attached a YouTube link or chose to pick together'],
   ),
   AnalyticsEventDoc(
     event: 'date_night_answered',

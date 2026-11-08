@@ -56,6 +56,14 @@ class PairService extends ChangeNotifier {
   List<DateNight> _nights = const [];
   List<DateNight> get nights => _nights;
 
+  /// Whether the nights list has been fetched at least once, and whether the
+  /// last fetch failed. The screen needs the difference between "none yet" and
+  /// "could not ask": a skeleton, an empty state and an error are three screens.
+  bool _nightsLoaded = false;
+  bool get nightsLoaded => _nightsLoaded;
+  bool _nightsFailed = false;
+  bool get nightsFailed => _nightsFailed;
+
   PairStats _stats = PairStats.empty;
   PairStats get stats => _stats;
 
@@ -122,6 +130,8 @@ class PairService extends ChangeNotifier {
               });
         await _loadSentInvite(client);
         _nights = const [];
+        _nightsLoaded = false;
+        _nightsFailed = false;
         _stats = PairStats.empty;
         _history = PairHistory.empty;
       } else {
@@ -154,15 +164,33 @@ class PairService extends ChangeNotifier {
   }
 
   Future<void> _loadNights(SupabaseClient client) async {
-    final rows = await client
-        .from('date_nights')
-        .select()
-        .gte(
-          'starts_at',
-          DateTime.now().toUtc().subtract(const Duration(days: 1)).toIso8601String(),
-        )
-        .order('starts_at');
-    _nights = [for (final r in rows) DateNight.fromJson(r)];
+    try {
+      final rows = await client
+          .from('date_nights')
+          .select()
+          .gte(
+            'starts_at',
+            DateTime.now().toUtc().subtract(const Duration(days: 1)).toIso8601String(),
+          )
+          .order('starts_at');
+      _nights = [for (final r in rows) DateNight.fromJson(r)];
+      _nightsFailed = false;
+    } catch (e, s) {
+      // Only the list failed: keep what we had, say so, and let the person retry.
+      _nightsFailed = true;
+      reportNonFatal(e, s, during: 'loading date nights');
+    } finally {
+      _nightsLoaded = true;
+    }
+  }
+
+  /// Ask again after a failure, showing the skeleton while it runs.
+  Future<void> retryNights() async {
+    _nightsLoaded = false;
+    _nightsFailed = false;
+    notifyListeners();
+    await _loadNights(_client);
+    notifyListeners();
   }
 
   Future<void> _loadStats(SupabaseClient client) async {
@@ -365,6 +393,8 @@ class PairService extends ChangeNotifier {
     _pending = null;
     _sent = null;
     _nights = const [];
+    _nightsLoaded = false;
+    _nightsFailed = false;
     _stats = PairStats.empty;
     _history = PairHistory.empty;
     _loaded = false;
@@ -487,6 +517,8 @@ class PairService extends ChangeNotifier {
       trace('unpaired', category: 'room');
       _pair = null;
       _nights = const [];
+      _nightsLoaded = false;
+      _nightsFailed = false;
       _stats = PairStats.empty;
       _history = PairHistory.empty;
       notifyListeners();
@@ -589,13 +621,23 @@ class PairService extends ChangeNotifier {
 
   // ----------------------------------------------------------- date nights
 
-  Future<DateNight> planNight({required String title, required DateTime startsAt}) async {
+  Future<DateNight> planNight({
+    required String title,
+    required DateTime startsAt,
+    String? youtubeUrl,
+  }) async {
     try {
       final row = await _client.rpc(
         'create_date_night',
-        params: {'p_title': title, 'p_starts_at': startsAt.toUtc().toIso8601String()},
+        params: {
+          'p_title': title,
+          'p_starts_at': startsAt.toUtc().toIso8601String(),
+          'p_youtube_url': youtubeUrl,
+        },
       );
-      Analytics.instance.track('date_night_planned');
+      Analytics.instance.track('date_night_planned', {
+        'attach': youtubeUrl == null ? 'none' : 'youtube',
+      });
       await _reloadNights();
       return DateNight.fromJson((row as Map).cast<String, dynamic>());
     } catch (e, s) {
@@ -624,6 +666,21 @@ class PairService extends ChangeNotifier {
       await _reloadNights();
     } catch (e, s) {
       _reportUnexpected(e, s, 'moving a date night');
+      rethrow;
+    }
+  }
+
+  /// "Change what we're watching": the planner swaps the attached YouTube link,
+  /// or passes null to go back to choosing together.
+  Future<void> setNightAttachment(String id, String? youtubeUrl) async {
+    try {
+      await _client.rpc(
+        'set_date_night_attachment',
+        params: {'p_id': id, 'p_youtube_url': youtubeUrl},
+      );
+      await _reloadNights();
+    } catch (e, s) {
+      _reportUnexpected(e, s, 'changing what a date night is watching');
       rethrow;
     }
   }

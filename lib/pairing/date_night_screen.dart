@@ -552,7 +552,7 @@ class _NightCard extends StatelessWidget {
   }
 
   Future<void> _move(BuildContext context) async {
-    final when = await pickNightTime(context, initial: night.startsAt.toLocal());
+    final when = await pickNightTime(context, initial: night.startsAt.toLocal(), moving: true);
     if (when == null || !context.mounted) return;
     try {
       await PairService.instance.rescheduleNight(night.id, when);

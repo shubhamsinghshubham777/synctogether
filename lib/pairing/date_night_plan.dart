@@ -18,6 +18,8 @@ import '../ui/booth_icons.g.dart';
 import '../ui/buttons.dart';
 import '../ui/glass.dart';
 import '../ui/inputs.dart';
+import '../ui/pt_date_time_logic.dart';
+import '../ui/pt_date_time_picker.dart';
 import '../ui/pt_motion.dart';
 import '../ui/pt_theme.dart';
 import '../ui/responsive.dart';
@@ -28,24 +30,44 @@ import 'pair_page.dart';
 import 'pair_service.dart';
 import 'pair_widgets.dart';
 
-/// Date then time, as the platform's own pickers. Returns the chosen local
-/// moment, or null if either was dismissed.
-Future<DateTime?> pickNightTime(BuildContext context, {DateTime? initial}) async {
+/// One line about the other person's clock for a chosen moment, or null when
+/// there is nothing to say (the same time zone, or a zone we do not know).
+String? Function(DateTime moment) partnerLineFor(PairInfo pair, {required bool is24Hour}) {
+  final first = pair.partner.displayName.split(' ').first;
+  return (moment) {
+    final p = placeNight(moment.toUtc(), partnerZone: pair.partner.timezone);
+    final theirs = p.theirs;
+    if (!p.zonesDiffer || theirs == null) return null;
+    final onDay = theirs.day == p.mine.day ? '' : ' on ${weekdayLong(theirs.weekday)}';
+    return "That's ${clockText(theirs.hour, theirs.minute, is24Hour: is24Hour)}$onDay for $first.";
+  };
+}
+
+/// Date and time in one PT picker. Returns the chosen local moment, or null if it
+/// was dismissed. [moving] says it is an existing night being moved; [part] is the
+/// part of the picker that opens focused.
+Future<DateTime?> pickNightTime(
+  BuildContext context, {
+  DateTime? initial,
+  bool moving = false,
+  PickerPart part = PickerPart.date,
+}) {
   final now = DateTime.now();
   final start = initial ?? DateTime(now.year, now.month, now.day + 1, 21);
-  final day = await showDatePicker(
-    context: context,
-    initialDate: start.isBefore(now) ? now : start,
-    firstDate: DateTime(now.year, now.month, now.day),
-    lastDate: now.add(const Duration(days: 365)),
+  final pair = PairService.instance.pair;
+  return showPTDateTimePicker(
+    context,
+    initial: start,
+    min: now,
+    max: now.add(const Duration(days: 365)),
+    part: part,
+    movingFrom: moving && initial != null
+        ? 'Moving from ${formatDay(initial)}, ${formatClock(initial)}'
+        : null,
+    partnerLine: pair == null
+        ? null
+        : partnerLineFor(pair, is24Hour: MediaQuery.alwaysUse24HourFormatOf(context)),
   );
-  if (day == null || !context.mounted) return null;
-  final time = await showTimePicker(
-    context: context,
-    initialTime: TimeOfDay(hour: start.hour, minute: start.minute),
-  );
-  if (time == null) return null;
-  return DateTime(day.year, day.month, day.day, time.hour, time.minute);
 }
 
 /// Plan a date night. A phone gets a full page (the form is long and wants its
@@ -267,32 +289,15 @@ class PlanNightController extends ChangeNotifier {
     });
   }
 
-  Future<void> pickDay(BuildContext context) async {
-    final now = DateTime.now();
-    final day = await showDatePicker(
-      context: context,
-      initialDate: when.isBefore(now) ? now : when,
-      firstDate: DateTime(now.year, now.month, now.day),
-      lastDate: now.add(const Duration(days: 365)),
-    );
-    if (day == null) return;
-    when = DateTime(day.year, day.month, day.day, when.hour, when.minute);
-    notifyListeners();
-  }
+  Future<void> pickDay(BuildContext context) => _pick(context, PickerPart.date);
 
-  Future<void> pickClock(BuildContext context) async {
-    final time = await showTimePicker(
-      context: context,
-      initialTime: TimeOfDay(hour: when.hour, minute: when.minute),
-    );
-    if (time == null) return;
-    when = DateTime(when.year, when.month, when.day, time.hour, time.minute);
-    notifyListeners();
-  }
+  Future<void> pickClock(BuildContext context) => _pick(context, PickerPart.time);
 
-  /// Both pickers in turn: the late-for-them warning's "Pick another time".
-  Future<void> pickTime(BuildContext context) async {
-    final picked = await pickNightTime(context, initial: when);
+  /// The late-for-them warning's "Pick another time".
+  Future<void> pickTime(BuildContext context) => _pick(context, PickerPart.time);
+
+  Future<void> _pick(BuildContext context, PickerPart part) async {
+    final picked = await pickNightTime(context, initial: when, part: part);
     if (picked == null) return;
     when = picked;
     notifyListeners();

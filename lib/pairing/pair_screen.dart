@@ -17,6 +17,7 @@ import '../ui/booth_icons.g.dart';
 import '../ui/buttons.dart';
 import '../ui/glass.dart';
 import '../ui/loader.dart';
+import '../ui/pt_date_time_picker.dart';
 import '../ui/pt_theme.dart';
 import 'pair_logic.dart';
 import 'pair_models.dart';
@@ -580,11 +581,13 @@ Future<void> editReunion(BuildContext context) async {
             height: 46,
             onPressed: () async {
               final now = DateTime.now();
-              final d = await showDatePicker(
-                context: ctx,
-                initialDate: picked ?? now.add(const Duration(days: 30)),
-                firstDate: DateTime(now.year, now.month, now.day),
-                lastDate: now.add(const Duration(days: 365 * 3)),
+              final d = await showPTDateTimePicker(
+                ctx,
+                initial: picked ?? now.add(const Duration(days: 30)),
+                min: DateTime(now.year, now.month, now.day),
+                max: now.add(const Duration(days: 365 * 3)),
+                dateOnly: true,
+                boundsCaption: 'Three years ahead is as far as we can plan.',
               );
               if (d != null) setState(() => picked = d);
             },

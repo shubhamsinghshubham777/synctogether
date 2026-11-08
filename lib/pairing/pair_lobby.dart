@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../nav.dart';
 import '../profile/profile_service.dart';
+import '../ui/rolling_text.dart';
 import '../ui/banners.dart';
 import '../ui/booth_icons.g.dart';
 import '../ui/buttons.dart';
@@ -410,8 +411,22 @@ class _OurRoomCardState extends State<OurRoomCard> {
               children: [
                 const Icon(BoothIcons.cloudUpload, size: 16, color: PTColors.warning),
                 Expanded(
-                  child: Text(
-                    'Your movie is still arriving (${night.uploadPercent}%)',
+                  // Only the digits that moved roll as the upload advances.
+                  child: Text.rich(
+                    TextSpan(
+                      children: [
+                        const TextSpan(text: 'Your movie is still arriving ('),
+                        WidgetSpan(
+                          alignment: PlaceholderAlignment.baseline,
+                          baseline: TextBaseline.alphabetic,
+                          child: PTRollingText(
+                            '${night.uploadPercent}',
+                            style: PTText.caption.copyWith(color: PTColors.warning),
+                          ),
+                        ),
+                        const TextSpan(text: '%)'),
+                      ],
+                    ),
                     style: PTText.caption.copyWith(color: PTColors.warning),
                   ),
                 ),

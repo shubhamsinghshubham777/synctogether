@@ -1597,6 +1597,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
             selfId: sync?.userId ?? '',
             selfIsHost: sync?.isHost ?? false,
             canAssignHost: (sync?.isHost ?? false) || isOwner,
+            ourRoom: _room?.isOurRoom ?? false,
           );
   }
 
@@ -4266,6 +4267,13 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
   ({String title, String body, IconData icon})? get _endedCopy {
     final room = _room;
     if (room == null) return null;
+    if (room.isOurRoom) {
+      return (
+        title: 'Our Room is resting',
+        body: 'It is always in your lobby. Open it again whenever you two are ready.',
+        icon: BoothIcons.heart,
+      );
+    }
     if (room.persistent) {
       return (
         title: 'Room saved',
@@ -4324,6 +4332,9 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
   }
 
   bool get _canShowPremiumUpsell {
+    // Patron on either side already covers both of them; the offer is for the
+    // pair that has none.
+    if ((_room?.isOurRoom ?? false) && (PairService.instance.pair?.patron ?? false)) return false;
     if (!canSellPremium ||
         EntitlementService.instance.isPremium ||
         !AuthService.instance.isSignedIn) {
@@ -6362,7 +6373,8 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
                         style: PTText.panelHeading.copyWith(fontSize: 17),
                       ),
                     ),
-                    RoomCodeChip(code: room.code, onCopy: _copyCode, fontSize: 12, plain: true),
+                    if (!room.isOurRoom)
+                      RoomCodeChip(code: room.code, onCopy: _copyCode, fontSize: 12, plain: true),
                     Tooltip(
                       message: _syncDotTooltip,
                       child: Row(
@@ -6401,31 +6413,33 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
             mainAxisSize: .min,
             spacing: 14,
             children: [
-              MouseRegion(
-                cursor: isHost ? SystemMouseCursors.click : MouseCursor.defer,
-                child: GestureDetector(
-                  onTap: isHost && !_extending ? _extendRoom : null,
-                  child: Tooltip(
-                    message: isHost ? 'Extend room duration' : 'Time remaining',
-                    child: PTPulse(
-                      enabled: _timeLeft > Duration.zero && _timeLeft <= const Duration(minutes: 1),
-                      low: 0.35,
-                      child: AnimatedDefaultTextStyle(
-                        duration: PTMotion.functional(context, PTMotion.state),
-                        style: PTText.label.copyWith(
-                          fontSize: 12,
-                          color: urgent ? PTColors.warning : PTColors.fgMute,
-                        ),
-                        child: Text(
-                          spelled ? 'HOUSE LIGHTS IN $_houseLightsLabel' : _houseLightsLabel,
-                          maxLines: 1,
+              if (_showClock)
+                MouseRegion(
+                  cursor: isHost ? SystemMouseCursors.click : MouseCursor.defer,
+                  child: GestureDetector(
+                    onTap: isHost && !_extending ? _extendRoom : null,
+                    child: Tooltip(
+                      message: isHost ? 'Extend room duration' : 'Time remaining',
+                      child: PTPulse(
+                        enabled:
+                            _timeLeft > Duration.zero && _timeLeft <= const Duration(minutes: 1),
+                        low: 0.35,
+                        child: AnimatedDefaultTextStyle(
+                          duration: PTMotion.functional(context, PTMotion.state),
+                          style: PTText.label.copyWith(
+                            fontSize: 12,
+                            color: urgent ? PTColors.warning : PTColors.fgMute,
+                          ),
+                          child: Text(
+                            spelled ? 'HOUSE LIGHTS IN $_houseLightsLabel' : _houseLightsLabel,
+                            maxLines: 1,
+                          ),
                         ),
                       ),
                     ),
                   ),
                 ),
-              ),
-              if (invite)
+              if (invite && !room.isOurRoom)
                 PTButton(
                   label: 'Invite',
                   variant: .secondary,
@@ -6496,6 +6510,8 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     .locked => 'IN SYNC · ${_present.length} SEATS',
     .catchingUp => 'CATCHING UP',
     .reconnecting => 'RECONNECTING…',
+    .idle when (_room?.isOurRoom ?? false) =>
+      _present.length < 2 ? 'WAITING FOR ${_partnerFirstName.toUpperCase()}' : 'TOGETHER',
     .idle => _present.length < 2 ? 'SAVING SEATS' : 'HOUSE OPEN',
   };
 
@@ -6509,6 +6525,21 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
   }
 
   /// "2H 55M", or "4:59" inside the last hour's final minutes.
+  /// Our Room's other person, for the header. The roster knows them even while
+  /// they are offline; "them" only while it has not loaded.
+  String get _partnerFirstName {
+    final me = _sync?.userId;
+    final other = _members.where((m) => m.userId != me).firstOrNull;
+    final first = other?.displayName.split(' ').first.trim() ?? '';
+    if (first.isEmpty) return 'THEM';
+    return first.length > 12 ? first.substring(0, 12) : first;
+  }
+
+  /// Our Room does not run on a visible clock until the last half hour: a
+  /// countdown on the couple's own room reads like a rental, and nothing is
+  /// lost by saying it only when it matters.
+  bool get _showClock => !(_room?.isOurRoom ?? false) || _timeLeft <= const Duration(minutes: 30);
+
   String get _houseLightsLabel {
     final h = _timeLeft.inHours;
     final m = _timeLeft.inMinutes.remainder(60);
@@ -6688,7 +6719,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
                             color: urgent ? PTColors.warning : PTColors.fgDim,
                           ),
                           child: Text(
-                            '$_syncDotLabel · $_houseLightsLabel',
+                            _showClock ? '$_syncDotLabel · $_houseLightsLabel' : _syncDotLabel,
                             maxLines: 1,
                             overflow: .ellipsis,
                           ),

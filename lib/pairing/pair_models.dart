@@ -283,6 +283,10 @@ enum PairErrorCode {
   partnerAlreadyPaired('partner_already_paired', 'They paired with someone else in the meantime.'),
   cannotPairSelf('cannot_pair_self', "That's your own invite. Send it to your person instead."),
   inviteNotFound('invite_not_found', "Hmm, we couldn't find that invite."),
+  tooManyAttempts(
+    'too_many_attempts',
+    "That's a lot of tries. Give it an hour, then ask for a fresh code.",
+  ),
   inviteExpired('invite_expired', 'That invite has expired. Ask for a fresh one.'),
   inviteUsed('invite_used', 'That invite was already used.'),
   inviteCancelled('invite_cancelled', 'That invite was cancelled. Ask for a fresh one.'),

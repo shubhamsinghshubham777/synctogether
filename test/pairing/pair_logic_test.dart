@@ -17,6 +17,7 @@ DateNight night({
 );
 
 void main() {
+  displayNameTests();
   group('time zones', () {
     // 2026-11-14: London is on GMT (+0), New York on EST (-5), Kolkata +5:30.
     final at = DateTime.utc(2026, 11, 14, 21);
@@ -398,6 +399,41 @@ void sittingTitleTests() {
     test('nothing worth keeping is null', () {
       expect(sittingTitle(null), isNull);
       expect(sittingTitle('   '), isNull);
+    });
+  });
+}
+
+void displayNameTests() {
+  group('is the name just the email?', () {
+    test('a name that is only the local part, or nothing, is generic', () {
+      expect(isGenericName('68tgy66wnh', '68tgy66wnh@privaterelay.appleid.com'), isTrue);
+      expect(isGenericName('SAM', 'sam@mail.test'), isTrue, reason: 'case does not matter');
+      expect(isGenericName('sam.rivera92', 'sam.rivera92@gmail.test'), isTrue);
+      expect(isGenericName('', 'sam@mail.test'), isTrue);
+      expect(isGenericName('   ', 'sam@mail.test'), isTrue);
+      expect(isGenericName(null, 'sam@mail.test'), isTrue);
+    });
+
+    test('a name that reads as a name is left alone', () {
+      expect(isGenericName('Shubham Singh', 'shubhamsinghshubham777@gmail.test'), isFalse);
+      expect(isGenericName('Priya Nair', 'k8d2m4xq@privaterelay.appleid.com'), isFalse);
+      expect(isGenericName('John Apple', 'hidden@privaterelay.appleid.com'), isFalse);
+    });
+  });
+
+  group('a starting point for the name field', () {
+    test('separators and digits become words', () {
+      expect(suggestedName('sam.rivera92@gmail.test'), 'Sam Rivera');
+      expect(suggestedName('priya_nair@outlook.test'), 'Priya Nair');
+      expect(suggestedName('alex@mail.test'), 'Alex');
+    });
+
+    test('nothing readable gives an empty field, not a wrong one', () {
+      expect(suggestedName('68tgy66wnh@privaterelay.appleid.com'), '');
+      expect(suggestedName('shubhamsinghshubham777@gmail.test'), '', reason: 'one long word');
+      expect(suggestedName('k8d2m4xq@mail.test'), '', reason: 'single letters between digits');
+      expect(suggestedName(null), '');
+      expect(suggestedName(''), '');
     });
   });
 }

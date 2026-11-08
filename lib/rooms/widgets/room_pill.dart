@@ -48,11 +48,17 @@ class RoomPill extends StatelessWidget {
       builder: (context, box) => RoomPillBody(
         room: room,
         compact: compact,
-        showCode: !compact || box.maxWidth >= MediaQuery.textScalerOf(context).scale(250),
+        // Our Room has no code to hand out: nobody else can join it.
+        showCode:
+            !room.isOurRoom &&
+            (!compact || box.maxWidth >= MediaQuery.textScalerOf(context).scale(250)),
         // Tighter still, the countdown goes too: the name and the sync dot are
         // what the pill is for, and a row that cannot hold the rest must not
         // overflow.
-        showCountdown: !compact || box.maxWidth >= MediaQuery.textScalerOf(context).scale(130),
+        // And no clock on the couple's room until its last half hour.
+        showCountdown:
+            (!room.isOurRoom || timeLeft <= const Duration(minutes: 30)) &&
+            (!compact || box.maxWidth >= MediaQuery.textScalerOf(context).scale(130)),
         syncDotState: syncDotState,
         isHost: isHost,
         timeLeft: timeLeft,

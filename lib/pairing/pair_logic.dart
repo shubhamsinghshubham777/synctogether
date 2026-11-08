@@ -430,3 +430,32 @@ String? sittingTitle(String? mediaName) {
   name = name.replaceAll(RegExp(r'[._]+'), ' ').replaceAll(RegExp(r'\s+'), ' ').trim();
   return name.isEmpty ? null : name;
 }
+
+/// Whether [name] is no name at all: empty, or just the part of the email
+/// before the `@` (which is what an account gets when its provider shared no
+/// name - Sign in with Apple's hidden address yields a random handle).
+bool isGenericName(String? name, String? email) {
+  final n = (name ?? '').trim();
+  if (n.isEmpty) return true;
+  final local = (email ?? '').split('@').first.trim().toLowerCase();
+  return local.isNotEmpty && n.toLowerCase() == local;
+}
+
+/// A starting point for the name field, from an ordinary address:
+/// `sam.rivera92@x.com` gives "Sam Rivera". Empty when the local part is not
+/// readable as a name - a random handle, one long run-together word, or an
+/// Apple relay address - so the field starts blank rather than wrong.
+String suggestedName(String? email) {
+  final address = (email ?? '').trim().toLowerCase();
+  if (address.isEmpty || address.endsWith('@privaterelay.appleid.com')) return '';
+  final tokens = address
+      .split('@')
+      .first
+      .replaceAll(RegExp(r'\d+'), ' ')
+      .split(RegExp(r'[._+\-\s]+'))
+      .where((t) => t.isNotEmpty)
+      .toList();
+  if (tokens.isEmpty || tokens.any((t) => t.length < 2)) return '';
+  if (tokens.length == 1 && tokens.first.length > 12) return '';
+  return tokens.map((t) => '${t[0].toUpperCase()}${t.substring(1)}').join(' ');
+}

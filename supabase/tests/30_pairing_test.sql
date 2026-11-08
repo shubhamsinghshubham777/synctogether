@@ -72,7 +72,7 @@ select is((select seen_by from public.pair_invites where code = (select v from c
   (select v from t where k = 'sam'), 'but does not replace the viewer');
 select throws_ok(format($$ select public.accept_pair_invite(%L) $$, (select v from c where k = 'code')),
   'sign_in_required', 'and cannot accept');
-select throws_ok($$ select public.get_pair_invite('ZZZZZZ') $$, 'invite_not_found', 'an unknown code is not found');
+select is((public.get_pair_invite('ZZZZZZ')) ->> 'status', 'not_found', 'an unknown code is not found');
 
 -- ---------------------------------------------------------------------------
 -- Accept

@@ -20,10 +20,10 @@ import '../ui/pt_theme.dart';
 import 'pair_logic.dart';
 import 'pair_models.dart';
 import 'pair_page.dart';
+import 'pair_prompts.dart';
 import 'pair_service.dart';
 import 'pair_share.dart';
 import 'pair_widgets.dart';
-import 'push_service.dart';
 
 /// "Your person": pair up, or - once paired - the hub for everything the two of
 /// you share. One route, three states: a guest sees why pairing needs an
@@ -250,6 +250,7 @@ class _InviteFlow extends StatelessWidget {
           'One private room, one shared history. Just the two of you, whatever the time zones.',
           style: PTText.body.copyWith(color: PTColors.fgSoft, height: 1.5),
         ),
+        const PairNameCheck(),
         if (inv == null)
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 28),
@@ -326,6 +327,7 @@ class _InviteFlow extends StatelessWidget {
             ],
           ),
           const _EmailInvite(),
+          const PairPushPrompt(text: 'Get a ping the moment they accept.'),
           Row(
             spacing: 10,
             children: [
@@ -339,6 +341,7 @@ class _InviteFlow extends StatelessWidget {
               DialogTextButton(label: 'New code', onPressed: busy ? null : onCancel),
             ],
           ),
+          const PairCodeEntry(),
         ],
         const SizedBox(height: 8),
         const PairNote(
@@ -428,44 +431,7 @@ class _Hub extends StatelessWidget {
             ],
           ),
         ),
-        ListenableBuilder(
-          listenable: PushService.instance,
-          builder: (context, _) {
-            final push = PushService.instance;
-            // Asked here, beside the person it is for, rather than at launch.
-            if (!push.supported || push.enabled) return const SizedBox.shrink();
-            return PairPanel(
-              padding: const EdgeInsets.all(14),
-              child: Row(
-                spacing: 12,
-                children: [
-                  const Icon(BoothIcons.bell, size: 20, color: PTColors.fgDim),
-                  Expanded(
-                    child: Text(
-                      'Hear it when ${partner.displayName.split(' ').first} calls.',
-                      style: PTText.body.copyWith(
-                        fontSize: 14,
-                        color: PTColors.fgDim,
-                        height: 1.35,
-                      ),
-                    ),
-                  ),
-                  DialogTextButton(
-                    label: 'Turn on',
-                    // Asks the OS right here. Only a "no" sends them on to the
-                    // settings screen, which explains how to undo it.
-                    onPressed: () async {
-                      final result = await PushService.instance.enable();
-                      if (result == PushPermission.denied && context.mounted) {
-                        openPage(context, '/lobby/pair/notifications');
-                      }
-                    },
-                  ),
-                ],
-              ),
-            );
-          },
-        ),
+        PairPushPrompt(text: 'Hear it when ${partner.displayName.split(' ').first} calls.'),
         const SizedBox(height: 4),
         const PairKicker('Shared'),
         PairPanel(
@@ -504,6 +470,7 @@ class _Hub extends StatelessWidget {
             ],
           ),
         ),
+        const PairPatronNote(),
         const SizedBox(height: 6),
         Center(
           child: DialogTextButton(
@@ -661,6 +628,7 @@ class _EmailInviteState extends State<_EmailInvite> {
         const SizedBox(height: 4),
         const PairKicker('Or invite by email'),
         TextField(
+          key: const ValueKey('pair-email'),
           controller: _email,
           keyboardType: TextInputType.emailAddress,
           autocorrect: false,
@@ -677,6 +645,10 @@ class _EmailInviteState extends State<_EmailInvite> {
           height: 44,
           loading: _busy,
           onPressed: _send,
+        ),
+        Text(
+          "Accounts that hide their email with Apple can't be found this way. Send those the link or code.",
+          style: PTText.caption.copyWith(color: PTColors.fgMute, height: 1.45),
         ),
         if (_sent)
           Text(

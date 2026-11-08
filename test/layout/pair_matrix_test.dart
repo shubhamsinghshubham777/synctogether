@@ -5,12 +5,27 @@ import 'package:synctogether/pairing/pair_accept_screen.dart';
 import 'package:synctogether/pairing/pair_models.dart';
 import 'package:synctogether/pairing/pair_screen.dart';
 import 'package:synctogether/pairing/pair_service.dart';
+import 'package:synctogether/platform.dart';
+import 'package:synctogether/profile/profile_models.dart';
+import 'package:synctogether/profile/profile_service.dart';
 import 'package:synctogether/rewards/rewards_service.dart';
 import 'package:synctogether/rooms/lobby_screen.dart';
 
 import '../support/fake_pair_service.dart';
 import '../support/screen_matrix.dart';
 import 'layout_support.dart';
+
+/// An account Sign in with Apple gave no name to: the name is the relay
+/// address's random local part.
+class _AppleHiddenEmailProfile extends MockProfileService {
+  @override
+  Profile? get profile => const Profile(
+    id: 'me',
+    displayName: '68tgy66wnh',
+    isGuest: false,
+    email: '68tgy66wnh@privaterelay.appleid.com',
+  );
+}
 
 PairInvite _invite() => PairInvite(
   code: 'M4YA7K',
@@ -140,6 +155,60 @@ void main() {
     await tester.pump(const Duration(milliseconds: 500));
     expect(find.text('Sam Rivera wants to pair with you'), findsOneWidget);
     expect(find.text('Pair with Sam Rivera'), findsOneWidget);
+    await finishCase(tester);
+  });
+
+  screenMatrix('pair/accept-asks-for-a-name', (tester, c, s) async {
+    ProfileService.instance = _AppleHiddenEmailProfile();
+    PairService.instance = FakePairService(preview: _invite());
+    await pumpAtSize(
+      tester,
+      const PairAcceptScreen(code: 'M4YA7K'),
+      c,
+      textScale: s,
+      singlePane: true,
+    );
+    await tester.pump(const Duration(milliseconds: 600));
+    expect(find.text('What should your person call you?'), findsOneWidget);
+    expect(find.text('Pair with Sam Rivera'), findsOneWidget);
+    await finishCase(tester);
+  });
+
+  screenMatrix('pair/invite-has-a-code-box', (tester, c, s) async {
+    PairService.instance = FakePairService(
+      sent: PairInvite(
+        code: 'M4YA7K',
+        inviter: const PairPartner(id: 'me', displayName: 'You'),
+        expiresAt: DateTime.now().toUtc().add(const Duration(hours: 46)),
+        isMine: true,
+      ),
+    );
+    await pumpAtSize(tester, const PairScreen(), c, textScale: s, singlePane: true);
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.ensureVisible(find.text('Pair with this code'));
+    expect(find.text('GOT A CODE FROM YOUR PERSON?'), findsOneWidget);
+    expect(find.textContaining('hide their email with Apple'), findsOneWidget);
+    await finishCase(tester);
+  });
+
+  screenMatrix('pair/hub-free-pair-sees-patron-note', (tester, c, s) async {
+    canSellPremiumOverride = true;
+    addTearDown(() => canSellPremiumOverride = null);
+    PairService.instance = FakePairService(pair: samePairInfo());
+    await pumpAtSize(tester, const PairScreen(), c, textScale: s, singlePane: true);
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.ensureVisible(find.text('See Patron'));
+    expect(find.text('See Patron'), findsOneWidget);
+    await finishCase(tester);
+  });
+
+  screenMatrix('pair/hub-patron-pair-has-no-note', (tester, c, s) async {
+    canSellPremiumOverride = true;
+    addTearDown(() => canSellPremiumOverride = null);
+    PairService.instance = FakePairService(pair: samePairInfo(patron: true));
+    await pumpAtSize(tester, const PairScreen(), c, textScale: s, singlePane: true);
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.text('See Patron'), findsNothing, reason: 'one seat already covers both');
     await finishCase(tester);
   });
 

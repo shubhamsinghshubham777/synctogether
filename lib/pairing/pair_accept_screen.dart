@@ -14,6 +14,7 @@ import '../ui/loader.dart';
 import '../ui/pt_theme.dart';
 import 'pair_models.dart';
 import 'pair_page.dart';
+import 'pair_prompts.dart';
 import 'pair_service.dart';
 import 'pair_widgets.dart';
 
@@ -86,7 +87,11 @@ class _PairAcceptScreenState extends State<PairAcceptScreen> {
       PairService.instance.pendingPairCode = null;
       if (!mounted) return;
       showPTSnack(context, 'You two are paired.', kind: .success);
-      context.go('/lobby/pair');
+      await offerPushAfterPairing(
+        context,
+        (_invite?.inviter.displayName ?? 'your person').split(' ').first,
+      );
+      if (mounted) context.go('/lobby/pair');
     } catch (e) {
       final failure = PairErrorCode.fromError(e);
       if (mounted) {
@@ -184,6 +189,7 @@ class _PairAcceptScreenState extends State<PairAcceptScreen> {
               onPressed: () => _link(AuthService.instance.linkGoogleIdentity),
             ),
           ] else ...[
+            const PairNameCheck(),
             PTButton(label: 'Pair with $name', loading: _accepting, onPressed: _accept),
             Center(
               child: DialogTextLink(label: 'Not now', onPressed: _notNow),

@@ -33,7 +33,7 @@ void main() {
     final fake = FakePairService(sent: _mine());
     await _open(tester, fake);
 
-    await tester.enterText(find.byType(TextField), 'sam@example.test');
+    await tester.enterText(find.byKey(const ValueKey('pair-email')), 'sam@example.test');
     await tester.tap(find.text('Send invite'));
     await tester.pump(const Duration(milliseconds: 300));
 
@@ -45,7 +45,7 @@ void main() {
       reason: 'no hint about whether it matched',
     );
     expect(
-      tester.widget<TextField>(find.byType(TextField)).controller!.text,
+      tester.widget<TextField>(find.byKey(const ValueKey('pair-email'))).controller!.text,
       isEmpty,
       reason: 'the address is cleared after sending',
     );
@@ -55,7 +55,7 @@ void main() {
     final fake = FakePairService(sent: _mine(), failInviteWith: Exception('invalid_email'));
     await _open(tester, fake);
 
-    await tester.enterText(find.byType(TextField), 'nonsense');
+    await tester.enterText(find.byKey(const ValueKey('pair-email')), 'nonsense');
     await tester.tap(find.text('Send invite'));
     await tester.pump(const Duration(milliseconds: 300));
 
@@ -68,7 +68,7 @@ void main() {
     final fake = FakePairService(sent: _mine(), failInviteWith: Exception('too_many_invites'));
     await _open(tester, fake);
 
-    await tester.enterText(find.byType(TextField), 'a@example.test');
+    await tester.enterText(find.byKey(const ValueKey('pair-email')), 'a@example.test');
     await tester.tap(find.text('Send invite'));
     await tester.pump(const Duration(milliseconds: 300));
 

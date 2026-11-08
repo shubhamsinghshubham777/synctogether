@@ -390,8 +390,12 @@ class PairService extends ChangeNotifier {
   /// latest viewer so the lobby banner can remind me if I walk away.
   Future<PairInvite> previewInvite(String code) async {
     try {
-      final row = await _client.rpc('get_pair_invite', params: {'p_code': code});
-      return PairInvite.fromJson((row as Map).cast<String, dynamic>());
+      final row = (await _client.rpc('get_pair_invite', params: {'p_code': code}) as Map)
+          .cast<String, dynamic>();
+      // A miss is an answer, not an error, so the server can count it against
+      // the attempt budget (an exception would roll the count back).
+      if (row['status'] == 'not_found') throw PostgrestException(message: 'invite_not_found');
+      return PairInvite.fromJson(row);
     } catch (e, s) {
       _reportUnexpected(e, s, 'previewing a pair invite');
       rethrow;
@@ -400,7 +404,9 @@ class PairService extends ChangeNotifier {
 
   Future<void> acceptInvite(String code) async {
     try {
-      await _client.rpc('accept_pair_invite', params: {'p_code': code});
+      final paired = await _client.rpc('accept_pair_invite', params: {'p_code': code});
+      // Null is the server's "no such code", returned so the attempt counts.
+      if (paired == null) throw PostgrestException(message: 'invite_not_found');
       Analytics.instance.track('pair_accepted');
       trace('pair accepted', category: 'room');
       await load();

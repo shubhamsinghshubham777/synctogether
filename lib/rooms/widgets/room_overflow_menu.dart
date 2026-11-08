@@ -39,6 +39,7 @@ class RoomMenuData {
     this.memberFrames = const {},
     this.blockedIds = const {},
     this.maxMembers,
+    this.ourRoom = false,
   });
 
   static const empty = RoomMenuData(
@@ -69,6 +70,10 @@ class RoomMenuData {
   /// The room's seat count (`rooms.max_members`, from the host's tier). The
   /// header reads "N OF max" only when it is known - never a guessed 8.
   final int? maxMembers;
+
+  /// A pair's Our Room: two people, both hosts, joinable by nobody else, so the
+  /// invite link, the remote lock and "End for everyone" have nothing to do.
+  final bool ourRoom;
 
   /// Derived rather than passed alongside, so "who is online" and "who is
   /// ready" can never disagree.
@@ -247,7 +252,9 @@ class _OverflowMenuPanelState extends State<_OverflowMenuPanel> {
             Padding(
               padding: const EdgeInsets.fromLTRB(18, 16, 18, 10),
               child: Text(
-                data.maxMembers == null
+                data.ourRoom
+                    ? 'THE TWO OF YOU'
+                    : data.maxMembers == null
                     ? 'IN THE ROOM · ${data.members.length}'
                     : 'IN THE ROOM · ${data.members.length} OF ${data.maxMembers}',
                 style: PTText.label,
@@ -305,12 +312,13 @@ class _OverflowMenuPanelState extends State<_OverflowMenuPanel> {
                       label: action.label,
                       onTap: () => _dismiss(action.onTap),
                     ),
-                  _ActionRow(
-                    icon: BoothIcons.link,
-                    iconColor: PTColors.white(0.7),
-                    label: 'Copy invite link',
-                    onTap: () => _dismiss(widget.onCopyInvite),
-                  ),
+                  if (!data.ourRoom)
+                    _ActionRow(
+                      icon: BoothIcons.link,
+                      iconColor: PTColors.white(0.7),
+                      label: 'Copy invite link',
+                      onTap: () => _dismiss(widget.onCopyInvite),
+                    ),
                   if (data.selfIsHost && widget.onExtendRoom != null)
                     _ActionRow(
                       icon: BoothIcons.schedule,
@@ -318,7 +326,7 @@ class _OverflowMenuPanelState extends State<_OverflowMenuPanel> {
                       label: 'Extend room',
                       onTap: () => _dismiss(widget.onExtendRoom!),
                     ),
-                  if (data.selfIsHost)
+                  if (data.selfIsHost && !data.ourRoom)
                     _ActionRow(
                       icon: data.transportLock ? BoothIcons.lock : Symbols.lock_open_rounded,
                       iconColor: data.transportLock ? PTColors.warningBorder : PTColors.white(0.7),
@@ -340,7 +348,9 @@ class _OverflowMenuPanelState extends State<_OverflowMenuPanel> {
                     onTap: () => _dismiss(widget.onLeave),
                   ),
                   // The one irreversible action, below its own rule, in Signal.
-                  if (data.selfIsHost) ...[
+                  // Not in Our Room: it is never deleted, and stopping the show
+                  // for both of you is what pause is for.
+                  if (data.selfIsHost && !data.ourRoom) ...[
                     Padding(
                       padding: const EdgeInsets.symmetric(vertical: 8),
                       child: Container(height: 1, color: PTColors.rail),

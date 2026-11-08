@@ -194,7 +194,7 @@ class PairTeaser extends StatelessWidget {
                       style: PTText.panelHeading.copyWith(fontSize: 15),
                     ),
                     Text(
-                      'Pair up for a private room that is always yours.',
+                      'A private room that is always yours. Got a code? Enter it inside.',
                       style: PTText.caption.copyWith(color: PTColors.fgSoft),
                     ),
                   ],
@@ -286,12 +286,37 @@ class _OurRoomCardState extends State<OurRoomCard> {
                   color: live ? PTColors.primary : null,
                 ),
               ),
-              if (night != null && imminent)
+              // The way back to the pair hub, said in words: the names row below
+              // is a target too, but nothing about it says so.
+              Semantics(
+                button: true,
+                label: 'Your person',
+                child: PTPressable(
+                  onTap: () => openPage(context, '/lobby/pair'),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Row(
+                      mainAxisSize: .min,
+                      spacing: 2,
+                      children: [
+                        Text(
+                          'Your person',
+                          style: PTText.caption.copyWith(color: PTColors.link, fontWeight: .w500),
+                        ),
+                        const Icon(BoothIcons.chevronRight, size: 14, color: PTColors.link),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              if (night != null && imminent) ...[
+                const SizedBox(width: 8),
                 PairPill(
                   '${countdownTo(night.startsAt, now).minutes.clamp(0, 99)} min',
                   color: PTColors.primary,
                   fill: PTColors.pillWarning,
                 ),
+              ],
             ],
           ),
           // The only way back to the pair hub from the lobby, so it reads as

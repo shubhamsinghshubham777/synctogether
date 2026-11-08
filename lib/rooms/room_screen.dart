@@ -1784,11 +1784,6 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     _updateReadiness();
     if (!mounted) return;
 
-    if (mode == InitialMode.leave) {
-      await _leaveRoom();
-      return;
-    }
-
     if (mode == InitialMode.local) {
       await _pickVideo();
     } else if (mode == InitialMode.youtube) {

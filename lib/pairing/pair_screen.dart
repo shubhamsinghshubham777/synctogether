@@ -511,7 +511,7 @@ class _Hub extends StatelessWidget {
               ),
               const PairDivider(),
               PairRow(
-                icon: BoothIcons.timer,
+                icon: BoothIcons.reunion,
                 title: 'Reunion countdown',
                 value: reunion == null || reunion.phase == ReunionPhase.past
                     ? 'Set a date'

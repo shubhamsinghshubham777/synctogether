@@ -4,63 +4,20 @@ import 'package:synctogether/ui/pt_motion.dart';
 import 'package:synctogether/ui/pt_theme.dart';
 
 import 'package:flutter/services.dart';
-import 'package:synctogether/ui/buttons.dart';
 import 'package:synctogether/ui/glass.dart';
-import 'package:synctogether/ui/responsive.dart';
 
-enum InitialMode { local, youtube, leave }
+enum InitialMode { local, youtube }
 
 /// Body for [showGlassDialog]: "What are we watching?" source chooser.
 class ModeSelectionDialog extends StatelessWidget {
   const ModeSelectionDialog({super.key});
 
-  /// The close button's job. On touch it dismisses the picker (the room menu
-  /// and back gesture still leave); a stray tap on an X must not open "Leave
-  /// the room?". Pointer windows keep the leave confirmation.
-  Future<void> _handleClose(BuildContext context) async {
-    if (inputOf(context) == .touch) {
-      Navigator.of(context).pop();
-      return;
-    }
-    final confirmed = await showGlassDialog<bool>(
-      context: context,
-      width: 380,
-      builder: (dialogContext) => Column(
-        mainAxisSize: .min,
-        crossAxisAlignment: .start,
-        spacing: 14,
-        children: [
-          const GlassDialogHeader(eyebrow: 'Intermission', title: 'Leave the room?'),
-          Text(
-            'Are you sure you want to leave this room? You will return to the lobby.',
-            style: PTText.body.copyWith(fontSize: 14, color: PTColors.white(0.65), height: 1.5),
-          ),
-          PTButtonBar(
-            buttons: [
-              PTButton(
-                maxLines: 2,
-                label: 'Stay',
-                variant: .secondary,
-                height: 42,
-                onPressed: () => Navigator.of(dialogContext).pop(false),
-              ),
-              PTButton(
-                maxLines: 2,
-                label: 'Leave room',
-                variant: .destructive,
-                icon: BoothIcons.logout,
-                height: 42,
-                onPressed: () => Navigator.of(dialogContext).pop(true),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-    if (confirmed == true && context.mounted) {
-      Navigator.of(context).pop(InitialMode.leave);
-    }
-  }
+  /// The close button and Esc do what a close button does, on every platform:
+  /// put the picker away. Leaving is the header's back arrow and the room menu,
+  /// and the empty room behind this dialog offers the same two sources, so
+  /// closing is never a dead end. (It used to open "Leave the room?" on desktop,
+  /// under a tooltip that said "Leave room" - a close icon that quits.)
+  void _handleClose(BuildContext context) => Navigator.of(context).pop();
 
   @override
   Widget build(BuildContext context) {
@@ -79,7 +36,7 @@ class ModeSelectionDialog extends StatelessWidget {
                 eyebrow: 'Now showing',
                 title: 'What are we watching?',
                 closeIconSize: 20,
-                closeTooltip: inputOf(context) == .touch ? 'Close' : 'Leave room',
+                closeTooltip: 'Close',
                 onClose: () => _handleClose(context),
               ),
             ),

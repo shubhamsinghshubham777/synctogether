@@ -268,12 +268,35 @@ class PairService extends ChangeNotifier {
               );
           if (online != _partnerOnline) {
             _partnerOnline = online;
+            // A transition, not the sync itself (those come in bursts).
+            trace('pair presence changed', category: 'room', data: {'partner_online': online});
             notifyListeners();
           }
         })
         ..subscribe((status, error) {
-          if (status == RealtimeSubscribeStatus.subscribed) {
-            unawaited(channel.track({'user_id': uid}));
+          // Edges only: this fires on every (re)join.
+          trace('pair presence channel', category: 'room', data: {'status': status.name});
+          switch (status) {
+            case RealtimeSubscribeStatus.subscribed:
+              _liveFailures = 0;
+              unawaited(_trackPresence(channel, uid, pairId));
+            case RealtimeSubscribeStatus.channelError || RealtimeSubscribeStatus.timedOut:
+              // The library rejoins an errored channel itself; this is only the
+              // record that it had to, and the alarm if it keeps having to.
+              _liveFailures++;
+              if (_liveFailures == 4) {
+                reportNonFatal(
+                  StateError('pair presence channel keeps failing: ${error ?? status.name}'),
+                  StackTrace.current,
+                  during: 'joining the pair channel',
+                  persistent: true,
+                );
+              }
+            case RealtimeSubscribeStatus.closed:
+              // Closed by us (the pair changed, or sign-out) clears `_liveFor`
+              // first. Anything else was the server or the socket ending it, and
+              // nothing would rejoin it: start a fresh one.
+              if (_liveFor == pairId) _reopenLive(pairId);
           }
         });
       _live = channel;
@@ -283,7 +306,42 @@ class PairService extends ChangeNotifier {
     }
   }
 
+  int _liveFailures = 0;
+  Timer? _liveReopen;
+
+  /// Announce myself on the pair channel. `track` can fail without throwing
+  /// (it answers with a status), and an unannounced device is invisible to its
+  /// partner for as long as it stays on the channel, so check and try once more.
+  Future<void> _trackPresence(RealtimeChannel channel, String uid, String pairId) async {
+    for (var attempt = 0; attempt < 3; attempt++) {
+      try {
+        final result = await channel.track({'user_id': uid});
+        if (result == ChannelResponse.ok) return;
+        trace(
+          'pair presence track refused',
+          category: 'room',
+          data: {'result': result.name, 'attempt': attempt + 1},
+        );
+      } catch (e, s) {
+        reportNonFatal(e, s, during: 'announcing presence on the pair channel');
+      }
+      await Future<void>.delayed(Duration(seconds: 2 * (attempt + 1)));
+      if (_liveFor != pairId) return;
+    }
+  }
+
+  void _reopenLive(String pairId) {
+    _liveReopen?.cancel();
+    _liveReopen = Timer(const Duration(seconds: 3), () {
+      if (_liveFor != pairId) return;
+      _closeLive();
+      _ensureLive();
+    });
+  }
+
   void _closeLive() {
+    _liveReopen?.cancel();
+    _liveReopen = null;
     final c = _live;
     _live = null;
     _liveFor = null;

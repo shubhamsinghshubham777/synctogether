@@ -83,9 +83,52 @@ void main() {
       expect(result, InitialMode.youtube);
     });
 
-    testWidgets('close button prompts leave confirmation; Stay keeps dialog open', (tester) async {
+    for (final platform in [
+      TargetPlatform.macOS,
+      TargetPlatform.windows,
+      TargetPlatform.iOS,
+      TargetPlatform.android,
+    ]) {
+      testWidgets('on ${platform.name} the close button only closes the picker', (tester) async {
+        debugDefaultTargetPlatformOverride = platform;
+        InitialMode? result = InitialMode.local;
+
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: Builder(
+                builder: (context) => ElevatedButton(
+                  onPressed: () async {
+                    result = await showGlassDialog<InitialMode>(
+                      context: context,
+                      builder: (_) => const ModeSelectionDialog(),
+                    );
+                  },
+                  child: const Text('Open Dialog'),
+                ),
+              ),
+            ),
+          ),
+        );
+
+        await tester.tap(find.text('Open Dialog'));
+        await tester.pumpAndSettle();
+        expect(find.byTooltip('Close'), findsOneWidget, reason: 'a close icon says "Close"');
+        expect(find.byTooltip('Leave room'), findsNothing);
+
+        await tester.tap(find.byIcon(BoothIcons.close));
+        await tester.pumpAndSettle();
+
+        expect(find.text('Leave the room?'), findsNothing, reason: 'closing never asks to leave');
+        expect(find.text('What are we watching?'), findsNothing, reason: 'the picker is gone');
+        expect(result, isNull, reason: 'and nothing was chosen');
+        debugDefaultTargetPlatformOverride = null;
+      });
+    }
+
+    testWidgets('Esc closes the picker too, rather than asking to leave', (tester) async {
       debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
-      InitialMode? result;
+      InitialMode? result = InitialMode.youtube;
 
       await tester.pumpWidget(
         MaterialApp(
@@ -107,134 +150,7 @@ void main() {
 
       await tester.tap(find.text('Open Dialog'));
       await tester.pumpAndSettle();
-
-      // Tap close button
-      await tester.tap(find.byIcon(BoothIcons.close));
-      await tester.pumpAndSettle();
-
-      expect(find.text('Leave the room?'), findsOneWidget);
-      expect(
-        find.text('Are you sure you want to leave this room? You will return to the lobby.'),
-        findsOneWidget,
-      );
-
-      // Tap Stay
-      await tester.tap(find.text('Stay'));
-      await tester.pumpAndSettle();
-
-      // Dialog is still open, result is still null
-      expect(find.text('What are we watching?'), findsOneWidget);
-      expect(result, isNull);
-      debugDefaultTargetPlatformOverride = null;
-    });
-
-    testWidgets('close button prompts leave confirmation; Leave room pops InitialMode.leave', (
-      tester,
-    ) async {
-      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
-      InitialMode? result;
-
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: Builder(
-              builder: (context) => ElevatedButton(
-                onPressed: () async {
-                  result = await showGlassDialog<InitialMode>(
-                    context: context,
-                    builder: (_) => const ModeSelectionDialog(),
-                  );
-                },
-                child: const Text('Open Dialog'),
-              ),
-            ),
-          ),
-        ),
-      );
-
-      await tester.tap(find.text('Open Dialog'));
-      await tester.pumpAndSettle();
-
-      // Tap close button
-      await tester.tap(find.byIcon(BoothIcons.close));
-      await tester.pumpAndSettle();
-
-      // Tap Leave room
-      await tester.tap(find.text('Leave room'));
-      await tester.pumpAndSettle();
-
-      expect(result, InitialMode.leave);
-      debugDefaultTargetPlatformOverride = null;
-    });
-
-    testWidgets('pressing ESC key triggers leave confirmation', (tester) async {
-      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
-      InitialMode? result;
-
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: Builder(
-              builder: (context) => ElevatedButton(
-                onPressed: () async {
-                  result = await showGlassDialog<InitialMode>(
-                    context: context,
-                    builder: (_) => const ModeSelectionDialog(),
-                  );
-                },
-                child: const Text('Open Dialog'),
-              ),
-            ),
-          ),
-        ),
-      );
-
-      await tester.tap(find.text('Open Dialog'));
-      await tester.pumpAndSettle();
-
-      // Send ESC key
       await tester.sendKeyEvent(LogicalKeyboardKey.escape);
-      await tester.pumpAndSettle();
-
-      expect(find.text('Leave the room?'), findsOneWidget);
-
-      // Tap Leave room
-      await tester.tap(find.text('Leave room'));
-      await tester.pumpAndSettle();
-
-      expect(result, InitialMode.leave);
-      debugDefaultTargetPlatformOverride = null;
-    });
-
-    testWidgets('on touch the close button dismisses the picker, never asks to leave', (
-      tester,
-    ) async {
-      debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
-      InitialMode? result = InitialMode.local;
-
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: Builder(
-              builder: (context) => ElevatedButton(
-                onPressed: () async {
-                  result = await showGlassDialog<InitialMode>(
-                    context: context,
-                    builder: (_) => const ModeSelectionDialog(),
-                  );
-                },
-                child: const Text('Open Dialog'),
-              ),
-            ),
-          ),
-        ),
-      );
-
-      await tester.tap(find.text('Open Dialog'));
-      await tester.pumpAndSettle();
-      expect(find.byTooltip('Close'), findsOneWidget);
-
-      await tester.tap(find.byIcon(BoothIcons.close));
       await tester.pumpAndSettle();
 
       expect(find.text('Leave the room?'), findsNothing);

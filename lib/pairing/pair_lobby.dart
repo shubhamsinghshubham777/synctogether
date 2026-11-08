@@ -451,7 +451,7 @@ class ReunionCard extends StatelessWidget {
           Row(
             children: [
               Expanded(child: PairKicker(kicker, color: live || soon ? PTColors.primary : null)),
-              const Icon(BoothIcons.timer, size: 18, color: PTColors.fgDim),
+              const Icon(BoothIcons.reunion, size: 18, color: PTColors.fgDim),
             ],
           ),
           Row(

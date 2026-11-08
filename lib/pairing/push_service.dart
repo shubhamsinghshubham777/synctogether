@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/widgets.dart'
+    show AppLifecycleState, WidgetsBinding, WidgetsBindingObserver;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../analytics.dart';
@@ -211,11 +213,50 @@ class PushService extends ChangeNotifier {
       _permission = await _b.permission();
       _tapSub = _b.taps.listen((route) => _taps.add(pushTargetForRoute(route)));
       _tokenSub = _b.tokenChanges.listen((t) => unawaited(_send(t)));
+      _watchFocus();
       notifyListeners();
       if (enabled) await _registerCurrent();
     } catch (e, s) {
       _started = false;
       reportNonFatal(e, s, during: 'starting push');
+    }
+  }
+
+  _FocusWatcher? _focus;
+
+  /// Re-read the permission whenever the app comes back to the front. A person
+  /// who switches to System Settings (or the phone's Settings) to allow
+  /// notifications returns to an app that would otherwise keep offering to turn
+  /// them on until they tapped it again.
+  void _watchFocus() {
+    if (_focus != null) return;
+    try {
+      _focus = _FocusWatcher(() => unawaited(refreshPermission()));
+      WidgetsBinding.instance.addObserver(_focus!);
+    } catch (_) {
+      // No binding (a plain unit test): nothing to watch.
+      _focus = null;
+    }
+  }
+
+  /// Look at the permission again and act on a change: newly allowed registers
+  /// this device at once, newly refused updates every switch that offers it.
+  Future<void> refreshPermission() async {
+    if (!_started) return;
+    try {
+      final latest = await _b.permission();
+      if (latest == _permission) return;
+      final before = _permission;
+      _permission = latest;
+      trace(
+        'push permission changed',
+        category: 'room',
+        data: {'from': before.name, 'to': latest.name},
+      );
+      notifyListeners();
+      if (enabled) await _registerCurrent();
+    } catch (e, s) {
+      reportNonFatal(e, s, during: 'refreshing the push permission');
     }
   }
 
@@ -280,6 +321,24 @@ class PushService extends ChangeNotifier {
     _tokenSub?.cancel();
     _tapSub?.cancel();
     _taps.close();
+    final focus = _focus;
+    if (focus != null) {
+      try {
+        WidgetsBinding.instance.removeObserver(focus);
+      } catch (_) {}
+    }
     super.dispose();
+  }
+}
+
+/// Calls back when the app is brought to the front.
+class _FocusWatcher with WidgetsBindingObserver {
+  _FocusWatcher(this._onResumed);
+
+  final VoidCallback _onResumed;
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _onResumed();
   }
 }

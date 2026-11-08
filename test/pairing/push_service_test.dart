@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/widgets.dart' show AppLifecycleState;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:synctogether/env.dart';
 import 'package:synctogether/pairing/pair_links.dart';
@@ -182,5 +183,67 @@ void main() {
     expect(await service.takeLaunchTarget(), isNull);
     bridge.launch = 'date-night';
     expect(await service.takeLaunchTarget(), isA<OpenPath>());
+  });
+
+  group('coming back from Settings', () {
+    test('permission allowed while the app was away registers this device at once', () async {
+      bridge.initial = PushPermission.denied;
+      await service.start();
+      expect(service.enabled, isFalse);
+      expect(registered, isEmpty);
+
+      var told = 0;
+      service.addListener(() => told++);
+      bridge.initial = PushPermission.granted; // the person flipped it in Settings
+      await service.refreshPermission();
+
+      expect(service.enabled, isTrue, reason: 'the "Turn on" offers disappear without a tap');
+      expect(told, 1, reason: 'every switch listening is told');
+      expect(registered.single.token, 'tok-1');
+      expect(bridge.requests, 0, reason: 'this is a re-read, never a prompt');
+    });
+
+    test('permission taken away updates the switches too', () async {
+      bridge.initial = PushPermission.granted;
+      await service.start();
+      expect(service.enabled, isTrue);
+
+      bridge.initial = PushPermission.denied;
+      await service.refreshPermission();
+      expect(service.enabled, isFalse);
+      expect(service.permission, PushPermission.denied);
+    });
+
+    test('nothing changed means nobody is told', () async {
+      bridge.initial = PushPermission.granted;
+      await service.start();
+      var told = 0;
+      service.addListener(() => told++);
+      await service.refreshPermission();
+      expect(told, 0);
+      expect(registered, hasLength(1), reason: 'and no second registration');
+    });
+
+    test('before the service has started it does nothing', () async {
+      bridge.initial = PushPermission.granted;
+      await service.refreshPermission();
+      expect(service.enabled, isFalse);
+      expect(registered, isEmpty);
+    });
+
+    testWidgets('the app coming to the front is what triggers the re-read', (tester) async {
+      bridge.initial = PushPermission.denied;
+      await service.start();
+      expect(service.enabled, isFalse);
+
+      bridge.initial = PushPermission.granted;
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pump();
+      await tester.pump();
+
+      expect(service.enabled, isTrue);
+      expect(registered.single.token, 'tok-1');
+    });
   });
 }

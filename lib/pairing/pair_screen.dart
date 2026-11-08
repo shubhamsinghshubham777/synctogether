@@ -439,7 +439,7 @@ class _Hub extends StatelessWidget {
               child: Row(
                 spacing: 12,
                 children: [
-                  const Icon(BoothIcons.bell, size: 20, color: PTColors.primary),
+                  const Icon(BoothIcons.bell, size: 20, color: PTColors.fgDim),
                   Expanded(
                     child: Text(
                       'Hear it when ${partner.displayName.split(' ').first} calls.',
@@ -452,7 +452,14 @@ class _Hub extends StatelessWidget {
                   ),
                   DialogTextButton(
                     label: 'Turn on',
-                    onPressed: () => openPage(context, '/lobby/pair/notifications'),
+                    // Asks the OS right here. Only a "no" sends them on to the
+                    // settings screen, which explains how to undo it.
+                    onPressed: () async {
+                      final result = await PushService.instance.enable();
+                      if (result == PushPermission.denied && context.mounted) {
+                        openPage(context, '/lobby/pair/notifications');
+                      }
+                    },
                   ),
                 ],
               ),

@@ -294,26 +294,40 @@ class _OurRoomCardState extends State<OurRoomCard> {
                 ),
             ],
           ),
-          Row(
-            spacing: 14,
-            children: [
-              PairAvatars(
-                myId: me?.id ?? '',
-                myName: me?.displayName ?? 'You',
-                myAvatarUrl: me?.avatarUrl,
-                partner: partner,
-                size: 44,
-                partnerOnline: widget.online ? true : null,
+          // The only way back to the pair hub from the lobby, so it reads as
+          // a link: the chevron is the hint, the whole row is the target.
+          Semantics(
+            button: true,
+            label: 'Open your person',
+            child: PTPressable(
+              onTap: () => openPage(context, '/lobby/pair'),
+              pressedScale: 0.985,
+              child: Row(
+                spacing: 14,
+                children: [
+                  PairAvatars(
+                    myId: me?.id ?? '',
+                    myName: me?.displayName ?? 'You',
+                    myAvatarUrl: me?.avatarUrl,
+                    partner: partner,
+                    size: 44,
+                    partnerOnline: widget.online ? true : null,
+                  ),
+                  Expanded(
+                    child: Text(
+                      '$first & ${partner.displayName.split(' ').first}',
+                      style: PTText.cardHeading.copyWith(
+                        fontSize: widget.compact ? 22 : 24,
+                        height: 1,
+                      ),
+                      maxLines: 1,
+                      overflow: .ellipsis,
+                    ),
+                  ),
+                  const Icon(BoothIcons.chevronRight, size: 16, color: PTColors.fgMute),
+                ],
               ),
-              Expanded(
-                child: Text(
-                  '$first & ${partner.displayName.split(' ').first}',
-                  style: PTText.cardHeading.copyWith(fontSize: widget.compact ? 22 : 24, height: 1),
-                  maxLines: 1,
-                  overflow: .ellipsis,
-                ),
-              ),
-            ],
+            ),
           ),
           Row(
             spacing: 8,

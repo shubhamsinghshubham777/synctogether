@@ -77,34 +77,47 @@ class PairRow extends StatelessWidget {
     final color = destructive ? PTColors.danger : PTColors.fg;
     final row = Padding(
       padding: const EdgeInsets.symmetric(vertical: 14),
-      child: Row(
-        spacing: 12,
-        children: [
-          Icon(icon, size: 20, color: destructive ? PTColors.danger : PTColors.fgDim),
-          Expanded(
-            child: Text(
-              title,
-              style: PTText.body.copyWith(color: color, fontSize: 15),
-              maxLines: 2,
-              overflow: .ellipsis,
-            ),
-          ),
-          // Flexible, not fixed: at a large text size on a narrow screen the
-          // value gives way (and ellipsizes) before the title does.
-          ?(value == null
-              ? null
-              : Flexible(
-                  child: Text(
-                    value!,
-                    maxLines: 1,
-                    overflow: .ellipsis,
-                    style: PTText.mono.copyWith(fontSize: 12, color: valueColor ?? PTColors.fgMute),
-                  ),
-                )),
-          ?trailing,
-          if (onTap != null && trailing == null)
-            const Icon(BoothIcons.chevronRight, size: 16, color: PTColors.fgMute),
-        ],
+      child: LayoutBuilder(
+        builder: (context, box) {
+          // The value is a fixed-width column capped at 40% of the row, not a
+          // Flexible sharing space with the title: two flex children split the
+          // room evenly, so a short value left a gap and every chevron landed
+          // at a different x. Now the value hugs the chevron and the title
+          // gets everything else, so titles stay on one line at normal size.
+          final valueMax = box.maxWidth * 0.4;
+          return Row(
+            spacing: 12,
+            children: [
+              Icon(icon, size: 20, color: destructive ? PTColors.danger : PTColors.fgDim),
+              Expanded(
+                child: Text(
+                  title,
+                  style: PTText.body.copyWith(color: color, fontSize: 15),
+                  maxLines: 2,
+                  overflow: .ellipsis,
+                ),
+              ),
+              ?(value == null
+                  ? null
+                  : ConstrainedBox(
+                      constraints: BoxConstraints(maxWidth: valueMax),
+                      child: Text(
+                        value!,
+                        maxLines: 1,
+                        textAlign: .end,
+                        overflow: .ellipsis,
+                        style: PTText.mono.copyWith(
+                          fontSize: 12,
+                          color: valueColor ?? PTColors.fgMute,
+                        ),
+                      ),
+                    )),
+              ?trailing,
+              if (onTap != null && trailing == null)
+                const Icon(BoothIcons.chevronRight, size: 16, color: PTColors.fgMute),
+            ],
+          );
+        },
       ),
     );
     if (onTap == null) return row;

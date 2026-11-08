@@ -506,7 +506,10 @@ class _LobbyScreenState extends State<LobbyScreen> with WindowListener {
     setState(() => _joining = true);
     try {
       final room = await RoomService.instance.joinRoom(code, via: via);
-      if (mounted) context.go(roomPath(room.id));
+      if (mounted) {
+        _codeKey.currentState?.clear();
+        context.go(roomPath(room.id));
+      }
     } catch (e, s) {
       final failure = RoomErrorCode.fromError(e);
       if (failure == .unknown) reportNonFatal(e, s, during: 'joining a room by code');
@@ -536,6 +539,7 @@ class _LobbyScreenState extends State<LobbyScreen> with WindowListener {
     try {
       final invite = await PairService.instance.previewInvite(code);
       if (!mounted || invite.status != PairInviteStatus.pending) return false;
+      _codeKey.currentState?.clear();
       context.go('/lobby/pair/accept/${invite.code}');
       return true;
     } catch (_) {

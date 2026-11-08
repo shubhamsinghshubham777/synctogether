@@ -343,3 +343,95 @@ class _PairPatronNoteState extends State<PairPatronNote> {
     );
   }
 }
+
+/// What do I call my person? A label only I see, kept per person in the pair and
+/// never shown to them. Empty (or "Use their name") goes back to the name they
+/// chose. Reachable any time after pairing, from the pencil by their name.
+Future<void> showPartnerNicknameDialog(BuildContext context, PairPartner partner) async {
+  final messenger = ScaffoldMessenger.maybeOf(context);
+  final result = await showGlassDialog<String>(
+    context: context,
+    width: 420,
+    builder: (ctx) => _NicknameForm(partner: partner),
+  );
+  if (result == null) return;
+  try {
+    await PairService.instance.setPartnerNickname(result);
+  } catch (e) {
+    final failure = PairErrorCode.fromError(e);
+    final text = failure == PairErrorCode.unknown
+        ? "Couldn't save that. Try again."
+        : failure.message;
+    if (context.mounted) {
+      showPTSnack(context, text, kind: .error);
+    } else {
+      messenger?.showSnackBar(SnackBar(content: Text(text)));
+    }
+  }
+}
+
+/// The dialog's own widget, so it owns - and disposes - its controller: closing
+/// the dialog leaves it on screen for the exit animation, and a controller
+/// disposed by the caller at that moment is used after it is gone.
+class _NicknameForm extends StatefulWidget {
+  const _NicknameForm({required this.partner});
+
+  final PairPartner partner;
+
+  @override
+  State<_NicknameForm> createState() => _NicknameFormState();
+}
+
+class _NicknameFormState extends State<_NicknameForm> {
+  late final _controller = TextEditingController(text: widget.partner.nickname ?? '');
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final partner = widget.partner;
+    return Column(
+      crossAxisAlignment: .stretch,
+      spacing: 14,
+      children: [
+        Text('What do you call ${partner.nameTheyChose}?', style: PTText.screenTitle),
+        Text(
+          'Only you see this. ${partner.nameTheyChose.split(' ').first} keeps their own name, '
+          'and nobody is told what you chose.',
+          style: PTText.body.copyWith(color: PTColors.fgSoft, height: 1.5),
+        ),
+        TextField(
+          controller: _controller,
+          autofocus: true,
+          maxLength: 40,
+          textCapitalization: TextCapitalization.words,
+          textInputAction: TextInputAction.done,
+          onSubmitted: (v) => Navigator.of(context).pop(v.trim()),
+          style: PTText.body,
+          decoration: InputDecoration(hintText: partner.nameTheyChose, counterText: ''),
+        ),
+        Row(
+          spacing: 10,
+          children: [
+            Expanded(
+              child: PTButton(
+                label: 'Save',
+                height: 44,
+                onPressed: () => Navigator.of(context).pop(_controller.text.trim()),
+              ),
+            ),
+            if (partner.nickname != null)
+              DialogTextButton(
+                label: 'Use their name',
+                onPressed: () => Navigator.of(context).pop(''),
+              ),
+          ],
+        ),
+      ],
+    );
+  }
+}

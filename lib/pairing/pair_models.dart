@@ -7,19 +7,58 @@ DateTime? _time(Object? v) => v == null ? null : DateTime.tryParse('$v')?.toUtc(
 /// build that reports it.
 @immutable
 class PairPartner {
-  const PairPartner({required this.id, required this.displayName, this.avatarUrl, this.timezone});
+  const PairPartner({
+    required this.id,
+    required this.displayName,
+    this.avatarUrl,
+    this.timezone,
+    this.realName,
+    this.nickname,
+  });
 
-  factory PairPartner.fromJson(Map<String, dynamic> json) => PairPartner(
-    id: json['id'] as String,
-    displayName: json['display_name'] as String? ?? 'Your person',
-    avatarUrl: json['avatar_url'] as String?,
-    timezone: json['timezone'] as String?,
-  );
+  /// [displayName] is what *I* call them: my private nickname for them when I
+  /// have set one, their own name otherwise. Everything that names the partner
+  /// reads it, so a nickname shows up everywhere at once. [realName] is theirs.
+  factory PairPartner.fromJson(Map<String, dynamic> json) {
+    final real = json['display_name'] as String? ?? 'Your person';
+    final nick = (json['nickname'] as String?)?.trim();
+    final has = nick != null && nick.isNotEmpty;
+    return PairPartner(
+      id: json['id'] as String,
+      displayName: has ? nick : real,
+      avatarUrl: json['avatar_url'] as String?,
+      timezone: json['timezone'] as String?,
+      realName: real,
+      nickname: has ? nick : null,
+    );
+  }
 
   final String id;
   final String displayName;
   final String? avatarUrl;
   final String? timezone;
+
+  /// Their own display name, as they set it; null where it is not known apart
+  /// from [displayName] (an invite, which has no nickname).
+  final String? realName;
+
+  /// My private name for them, or null.
+  final String? nickname;
+
+  String get nameTheyChose => realName ?? displayName;
+
+  PairPartner withNickname(String? value) {
+    final trimmed = value?.trim();
+    final has = trimmed != null && trimmed.isNotEmpty;
+    return PairPartner(
+      id: id,
+      displayName: has ? trimmed : nameTheyChose,
+      avatarUrl: avatarUrl,
+      timezone: timezone,
+      realName: nameTheyChose,
+      nickname: has ? trimmed : null,
+    );
+  }
 }
 
 /// My pair, from `my_pair()`.
@@ -290,6 +329,7 @@ enum PairErrorCode {
   inviteExpired('invite_expired', 'That invite has expired. Ask for a fresh one.'),
   inviteUsed('invite_used', 'That invite was already used.'),
   inviteCancelled('invite_cancelled', 'That invite was cancelled. Ask for a fresh one.'),
+  invalidNickname('invalid_nickname', 'Keep that to 40 characters.'),
   invalidEmail('invalid_email', "Hmm, that doesn't look like an email address."),
   tooManyInvites(
     'too_many_invites',

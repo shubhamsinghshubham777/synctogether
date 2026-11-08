@@ -59,6 +59,18 @@ import 'package:synctogether/ui/scroll_fade.dart';
 /// fold beside empty margins), while the 900 px desktop minimum still stacks.
 const double kLobbySplitWidth = 940;
 
+/// Under the duration slider's right end. A Patron room starts at the slider's
+/// maximum and grows from inside the room, so say so: "4 HOURS MAX" alone reads
+/// as the whole story and hides the 24 hours they pay for.
+@visibleForTesting
+String durationCaption(TierLimits limits) {
+  String span(int minutes) => minutes >= 120 ? '${minutes ~/ 60} HOURS' : '$minutes MIN';
+  if (!limits.picksExtensionLength) return '${span(limits.maxSessionMinutes)} MAX';
+  final total = limits.maxTotalSessionMinutes;
+  final totalLabel = total >= 120 ? '${total ~/ 60} H' : '$total MIN';
+  return '${span(limits.maxSessionMinutes)} · EXTEND TO $totalLabel';
+}
+
 class LobbyScreen extends StatefulWidget {
   const LobbyScreen({super.key});
 
@@ -221,8 +233,7 @@ class _LobbyScreenState extends State<LobbyScreen> with WindowListener {
 
   int get _durationCap => EntitlementService.instance.limitsOrFallback.maxSessionMinutes;
 
-  String get _durationCapLabel =>
-      _durationCap >= 120 ? '${_durationCap ~/ 60} hours' : '$_durationCap min';
+  String get _durationCaption => durationCaption(EntitlementService.instance.limitsOrFallback);
 
   String get _durationLabel => _minutesLabel(_durationMinutes);
 
@@ -1407,9 +1418,15 @@ class _LobbyScreenState extends State<LobbyScreen> with WindowListener {
               mainAxisAlignment: .spaceBetween,
               children: [
                 Flexible(child: Text('5 MIN', style: PTText.label.copyWith(fontSize: 10))),
-                Text(
-                  '${_durationCapLabel.toUpperCase()} MAX',
-                  style: PTText.label.copyWith(fontSize: 10),
+                const SizedBox(width: 12),
+                Flexible(
+                  child: Text(
+                    _durationCaption,
+                    maxLines: 1,
+                    overflow: .ellipsis,
+                    textAlign: .end,
+                    style: PTText.label.copyWith(fontSize: 10),
+                  ),
                 ),
               ],
             ),

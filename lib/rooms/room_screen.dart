@@ -6528,9 +6528,11 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
   /// Our Room's other person, for the header. The roster knows them even while
   /// they are offline; "them" only while it has not loaded.
   String get _partnerFirstName {
+    // What I call them: the pair knows my nickname for them, the roster does not.
+    final label = PairService.instance.pair?.partner.displayName;
     final me = _sync?.userId;
     final other = _members.where((m) => m.userId != me).firstOrNull;
-    final first = other?.displayName.split(' ').first.trim() ?? '';
+    final first = (label ?? other?.displayName ?? '').split(' ').first.trim();
     if (first.isEmpty) return 'THEM';
     return first.length > 12 ? first.substring(0, 12) : first;
   }

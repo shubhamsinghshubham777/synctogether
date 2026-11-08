@@ -148,6 +148,25 @@ class FakePairService extends PairService {
   }
 
   @override
+  Future<void> setPartnerNickname(String? name) async {
+    calls.add('setPartnerNickname:${name ?? ''}');
+    final pair = _fakePair;
+    if (pair != null) {
+      _fakePair = PairInfo(
+        pairId: pair.pairId,
+        since: pair.since,
+        partner: pair.partner.withNickname(name),
+        reunionOn: pair.reunionOn,
+        reunionLabel: pair.reunionLabel,
+        patron: pair.patron,
+        roomId: pair.roomId,
+        roomCode: pair.roomCode,
+      );
+    }
+    notifyListeners();
+  }
+
+  @override
   void dismissBanner(String code) => calls.add('dismissBanner:$code');
 
   @override

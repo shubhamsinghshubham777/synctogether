@@ -78,14 +78,15 @@ abstract final class BoothIcons {
   static const subtitles = IconData(0xE044, fontFamily: 'BoothIcons');
   static const subtitlesOff = IconData(0xE045, fontFamily: 'BoothIcons');
   static const ticketDelete = IconData(0xE046, fontFamily: 'BoothIcons');
-  static const trophy = IconData(0xE047, fontFamily: 'BoothIcons');
-  static const upload = IconData(0xE048, fontFamily: 'BoothIcons');
-  static const videoStack = IconData(0xE049, fontFamily: 'BoothIcons');
-  static const videocam = IconData(0xE04A, fontFamily: 'BoothIcons');
-  static const videocamOff = IconData(0xE04B, fontFamily: 'BoothIcons');
-  static const visibility = IconData(0xE04C, fontFamily: 'BoothIcons');
-  static const visibilityOff = IconData(0xE04D, fontFamily: 'BoothIcons');
-  static const volume = IconData(0xE04E, fontFamily: 'BoothIcons');
-  static const volumeOff = IconData(0xE04F, fontFamily: 'BoothIcons');
-  static const youtube = IconData(0xE050, fontFamily: 'BoothIcons');
+  static const timer = IconData(0xE047, fontFamily: 'BoothIcons');
+  static const trophy = IconData(0xE048, fontFamily: 'BoothIcons');
+  static const upload = IconData(0xE049, fontFamily: 'BoothIcons');
+  static const videoStack = IconData(0xE04A, fontFamily: 'BoothIcons');
+  static const videocam = IconData(0xE04B, fontFamily: 'BoothIcons');
+  static const videocamOff = IconData(0xE04C, fontFamily: 'BoothIcons');
+  static const visibility = IconData(0xE04D, fontFamily: 'BoothIcons');
+  static const visibilityOff = IconData(0xE04E, fontFamily: 'BoothIcons');
+  static const volume = IconData(0xE04F, fontFamily: 'BoothIcons');
+  static const volumeOff = IconData(0xE050, fontFamily: 'BoothIcons');
+  static const youtube = IconData(0xE051, fontFamily: 'BoothIcons');
 }

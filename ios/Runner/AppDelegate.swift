@@ -481,9 +481,9 @@ final class RegionProbeView: UIView {
 /// call that shows the system alert, and Dart only makes it because a person just
 /// turned a notification on.
 ///
-/// A debug build's token only works on Apple's sandbox gateway and a release
-/// build's only on production, so the build configuration decides which one the
-/// server is told to use.
+/// A development-signed build's token only works on Apple's sandbox gateway and a
+/// distribution-signed one's only on production, so the signing decides which one
+/// the server is told to use (see `environment`).
 enum PushChannel {
   private static var channel: FlutterMethodChannel?
   private static var lastToken: String?
@@ -491,11 +491,30 @@ enum PushChannel {
   private static var pendingRoute: String?
   private static var dartReady = false
 
-  #if DEBUG
-    private static let environment = "sandbox"
-  #else
-    private static let environment = "production"
-  #endif
+  /// Which APNs gateway this build's token belongs to. The build configuration
+  /// cannot say: `flutter run --release` is a Release build signed for
+  /// development, whose token only the sandbox gateway accepts. What does say is
+  /// the provisioning profile the app was signed with, whose `aps-environment`
+  /// is `development` for an Xcode or `flutter run` install and `production` for
+  /// ad hoc. An App Store or TestFlight build carries no profile at all and is
+  /// production. (A simulator has no profile either; it never gets a token.)
+  private static let environment: String = {
+    guard
+      let url = Bundle.main.url(forResource: "embedded", withExtension: "mobileprovision"),
+      let data = try? Data(contentsOf: url),
+      let text = String(data: data, encoding: .isoLatin1),
+      let key = text.range(of: "<key>aps-environment</key>"),
+      let open = text.range(of: "<string>", range: key.upperBound..<text.endIndex),
+      let close = text.range(of: "</string>", range: open.upperBound..<text.endIndex)
+    else {
+      #if DEBUG
+        return "sandbox"
+      #else
+        return "production"
+      #endif
+    }
+    return text[open.upperBound..<close.lowerBound] == "development" ? "sandbox" : "production"
+  }()
 
   static func register(with messenger: FlutterBinaryMessenger) {
     let channel = FlutterMethodChannel(name: "app.synctogether/push", binaryMessenger: messenger)

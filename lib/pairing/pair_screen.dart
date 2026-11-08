@@ -9,6 +9,7 @@ import '../app_router.dart';
 import '../auth/auth_service.dart';
 import '../diagnostics.dart';
 import '../nav.dart';
+import '../ui/pt_motion.dart';
 import '../profile/profile_service.dart';
 import '../ui/banners.dart';
 import '../ui/booth.dart';
@@ -437,11 +438,29 @@ class _Hub extends StatelessWidget {
                       crossAxisAlignment: .start,
                       spacing: 3,
                       children: [
-                        Text(
-                          partner.displayName,
-                          style: PTText.cardHeading.copyWith(fontSize: 21),
-                          maxLines: 1,
-                          overflow: .ellipsis,
+                        Semantics(
+                          button: true,
+                          excludeSemantics: true,
+                          label: 'Rename ${partner.displayName}',
+                          child: PTPressable(
+                            onTap: () => showPartnerNicknameDialog(context, partner),
+                            pressedScale: 0.98,
+                            child: Row(
+                              mainAxisSize: .min,
+                              spacing: 8,
+                              children: [
+                                Flexible(
+                                  child: Text(
+                                    partner.displayName,
+                                    style: PTText.cardHeading.copyWith(fontSize: 21),
+                                    maxLines: 1,
+                                    overflow: .ellipsis,
+                                  ),
+                                ),
+                                const Icon(BoothIcons.edit, size: 15, color: PTColors.fgMute),
+                              ],
+                            ),
+                          ),
                         ),
                         Text(
                           'Paired since ${_since(pair.since)}',
@@ -492,7 +511,7 @@ class _Hub extends StatelessWidget {
               ),
               const PairDivider(),
               PairRow(
-                icon: BoothIcons.plane,
+                icon: BoothIcons.timer,
                 title: 'Reunion countdown',
                 value: reunion == null || reunion.phase == ReunionPhase.past
                     ? 'Set a date'

@@ -439,6 +439,23 @@ class PairService extends ChangeNotifier {
     }
   }
 
+  /// What I call my person. Private to me: nobody else can read it, and an empty
+  /// or null [name] goes back to the name they chose.
+  Future<void> setPartnerNickname(String? name) async {
+    try {
+      await _client.rpc('set_partner_nickname', params: {'p_nickname': name});
+      trace(
+        'partner nickname set',
+        category: 'room',
+        data: {'cleared': (name ?? '').trim().isEmpty},
+      );
+      await load();
+    } catch (e, s) {
+      _reportUnexpected(e, s, 'setting the partner nickname');
+      rethrow;
+    }
+  }
+
   Future<void> setReunion(DateTime? on, String? label) async {
     try {
       await _client.rpc(

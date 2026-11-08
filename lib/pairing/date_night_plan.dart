@@ -735,71 +735,83 @@ class _FilePanelState extends State<_FilePanel> {
           )
         else
           _UnlimitedCard(maxFile: limits.mediaSharingMaxSizeBytes),
-        if (check == FileCheck.overCap) ...[
-          Text(
-            'That file is over the ${Profile.formatBytes(limits.mediaSharingMaxSizeBytes)} '
-            'a free seat can share.',
-            style: PTText.body.copyWith(color: PTColors.danger, fontSize: 14, height: 1.4),
-          ),
-          Row(
+        // Over the size cap, over the week's allowance, or fine: the three trade places
+        // as one motion, the panel following the new height.
+        PTPanelSwitcher(
+          child: Column(
+            key: ValueKey(check),
+            crossAxisAlignment: .stretch,
             spacing: 10,
             children: [
-              Expanded(
-                child: PTButton(
-                  label: 'Pick a smaller file',
-                  variant: .secondary,
-                  height: 42,
-                  maxLines: 2,
-                  onPressed: () => form.chooseFile(context),
+              if (check == FileCheck.overCap) ...[
+                Text(
+                  'That file is over the ${Profile.formatBytes(limits.mediaSharingMaxSizeBytes)} '
+                  'a free seat can share.',
+                  style: PTText.body.copyWith(color: PTColors.danger, fontSize: 14, height: 1.4),
                 ),
-              ),
-              if (canSellPremium)
-                Expanded(
-                  child: PTButton(
-                    label: 'See Patron',
-                    variant: .secondary,
-                    icon: BoothIcons.crown,
-                    height: 42,
-                    onPressed: () => openPage(context, '/lobby/subscribe?source=date_night_file'),
-                  ),
+                Row(
+                  spacing: 10,
+                  children: [
+                    Expanded(
+                      child: PTButton(
+                        label: 'Pick a smaller file',
+                        variant: .secondary,
+                        height: 42,
+                        maxLines: 2,
+                        onPressed: () => form.chooseFile(context),
+                      ),
+                    ),
+                    if (canSellPremium)
+                      Expanded(
+                        child: PTButton(
+                          label: 'See Patron',
+                          variant: .secondary,
+                          icon: BoothIcons.crown,
+                          height: 42,
+                          onPressed: () =>
+                              openPage(context, '/lobby/subscribe?source=date_night_file'),
+                        ),
+                      ),
+                  ],
+                ),
+              ] else if (check == FileCheck.overWeek) ...[
+                Text(
+                  'Only ${Profile.formatBytes(remaining)} is left this week and that file is '
+                  '${Profile.formatBytes(size)}.${_resets(profile)}',
+                  style: PTText.body.copyWith(color: PTColors.danger, fontSize: 14, height: 1.4),
+                ),
+                Row(
+                  spacing: 10,
+                  children: [
+                    Expanded(
+                      child: PTButton(
+                        label: 'Pick a smaller file',
+                        variant: .secondary,
+                        height: 42,
+                        maxLines: 2,
+                        onPressed: () => form.chooseFile(context),
+                      ),
+                    ),
+                    Expanded(
+                      child: PTButton(
+                        label: 'Send without a file',
+                        variant: .secondary,
+                        height: 42,
+                        maxLines: 2,
+                        onPressed: () => form.setWatching(link: false),
+                      ),
+                    ),
+                  ],
+                ),
+              ] else
+                Text(
+                  'Uploads in the background right after you send. Keep SyncTogether open until '
+                  'it says Ready, and $first can already stream it on the night.',
+                  style: PTText.caption.copyWith(color: PTColors.fgMute, height: 1.45),
                 ),
             ],
           ),
-        ] else if (check == FileCheck.overWeek) ...[
-          Text(
-            'Only ${Profile.formatBytes(remaining)} is left this week and that file is '
-            '${Profile.formatBytes(size)}.${_resets(profile)}',
-            style: PTText.body.copyWith(color: PTColors.danger, fontSize: 14, height: 1.4),
-          ),
-          Row(
-            spacing: 10,
-            children: [
-              Expanded(
-                child: PTButton(
-                  label: 'Pick a smaller file',
-                  variant: .secondary,
-                  height: 42,
-                  maxLines: 2,
-                  onPressed: () => form.chooseFile(context),
-                ),
-              ),
-              Expanded(
-                child: PTButton(
-                  label: 'Send without a file',
-                  variant: .secondary,
-                  height: 42,
-                  maxLines: 2,
-                  onPressed: () => form.setWatching(link: false),
-                ),
-              ),
-            ],
-          ),
-        ] else
-          Text(
-            'Uploads in the background right after you send. Keep SyncTogether open until '
-            'it says Ready, and $first can already stream it on the night.',
-            style: PTText.caption.copyWith(color: PTColors.fgMute, height: 1.45),
-          ),
+        ),
       ],
     );
   }
@@ -1073,9 +1085,8 @@ class _ChangeWatchingState extends State<_ChangeWatching> {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
+    return PTColumn(
       mainAxisSize: .min,
-      crossAxisAlignment: .stretch,
       spacing: 12,
       children: [
         Text("Change what we're watching", style: PTText.screenTitle.copyWith(fontSize: 22)),
@@ -1096,8 +1107,10 @@ class _ChangeWatchingState extends State<_ChangeWatching> {
             _problem = null;
           }),
         ),
-        if (_useLink)
-          PTTextField(
+        // The link field unfolds under the choice that asked for it, as in the plan form.
+        PTRevealKeep(
+          visible: _useLink,
+          child: PTTextField(
             controller: widget.link,
             hint: 'youtube.com/watch?v=…',
             prefixIcon: BoothIcons.link,
@@ -1107,6 +1120,7 @@ class _ChangeWatchingState extends State<_ChangeWatching> {
               if (_problem != null) setState(() => _problem = null);
             },
           ),
+        ),
         Row(
           spacing: 10,
           children: [

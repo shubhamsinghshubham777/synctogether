@@ -5,6 +5,7 @@ import 'package:synctogether/rooms/roster_fold.dart';
 import 'package:synctogether/rooms/widgets/room_chat_panel.dart';
 import 'package:synctogether/rooms/widgets/room_roster.dart';
 import 'package:synctogether/sync/sync_service.dart';
+import 'package:synctogether/ui/rolling_text.dart';
 import 'package:synctogether/ui/booth.dart';
 import 'package:synctogether/ui/pt_motion.dart';
 
@@ -24,6 +25,9 @@ List<ChatRosterSeat> _seats(int n, {int ready = 0}) => [
       ready: i < ready,
     ),
 ];
+
+/// A rolling line (the +N), found by the whole string it shows.
+Finder _rolling(String t) => find.byWidgetPredicate((w) => w is PTRollingText && w.text == t);
 
 Finder get _toggle => find.bySemanticsLabel(RegExp(r'in the room, \d+ ready'));
 
@@ -203,7 +207,7 @@ void main() {
       // Five small rings, then "+3".
       final mini = find.byWidgetPredicate((w) => w is ReadyRing && w.diameter == 20);
       expect(mini, findsNWidgets(5));
-      expect(find.text('+3'), findsOneWidget);
+      expect(_rolling('+3'), findsOneWidget);
       // The ones the room is waiting on come first, so none hide behind +N.
       final states = mini.evaluate().map((e) => (e.widget as ReadyRing).ready);
       expect(states.where((r) => !r).length, 3);
@@ -216,7 +220,7 @@ void main() {
       await tester.pumpAndSettle();
       final rings = find.byType(ReadyRing).evaluate().map((e) => (e.widget as ReadyRing).ready);
       expect(rings.every((r) => r), isTrue);
-      expect(find.text('+0'), findsNothing);
+      expect(_rolling('+0'), findsNothing);
       fold.dispose();
     });
 

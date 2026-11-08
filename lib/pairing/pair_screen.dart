@@ -39,6 +39,11 @@ class _PairScreenState extends State<PairScreen> {
   bool _creating = false;
   bool _ending = false;
 
+  /// One automatic attempt per time this screen finds itself unpaired with no
+  /// code (it opened that way, or an unpair - yours or theirs - just happened).
+  /// Reset whenever the hub is showing, so the next unpair gets its own.
+  bool _autoTried = false;
+
   @override
   void initState() {
     super.initState();
@@ -151,7 +156,16 @@ class _PairScreenState extends State<PairScreen> {
       builder: (context, _) {
         final svc = PairService.instance;
         if (!svc.isSignedInAccount) return const _GuestGate();
-        if (svc.isPaired) return _Hub(onUnpair: _unpair, busy: _ending);
+        if (svc.isPaired) {
+          _autoTried = false;
+          return _Hub(onUnpair: _unpair, busy: _ending);
+        }
+        if (svc.loaded && svc.sentInvite == null && !_creating && !_autoTried) {
+          _autoTried = true;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) unawaited(_makeInvite());
+          });
+        }
         return _InviteFlow(
           invite: svc.sentInvite,
           busy: _creating,
@@ -163,6 +177,7 @@ class _PairScreenState extends State<PairScreen> {
             if (mounted) await _makeInvite();
           },
           loading: !svc.loaded,
+          onRetry: _makeInvite,
         );
       },
     );
@@ -227,6 +242,7 @@ class _InviteFlow extends StatelessWidget {
     required this.onCopyLink,
     required this.onCopyCode,
     required this.onCancel,
+    required this.onRetry,
   });
 
   final PairInvite? invite;
@@ -236,6 +252,7 @@ class _InviteFlow extends StatelessWidget {
   final void Function(PairInvite) onCopyLink;
   final void Function(PairInvite) onCopyCode;
   final VoidCallback onCancel;
+  final VoidCallback onRetry;
 
   @override
   Widget build(BuildContext context) {
@@ -251,7 +268,28 @@ class _InviteFlow extends StatelessWidget {
           style: PTText.body.copyWith(color: PTColors.fgSoft, height: 1.5),
         ),
         const PairNameCheck(),
-        if (inv == null)
+        if (inv == null && !busy && !loading)
+          // The request came back with nothing (offline, a server hiccup). Say
+          // so and offer another go, rather than spin for ever.
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 20),
+            child: Column(
+              spacing: 12,
+              children: [
+                Text(
+                  "Couldn't get a code just now.",
+                  style: PTText.body.copyWith(color: PTColors.fgSoft),
+                ),
+                PTButton(
+                  label: 'Try again',
+                  variant: .secondary,
+                  expand: false,
+                  onPressed: onRetry,
+                ),
+              ],
+            ),
+          )
+        else if (inv == null)
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 28),
             child: Center(child: PTLoader()),

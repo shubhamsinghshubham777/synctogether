@@ -18,6 +18,7 @@ class FakePairService extends PairService {
     this.online = false,
     this.failInviteWith,
     this.isLoaded = true,
+    this.failCreateInvite = false,
   }) : _fakePair = pair,
        _fakePending = pending,
        _fakeSent = sent,
@@ -31,6 +32,9 @@ class FakePairService extends PairService {
 
   /// Makes `inviteByEmail` throw, to drive the error copy.
   final Object? failInviteWith;
+
+  /// Makes `createInvite` fail, as it would offline.
+  bool failCreateInvite;
   final bool isLoaded;
   PairInfo? _fakePair;
   final PairInvite? _fakePending;
@@ -98,6 +102,7 @@ class FakePairService extends PairService {
   @override
   Future<PairInvite> createInvite() async {
     calls.add('createInvite');
+    if (failCreateInvite) throw StateError('offline');
     _fakeSent ??= PairInvite(
       code: 'M4YA7K',
       inviter: const PairPartner(id: 'me', displayName: 'You'),

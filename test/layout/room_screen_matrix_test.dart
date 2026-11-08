@@ -21,6 +21,7 @@ import 'package:synctogether/av/livekit_service.dart';
 import 'package:synctogether/mock/mock_dependencies.dart';
 import 'package:synctogether/profile/entitlement_service.dart';
 import 'package:synctogether/profile/profile_service.dart';
+import 'package:synctogether/pairing/pair_service.dart';
 import 'package:synctogether/player/mode_selection_dialog.dart';
 import 'package:synctogether/rooms/local_media_store.dart';
 import 'package:synctogether/rooms/media_sharing_service.dart';
@@ -49,6 +50,7 @@ import 'package:synctogether/ui/marquee.dart';
 import 'package:synctogether/ui/pt_motion.dart';
 import 'package:synctogether/ui/responsive.dart';
 
+import '../support/fake_pair_service.dart';
 import '../support/screen_matrix.dart';
 import '../sync/fakes.dart';
 import 'layout_support.dart';
@@ -446,6 +448,48 @@ void main() {
       expect(find.byType(ModeSelectionDialog), findsNothing);
       expect(find.textContaining('Failed to load shared media'), findsOneWidget);
       expect(tester.takeException(), isA<MediaSharingException>());
+      await _finish(tester);
+    },
+    cases: desktopOnly,
+    textScales: const [1.0],
+  );
+
+  // Our Room, a new session after the kept film was released: say so, instead of a
+  // silent "Locate your copy". The room names a film, has no shared copy, and this
+  // device has no file.
+  screenMatrix(
+    'our room whose kept film was released says so',
+    (tester, c, s) async {
+      LocalMediaStore.instance.resetCacheForTesting();
+      addTearDown(LocalMediaStore.instance.resetCacheForTesting);
+      final realPair = PairService.instance;
+      // No pair loaded: the room screen's together-clock reads the signed-in user only
+      // when there is a partner, and a test has no Supabase session to read.
+      PairService.instance = FakePairService();
+      addTearDown(() => PairService.instance = realPair);
+      await _pumpRoom(
+        tester,
+        c,
+        s,
+        room: _room().copyWith(pairId: 'pair-1', mediaShareExpiredAt: DateTime.now()),
+        members: 2,
+        remembered: false,
+      );
+      expect(find.text('The shared copy was removed'), findsOneWidget);
+      expect(find.text('Pick my copy'), findsOneWidget);
+      await _finish(tester);
+    },
+    cases: desktopOnly,
+    textScales: const [1.0],
+  );
+
+  screenMatrix(
+    'a room that never shared a film says nothing about a removed copy',
+    (tester, c, s) async {
+      LocalMediaStore.instance.resetCacheForTesting();
+      addTearDown(LocalMediaStore.instance.resetCacheForTesting);
+      await _pumpRoom(tester, c, s, room: _room(), members: 2, remembered: false);
+      expect(find.text('The shared copy was removed'), findsNothing);
       await _finish(tester);
     },
     cases: desktopOnly,

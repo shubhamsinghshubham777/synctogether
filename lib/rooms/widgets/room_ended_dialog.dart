@@ -21,6 +21,10 @@ void showRoomEndedDialog({
   required bool canShowPremiumUpsell,
   required Future<void> Function() onBackToLobby,
   required VoidCallback onPremiumUpsell,
+
+  /// Replaces "Unlock 24h rooms with Premium" when the offer is about something more
+  /// specific (Our Room's kept film).
+  String? premiumUpsellLabel,
 }) {
   showGlassDialog(
     context: context,
@@ -102,7 +106,7 @@ void showRoomEndedDialog({
                   ),
                   if (canShowPremiumUpsell)
                     PTButton(
-                      label: 'Unlock 24h rooms with Premium',
+                      label: premiumUpsellLabel ?? 'Unlock 24h rooms with Premium',
                       icon: BoothIcons.crown,
                       variant: .secondary,
                       onPressed: () {

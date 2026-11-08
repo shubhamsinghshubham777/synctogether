@@ -30,6 +30,8 @@ import 'package:synctogether/player/local_video.dart';
 import 'package:synctogether/player/local_video_chooser.dart';
 import 'package:synctogether/player/media_file_types.dart';
 import 'package:synctogether/player/photo_exports.dart';
+import 'package:synctogether/rooms/our_room_media.dart';
+import 'package:synctogether/rooms/widgets/shared_copy_expired_banner.dart';
 import 'package:synctogether/rooms/widgets/streaming_fallback_banner.dart';
 import 'package:synctogether/player/photo_picker.dart';
 import 'package:synctogether/player/recent_format.dart';
@@ -357,6 +359,9 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
   /// A rejoin found the remembered local copy gone and fell back to streaming
   /// the host's shared copy: say so once, quietly (info banner, never error).
   bool _streamingFallbackNotice = false;
+
+  /// The "shared copy was removed" note (Our Room) was dismissed for this visit.
+  bool _copyExpiredDismissed = false;
 
   bool _resumeAttempted = false;
 
@@ -732,8 +737,9 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
   void _trackTogether(List<PresentMember> present) {
     if (_room?.isOurRoom != true) return;
     final partnerId = PairService.instance.pair?.partner.id;
+    if (partnerId == null) return;
     final myId = AuthService.instance.user?.id;
-    if (partnerId == null || myId == null) return;
+    if (myId == null) return;
     final ids = {for (final m in present) m.userId};
     final together = ids.contains(partnerId) && ids.contains(myId);
     final wasTogether = _togetherNow;
@@ -2262,6 +2268,11 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
         context: context,
         fileName: name,
         fileSize: size,
+        // Our Room keeps the upload for a while after the session; every other room
+        // removes it when the room closes.
+        keepNote: (_room?.isOurRoom ?? false)
+            ? ourRoomKeepNote(patron: PairService.instance.pair?.patron ?? false)
+            : null,
       );
       if (result != null) {
         shouldShare = result.shouldShare;
@@ -4320,9 +4331,12 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     final room = _room;
     if (room == null) return null;
     if (room.isOurRoom) {
+      const base = 'It is always in your lobby. Open it again whenever you two are ready.';
       return (
         title: 'Our Room is resting',
-        body: 'It is always in your lobby. Open it again whenever you two are ready.',
+        body: _ourRoomFilmKept
+            ? '$base Your film is kept. ${ourRoomKeepNote(patron: PairService.instance.pair?.patron ?? false)}'
+            : base,
         icon: BoothIcons.heart,
       );
     }
@@ -4377,11 +4391,39 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
         await _maybeShowRecap();
         if (mounted) context.go('/lobby');
       },
+      // A free pair whose film is being kept is offered the long window, once, here:
+      // never while they are watching.
+      premiumUpsellLabel: _ourRoomFilmKept ? ourRoomKeepUpsellLabel : null,
       onPremiumUpsell: () {
-        context.go('/lobby/subscribe?source=room_ended');
+        context.go(
+          _ourRoomFilmKept
+              ? '/lobby/subscribe?source=room_ended_film'
+              : '/lobby/subscribe?source=room_ended',
+        );
       },
     );
   }
+
+  /// Our Room ended with a finished shared film in it: it is kept for a while, not
+  /// removed (see `ourRoomKeepNote`).
+  bool get _ourRoomFilmKept =>
+      (_room?.isOurRoom ?? false) &&
+      (_sync?.mediaUploadState == 'ready' ||
+          _uploadState == 'ready' ||
+          _room?.mediaUploadState == 'ready');
+
+  /// Our Room named a film whose shared copy has been released, and this device has no
+  /// copy open and nothing is being shared again: say so, instead of a silent "Locate".
+  bool get _showCopyExpiredNotice =>
+      !_copyExpiredDismissed &&
+      (_room?.isOurRoom ?? false) &&
+      _room?.mediaShareExpiredAt != null &&
+      _canonicalMedia.kind == .local &&
+      _canonicalMedia.name != null &&
+      _localFileName != _canonicalMedia.name &&
+      _sync?.mediaUploadState != 'ready' &&
+      _uploadState != 'ready' &&
+      _uploadState != 'uploading';
 
   bool get _canShowPremiumUpsell {
     // Patron on either side already covers both of them; the offer is for the
@@ -5766,6 +5808,22 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
               onPressed: _pickVideo,
             ),
             onDismiss: () => setState(() => _mismatchDismissed = true),
+          ),
+        ),
+      if (_showCopyExpiredNotice)
+        PTEntrance(
+          key: const ValueKey('shared-copy-expired'),
+          offset: -8,
+          duration: PTMotion.state,
+          child: SharedCopyExpiredBanner(
+            subtitle: ourRoomCopyExpiredSubtitle(
+              patron: PairService.instance.pair?.patron ?? false,
+            ),
+            onPickMyCopy: () {
+              setState(() => _copyExpiredDismissed = true);
+              _pickVideo();
+            },
+            onDismiss: () => setState(() => _copyExpiredDismissed = true),
           ),
         ),
       if (_streamingFallbackNotice && _localFileName != _canonicalMedia.name)

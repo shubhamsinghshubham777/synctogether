@@ -192,7 +192,7 @@ export default function PrivacyPage() {
                   <strong className="text-gray-200">Voice &amp; Video Facecams:</strong> Live audio and video streams are transmitted in real-time over encrypted WebRTC connections via LiveKit Cloud or a LiveKit server we operate ourselves (see the service providers list below). <strong>Voice and video streams are NEVER recorded, monitored, transcribed, or stored on our servers.</strong>
                 </li>
                 <li>
-                  <strong className="text-gray-200">Room Chat &amp; Reactions:</strong> Text chat messages and emoji/Lottie reaction triggers are broadcast to room participants. In-room messages are temporary and tied strictly to the active room lifecycle.
+                  <strong className="text-gray-200">Room Chat &amp; Reactions:</strong> Text chat messages and emoji/Lottie reaction triggers are broadcast to room participants. In-room messages are temporary and tied to the room lifecycle. In Our Room, the private room shared by two paired accounts, the conversation carries over between sessions and messages are deleted after 90 days.
                 </li>
               </ul>
             </div>
@@ -270,7 +270,7 @@ export default function PrivacyPage() {
               <div className="p-4 sm:p-5 rounded-xl bg-white/[0.02] border border-white/5 space-y-1.5">
                 <strong className="text-white block font-semibold text-base">2. Cloud Media Sharing Mode (Encrypted Cloudflare R2 Storage)</strong>
                 <p className="text-gray-400">
-                  When a host uploads a video file to stream to participants, the file is uploaded to an isolated, encrypted Cloudflare R2 storage bucket. Access is granted solely to authenticated room participants via time-limited, signed URLs. <strong>Shared media is strictly ephemeral and is automatically and permanently deleted upon room closure or expiration.</strong>
+                  When a host uploads a video file to stream to participants, the file is uploaded to an isolated, encrypted Cloudflare R2 storage bucket. Access is granted solely to authenticated room participants via time-limited, signed URLs. <strong>Shared media is ephemeral and is automatically and permanently deleted when the room closes or expires.</strong> Our Room, the private room shared by two paired accounts, is the one exception: a finished shared film is kept for 36 hours after a session ends (7 days when either partner has a Patron subscription) so the two of you can continue another evening, and is then permanently deleted. Restarting Our Room before then keeps the film until that session ends.
                 </p>
               </div>
               <div className="p-4 sm:p-5 rounded-xl bg-white/[0.02] border border-white/5 space-y-2">
@@ -483,13 +483,13 @@ export default function PrivacyPage() {
               <div className="p-4 sm:p-5 rounded-xl bg-white/[0.02] border border-white/5 space-y-1.5">
                 <strong className="text-white block font-semibold text-base">Room Chat &amp; Reactions</strong>
                 <p className="text-gray-400">
-                  Cascade-deleted permanently from the database immediately when a room is ended by the host or reaches its expiration time.
+                  Cascade-deleted permanently from the database immediately when a room is ended by the host or reaches its expiration time. Our Room, the private room shared by two paired accounts, keeps its chat between sessions and deletes messages after 90 days.
                 </p>
               </div>
               <div className="p-4 sm:p-5 rounded-xl bg-white/[0.02] border border-white/5 space-y-1.5">
                 <strong className="text-white block font-semibold text-base">Cloud Media Sharing (R2)</strong>
                 <p className="text-gray-400">
-                  Media files in R2 storage are purged automatically via database triggers and recurring automated sweeps whenever a room is closed or expires.
+                  Media files in R2 storage are purged automatically via database triggers and recurring automated sweeps whenever a room is closed or expires. In Our Room a finished shared film is purged 36 hours after the session ends (7 days when either partner has Patron), or sooner if it is replaced, if sharing is stopped, or if the pair is ended.
                 </p>
               </div>
               <div className="p-4 sm:p-5 rounded-xl bg-white/[0.02] border border-white/5 space-y-1.5">

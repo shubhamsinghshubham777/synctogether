@@ -92,7 +92,7 @@ export default function TermsPage() {
             User Content &amp; Privacy
           </h2>
           <p>
-            In Local Sync mode, we do not upload or store your media files or full directory file paths. In Cloud Media Sharing mode, host-uploaded video files are temporarily hosted in encrypted storage and permanently deleted upon room closure or expiry. Room chat messages and quick reactions are session-scoped and purged automatically upon room expiration or closure. For complete details, see our <a href="/privacy" className="text-purple-300 hover:text-white underline">Privacy Policy</a>.
+            In Local Sync mode, we do not upload or store your media files or full directory file paths. In Cloud Media Sharing mode, host-uploaded video files are temporarily hosted in encrypted storage and permanently deleted upon room closure or expiry; in Our Room, the private room shared by two paired accounts, a finished shared film is kept for 36 hours after a session ends (7 days when either partner has a Patron subscription) and then permanently deleted. Room chat messages and quick reactions are session-scoped and purged automatically upon room expiration or closure; Our Room keeps its chat between sessions and deletes messages after 90 days. For complete details, see our <a href="/privacy" className="text-purple-300 hover:text-white underline">Privacy Policy</a>.
           </p>
         </section>
 

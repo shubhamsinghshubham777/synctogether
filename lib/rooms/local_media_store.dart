@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart' show visibleForTesting;
+
 import 'package:synctogether/diagnostics.dart';
 import 'package:synctogether/player/local_video.dart';
 import 'package:synctogether/player/photo_exports.dart';
@@ -139,6 +141,11 @@ class LocalMediaStore {
       _prefs ?? await SharedPreferences.getInstance();
 
   Map<String, LocalMediaEntry>? _cache;
+
+  /// Forgets what was read from preferences, so a test that changes the stored
+  /// entries starts from them rather than from an earlier test's.
+  @visibleForTesting
+  void resetCacheForTesting() => _cache = null;
   Map<String, UploadSession>? _uploadSessionCache;
 
   Future<Map<String, LocalMediaEntry>> _read() async {

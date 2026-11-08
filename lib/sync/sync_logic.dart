@@ -367,6 +367,29 @@ bool shouldAutoReopenLocalFile({
   return storedFileExists;
 }
 
+/// Whether this device should start streaming the room's shared copy now.
+///
+/// It is "everyone who did not upload it", and deliberately not "everyone who is
+/// not the host": in Our Room both people are hosts, and the partner has to stream
+/// what the other shared. The uploader (still uploading, or already holding the file
+/// under that name) never streams its own upload, and neither does anyone who has
+/// already opened it. [alreadyStarting] stops a second "it is ready" signal (the
+/// sharing event, the progress event, the media change) opening it twice.
+bool shouldStreamSharedCopy({
+  required bool ended,
+  required bool uploadingHere,
+  required bool shareReady,
+  required String? fileName,
+  required String? loadedFileName,
+  required bool alreadyStarting,
+}) =>
+    !ended &&
+    !uploadingHere &&
+    shareReady &&
+    fileName != null &&
+    loadedFileName != fileName &&
+    !alreadyStarting;
+
 /// Whether the quiet "streaming the shared copy" notice is owed: a member whose
 /// device remembered this very file for the room, but can no longer open it, is
 /// about to be handed the host's copy. Never for a host, and never when this

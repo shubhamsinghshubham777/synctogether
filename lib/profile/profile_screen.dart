@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../ui/reveal.dart';
 import '../ui/progress_bar.dart';
 import '../ui/booth_icons.g.dart';
 import 'dart:io';
@@ -1089,8 +1090,7 @@ class _ProfileScreenState extends State<ProfileScreen> with WindowListener {
     final rewards = RewardsService.instance;
     final state = rewards.state;
     final streak = state.streak.current;
-    return Column(
-      crossAxisAlignment: .stretch,
+    return PTColumn(
       spacing: 18,
       children: [
         const _Rule(),
@@ -1126,12 +1126,14 @@ class _ProfileScreenState extends State<ProfileScreen> with WindowListener {
             Expanded(child: _numeral('${state.totals.coWatchers}', 'watched with')),
           ],
         ),
-        if (rewards.referrals > 0)
-          Text(
+        PTRevealKeep(
+          visible: rewards.referrals > 0,
+          child: Text(
             '${rewards.referrals} ${rewards.referrals == 1 ? 'person' : 'people'} '
             'joined SyncTogether through one of your rooms.',
             style: PTText.finePrint.copyWith(fontSize: 12, color: PTColors.textAccent),
           ),
+        ),
         if (state.seasons.isNotEmpty) SeasonTrophies(seasons: state.seasons),
         Column(
           crossAxisAlignment: .stretch,
@@ -1335,8 +1337,23 @@ class _ProfileScreenState extends State<ProfileScreen> with WindowListener {
             unawaited(RewardsService.instance.setPublicProfile(value));
           },
         ),
-        if (state.publicProfile) ...[const _Rule(faint: true), _handleRow(state)],
-        if (state.availableFrames.isNotEmpty) ...[const _Rule(faint: true), _framePicker(state)],
+        // Turning the board on folds the handle row open under the switch.
+        PTRevealKeep(
+          visible: state.publicProfile,
+          child: Column(
+            crossAxisAlignment: .stretch,
+            spacing: 16,
+            children: [const _Rule(faint: true), _handleRow(state)],
+          ),
+        ),
+        PTRevealKeep(
+          visible: state.availableFrames.isNotEmpty,
+          child: Column(
+            crossAxisAlignment: .stretch,
+            spacing: 16,
+            children: [const _Rule(faint: true), _framePicker(state)],
+          ),
+        ),
         _link('Manage shared recaps', () => showSharedRecapsDialog(context)),
       ],
     );
@@ -1480,15 +1497,25 @@ class _ProfileScreenState extends State<ProfileScreen> with WindowListener {
             'Sign in for a free 2.5 GB weekly streaming quota.',
             style: PTText.finePrint.copyWith(color: PTColors.white(0.5)),
           ),
-        if (limits.canShareMedia) ...[
-          const _Rule(faint: true),
-          Text('When you open a local video', style: PTText.body.copyWith(fontWeight: .w600)),
-          _ShareChoice(value: _mediaSharingRememberedChoice, onChanged: _setMediaSharingPreference),
-          Text(
-            'Sharing uploads the file so members without a copy can stream it.',
-            style: PTText.finePrint.copyWith(fontSize: 12),
+        PTRevealKeep(
+          visible: limits.canShareMedia,
+          child: Column(
+            crossAxisAlignment: .stretch,
+            spacing: 16,
+            children: [
+              const _Rule(faint: true),
+              Text('When you open a local video', style: PTText.body.copyWith(fontWeight: .w600)),
+              _ShareChoice(
+                value: _mediaSharingRememberedChoice,
+                onChanged: _setMediaSharingPreference,
+              ),
+              Text(
+                'Sharing uploads the file so members without a copy can stream it.',
+                style: PTText.finePrint.copyWith(fontSize: 12),
+              ),
+            ],
           ),
-        ],
+        ),
       ],
     );
   }
@@ -1925,8 +1952,7 @@ class _Section extends StatelessWidget {
           border: Border.all(color: PTColors.aisle),
           borderRadius: BorderRadius.circular(PTRadius.panel),
         ),
-        child: Column(
-          crossAxisAlignment: .stretch,
+        child: PTColumn(
           spacing: 16,
           children: [
             Row(
@@ -1943,8 +1969,7 @@ class _Section extends StatelessWidget {
     }
     return Padding(
       padding: const EdgeInsets.only(bottom: 30),
-      child: Column(
-        crossAxisAlignment: .stretch,
+      child: PTColumn(
         spacing: 16,
         children: [
           const _Rule(),

@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:synctogether/ui/booth_icons.g.dart';
 import 'package:synctogether/ui/inputs.dart';
+import 'package:synctogether/ui/rolling_text.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:synctogether/rooms/widgets/media_sharing_prompt_dialog.dart';
 import 'package:synctogether/rooms/widgets/sharing_progress_indicator.dart';
+
+/// A rolling line (the percentage), found by the whole string it shows.
+Finder _rolling(String t) => find.byWidgetPredicate((w) => w is PTRollingText && w.text == t);
 
 void main() {
   group('SharingProgressIndicator', () {
@@ -26,7 +30,7 @@ void main() {
       );
 
       expect(find.text('Uploading video...'), findsOneWidget);
-      expect(find.textContaining('45%'), findsOneWidget);
+      expect(_rolling('45%'), findsOneWidget);
       expect(find.textContaining('2.5 MB/s'), findsOneWidget);
       expect(find.textContaining('1m 25s'), findsOneWidget);
 
@@ -50,7 +54,7 @@ void main() {
       );
 
       expect(find.text('Ready to watch'), findsOneWidget);
-      expect(find.textContaining('100%'), findsOneWidget);
+      expect(_rolling('100%'), findsOneWidget);
       expect(find.byIcon(Icons.check_circle_outline), findsOneWidget);
     });
   });

@@ -146,6 +146,17 @@ class PTRevealKeep extends StatefulWidget {
   final Alignment alignment;
   final double slide;
 
+  /// The same fold with its gap set (what [PTColumn] does for its children).
+  PTRevealKeep withGap(double gap) => PTRevealKeep(
+    key: key,
+    visible: visible,
+    gap: gap,
+    axis: axis,
+    alignment: alignment,
+    slide: slide,
+    child: child,
+  );
+
   @override
   State<PTRevealKeep> createState() => _PTRevealKeepState();
 }
@@ -167,6 +178,42 @@ class _PTRevealKeepState extends State<PTRevealKeep> {
             : EdgeInsets.only(left: widget.gap),
         child: _last ?? widget.child,
       ),
+    );
+  }
+}
+
+/// A [Column] with `spacing` that understands folds: a [PTRevealKeep] child carries
+/// its gap above it inside the fold, so while it is hidden it leaves no spacing
+/// behind, and as it opens the space opens with it. Use it in place of
+/// `Column(spacing: n, ...)` wherever a child comes and goes.
+class PTColumn extends StatelessWidget {
+  const PTColumn({
+    super.key,
+    required this.spacing,
+    required this.children,
+    this.crossAxisAlignment = CrossAxisAlignment.stretch,
+    this.mainAxisSize = MainAxisSize.max,
+  });
+
+  final double spacing;
+  final List<Widget> children;
+  final CrossAxisAlignment crossAxisAlignment;
+  final MainAxisSize mainAxisSize;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: crossAxisAlignment,
+      mainAxisSize: mainAxisSize,
+      children: [
+        for (final (i, child) in children.indexed)
+          if (child is PTRevealKeep)
+            child.withGap(i == 0 ? 0 : spacing)
+          else ...[
+            if (i > 0) SizedBox(height: spacing),
+            child,
+          ],
+      ],
     );
   }
 }

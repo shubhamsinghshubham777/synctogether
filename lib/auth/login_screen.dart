@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../ui/rolling_text.dart';
 import '../ui/booth_icons.g.dart';
 import 'dart:math' as math;
 
@@ -930,11 +931,31 @@ class _LoginScreenState extends State<LoginScreen> with WindowListener {
         Center(
           child: TextButton(
             onPressed: _resendCooldown > 0 || _anyLoading ? null : _sendEmailOtp,
-            child: Text(
-              _resendCooldown > 0 ? 'Resend code in ${_resendCooldown}s' : 'Resend code',
-              style: PTText.finePrint.copyWith(
-                color: _resendCooldown > 0 ? PTColors.white(0.4) : PTColors.link,
-              ),
+            // The seconds count down by rolling the digits that changed, and the line
+            // swaps to "Resend code" with a slide when the wait is over.
+            child: PTShift(
+              keyValue: _resendCooldown > 0,
+              dir: 1,
+              child: _resendCooldown > 0
+                  ? Text.rich(
+                      TextSpan(
+                        children: [
+                          const TextSpan(text: 'Resend code in '),
+                          WidgetSpan(
+                            alignment: PlaceholderAlignment.baseline,
+                            baseline: TextBaseline.alphabetic,
+                            child: PTRollingText(
+                              '$_resendCooldown',
+                              style: PTText.finePrint.copyWith(color: PTColors.white(0.4)),
+                              dir: -1,
+                            ),
+                          ),
+                          const TextSpan(text: 's'),
+                        ],
+                      ),
+                      style: PTText.finePrint.copyWith(color: PTColors.white(0.4)),
+                    )
+                  : Text('Resend code', style: PTText.finePrint.copyWith(color: PTColors.link)),
             ),
           ),
         ),

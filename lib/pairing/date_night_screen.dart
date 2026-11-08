@@ -8,6 +8,8 @@ import '../nav.dart';
 import '../platform.dart';
 import '../profile/profile_models.dart';
 import '../profile/profile_service.dart';
+import '../ui/reveal.dart';
+import '../ui/panel_switcher.dart';
 import '../ui/progress_bar.dart';
 import '../ui/optical.dart';
 import '../ui/banners.dart';
@@ -666,8 +668,8 @@ class _NightCard extends StatelessWidget {
               '${placement.theirCity.isEmpty ? '' : ' ${placement.theirCity}'}'
         : null;
 
-    return Column(
-      crossAxisAlignment: .stretch,
+    final actions = _actions(context);
+    return PTColumn(
       spacing: 10,
       children: [
         PTTicket(
@@ -734,12 +736,24 @@ class _NightCard extends StatelessWidget {
             ),
           ),
         ),
-        if (!_over && (file.stage == FileStage.uploading || file.stage == FileStage.unfinished))
-          _ProgressBar(fraction: file.fraction, warn: file.stage == FileStage.unfinished),
-        if (!_over) _Attachment(night: night, mine: mine, first: _first),
-        if (!_over && night.hasFile) _FileLine(file: file, mine: mine, first: _first, live: live),
-        if (placement.lateForThem && !_over)
-          Row(
+        // The upload's pieces come and go with its stage: they fold open and shut,
+        // and the actions swap as one motion when the night's standing changes.
+        PTRevealKeep(
+          visible:
+              !_over && (file.stage == FileStage.uploading || file.stage == FileStage.unfinished),
+          child: _ProgressBar(fraction: file.fraction, warn: file.stage == FileStage.unfinished),
+        ),
+        PTRevealKeep(
+          visible: !_over,
+          child: _Attachment(night: night, mine: mine, first: _first),
+        ),
+        PTRevealKeep(
+          visible: !_over && night.hasFile,
+          child: _FileLine(file: file, mine: mine, first: _first, live: live),
+        ),
+        PTRevealKeep(
+          visible: placement.lateForThem && !_over,
+          child: Row(
             spacing: 8,
             children: [
               const Icon(BoothIcons.clock, size: 16, color: PTColors.warning),
@@ -751,9 +765,22 @@ class _NightCard extends StatelessWidget {
               ),
             ],
           ),
-        ..._actions(context),
-        if (!_over && mine && file.stage == FileStage.stopped)
-          _StoppedActions(night: night, live: live),
+        ),
+        PTRevealKeep(
+          visible: actions.isNotEmpty,
+          child: PTPanelSwitcher(
+            child: PTColumn(
+              key: ValueKey(standing),
+              spacing: 10,
+              mainAxisSize: .min,
+              children: actions,
+            ),
+          ),
+        ),
+        PTRevealKeep(
+          visible: !_over && mine && file.stage == FileStage.stopped,
+          child: _StoppedActions(night: night, live: live),
+        ),
       ],
     );
   }
@@ -950,18 +977,22 @@ class _FileLine extends StatelessWidget {
       FileStage.none => ('', PTColors.fgDim, BoothIcons.film),
     };
     if (text.isEmpty) return const SizedBox.shrink();
-    return Row(
-      crossAxisAlignment: .start,
-      spacing: 8,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(top: 2),
-          child: Icon(icon, size: 16, color: color),
-        ),
-        Expanded(
-          child: Text(text, style: PTText.caption.copyWith(color: color, height: 1.4)),
-        ),
-      ],
+    // Ready, uploading, unfinished and stopped trade places as one motion.
+    return PTPanelSwitcher(
+      child: Row(
+        key: ValueKey(file.stage),
+        crossAxisAlignment: .start,
+        spacing: 8,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: Icon(icon, size: 16, color: color),
+          ),
+          Expanded(
+            child: Text(text, style: PTText.caption.copyWith(color: color, height: 1.4)),
+          ),
+        ],
+      ),
     );
   }
 }

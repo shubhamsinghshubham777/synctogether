@@ -19,6 +19,7 @@ import '../ui/booth_icons.g.dart';
 import '../ui/buttons.dart';
 import '../ui/glass.dart';
 import '../ui/inputs.dart';
+import '../ui/panel_switcher.dart';
 import '../ui/pt_date_time_logic.dart';
 import '../ui/pt_date_time_picker.dart';
 import '../ui/pt_motion.dart';
@@ -408,8 +409,7 @@ class PlanNightBody extends StatelessWidget {
   Widget build(BuildContext context) {
     final placement = form.placement;
     final differ = placement.zonesDiffer && placement.theirs != null;
-    return Column(
-      crossAxisAlignment: .stretch,
+    return PTColumn(
       spacing: 12,
       children: [
         const PairKicker("What's the night?"),
@@ -424,24 +424,38 @@ class PlanNightBody extends StatelessWidget {
         // and opens the one picker. (It used to be a Day button and a Time button
         // that opened the same window, with this line repeated underneath.)
         _WhenField(form: form),
-        if (differ) ...[
-          const PairKicker('Both of you, side by side'),
-          _Strips(placement: placement, partnerName: form.first),
-          if (placement.lateForThem)
-            _Verdict(
-              warn: true,
-              text:
-                  'That is ${formatClock(placement.theirs!)} for ${form.first}. Send it anyway, '
-                  'or try a time that lands in their evening.',
-            )
-          else
-            _Verdict(
-              warn: false,
-              text:
-                  '${daypart(placement.theirs!.hour)} for ${form.first}.'
-                  '${placement.meAwake ? ' Both of you are awake.' : ''}',
-            ),
-        ],
+        // The two clocks fold open only when your time zones differ (or when the day
+        // moves it into view); pick a time and the verdict beneath changes in place.
+        PTRevealKeep(
+          visible: differ,
+          child: differ
+              ? Column(
+                  crossAxisAlignment: .stretch,
+                  spacing: 12,
+                  children: [
+                    const PairKicker('Both of you, side by side'),
+                    _Strips(placement: placement, partnerName: form.first),
+                    PTPanelSwitcher(
+                      child: placement.lateForThem
+                          ? _Verdict(
+                              key: const ValueKey('late'),
+                              warn: true,
+                              text:
+                                  'That is ${formatClock(placement.theirs!)} for ${form.first}. Send it anyway, '
+                                  'or try a time that lands in their evening.',
+                            )
+                          : _Verdict(
+                              key: const ValueKey('fine'),
+                              warn: false,
+                              text:
+                                  '${daypart(placement.theirs!.hour)} for ${form.first}.'
+                                  '${placement.meAwake ? ' Both of you are awake.' : ''}',
+                            ),
+                    ),
+                  ],
+                )
+              : const SizedBox.shrink(),
+        ),
         const PairKicker('What are you watching? · optional'),
         _AttachRow(
           icon: BoothIcons.youtube,
@@ -959,7 +973,7 @@ class _LinkField extends StatelessWidget {
 }
 
 class _Verdict extends StatelessWidget {
-  const _Verdict({required this.warn, required this.text});
+  const _Verdict({super.key, required this.warn, required this.text});
 
   final bool warn;
   final String text;

@@ -1,3 +1,4 @@
+import '../../ui/rolling_text.dart';
 import '../../ui/progress_bar.dart';
 import '../../ui/booth_icons.g.dart';
 import 'package:flutter/material.dart';
@@ -93,9 +94,10 @@ class SharingProgressIndicator extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              Text(
+              // Only the digits that moved roll as the upload advances.
+              PTRollingText(
                 '$percentage%',
-                style: theme.textTheme.bodyMedium?.copyWith(
+                style: (theme.textTheme.bodyMedium ?? PTText.body).copyWith(
                   fontWeight: FontWeight.bold,
                   color: isDone
                       ? PTColors.online

@@ -57,13 +57,17 @@ class PairLobbySection extends StatelessWidget {
             : reunionView(pair.reunionOn!, DateTime.now());
         return Padding(
           padding: EdgeInsets.only(bottom: gap),
-          child: Column(
-            crossAxisAlignment: .stretch,
+          child: PTColumn(
             spacing: 12,
             children: [
               OurRoomCard(pair: pair, online: svc.partnerOnline, night: night, compact: compact),
-              if (reunion != null && reunion.phase != ReunionPhase.past)
-                ReunionCard(view: reunion, label: pair.reunionLabel),
+              // Setting (or reaching) the reunion date folds the countdown open or shut.
+              PTRevealKeep(
+                visible: reunion != null && reunion.phase != ReunionPhase.past,
+                child: reunion == null
+                    ? const SizedBox.shrink()
+                    : ReunionCard(view: reunion, label: pair.reunionLabel),
+              ),
             ],
           ),
         );

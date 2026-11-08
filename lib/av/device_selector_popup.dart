@@ -5,6 +5,7 @@ import 'package:livekit_client/livekit_client.dart' as lk;
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:synctogether/ui/glass.dart';
 import 'package:synctogether/ui/loader.dart';
+import 'package:synctogether/ui/panel_switcher.dart';
 import 'package:synctogether/ui/pt_motion.dart';
 import 'package:synctogether/ui/pt_theme.dart';
 
@@ -185,45 +186,59 @@ class _DeviceSelectorPanelState extends State<_DeviceSelectorPanel> {
           const SizedBox(height: 10),
           Container(height: 1, color: PTColors.white(0.08)),
           const SizedBox(height: 8),
-          if (_loading)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 24),
-              child: Center(child: PTLoader(size: 20)),
-            )
-          else if (_devices == null || _devices!.isEmpty)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              child: Center(
-                child: Text(
-                  'No devices found',
-                  style: PTText.finePrint.copyWith(color: PTColors.white(0.5)),
-                ),
-              ),
-            )
-          else
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxHeight: 220),
-              child: SingleChildScrollView(
-                child: Builder(
-                  builder: (context) {
-                    final resolvedSelectedId = _resolveSelectedId();
-                    return Column(
-                      mainAxisSize: .min,
-                      spacing: 4,
-                      children: _devices!.map((device) {
-                        final label = device.label.trim().isEmpty ? 'Default Device' : device.label;
-                        final isSelected = device.deviceId == resolvedSelectedId;
-                        return _DeviceRow(
-                          label: label,
-                          isSelected: isSelected,
-                          onTap: () => widget.onDeviceSelected(device),
-                        );
-                      }).toList(),
-                    );
-                  },
-                ),
-              ),
-            ),
+          // Loading, empty and the list trade places as one motion: the popup follows the
+          // new height instead of snapping to it.
+          PTPanelSwitcher(
+            child: _loading
+                ? KeyedSubtree(
+                    key: const ValueKey('loading'),
+                    child: const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 24),
+                      child: Center(child: PTLoader(size: 20)),
+                    ),
+                  )
+                : (_devices == null || _devices!.isEmpty)
+                ? KeyedSubtree(
+                    key: const ValueKey('empty'),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      child: Center(
+                        child: Text(
+                          'No devices found',
+                          style: PTText.finePrint.copyWith(color: PTColors.white(0.5)),
+                        ),
+                      ),
+                    ),
+                  )
+                : KeyedSubtree(
+                    key: const ValueKey('list'),
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxHeight: 220),
+                      child: SingleChildScrollView(
+                        child: Builder(
+                          builder: (context) {
+                            final resolvedSelectedId = _resolveSelectedId();
+                            return Column(
+                              mainAxisSize: .min,
+                              spacing: 4,
+                              children: _devices!.map((device) {
+                                final label = device.label.trim().isEmpty
+                                    ? 'Default Device'
+                                    : device.label;
+                                final isSelected = device.deviceId == resolvedSelectedId;
+                                return _DeviceRow(
+                                  label: label,
+                                  isSelected: isSelected,
+                                  onTap: () => widget.onDeviceSelected(device),
+                                );
+                              }).toList(),
+                            );
+                          },
+                        ),
+                      ),
+                    ),
+                  ),
+          ),
         ],
       ),
     );

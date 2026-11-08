@@ -5201,52 +5201,62 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
               controller: _youtubeController!,
             ),
           ),
-        if (_mode == .youtube && (_youtubeController?.isAdPlaying ?? false)) ...[
+        if (_mode == .youtube) ...[
           Positioned(
             top: 24,
             left: 24,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: PTColors.noticeSurface,
-                borderRadius: BorderRadius.circular(PTRadius.panel),
-                border: Border.all(color: PTColors.white(0.15)),
-              ),
-              child: Row(
-                mainAxisSize: .min,
-                children: [
-                  const Icon(Icons.campaign_rounded, size: 16, color: PTColors.notice),
-                  const SizedBox(width: 6),
-                  Text(
-                    'Ad in progress. Click Skip Ad when available',
-                    style: PTText.caption.copyWith(color: PTColors.white(0.9)),
+            // The badge fades in when an ad starts and out when it ends, and only takes
+            // clicks while it is there.
+            child: AnimatedOpacity(
+              duration: PTMotion.functional(context, PTMotion.state),
+              curve: PTMotion.enter,
+              opacity: (_youtubeController?.isAdPlaying ?? false) ? 1 : 0,
+              child: IgnorePointer(
+                ignoring: !(_youtubeController?.isAdPlaying ?? false),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: PTColors.noticeSurface,
+                    borderRadius: BorderRadius.circular(PTRadius.panel),
+                    border: Border.all(color: PTColors.white(0.15)),
                   ),
-                  if (kDebugMode) ...[
-                    const SizedBox(width: 8),
-                    MouseRegion(
-                      cursor: SystemMouseCursors.click,
-                      child: GestureDetector(
-                        onTap: () {
-                          _youtubeController?.debugToggleAdState();
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: PTColors.white(0.12),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            'End Test Ad',
-                            style: PTText.finePrint.copyWith(
-                              color: PTColors.textAccent,
-                              fontWeight: FontWeight.w600,
+                  child: Row(
+                    mainAxisSize: .min,
+                    children: [
+                      const Icon(Icons.campaign_rounded, size: 16, color: PTColors.notice),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Ad in progress. Click Skip Ad when available',
+                        style: PTText.caption.copyWith(color: PTColors.white(0.9)),
+                      ),
+                      if (kDebugMode) ...[
+                        const SizedBox(width: 8),
+                        MouseRegion(
+                          cursor: SystemMouseCursors.click,
+                          child: GestureDetector(
+                            onTap: () {
+                              _youtubeController?.debugToggleAdState();
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: PTColors.white(0.12),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                'End Test Ad',
+                                style: PTText.finePrint.copyWith(
+                                  color: PTColors.textAccent,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                    ),
-                  ],
-                ],
+                      ],
+                    ],
+                  ),
+                ),
               ),
             ),
           ),

@@ -319,6 +319,8 @@ void main() {
 
       // Advance past duration to let it finish
       await tester.pump(const Duration(milliseconds: 1500));
+      // It folds away over a beat rather than vanishing the instant the sound ends.
+      await tester.pump(const Duration(milliseconds: 300));
       expect(find.text('Playing sound'), findsNothing);
       expect(find.text('Test sound'), findsOneWidget);
     });

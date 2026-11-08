@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import '../../ui/reveal.dart';
 import '../../ui/optical.dart';
 import '../../ui/booth_icons.g.dart';
 import 'package:material_symbols_icons/symbols.dart';
@@ -50,7 +53,6 @@ class MyRoomsSection extends StatelessWidget {
       spacing: compact ? 14 : 18,
       children: [
         Row(
-          spacing: compact ? 8 : 10,
           children: [
             if (!framed)
               Expanded(
@@ -68,6 +70,7 @@ class MyRoomsSection extends StatelessWidget {
                 fill: 1,
                 color: PTColors.textAccent,
               ),
+              SizedBox(width: compact ? 8 : 10),
               Expanded(
                 child: Text.rich(
                   maxLines: 1,
@@ -92,8 +95,14 @@ class MyRoomsSection extends StatelessWidget {
                 ),
               ),
             ],
-            if (endedRooms.isNotEmpty)
-              _ClearEndedButton(
+            // Unfolds in beside the title once there is something to clear, and folds
+            // away when the last ended room goes.
+            PTRevealKeep(
+              visible: endedRooms.isNotEmpty,
+              axis: Axis.horizontal,
+              alignment: Alignment.centerRight,
+              gap: compact ? 8 : 10,
+              child: _ClearEndedButton(
                 count: endedRooms.length,
                 compact: compact,
                 busy: clearingEnded,
@@ -101,53 +110,159 @@ class MyRoomsSection extends StatelessWidget {
                     ? () => onClearEnded!(endedRooms)
                     : null,
               ),
+            ),
           ],
         ),
         // Tickets pair up once each can keep a readable name beside its
         // stub; below that they stack. A list, not a wrapped row, so a
         // resize re-deals whole tickets rather than reflowing their insides.
-        LayoutBuilder(
-          builder: (context, box) {
-            final columns = box.maxWidth >= kTicketTwoColumnWidth ? 2 : 1;
-            final tickets = [
-              for (final entry in rooms.asMap().entries)
-                PTEntrance(
-                  key: ValueKey(entry.value.room.id),
-                  delay: Duration(milliseconds: 40 * entry.key),
-                  duration: PTMotion.state,
-                  offset: 8,
-                  fade: false,
-                  child: _RoomRow(
-                    entry: entry.value,
-                    serverNow: serverNow,
-                    compact: compact || columns == 2,
-                    busy: busyRoomId == entry.value.room.id,
-                    onOpen: () => onOpen(entry.value),
-                    onDelete: () => onDelete(entry.value),
-                  ),
-                ),
-            ];
-            return Column(
-              mainAxisSize: .min,
-              spacing: 10,
-              children: [
-                for (var i = 0; i < tickets.length; i += columns)
-                  Row(
-                    crossAxisAlignment: .start,
-                    spacing: 10,
-                    children: [
-                      for (var j = i; j < i + columns; j++)
-                        Expanded(child: j < tickets.length ? tickets[j] : const SizedBox()),
-                    ],
-                  ),
-              ],
-            );
-          },
+        _TicketList(
+          rooms: rooms,
+          serverNow: serverNow,
+          compact: compact,
+          busyRoomId: busyRoomId,
+          onOpen: onOpen,
+          onDelete: onDelete,
         ),
       ],
     );
     if (!framed) return body;
     return GlassPanel(padding: EdgeInsets.all(compact ? 20 : 28), child: body);
+  }
+}
+
+/// The tickets. A ticket that goes (deleted, cleared, or its room ended and was swept)
+/// folds shut where it stood while the ones below glide up, instead of vanishing and
+/// the list jumping; a new one still arrives with the entrance it always had.
+class _TicketList extends StatefulWidget {
+  const _TicketList({
+    required this.rooms,
+    required this.serverNow,
+    required this.compact,
+    required this.busyRoomId,
+    required this.onOpen,
+    required this.onDelete,
+  });
+
+  final List<MyRoom> rooms;
+  final DateTime serverNow;
+  final bool compact;
+  final String? busyRoomId;
+  final ValueChanged<MyRoom> onOpen;
+  final ValueChanged<MyRoom> onDelete;
+
+  @override
+  State<_TicketList> createState() => _TicketListState();
+}
+
+class _Slot {
+  const _Slot(this.id, this.entry, {this.leaving = false});
+
+  final String id;
+  final MyRoom entry;
+  final bool leaving;
+}
+
+class _TicketListState extends State<_TicketList> {
+  List<_Slot> _slots = [];
+  final _timers = <Timer>[];
+
+  @override
+  void initState() {
+    super.initState();
+    _slots = [for (final r in widget.rooms) _Slot(r.room.id, r)];
+  }
+
+  @override
+  void didUpdateWidget(_TicketList old) {
+    super.didUpdateWidget(old);
+    final next = [for (final r in widget.rooms) _Slot(r.room.id, r)];
+    var anchor = -1;
+    for (final old in _slots) {
+      final i = next.indexWhere((s) => s.id == old.id);
+      if (i >= 0) {
+        anchor = i;
+        continue;
+      }
+      // Gone from the list: keep it, folding out, where it was.
+      anchor += 1;
+      next.insert(anchor.clamp(0, next.length), _Slot(old.id, old.entry, leaving: true));
+      if (!old.leaving) {
+        _timers.add(
+          Timer(PTMotion.state * 1.2, () {
+            if (!mounted) return;
+            setState(
+              () => _slots = [
+                for (final s in _slots)
+                  if (!(s.leaving && s.id == old.id)) s,
+              ],
+            );
+          }),
+        );
+      }
+    }
+    _slots = next;
+  }
+
+  @override
+  void dispose() {
+    for (final t in _timers) {
+      t.cancel();
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Tickets pair up once each can keep a readable name beside its stub; below that
+    // they stack. A list, not a wrapped row, so a resize re-deals whole tickets
+    // rather than reflowing their insides.
+    return LayoutBuilder(
+      builder: (context, box) {
+        final columns = box.maxWidth >= kTicketTwoColumnWidth ? 2 : 1;
+        final tickets = [
+          for (final (index, slot) in _slots.indexed)
+            PTReveal(
+              key: ValueKey('fold-${slot.id}'),
+              visible: !slot.leaving,
+              // The gap above a ticket travels with it, so a folded one leaves none.
+              child: Padding(
+                padding: EdgeInsets.only(top: index >= columns ? 10 : 0),
+                child: PTEntrance(
+                  key: ValueKey(slot.id),
+                  delay: Duration(milliseconds: 40 * index),
+                  duration: PTMotion.state,
+                  offset: 8,
+                  fade: false,
+                  child: _RoomRow(
+                    entry: slot.entry,
+                    serverNow: widget.serverNow,
+                    compact: widget.compact || columns == 2,
+                    busy: widget.busyRoomId == slot.id,
+                    onOpen: () => widget.onOpen(slot.entry),
+                    onDelete: () => widget.onDelete(slot.entry),
+                  ),
+                ),
+              ),
+            ),
+        ];
+        return Column(
+          mainAxisSize: .min,
+          children: [
+            for (var i = 0; i < tickets.length; i += columns)
+              Row(
+                crossAxisAlignment: .start,
+                children: [
+                  for (var j = i; j < i + columns; j++) ...[
+                    if (j > i) const SizedBox(width: 10),
+                    Expanded(child: j < tickets.length ? tickets[j] : const SizedBox()),
+                  ],
+                ],
+              ),
+          ],
+        );
+      },
+    );
   }
 }
 

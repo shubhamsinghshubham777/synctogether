@@ -1,4 +1,6 @@
 import 'dart:async';
+import '../ui/reveal.dart';
+import '../ui/panel_switcher.dart';
 import '../ui/optical.dart';
 import '../ui/booth_icons.g.dart';
 
@@ -309,13 +311,20 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> with WindowListen
   List<Widget> _boardColumn(RewardState state) => [
     _controls(state),
     const SizedBox(height: 18),
-    if (AnalyticsConsent.instance.optedOut) ...[
-      _pausedNote(),
-      const SizedBox(height: 22),
-    ] else if (!state.publicProfile) ...[
-      _consentNote(state),
-      const SizedBox(height: 22),
-    ],
+    // The note above the board (analytics paused, or not on the board yet) folds open
+    // and shut, and swaps as one motion when it changes from one to the other.
+    PTRevealKeep(
+      visible: AnalyticsConsent.instance.optedOut || !state.publicProfile,
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 22),
+        child: PTPanelSwitcher(
+          child: KeyedSubtree(
+            key: ValueKey(AnalyticsConsent.instance.optedOut),
+            child: AnalyticsConsent.instance.optedOut ? _pausedNote() : _consentNote(state),
+          ),
+        ),
+      ),
+    ),
     _board(state),
   ];
 

@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:synctogether/mock/mock_dependencies.dart';
@@ -10,6 +11,9 @@ import 'package:synctogether/profile/profile_models.dart';
 import 'package:synctogether/profile/profile_service.dart';
 import 'package:synctogether/rewards/rewards_service.dart';
 import 'package:synctogether/rooms/lobby_screen.dart';
+
+import 'package:synctogether/ui/buttons.dart';
+import 'package:synctogether/ui/pt_motion.dart';
 
 import '../support/fake_pair_service.dart';
 import '../support/screen_matrix.dart';
@@ -106,6 +110,18 @@ void main() {
     await lobby(tester, c, s);
     expect(find.text('Open Our Room'), findsOneWidget);
     expect(find.textContaining('Call Sam'), findsNothing, reason: 'no ring when they are away');
+    // "Your person ›" belongs at the card's right edge, in line with the button
+    // beneath it - not wherever its half of a shared row happens to start.
+    final chevron = find.descendant(
+      of: find.ancestor(of: find.text('Your person'), matching: find.byType(PTPressable)),
+      matching: find.byType(Icon),
+    );
+    final button = find.widgetWithText(PTButton, 'Open Our Room');
+    expect(
+      (tester.getTopRight(chevron).dx - tester.getTopRight(button).dx).abs(),
+      lessThan(2),
+      reason: 'the link sits flush right',
+    );
     await finishCase(tester);
   });
 

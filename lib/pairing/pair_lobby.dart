@@ -290,40 +290,43 @@ class _OurRoomCardState extends State<OurRoomCard> {
               // The way back to the pair hub, said in words: the names row below
               // is a target too, but nothing about it says so.
               Flexible(
-                child: Semantics(
-                  button: true,
-                  excludeSemantics: true,
-                  label: 'Your person',
-                  child: PTPressable(
-                    onTap: () => openPage(context, '/lobby/pair'),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 4),
-                      child: Row(
-                        mainAxisSize: .min,
-                        spacing: 2,
-                        children: [
-                          Flexible(
-                            child: Text(
-                              'Your person',
-                              maxLines: 1,
-                              overflow: .ellipsis,
-                              style: PTText.caption.copyWith(
-                                color: PTColors.link,
-                                fontWeight: .w500,
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: Semantics(
+                    button: true,
+                    excludeSemantics: true,
+                    label: 'Your person',
+                    child: PTPressable(
+                      onTap: () => openPage(context, '/lobby/pair'),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 4),
+                        child: Row(
+                          mainAxisSize: .min,
+                          spacing: 2,
+                          children: [
+                            Flexible(
+                              child: Text(
+                                'Your person',
+                                maxLines: 1,
+                                overflow: .ellipsis,
+                                style: PTText.caption.copyWith(
+                                  color: PTColors.link,
+                                  fontWeight: .w500,
+                                ),
                               ),
                             ),
-                          ),
-                          // The label is mostly lowercase, so its optical centre is the
-                          // x-height, a pixel below the glyph's own centre.
-                          Transform.translate(
-                            offset: const Offset(0, 1),
-                            child: const Icon(
-                              BoothIcons.chevronRight,
-                              size: 14,
-                              color: PTColors.link,
+                            // The label is mostly lowercase, so its optical centre is the
+                            // x-height, a pixel below the glyph's own centre.
+                            Transform.translate(
+                              offset: const Offset(0, 1),
+                              child: const Icon(
+                                BoothIcons.chevronRight,
+                                size: 14,
+                                color: PTColors.link,
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
                   ),

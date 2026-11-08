@@ -625,6 +625,7 @@ class PairService extends ChangeNotifier {
     required String title,
     required DateTime startsAt,
     String? youtubeUrl,
+    String? stagedId,
   }) async {
     try {
       final row = await _client.rpc(
@@ -633,10 +634,15 @@ class PairService extends ChangeNotifier {
           'p_title': title,
           'p_starts_at': startsAt.toUtc().toIso8601String(),
           'p_youtube_url': youtubeUrl,
+          'p_staged_id': stagedId,
         },
       );
       Analytics.instance.track('date_night_planned', {
-        'attach': youtubeUrl == null ? 'none' : 'youtube',
+        'attach': stagedId != null
+            ? 'file'
+            : youtubeUrl == null
+            ? 'none'
+            : 'youtube',
       });
       await _reloadNights();
       return DateNight.fromJson((row as Map).cast<String, dynamic>());
@@ -682,6 +688,38 @@ class PairService extends ChangeNotifier {
     } catch (e, s) {
       _reportUnexpected(e, s, 'changing what a date night is watching');
       rethrow;
+    }
+  }
+
+  /// Choose the file again (after a stopped upload, or to add one to a night
+  /// that has none): adopt a fresh staged upload as the night's file.
+  Future<void> attachStagedFile(String nightId, String stagedId) async {
+    try {
+      await _client.rpc(
+        'date_night_attach_staged',
+        params: {'p_night_id': nightId, 'p_staged_id': stagedId},
+      );
+      await _reloadNights();
+    } catch (e, s) {
+      _reportUnexpected(e, s, 'attaching a file to a date night');
+      rethrow;
+    }
+  }
+
+  /// The planner's app reporting how far the upload has got, or that it stopped.
+  /// Best effort: a missed report costs a stale percentage, never the upload.
+  Future<void> reportUploadProgress(String nightId, int bytes, {bool stopped = false}) async {
+    try {
+      await _client.rpc(
+        'set_date_night_upload_progress',
+        params: {
+          'p_night_id': nightId,
+          'p_bytes': bytes,
+          'p_state': stopped ? 'stopped' : 'uploading',
+        },
+      );
+    } catch (e, s) {
+      _reportUnexpected(e, s, 'reporting date night upload progress');
     }
   }
 

@@ -64,7 +64,7 @@ void main() {
       await tester.enterText(find.byType(TextField).first, 'Past Lives');
       await tester.tap(find.text('Send to Sam'));
       await tester.pump(const Duration(milliseconds: 300));
-      expect(fake.calls, contains('planNight:Past Lives:'));
+      expect(fake.calls, contains('planNight:Past Lives::'));
     });
 
     testWidgets('a link is checked once typing pauses, then sent in one canonical shape', (
@@ -94,7 +94,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 300));
       expect(
         fake.calls,
-        contains('planNight:Spirited Away:https://www.youtube.com/watch?v=ByXuk9QqQkk'),
+        contains('planNight:Spirited Away:https://www.youtube.com/watch?v=ByXuk9QqQkk:'),
       );
     });
 

@@ -3,9 +3,16 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../analytics.dart';
+import '../diagnostics.dart';
 import '../nav.dart';
 import '../platform.dart';
+import '../player/local_video.dart';
+import '../player/local_video_chooser.dart';
 import '../player/youtube/youtube_links.dart';
+import '../profile/entitlement_service.dart';
+import '../profile/profile_models.dart';
+import '../profile/profile_service.dart';
+import '../rooms/media_sharing_service.dart';
 import '../ui/banners.dart';
 import '../ui/booth_icons.g.dart';
 import '../ui/buttons.dart';
@@ -14,6 +21,7 @@ import '../ui/inputs.dart';
 import '../ui/pt_motion.dart';
 import '../ui/pt_theme.dart';
 import '../ui/responsive.dart';
+import 'date_night_upload.dart';
 import 'pair_logic.dart';
 import 'pair_models.dart';
 import 'pair_page.dart';
@@ -87,10 +95,13 @@ Future<void> showPlanNight(BuildContext context) async {
                 child: PTButton(
                   label: form.sendLabel,
                   height: 44,
+                  maxLines: 2,
                   loading: form.busy,
-                  onPressed: () async {
-                    if (await form.send() && ctx.mounted) Navigator.of(ctx).pop();
-                  },
+                  onPressed: form.canSend
+                      ? () async {
+                          if (await form.send() && ctx.mounted) Navigator.of(ctx).pop();
+                        }
+                      : null,
                 ),
               ),
             ],
@@ -138,11 +149,13 @@ class _PlanNightScreenState extends State<PlanNightScreen> {
         title: 'Plan a date night',
         footer: PTButton(
           label: form.sendLabel,
-          icon: BoothIcons.play,
+          icon: form.watchingFile ? BoothIcons.upload : BoothIcons.play,
           loading: form.busy,
-          onPressed: () async {
-            if (await form.send() && context.mounted) Navigator.of(context).maybePop();
-          },
+          onPressed: form.canSend
+              ? () async {
+                  if (await form.send() && context.mounted) Navigator.of(context).maybePop();
+                }
+              : null,
         ),
         children: [PlanNightBody(form: form)],
       ),
@@ -162,9 +175,25 @@ class PlanNightController extends ChangeNotifier {
   final title = TextEditingController();
   final link = TextEditingController();
   DateTime when;
-  bool watchingLink = false;
+  PlanAttach attach = PlanAttach.none;
   bool busy = false;
   String? problem;
+
+  /// The file chosen for the night, and its size. Held (with its platform
+  /// access) until it is handed to the uploader or another choice replaces it.
+  LocalVideo? video;
+  int? fileSize;
+
+  bool get watchingLink => attach == PlanAttach.link;
+  bool get watchingFile => attach == PlanAttach.file;
+
+  /// Whether the chosen file can be sent under the planner's own limits, judged
+  /// before sending so nobody finds out after the upload. (The server is the
+  /// authority; this is the affordance, from the same numbers.)
+  FileCheck get fileCheck => fileCheckFor(fileSize, hasFile: video != null);
+
+  /// Sending needs a usable file when a file is the choice.
+  bool get canSend => !watchingFile || fileCheck == FileCheck.ok;
 
   // The pasted link, judged only once typing pauses (a half-typed address is not
   // an error), and sooner when the field is emptied.
@@ -177,7 +206,10 @@ class PlanNightController extends ChangeNotifier {
 
   bool get lateForThem => placement.lateForThem;
 
-  String get sendLabel => lateForThem ? 'Send anyway' : 'Send to $first';
+  String get sendLabel {
+    final base = lateForThem ? 'Send anyway' : 'Send to $first';
+    return watchingFile ? '$base, start upload' : base;
+  }
 
   /// The link in the one shape every room understands, or null.
   String? get canonicalLink {
@@ -186,9 +218,40 @@ class PlanNightController extends ChangeNotifier {
   }
 
   void setWatching({required bool link}) {
-    watchingLink = link;
+    attach = link ? PlanAttach.link : PlanAttach.none;
+    _releaseVideo();
     problem = null;
     notifyListeners();
+  }
+
+  /// Pick the file with the same chooser the lobby uses. Leaves the previous
+  /// choice alone if the chooser is dismissed.
+  Future<void> chooseFile(BuildContext context) async {
+    final choice = await showLocalVideoChooser(context);
+    final picked = choice?.video;
+    if (picked == null) return;
+    int size;
+    try {
+      size = picked.sizeBytes ?? await picked.uploadSource().length();
+    } catch (e, s) {
+      reportNonFatal(e, s, during: 'sizing a date night video');
+      unawaited(picked.release());
+      problem = "Hmm, we can't read that video. Pick it again to try once more.";
+      notifyListeners();
+      return;
+    }
+    _releaseVideo();
+    video = picked;
+    fileSize = size;
+    attach = PlanAttach.file;
+    problem = null;
+    notifyListeners();
+  }
+
+  void _releaseVideo() {
+    unawaited(video?.release());
+    video = null;
+    fileSize = null;
   }
 
   void linkChanged(String _) {
@@ -244,6 +307,7 @@ class PlanNightController extends ChangeNotifier {
       notifyListeners();
       return false;
     }
+    if (watchingFile) return _sendWithFile();
     String? url;
     if (watchingLink) {
       url = canonicalLink;
@@ -270,16 +334,65 @@ class PlanNightController extends ChangeNotifier {
     }
   }
 
+  Future<bool> _sendWithFile() async {
+    final chosen = video;
+    if (chosen == null || fileCheck != FileCheck.ok) {
+      problem = 'Choose a file first, or choose together.';
+      notifyListeners();
+      return false;
+    }
+    busy = true;
+    problem = null;
+    notifyListeners();
+    try {
+      // The upload starts now and carries on after this form has closed; what
+      // comes back is the night, as soon as the slot was granted.
+      await DateNightUploader.instance.start(video: chosen, title: title.text, startsAt: when);
+      video = null; // the uploader holds it from here
+      return true;
+    } catch (e) {
+      problem = e is MediaSharingException
+          ? e.message
+          : PairErrorCode.fromError(e) == PairErrorCode.unknown
+          ? "Couldn't send that just now."
+          : PairErrorCode.fromError(e).message;
+      return false;
+    } finally {
+      busy = false;
+      notifyListeners();
+    }
+  }
+
   @override
   void dispose() {
     _linkTimer?.cancel();
     title.dispose();
     link.dispose();
+    unawaited(video?.release());
     super.dispose();
   }
 }
 
 enum LinkCheck { empty, valid, invalid }
+
+enum PlanAttach { none, link, file }
+
+/// Where a chosen file stands against the planner's limits.
+enum FileCheck { none, ok, overCap, overWeek }
+
+/// A file of [size] bytes against the per-file cap and the weekly allowance.
+/// Pure over the limits and profile it is handed, so it is testable.
+FileCheck fileCheckFor(int? size, {required bool hasFile, TierLimits? limits, Profile? profile}) {
+  if (!hasFile || size == null) return FileCheck.none;
+  final l = limits ?? EntitlementService.instance.limitsOrFallback;
+  if (size > l.mediaSharingMaxSizeBytes) return FileCheck.overCap;
+  final p = profile ?? ProfileService.instance.profile;
+  if (l.hasWeeklyQuota && p != null) {
+    final remaining = p.remainingWeeklyBytes(l.mediaSharingWeeklyBytes);
+    if (remaining >= 0 && size > remaining) return FileCheck.overWeek;
+  }
+  return FileCheck.ok;
+}
 
 /// The form's fields: what the night is, when, how that lands on each clock, and
 /// what (if anything) you will be watching.
@@ -367,13 +480,21 @@ class PlanNightBody extends StatelessWidget {
           onTap: () => form.setWatching(link: true),
         ),
         _AttachRow(
+          icon: BoothIcons.upload,
+          title: 'A file from this device',
+          caption: 'Uploads after you send. ${form.first} streams it.',
+          selected: form.watchingFile,
+          onTap: () => form.chooseFile(context),
+        ),
+        _AttachRow(
           icon: BoothIcons.film,
           title: "We'll choose together",
           caption: 'Pick something in Our Room on the night.',
-          selected: !form.watchingLink,
+          selected: form.attach == PlanAttach.none,
           onTap: () => form.setWatching(link: false),
         ),
         if (form.watchingLink) _LinkField(form: form),
+        if (form.watchingFile && form.video != null) _FilePanel(form: form),
         if (form.problem != null)
           Text(form.problem!, style: PTText.body.copyWith(color: PTColors.danger, fontSize: 14)),
       ],
@@ -500,6 +621,262 @@ class _Radio extends StatelessWidget {
   }
 }
 
+/// The chosen file: its name and size, the planner's allowance for it, and what
+/// to do if it does not fit. All of it is judged before sending.
+class _FilePanel extends StatelessWidget {
+  const _FilePanel({required this.form});
+
+  final PlanNightController form;
+
+  @override
+  Widget build(BuildContext context) {
+    final video = form.video!;
+    final size = form.fileSize ?? 0;
+    final limits = EntitlementService.instance.limitsOrFallback;
+    final profile = ProfileService.instance.profile;
+    final check = form.fileCheck;
+    final remaining = limits.hasWeeklyQuota && profile != null
+        ? profile.remainingWeeklyBytes(limits.mediaSharingWeeklyBytes)
+        : -1;
+    final first = form.first;
+
+    return Column(
+      crossAxisAlignment: .stretch,
+      spacing: 10,
+      children: [
+        PairPanel(
+          padding: const EdgeInsets.fromLTRB(14, 10, 6, 10),
+          child: Row(
+            spacing: 12,
+            children: [
+              const Icon(BoothIcons.file, size: 18, color: PTColors.primary),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: .start,
+                  spacing: 2,
+                  children: [
+                    Text(
+                      video.name,
+                      maxLines: 1,
+                      overflow: .ellipsis,
+                      style: PTText.body.copyWith(fontSize: 14, color: PTColors.fg),
+                    ),
+                    Text(
+                      Profile.formatBytes(size),
+                      style: PTText.mono.copyWith(fontSize: 11.5, color: PTColors.fgSoft),
+                    ),
+                  ],
+                ),
+              ),
+              DialogTextButton(label: 'Change', onPressed: () => form.chooseFile(context)),
+            ],
+          ),
+        ),
+        if (limits.hasWeeklyQuota)
+          _AllowanceCard(
+            limit: limits.mediaSharingWeeklyBytes,
+            remaining: remaining < 0 ? limits.mediaSharingWeeklyBytes : remaining,
+            file: size,
+            maxFile: limits.mediaSharingMaxSizeBytes,
+          )
+        else
+          _UnlimitedCard(maxFile: limits.mediaSharingMaxSizeBytes),
+        if (check == FileCheck.overCap) ...[
+          Text(
+            'That file is over the ${Profile.formatBytes(limits.mediaSharingMaxSizeBytes)} '
+            'a free seat can share.',
+            style: PTText.body.copyWith(color: PTColors.danger, fontSize: 14, height: 1.4),
+          ),
+          Row(
+            spacing: 10,
+            children: [
+              Expanded(
+                child: PTButton(
+                  label: 'Pick a smaller file',
+                  variant: .secondary,
+                  height: 42,
+                  maxLines: 2,
+                  onPressed: () => form.chooseFile(context),
+                ),
+              ),
+              if (canSellPremium)
+                Expanded(
+                  child: PTButton(
+                    label: 'See Patron',
+                    variant: .secondary,
+                    icon: BoothIcons.crown,
+                    height: 42,
+                    onPressed: () => openPage(context, '/lobby/subscribe?source=date_night_file'),
+                  ),
+                ),
+            ],
+          ),
+        ] else if (check == FileCheck.overWeek) ...[
+          Text(
+            'Only ${Profile.formatBytes(remaining)} is left this week and that file is '
+            '${Profile.formatBytes(size)}.${_resets(profile)}',
+            style: PTText.body.copyWith(color: PTColors.danger, fontSize: 14, height: 1.4),
+          ),
+          Row(
+            spacing: 10,
+            children: [
+              Expanded(
+                child: PTButton(
+                  label: 'Pick a smaller file',
+                  variant: .secondary,
+                  height: 42,
+                  maxLines: 2,
+                  onPressed: () => form.chooseFile(context),
+                ),
+              ),
+              Expanded(
+                child: PTButton(
+                  label: 'Send without a file',
+                  variant: .secondary,
+                  height: 42,
+                  maxLines: 2,
+                  onPressed: () => form.setWatching(link: false),
+                ),
+              ),
+            ],
+          ),
+        ] else
+          Text(
+            'Uploads in the background right after you send. Keep SyncTogether open until '
+            'it says Ready, and $first can already stream it on the night.',
+            style: PTText.caption.copyWith(color: PTColors.fgMute, height: 1.45),
+          ),
+      ],
+    );
+  }
+
+  /// " Your week resets Monday." when the window start is known.
+  static String _resets(Profile? profile) {
+    final start = profile?.r2UploadWindowStart;
+    if (start == null) return '';
+    const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    final resets = start.add(const Duration(days: 7)).toLocal();
+    return ' Your week resets ${days[resets.weekday - 1]}.';
+  }
+}
+
+/// A free seat's weekly allowance as a bar: what is spent, and what this file
+/// would take.
+class _AllowanceCard extends StatelessWidget {
+  const _AllowanceCard({
+    required this.limit,
+    required this.remaining,
+    required this.file,
+    required this.maxFile,
+  });
+
+  final int limit;
+  final int remaining;
+  final int file;
+  final int maxFile;
+
+  @override
+  Widget build(BuildContext context) {
+    final used = (limit - remaining).clamp(0, limit);
+    final usedFraction = limit == 0 ? 0.0 : used / limit;
+    final fileFraction = limit == 0 ? 0.0 : (file / limit).clamp(0.0, 1.0 - usedFraction);
+    return PairPanel(
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: .stretch,
+        spacing: 10,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  "This week's upload allowance",
+                  style: PTText.body.copyWith(fontSize: 13, color: PTColors.fgDim),
+                ),
+              ),
+              Text(
+                '${Profile.formatBytes(remaining)} left',
+                style: PTText.mono.copyWith(fontSize: 13, color: PTColors.fg),
+              ),
+            ],
+          ),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: SizedBox(
+              height: 8,
+              child: LayoutBuilder(
+                builder: (context, box) => Stack(
+                  children: [
+                    const Positioned.fill(child: ColoredBox(color: PTColors.aisle)),
+                    Positioned(
+                      left: 0,
+                      width: box.maxWidth * usedFraction,
+                      top: 0,
+                      bottom: 0,
+                      child: const ColoredBox(color: PTColors.railStrong),
+                    ),
+                    Positioned(
+                      left: box.maxWidth * usedFraction,
+                      width: box.maxWidth * fileFraction,
+                      top: 0,
+                      bottom: 0,
+                      child: const ColoredBox(color: PTColors.primary),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          Text(
+            'Free seats share up to ${Profile.formatBytes(limit)} a week, one file up to '
+            '${Profile.formatBytes(maxFile)}. It counts against the person who plans the night.',
+            style: PTText.caption.copyWith(color: PTColors.fgMute, height: 1.45),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// A Patron planner has no weekly bar to spend: said as the perk it is.
+class _UnlimitedCard extends StatelessWidget {
+  const _UnlimitedCard({required this.maxFile});
+
+  final int maxFile;
+
+  @override
+  Widget build(BuildContext context) {
+    return PairPanel(
+      brass: true,
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: .stretch,
+        spacing: 6,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Upload allowance',
+                  style: PTText.body.copyWith(fontSize: 13, color: PTColors.fgDim),
+                ),
+              ),
+              Text(
+                'UNLIMITED',
+                style: PTText.mono.copyWith(fontSize: 12.5, color: PTColors.premium),
+              ),
+            ],
+          ),
+          Text(
+            'Patron seats upload files up to ${Profile.formatBytes(maxFile)}, as many as you like.',
+            style: PTText.caption.copyWith(color: PTColors.fgMute, height: 1.45),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _LinkField extends StatelessWidget {
   const _LinkField({required this.form});
 
@@ -590,6 +967,8 @@ Future<void> showChangeWatching(BuildContext context, DateNight night) async {
   );
   link.dispose();
   if (result == null || !context.mounted) return;
+  // Swapping a file for something else stops the upload that was feeding it.
+  if (night.hasFile) await DateNightUploader.instance.cancel(night.id);
   try {
     await PairService.instance.setNightAttachment(night.id, result.url);
   } catch (e) {

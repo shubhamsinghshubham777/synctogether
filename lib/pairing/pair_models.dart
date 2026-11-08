@@ -180,6 +180,10 @@ class DateNight {
     required this.status,
     this.attachKind = 'none',
     this.youtubeUrl,
+    this.fileName,
+    this.fileSize,
+    this.uploadState = 'none',
+    this.uploadBytes = 0,
   });
 
   factory DateNight.fromJson(Map<String, dynamic> json) => DateNight(
@@ -190,6 +194,10 @@ class DateNight {
     status: DateNightStatus.fromWire(json['status'] as String?),
     attachKind: json['attach_kind'] as String? ?? 'none',
     youtubeUrl: json['youtube_url'] as String?,
+    fileName: json['file_name'] as String?,
+    fileSize: (json['file_size'] as num?)?.toInt(),
+    uploadState: json['upload_state'] as String? ?? 'none',
+    uploadBytes: (json['upload_bytes'] as num?)?.toInt() ?? 0,
   );
 
   final String id;
@@ -201,11 +209,38 @@ class DateNight {
   final DateNightStatus status;
 
   /// What the planner attached: `none` ("we'll choose together"), `youtube`, or
-  /// (later) `file`. When the night starts Our Room opens with it loaded.
+  /// `file`. When the night starts Our Room opens with it loaded.
   final String attachKind;
   final String? youtubeUrl;
 
+  /// A file's name and size, and how its upload stands: `uploading`, `ready`, or
+  /// `stopped` (the connection dropped). `uploadBytes` is how far it has got, as
+  /// the planner's app last reported it.
+  final String? fileName;
+  final int? fileSize;
+  final String uploadState;
+  final int uploadBytes;
+
   bool get hasLink => attachKind == 'youtube' && youtubeUrl != null;
+  bool get hasFile => attachKind == 'file';
+  bool get fileReady => hasFile && uploadState == 'ready';
+  bool get fileUploading => hasFile && uploadState == 'uploading';
+  bool get fileStopped => hasFile && uploadState == 'stopped';
+
+  /// Whether something is attached that will be in the room: a link, or a file
+  /// that has finished.
+  bool get attachmentReady => hasLink || fileReady;
+
+  /// 0 to 1: how much of the file has arrived. A finished upload is 1.
+  double get uploadFraction {
+    if (fileReady) return 1;
+    final size = fileSize;
+    if (size == null || size <= 0) return 0;
+    return (uploadBytes / size).clamp(0.0, 1.0);
+  }
+
+  /// Whole percent, never 100 until it is truly done.
+  int get uploadPercent => fileReady ? 100 : (uploadFraction * 100).floor().clamp(0, 99);
 }
 
 @immutable
@@ -341,6 +376,12 @@ enum PairErrorCode {
   inviteUsed('invite_used', 'That invite was already used.'),
   inviteCancelled('invite_cancelled', 'That invite was cancelled. Ask for a fresh one.'),
   invalidNickname('invalid_nickname', 'Keep that to 40 characters.'),
+  uploadInProgress(
+    'upload_in_progress',
+    'You already have an upload going. Let it finish first, or choose together.',
+  ),
+  stagedInvalid('staged_media_invalid', 'That upload timed out. Pick the file again.'),
+  invalidAttachment('invalid_attachment', 'Pick a link or a file, not both.'),
   invalidLink('invalid_link', "Hmm, that doesn't look like a YouTube link."),
   notPlanner('not_planner', 'Only whoever planned the night can change that.'),
   invalidEmail('invalid_email', "Hmm, that doesn't look like an email address."),

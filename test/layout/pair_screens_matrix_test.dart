@@ -5,6 +5,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:synctogether/mock/mock_dependencies.dart';
 import 'package:synctogether/pairing/date_night_plan.dart';
+import 'package:synctogether/pairing/pair_page.dart';
+import 'package:synctogether/player/local_video.dart';
 import 'package:synctogether/pairing/date_night_screen.dart';
 import 'package:synctogether/pairing/history_screen.dart';
 import 'package:synctogether/pairing/notification_settings_screen.dart';
@@ -51,6 +53,46 @@ DateNight _night(String id, DateNightStatus status, Duration from, {String by = 
       status: status,
     );
 
+DateNight _fileNight(
+  String id, {
+  required String state,
+  int bytes = 0,
+  Duration startsIn = const Duration(days: 3),
+  String by = 'user-alex',
+  DateNightStatus status = DateNightStatus.accepted,
+}) => DateNight(
+  id: id,
+  title: 'Spirited Away',
+  startsAt: DateTime.now().toUtc().add(startsIn),
+  proposedBy: by,
+  status: status,
+  attachKind: 'file',
+  fileName: 'spirited_away_1080p.mkv',
+  fileSize: 1000,
+  uploadState: state,
+  uploadBytes: bytes,
+);
+
+/// The plan form with a file already chosen, as a page, so the file panel's
+/// states can be laid out at every size without a platform file chooser.
+Widget _planFormWithFile(int bytes) {
+  final form = PlanNightController(PairService.instance.pair!)
+    ..video = LocalVideo(
+      name: 'spirited_away_1080p.mkv',
+      mediaUri: '/m/spirited_away_1080p.mkv',
+      path: '/m/spirited_away_1080p.mkv',
+      origin: VideoOrigin.files,
+      reference: const PathReference('/m/spirited_away_1080p.mkv'),
+      sizeBytes: bytes,
+    )
+    ..fileSize = bytes
+    ..attach = PlanAttach.file;
+  return PairPage(
+    title: 'Plan a date night',
+    children: [PlanNightBody(form: form)],
+  );
+}
+
 void main() {
   setUp(() {
     SharedPreferences.setMockInitialValues({});
@@ -74,6 +116,70 @@ void main() {
     expect(find.text('COMING UP · 4'), findsOneWidget);
     expect(find.text('Plan'), findsOneWidget, reason: 'with a list, Plan moves into the header');
     expect(find.text('Plan a date night'), findsNothing);
+    await finishCase(tester);
+  });
+
+  for (final c in <({String name, DateNight night, List<String> expect, List<String> absent})>[
+    (
+      name: 'uploading',
+      night: _fileNight('f1', state: 'uploading', bytes: 620),
+      expect: ['UPLOADING 62%', 'Keep SyncTogether open until it says Ready.'],
+      absent: ['Try again'],
+    ),
+    (
+      name: 'ready',
+      night: _fileNight('f2', state: 'ready', bytes: 1000),
+      expect: ['READY', 'The movie is waiting. Sam can already stream it.'],
+      absent: ['Try again'],
+    ),
+    (
+      name: 'unfinished',
+      night: _fileNight(
+        'f3',
+        state: 'uploading',
+        bytes: 840,
+        startsIn: const Duration(minutes: 10),
+      ),
+      expect: ['STILL UPLOADING 84%', 'The room still opens.'],
+      absent: ['Try again'],
+    ),
+    (
+      name: 'stopped',
+      night: _fileNight('f4', state: 'stopped', bytes: 380),
+      expect: ['UPLOAD STOPPED', 'Try again', 'Choose together'],
+      absent: [],
+    ),
+  ]) {
+    screenMatrix('pair/nights-file-${c.name}', (tester, cs, s) async {
+      PairService.instance = FakePairService(pair: samePairInfo(patron: true), nights: [c.night]);
+      await pumpAtSize(tester, const DateNightScreen(), cs, textScale: s, singlePane: true);
+      await tester.pump(const Duration(milliseconds: 500));
+      for (final text in c.expect) {
+        await tester.ensureVisible(find.textContaining(text).first);
+        expect(find.textContaining(text), findsWidgets, reason: text);
+      }
+      for (final text in c.absent) {
+        expect(find.text(text), findsNothing, reason: text);
+      }
+      await finishCase(tester);
+    });
+  }
+
+  screenMatrix('pair/nights-file-partner-view', (tester, cs, s) async {
+    PairService.instance = FakePairService(
+      pair: samePairInfo(patron: true),
+      nights: [_fileNight('f5', state: 'uploading', bytes: 620, by: 'sam')],
+    );
+    await pumpAtSize(tester, const DateNightScreen(), cs, textScale: s, singlePane: true);
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.ensureVisible(find.textContaining('is still uploading it'));
+    expect(find.textContaining('Sam is still uploading it.'), findsOneWidget);
+    expect(
+      find.textContaining('Keep SyncTogether open'),
+      findsNothing,
+      reason: 'that is the planner\'s to do, not theirs',
+    );
+    expect(find.text('Try again'), findsNothing);
     await finishCase(tester);
   });
 
@@ -168,6 +274,24 @@ void main() {
     expect(find.text('Plan'), findsNothing, reason: 'planning another needs Patron');
     await finishCase(tester);
   });
+
+  for (final c in <({String name, int bytes, String expect})>[
+    (
+      name: 'fits',
+      bytes: (1.8 * 1024 * 1024 * 1024).round(),
+      expect: "This week's upload allowance",
+    ),
+    (name: 'over-cap', bytes: 3 * 1024 * 1024 * 1024, expect: 'a free seat can share'),
+  ]) {
+    screenMatrix('pair/plan-night-file-${c.name}', (tester, cs, s) async {
+      PairService.instance = FakePairService(pair: samePairInfo(patron: true, partnerZone: null));
+      await pumpAtSize(tester, _planFormWithFile(c.bytes), cs, textScale: s, singlePane: true);
+      await tester.pump(const Duration(milliseconds: 500));
+      await tester.ensureVisible(find.textContaining(c.expect).first);
+      expect(find.textContaining(c.expect), findsWidgets);
+      await finishCase(tester);
+    });
+  }
 
   screenMatrix('pair/plan-night', (tester, c, s) async {
     PairService.instance = FakePairService(pair: samePairInfo(patron: true));

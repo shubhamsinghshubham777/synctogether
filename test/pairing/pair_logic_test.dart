@@ -18,6 +18,7 @@ DateNight night({
 
 void main() {
   displayNameTests();
+  fileViewTests();
   group('time zones', () {
     // 2026-11-14: London is on GMT (+0), New York on EST (-5), Kolkata +5:30.
     final at = DateTime.utc(2026, 11, 14, 21);
@@ -434,6 +435,76 @@ void displayNameTests() {
       expect(suggestedName('k8d2m4xq@mail.test'), '', reason: 'single letters between digits');
       expect(suggestedName(null), '');
       expect(suggestedName(''), '');
+    });
+  });
+}
+
+void fileViewTests() {
+  group('where a night\'s file stands', () {
+    final now = DateTime.utc(2026, 11, 9, 12);
+    DateNight night({
+      String kind = 'file',
+      String state = 'uploading',
+      int bytes = 0,
+      Duration startsIn = const Duration(days: 2),
+    }) => DateNight(
+      id: 'n',
+      title: 'Film',
+      startsAt: now.add(startsIn),
+      proposedBy: 'me',
+      status: DateNightStatus.accepted,
+      attachKind: kind,
+      fileName: kind == 'file' ? 'film.mkv' : null,
+      fileSize: kind == 'file' ? 1000 : null,
+      uploadState: kind == 'file' ? state : 'none',
+      uploadBytes: bytes,
+    );
+
+    test('no file means nothing to say', () {
+      expect(fileViewOf(night(kind: 'none'), now).stage, FileStage.none);
+    });
+
+    test('an upload on its way, days ahead, is plain uploading with its percentage', () {
+      final v = fileViewOf(night(bytes: 620), now);
+      expect(v.stage, FileStage.uploading);
+      expect(v.percent, 62);
+    });
+
+    test(
+      'the same upload once the night is within 15 minutes is still uploading, and never blocks',
+      () {
+        final v = fileViewOf(night(bytes: 840, startsIn: const Duration(minutes: 10)), now);
+        expect(v.stage, FileStage.unfinished);
+        expect(v.percent, 84);
+      },
+    );
+
+    test('and after the start it is still that', () {
+      expect(
+        fileViewOf(night(bytes: 840, startsIn: const Duration(minutes: -20)), now).stage,
+        FileStage.unfinished,
+      );
+    });
+
+    test('a finished upload is ready, at 100, whatever the clock says', () {
+      final v = fileViewOf(night(state: 'ready', bytes: 1000), now);
+      expect(v.stage, FileStage.ready);
+      expect(v.percent, 100);
+    });
+
+    test('a stopped upload keeps how far it got', () {
+      final v = fileViewOf(night(state: 'stopped', bytes: 380), now);
+      expect(v.stage, FileStage.stopped);
+      expect(v.percent, 38);
+    });
+
+    test('the planner\'s own device knows first-hand, ahead of the last report', () {
+      expect(fileViewOf(night(bytes: 100), now, liveFraction: 0.9).percent, 90);
+      expect(fileViewOf(night(bytes: 100), now, liveStopped: true).stage, FileStage.stopped);
+    });
+
+    test('it never reads 100 before it is ready', () {
+      expect(fileViewOf(night(bytes: 1000), now).percent, 99);
     });
   });
 }

@@ -459,3 +459,38 @@ String suggestedName(String? email) {
   if (tokens.length == 1 && tokens.first.length > 12) return '';
   return tokens.map((t) => '${t[0].toUpperCase()}${t.substring(1)}').join(' ');
 }
+
+/// Where a date night's file stands, for the badge and the line under the ticket.
+enum FileStage { none, uploading, unfinished, ready, stopped }
+
+class FileView {
+  const FileView({required this.stage, required this.percent, required this.fraction});
+
+  final FileStage stage;
+
+  /// Whole percent, never 100 until the upload is truly done.
+  final int percent;
+  final double fraction;
+}
+
+/// The night's file as it should be shown now. [liveFraction] and [liveStopped]
+/// are what the planner's own device knows first-hand, ahead of what it last
+/// reported to the night; the partner passes neither and reads the night.
+///
+/// "Unfinished" is an upload still going once the night's window has opened
+/// (15 minutes before): the room opens on time regardless, so the words change
+/// from "uploading" to "still uploading", and nothing blocks.
+FileView fileViewOf(DateNight night, DateTime now, {double? liveFraction, bool? liveStopped}) {
+  if (!night.hasFile) return const FileView(stage: FileStage.none, percent: 0, fraction: 0);
+  if (night.fileReady) return const FileView(stage: FileStage.ready, percent: 100, fraction: 1);
+  final fraction = (liveFraction ?? night.uploadFraction).clamp(0.0, 1.0);
+  final percent = (fraction * 100).floor().clamp(0, 99);
+  final stopped = liveStopped ?? night.fileStopped;
+  if (stopped) return FileView(stage: FileStage.stopped, percent: percent, fraction: fraction);
+  final windowOpen = !now.isBefore(night.startsAt.subtract(const Duration(minutes: 15)));
+  return FileView(
+    stage: windowOpen ? FileStage.unfinished : FileStage.uploading,
+    percent: percent,
+    fraction: fraction,
+  );
+}

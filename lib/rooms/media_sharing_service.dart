@@ -564,6 +564,16 @@ class MediaSharingService {
     void Function(UploadProgress)? onProgress,
     void Function(StagedUploadSession session)? onSessionCreated,
     CancellationToken? cancelToken,
+
+    /// Carry on a slot this client already holds (see [keepSlotOnFailure]): the
+    /// parts the server has are not sent again.
+    StagedUploadSession? resume,
+
+    /// A failure other than a cancel leaves the slot in place so the same upload
+    /// can be [resume]d, instead of aborting it. Only for callers that will either
+    /// resume it or let it expire (a date night's, which is held for days); the
+    /// lobby keeps the default, where an abandoned slot would hold the upload lock.
+    bool keepSlotOnFailure = false,
   }) async {
     final src = _sourceOf(file, source);
     final fileName = src.name;
@@ -572,37 +582,49 @@ class MediaSharingService {
 
     await ScreenAwake.hold('upload');
 
-    final Map<String, dynamic> initiateData;
-    try {
-      initiateData = await _edgeCaller('staged-initiate', {
-        'fileName': fileName,
-        'fileSize': fileSize,
-        'durationMs': duration?.inMilliseconds,
-        'contentType': mime,
-      });
-    } catch (_) {
-      await ScreenAwake.release('upload');
-      rethrow;
+    final String stagedId;
+    final String uploadId;
+    final String r2Key;
+    final int partSize;
+    if (resume != null) {
+      stagedId = resume.stagedId;
+      uploadId = resume.uploadId;
+      r2Key = resume.r2Key;
+      partSize = resume.partSizeBytes;
+    } else {
+      final Map<String, dynamic> initiateData;
+      try {
+        initiateData = await _edgeCaller('staged-initiate', {
+          'fileName': fileName,
+          'fileSize': fileSize,
+          'durationMs': duration?.inMilliseconds,
+          'contentType': mime,
+        });
+      } catch (_) {
+        await ScreenAwake.release('upload');
+        rethrow;
+      }
+      stagedId = initiateData['stagedId'] as String;
+      uploadId = initiateData['uploadId'] as String;
+      r2Key = initiateData['r2Key'] as String;
+      partSize = (initiateData['partSizeBytes'] as num?)?.toInt() ?? kPartSizeBytes;
     }
 
-    final stagedId = initiateData['stagedId'] as String;
-    final uploadId = initiateData['uploadId'] as String;
-    final r2Key = initiateData['r2Key'] as String;
-    final partSize = (initiateData['partSizeBytes'] as num?)?.toInt() ?? kPartSizeBytes;
-
     final slices = calculateSlices(fileSize: fileSize, partSizeBytes: partSize);
-    var session = StagedUploadSession(
-      stagedId: stagedId,
-      fileName: fileName,
-      fileSize: fileSize,
-      uploadId: uploadId,
-      r2Key: r2Key,
-      totalParts: slices.length,
-      partSizeBytes: partSize,
-      completedParts: {},
-    );
+    var session =
+        resume ??
+        StagedUploadSession(
+          stagedId: stagedId,
+          fileName: fileName,
+          fileSize: fileSize,
+          uploadId: uploadId,
+          r2Key: r2Key,
+          totalParts: slices.length,
+          partSizeBytes: partSize,
+          completedParts: {},
+        );
 
-    onSessionCreated?.call(session);
+    if (resume == null) onSessionCreated?.call(session);
 
     int totalUploadedBytes = 0;
     int uploadStartTime = DateTime.now().millisecondsSinceEpoch;
@@ -629,19 +651,39 @@ class MediaSharingService {
       onProgress?.call(p);
     }
 
-    reportProgress('uploading');
-
     final completed = <int, String>{};
     const windowSize = 5;
 
     final client = _httpClientFactory();
     try {
+      if (resume != null) {
+        // What the server already holds is not sent again, and counts as done.
+        final listData = await _edgeCaller('staged-list-parts', {
+          'stagedId': stagedId,
+          'uploadId': uploadId,
+          'r2Key': r2Key,
+        });
+        for (final part in (listData['parts'] as List? ?? const []).cast<Map<String, dynamic>>()) {
+          final number = (part['partNumber'] as num).toInt();
+          final etag = sanitizeETag(part['etag'] as String?);
+          if (number < 1 || number > slices.length || etag.isEmpty) continue;
+          completed[number] = etag;
+          totalUploadedBytes += slices[number - 1].length;
+        }
+        session = session.copyWith(completedParts: completed);
+      }
+      reportProgress('uploading');
+
       for (int i = 0; i < slices.length; i += windowSize) {
         if (cancelToken?.isCancelled ?? false) {
           throw const HttpException('Upload cancelled');
         }
 
-        final batch = slices.sublist(i, min(i + windowSize, slices.length));
+        final batch = slices
+            .sublist(i, min(i + windowSize, slices.length))
+            .where((slice) => !completed.containsKey(slice.partNumber))
+            .toList();
+        if (batch.isEmpty) continue;
         final partNumbers = batch.map((s) => s.partNumber).toList();
 
         final urlData = await _edgeCaller('staged-part-urls', {
@@ -699,15 +741,19 @@ class MediaSharingService {
       reportProgress('ready');
       return session;
     } catch (e) {
-      // Auto-abort staged upload on cancellation or error to release DB lock immediately
-      try {
-        await abortStagedUpload(
-          stagedId: stagedId,
-          uploadId: uploadId,
-          r2Key: r2Key,
-          bytesUploaded: totalUploadedBytes,
-        );
-      } catch (_) {}
+      // Auto-abort staged upload on cancellation or error to release DB lock
+      // immediately - unless the caller means to resume it, and it was a failure,
+      // not a cancel.
+      if (!keepSlotOnFailure || (cancelToken?.isCancelled ?? false)) {
+        try {
+          await abortStagedUpload(
+            stagedId: stagedId,
+            uploadId: uploadId,
+            r2Key: r2Key,
+            bytesUploaded: totalUploadedBytes,
+          );
+        } catch (_) {}
+      }
       rethrow;
     } finally {
       client.close(force: true);

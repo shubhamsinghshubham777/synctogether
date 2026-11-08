@@ -5587,18 +5587,23 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     final svc = PairService.instance;
     final now = DateTime.now().toUtc();
     final night = featuredNight(now, svc.nights);
-    if (night == null || !night.hasLink || !isNightImminent(now, night)) return null;
+    if (night == null || !isNightImminent(now, night)) return null;
     final mine = night.proposedBy == _sync?.userId;
     final first = svc.pair?.partner.displayName.split(' ').first ?? 'Your person';
+    final arriving = night.hasFile && !night.fileReady && !night.fileStopped;
+    if (!night.attachmentReady && !arriving) return null;
     return PTEntrance(
-      key: const ValueKey('date-night-ready'),
+      key: ValueKey(arriving ? 'date-night-arriving' : 'date-night-ready'),
       offset: -8,
       duration: PTMotion.state,
       child: PTBanner(
-        kind: .info,
-        icon: BoothIcons.film,
+        kind: arriving ? .warning : .info,
+        icon: arriving ? BoothIcons.cloudUpload : BoothIcons.film,
         title: 'Date night · ${night.title}',
-        subtitle: mine
+        subtitle: arriving
+            ? '${mine ? 'Your' : "$first's"} movie is still uploading (${night.uploadPercent}%). '
+                  'It plays as soon as it lands, or pick something else.'
+            : mine
             ? "Tonight's film is loaded. Press play when you're both here."
             : "$first picked tonight's film. Press play when you're both here.",
         onDismiss: () => setState(() => _dateNightBannerDismissed = true),

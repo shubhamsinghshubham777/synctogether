@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../analytics.dart';
 import '../nav.dart';
 import '../platform.dart';
+import '../profile/profile_models.dart';
 import '../profile/profile_service.dart';
 import '../ui/banners.dart';
 import '../ui/booth.dart';
@@ -13,9 +14,12 @@ import '../ui/booth_icons.g.dart';
 import '../ui/buttons.dart';
 import '../ui/glass.dart';
 import '../ui/pt_motion.dart';
+import '../player/local_video_chooser.dart';
+import '../rooms/media_sharing_service.dart';
 import '../ui/pt_theme.dart';
 import 'calendar_bridge.dart';
 import 'date_night_plan.dart';
+import 'date_night_upload.dart';
 import 'pair_logic.dart';
 import 'pair_models.dart';
 import 'pair_page.dart';
@@ -57,7 +61,7 @@ class _DateNightScreenState extends State<DateNightScreen> {
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
-      listenable: PairService.instance,
+      listenable: Listenable.merge([PairService.instance, DateNightUploader.instance]),
       builder: (context, _) {
         final svc = PairService.instance;
         final pair = svc.pair;
@@ -602,6 +606,18 @@ class _NightCard extends StatelessWidget {
       standing == NightStanding.declined ||
       standing == NightStanding.done;
 
+  ({String text, Color color}) _badgeFor(FileView file) {
+    if (standing == NightStanding.accepted && night.hasFile) {
+      return switch (file.stage) {
+        FileStage.ready => (text: 'READY', color: PTColors.online),
+        FileStage.stopped => (text: 'UPLOAD STOPPED', color: PTColors.danger),
+        FileStage.unfinished => (text: 'STILL UPLOADING ${file.percent}%', color: PTColors.warning),
+        _ => (text: 'UPLOADING ${file.percent}%', color: PTColors.primary),
+      };
+    }
+    return _badge;
+  }
+
   ({String text, Color color}) get _badge => switch (standing) {
     NightStanding.awaitingMe => (text: 'YOUR ANSWER', color: PTColors.link),
     NightStanding.awaitingThem => (
@@ -615,11 +631,28 @@ class _NightCard extends StatelessWidget {
     NightStanding.cancelled => (text: 'CANCELLED', color: PTColors.fgMute),
   };
 
+  static final _idle = ValueNotifier<int>(0);
+
   @override
   Widget build(BuildContext context) {
+    final live = DateNightUploader.instance.forNight(night.id);
+    return ListenableBuilder(
+      listenable: live ?? _idle,
+      builder: (context, _) => _card(context, live),
+    );
+  }
+
+  Widget _card(BuildContext context, DateNightUpload? live) {
     final placement = placeNight(night.startsAt, partnerZone: partner?.timezone);
     final imminent = isNightImminent(now, night);
-    final badge = _badge;
+    final file = fileViewOf(
+      night,
+      now,
+      liveFraction: live != null && live.total > 0 ? live.fraction : null,
+      liveStopped: live?.phase == UploadPhase.stopped ? true : null,
+    );
+    final badge = _badgeFor(file);
+    final started = !now.isBefore(night.startsAt);
     final ink = _over ? PTColors.fgMute : PTColors.canvas;
     final sub = placement.zonesDiffer && placement.theirs != null
         ? '$_first · ${formatClock(placement.theirs!)}'
@@ -682,7 +715,7 @@ class _NightCard extends StatelessWidget {
                     ),
                   ),
                   Text(
-                    countdownTo(night.startsAt, now).label,
+                    started ? 'NOW' : countdownTo(night.startsAt, now).label,
                     style: PTText.mono.copyWith(
                       fontSize: 16,
                       fontWeight: .w600,
@@ -694,7 +727,10 @@ class _NightCard extends StatelessWidget {
             ),
           ),
         ),
+        if (!_over && (file.stage == FileStage.uploading || file.stage == FileStage.unfinished))
+          _ProgressBar(fraction: file.fraction, warn: file.stage == FileStage.unfinished),
         if (!_over) _Attachment(night: night, mine: mine, first: _first),
+        if (!_over && night.hasFile) _FileLine(file: file, mine: mine, first: _first, live: live),
         if (placement.lateForThem && !_over)
           Row(
             spacing: 8,
@@ -709,6 +745,8 @@ class _NightCard extends StatelessWidget {
             ],
           ),
         ..._actions(context),
+        if (!_over && mine && file.stage == FileStage.stopped)
+          _StoppedActions(night: night, live: live),
       ],
     );
   }
@@ -805,22 +843,212 @@ class _Attachment extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final link = night.hasLink;
-    final text = link
+    final file = night.hasFile;
+    final text = file
+        ? '${night.fileName ?? 'A file'}${night.fileSize == null ? '' : ' · ${Profile.formatBytes(night.fileSize!)}'}'
+        : link
         ? (mine ? 'A YouTube link is attached.' : '$first attached a YouTube link.')
         : "We'll choose together in Our Room.";
     return Row(
       spacing: 10,
       children: [
         Icon(
-          link ? BoothIcons.youtube : BoothIcons.film,
+          file
+              ? BoothIcons.file
+              : link
+              ? BoothIcons.youtube
+              : BoothIcons.film,
           size: 16,
-          color: link ? PTColors.primary : PTColors.fgDim,
+          color: link || file ? PTColors.primary : PTColors.fgDim,
         ),
         Expanded(
-          child: Text(text, style: PTText.body.copyWith(fontSize: 13.5, color: PTColors.fgDim)),
+          child: Text(
+            text,
+            maxLines: 1,
+            overflow: .ellipsis,
+            style: PTText.body.copyWith(fontSize: 13.5, color: PTColors.fgDim),
+          ),
         ),
         if (mine)
           DialogTextButton(label: 'Change', onPressed: () => showChangeWatching(context, night)),
+      ],
+    );
+  }
+}
+
+/// A thin bar under the ticket while the film is still on its way.
+class _ProgressBar extends StatelessWidget {
+  const _ProgressBar({required this.fraction, required this.warn});
+
+  final double fraction;
+  final bool warn;
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(2),
+      child: LinearProgressIndicator(
+        value: fraction,
+        minHeight: 4,
+        backgroundColor: PTColors.aisle,
+        valueColor: AlwaysStoppedAnimation(warn ? PTColors.warning : PTColors.primary),
+      ),
+    );
+  }
+}
+
+/// What the file is doing, in words, for whoever is looking. The planner is told
+/// to keep the app open (an upload only runs while it is); the other person is
+/// told how things stand and never that anything is theirs to do.
+class _FileLine extends StatelessWidget {
+  const _FileLine({
+    required this.file,
+    required this.mine,
+    required this.first,
+    required this.live,
+  });
+
+  final FileView file;
+  final bool mine;
+  final String first;
+  final DateNightUpload? live;
+
+  @override
+  Widget build(BuildContext context) {
+    final eta = live?.etaSeconds ?? 0;
+    final minutes = (eta / 60).ceil();
+    final (text, color, icon) = switch (file.stage) {
+      FileStage.ready => (
+        mine
+            ? 'The movie is waiting. $first can already stream it.'
+            : 'The movie is waiting. You can start it in Our Room.',
+        PTColors.online,
+        BoothIcons.check,
+      ),
+      FileStage.uploading => (
+        mine
+            ? 'Keep SyncTogether open until it says Ready.'
+                  '${eta > 0 ? ' About $minutes ${minutes == 1 ? 'minute' : 'minutes'} left on this connection.' : ''}'
+            : '$first is still uploading it.',
+        PTColors.fgDim,
+        BoothIcons.cloudUpload,
+      ),
+      FileStage.unfinished => (
+        mine
+            ? 'The room still opens. It plays for $first as soon as it lands, or pick something else.'
+            : 'The room still opens. The movie plays as soon as it lands, or pick something else.',
+        PTColors.warning,
+        BoothIcons.clock,
+      ),
+      FileStage.stopped => (
+        mine
+            ? 'The connection dropped at ${file.percent}%. '
+                  '${live != null ? 'Nothing was lost: Try again carries on from there.' : 'Choose the file again to carry on.'}'
+            : 'The upload paused at ${file.percent}%. $first needs to open SyncTogether to carry on.',
+        PTColors.danger,
+        BoothIcons.cloudUpload,
+      ),
+      FileStage.none => ('', PTColors.fgDim, BoothIcons.film),
+    };
+    if (text.isEmpty) return const SizedBox.shrink();
+    return Row(
+      crossAxisAlignment: .start,
+      spacing: 8,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(top: 2),
+          child: Icon(icon, size: 16, color: color),
+        ),
+        Expanded(
+          child: Text(text, style: PTText.caption.copyWith(color: color, height: 1.4)),
+        ),
+      ],
+    );
+  }
+}
+
+/// A stopped upload's two ways forward: carry on, or give up on the file and
+/// choose together. Only the planner sees them.
+class _StoppedActions extends StatelessWidget {
+  const _StoppedActions({required this.night, required this.live});
+
+  final DateNight night;
+  final DateNightUpload? live;
+
+  Future<void> _tryAgain(BuildContext context) async {
+    final uploader = DateNightUploader.instance;
+    if (live != null) {
+      await uploader.resume(night.id);
+      return;
+    }
+    // No upload of ours to resume (the app was restarted): pick the file again.
+    final choice = await showLocalVideoChooser(context);
+    final video = choice?.video;
+    if (video == null || !context.mounted) return;
+    final check = fileCheckFor(
+      video.sizeBytes ?? await video.uploadSource().length(),
+      hasFile: true,
+    );
+    if (check != FileCheck.ok) {
+      unawaited(video.release());
+      if (context.mounted) {
+        showPTSnack(
+          context,
+          check == FileCheck.overCap
+              ? 'That file is over what your seat can share.'
+              : "That file doesn't fit what's left of this week's allowance.",
+          kind: .error,
+        );
+      }
+      return;
+    }
+    try {
+      await uploader.chooseAgain(night: night, video: video);
+    } catch (e) {
+      unawaited(video.release());
+      if (context.mounted) {
+        showPTSnack(
+          context,
+          e is MediaSharingException ? e.message : "Couldn't start that just now.",
+          kind: .error,
+        );
+      }
+    }
+  }
+
+  Future<void> _chooseTogether(BuildContext context) async {
+    await DateNightUploader.instance.cancel(night.id);
+    try {
+      await PairService.instance.setNightAttachment(night.id, null);
+    } catch (e) {
+      if (context.mounted) {
+        showPTSnack(context, "Couldn't change that just now.", kind: .error);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      spacing: 10,
+      children: [
+        Expanded(
+          child: PTButton(
+            label: 'Try again',
+            variant: .secondary,
+            height: 42,
+            onPressed: () => _tryAgain(context),
+          ),
+        ),
+        Expanded(
+          child: PTButton(
+            label: 'Choose together',
+            variant: .secondary,
+            height: 42,
+            maxLines: 2,
+            onPressed: () => _chooseTogether(context),
+          ),
+        ),
       ],
     );
   }

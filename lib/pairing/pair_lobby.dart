@@ -389,9 +389,9 @@ class _OurRoomCardState extends State<OurRoomCard> {
               ),
             ],
           ),
-          // The film its planner attached is already waiting: said only when it is
-          // true and the night is close, so the card never promises early.
-          if (night != null && imminent && night.hasLink)
+          // The film its planner attached: ready, or on its way. Said only when it
+          // is true and the night is close, so the card never promises early.
+          if (night != null && imminent && night.attachmentReady)
             Row(
               spacing: 8,
               children: [
@@ -400,6 +400,19 @@ class _OurRoomCardState extends State<OurRoomCard> {
                   child: Text(
                     'Your movie is ready',
                     style: PTText.caption.copyWith(color: PTColors.online),
+                  ),
+                ),
+              ],
+            )
+          else if (night != null && imminent && night.hasFile && !night.fileStopped)
+            Row(
+              spacing: 8,
+              children: [
+                const Icon(BoothIcons.cloudUpload, size: 16, color: PTColors.warning),
+                Expanded(
+                  child: Text(
+                    'Your movie is still arriving (${night.uploadPercent}%)',
+                    style: PTText.caption.copyWith(color: PTColors.warning),
                   ),
                 ),
               ],

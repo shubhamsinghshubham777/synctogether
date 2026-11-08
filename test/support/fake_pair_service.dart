@@ -204,21 +204,37 @@ class FakePairService extends PairService {
     required String title,
     required DateTime startsAt,
     String? youtubeUrl,
+    String? stagedId,
   }) async {
-    calls.add('planNight:$title:${youtubeUrl ?? ''}');
+    calls.add('planNight:$title:${youtubeUrl ?? ''}:${stagedId ?? ''}');
     final night = DateNight(
       id: 'n-${_fakeNights.length}',
       title: title,
       startsAt: startsAt.toUtc(),
       proposedBy: 'me',
       status: DateNightStatus.proposed,
-      attachKind: youtubeUrl == null ? 'none' : 'youtube',
+      attachKind: stagedId != null
+          ? 'file'
+          : youtubeUrl == null
+          ? 'none'
+          : 'youtube',
       youtubeUrl: youtubeUrl,
+      fileName: stagedId == null ? null : 'film.mkv',
+      fileSize: stagedId == null ? null : 1000,
+      uploadState: stagedId == null ? 'none' : 'uploading',
     );
     _fakeNights = [..._fakeNights, night];
     notifyListeners();
     return night;
   }
+
+  @override
+  Future<void> attachStagedFile(String nightId, String stagedId) async =>
+      calls.add('attachStagedFile:$nightId:$stagedId');
+
+  @override
+  Future<void> reportUploadProgress(String nightId, int bytes, {bool stopped = false}) async =>
+      calls.add('reportUploadProgress:$nightId:$bytes:$stopped');
 
   @override
   Future<void> setNightAttachment(String id, String? youtubeUrl) async {

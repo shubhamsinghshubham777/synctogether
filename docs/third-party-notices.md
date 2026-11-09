@@ -25,10 +25,10 @@ libass, dav1d, FreeType, FriBidi, HarfBuzz, libxml2, Mbed TLS, uchardet.
 Prebuilt, unmodified binaries committed in `third_party/` so builds do not
 depend on GitHub being reachable.
 
-- ANGLE (BSD-3-Clause): https://github.com/alexmercerind/flutter-windows-ANGLE-OpenGL-ES,
+- ANGLE (BSD-3-Clause, from Google ANGLE; the repackaging repo has no licence file): https://github.com/alexmercerind/flutter-windows-ANGLE-OpenGL-ES,
   `v1.0.1`, used by media_kit's Windows renderer
-- libwebrtc (BSD-3-Clause): https://github.com/webrtc-sdk/libwebrtc, release
-  `libwebrtc.m150.7871.02`, used by flutter_webrtc
+- libwebrtc (MIT): https://github.com/webrtc-sdk/libwebrtc, release
+  `libwebrtc.m150.7871.02`, used by flutter_webrtc. Committed zip MD5: f1e3b552ffbdcfbd54e63e4d15953374
 
 ## media_kit
 

@@ -54,6 +54,15 @@ DateNight _night(String id, DateNightStatus status, Duration from, {String by = 
       status: status,
     );
 
+DateNight _ended(String id, DateNightStatus status, {String by = 'sam'}) => DateNight(
+  id: id,
+  title: 'Spirited Away',
+  startsAt: DateTime.now().toUtc().add(const Duration(days: 4)),
+  proposedBy: by,
+  status: status,
+  updatedAt: DateTime.now().toUtc().subtract(const Duration(hours: 2)),
+);
+
 DateNight _fileNight(
   String id, {
   required String state,
@@ -99,6 +108,36 @@ void main() {
     SharedPreferences.setMockInitialValues({});
     installMockDependencies();
     RewardsService.instance = FakeRewardsService();
+  });
+
+  screenMatrix('pair/night-states-moved-and-over', (tester, c, s) async {
+    final soon = DateTime.now().toUtc().add(const Duration(days: 3));
+    PairService.instance = FakePairService(
+      pair: samePairInfo(patron: true),
+      nights: [
+        DateNight(
+          id: 'moved',
+          title: 'Spirited Away',
+          startsAt: soon,
+          proposedBy: 'sam',
+          status: DateNightStatus.proposed,
+          movedFrom: soon.subtract(const Duration(days: 2)),
+        ),
+        _night('started', DateNightStatus.accepted, const Duration(minutes: -3)),
+        _ended('declined', DateNightStatus.declined, by: 'user-alex'),
+        _ended('cancelled', DateNightStatus.cancelled),
+      ],
+    );
+    await pumpAtSize(tester, const DateNightScreen(), c, textScale: s, singlePane: true);
+    await tester.pump(const Duration(milliseconds: 600));
+    expect(find.text('NEW TIME\nYOUR ANSWER'), findsOneWidget);
+    expect(find.textContaining('Moved from'), findsOneWidget);
+    expect(find.textContaining(' becomes '), findsOneWidget);
+    expect(find.textContaining('Starting now'), findsOneWidget);
+    expect(find.text('Share .ics'), findsOneWidget);
+    expect(find.text('Plan another night'), findsOneWidget);
+    expect(find.text('Suggest another time'), findsWidgets);
+    await finishCase(tester);
   });
 
   screenMatrix('pair/nights', (tester, c, s) async {

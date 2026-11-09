@@ -163,7 +163,9 @@ NightStanding nightStanding(DateTime now, DateNight night, String myId) {
     case .declined:
       return .declined;
     case .accepted:
-      return night.startsAt.isBefore(now) ? .done : .accepted;
+      // The same half hour of grace the list gives a night that has just started, so
+      // "starting now" is still an accepted night, not one already in the history.
+      return night.startsAt.isBefore(now.subtract(const Duration(minutes: 30))) ? .done : .accepted;
     case .proposed:
       return night.proposedBy == myId ? .awaitingThem : .awaitingMe;
   }
@@ -180,6 +182,19 @@ List<DateNight> upcomingNights(DateTime now, Iterable<DateNight> nights) {
           n.status != DateNightStatus.declined)
         n,
   ]..sort((a, b) => a.startsAt.compareTo(b.startsAt));
+}
+
+/// Cancelled and declined nights stay on the list for two days after the change, newest
+/// first, so the other person sees what happened (and can plan another) before it goes.
+List<DateNight> recentlyEndedNights(DateTime now, Iterable<DateNight> nights) {
+  final cutoff = now.subtract(const Duration(hours: 48));
+  return [
+    for (final n in nights)
+      if ((n.status == DateNightStatus.cancelled || n.status == DateNightStatus.declined) &&
+          n.updatedAt != null &&
+          n.updatedAt!.isAfter(cutoff))
+        n,
+  ]..sort((a, b) => b.updatedAt!.compareTo(a.updatedAt!));
 }
 
 /// The date night the lobby card should feature: the next accepted one that is

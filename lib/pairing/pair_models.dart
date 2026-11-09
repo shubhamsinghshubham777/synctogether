@@ -184,6 +184,8 @@ class DateNight {
     this.fileSize,
     this.uploadState = 'none',
     this.uploadBytes = 0,
+    this.movedFrom,
+    this.updatedAt,
   });
 
   factory DateNight.fromJson(Map<String, dynamic> json) => DateNight(
@@ -198,6 +200,8 @@ class DateNight {
     fileSize: (json['file_size'] as num?)?.toInt(),
     uploadState: json['upload_state'] as String? ?? 'none',
     uploadBytes: (json['upload_bytes'] as num?)?.toInt() ?? 0,
+    movedFrom: _time(json['moved_from']),
+    updatedAt: _time(json['updated_at']),
   );
 
   final String id;
@@ -220,6 +224,12 @@ class DateNight {
   final int? fileSize;
   final String uploadState;
   final int uploadBytes;
+
+  /// Where this night was moved from while its new time waits for an answer.
+  final DateTime? movedFrom;
+
+  /// When the night last changed: how long ago it was cancelled or declined.
+  final DateTime? updatedAt;
 
   bool get hasLink => attachKind == 'youtube' && youtubeUrl != null;
   bool get hasFile => attachKind == 'file';

@@ -72,6 +72,7 @@ class _DateNightScreenState extends State<DateNightScreen> {
         final me = ProfileService.instance.profile?.id ?? '';
         final now = DateTime.now().toUtc();
         final nights = upcomingNights(now, svc.nights);
+        final ended = recentlyEndedNights(now, svc.nights);
         final patron = pair?.patron ?? false;
         final first = pair?.partner.displayName.split(' ').first ?? 'your person';
         final sameZone =
@@ -83,9 +84,23 @@ class _DateNightScreenState extends State<DateNightScreen> {
         } else if (svc.nightsFailed && nights.isEmpty) {
           body = _LoadError(onRetry: svc.retryNights);
         } else if (nights.isEmpty) {
-          body = patron ? _EmptyPatron(first: first, sameZone: sameZone) : _EmptyFree(first: first);
+          body = Column(
+            crossAxisAlignment: .stretch,
+            spacing: 14,
+            children: [
+              patron ? _EmptyPatron(first: first, sameZone: sameZone) : _EmptyFree(first: first),
+              ..._endedCards(ended, me: me, now: now, pair: pair),
+            ],
+          );
         } else {
-          body = _Upcoming(nights: nights, me: me, now: now, pair: pair, patron: patron);
+          body = _Upcoming(
+            nights: nights,
+            ended: ended,
+            me: me,
+            now: now,
+            pair: pair,
+            patron: patron,
+          );
         }
 
         final showPlan = svc.nightsLoaded && nights.isNotEmpty && patron;
@@ -101,6 +116,24 @@ class _DateNightScreenState extends State<DateNightScreen> {
   }
 }
 
+/// Nights that were cancelled or declined in the last two days, under a kicker of their own.
+List<Widget> _endedCards(
+  List<DateNight> ended, {
+  required String me,
+  required DateTime now,
+  required PairInfo? pair,
+}) => [
+  if (ended.isNotEmpty) const PairKicker('Recently ended'),
+  for (final night in ended)
+    _NightCard(
+      night: night,
+      standing: nightStanding(now, night, me),
+      partner: pair?.partner,
+      now: now,
+      mine: night.proposedBy == me,
+    ),
+];
+
 // ------------------------------------------------------------------- states
 
 /// The list once there is one: the soonest night first, and a way to the
@@ -108,6 +141,7 @@ class _DateNightScreenState extends State<DateNightScreen> {
 class _Upcoming extends StatelessWidget {
   const _Upcoming({
     required this.nights,
+    required this.ended,
     required this.me,
     required this.now,
     required this.pair,
@@ -115,6 +149,7 @@ class _Upcoming extends StatelessWidget {
   });
 
   final List<DateNight> nights;
+  final List<DateNight> ended;
   final String me;
   final DateTime now;
   final PairInfo? pair;
@@ -135,6 +170,7 @@ class _Upcoming extends StatelessWidget {
             now: now,
             mine: night.proposedBy == me,
           ),
+        ..._endedCards(ended, me: me, now: now, pair: pair),
         if (!patron && canSellPremium) const _PatronRow(),
         PTPressable(
           onTap: () => openPage(context, '/lobby/pair/history'),
@@ -536,20 +572,25 @@ class _NightCard extends StatelessWidget {
       case CalendarResult.opened || CalendarResult.dismissed:
         break;
       case CalendarResult.unsupported:
-        final ics = buildDateNightIcs(
-          id: night.id,
-          title: night.title,
-          startsAt: night.startsAt,
-          withName: _first,
-          length: length,
-        );
-        await shareBytes(
-          context,
-          bytes: utf8.encode(ics),
-          name: 'date-night.ics',
-          mimeType: 'text/calendar',
-        );
+        await _shareIcs(context);
     }
+  }
+
+  /// The same event as a calendar file, through the share sheet: any calendar app opens it.
+  Future<void> _shareIcs(BuildContext context) async {
+    final ics = buildDateNightIcs(
+      id: night.id,
+      title: night.title,
+      startsAt: night.startsAt,
+      withName: _first,
+      length: const Duration(hours: 2),
+    );
+    await shareBytes(
+      context,
+      bytes: utf8.encode(ics),
+      name: 'date-night.ics',
+      mimeType: 'text/calendar',
+    );
   }
 
   Future<void> _answer(BuildContext context, bool accept) async {
@@ -628,6 +669,10 @@ class _NightCard extends StatelessWidget {
   }
 
   ({String text, Color color}) get _badge => switch (standing) {
+    NightStanding.awaitingMe when night.movedFrom != null => (
+      text: 'NEW TIME\nYOUR ANSWER',
+      color: PTColors.link,
+    ),
     NightStanding.awaitingMe => (text: 'YOUR ANSWER', color: PTColors.link),
     NightStanding.awaitingThem => (
       text: 'WAITING FOR ${_first.toUpperCase()}',
@@ -663,10 +708,22 @@ class _NightCard extends StatelessWidget {
     final badge = _badgeFor(file);
     final started = !now.isBefore(night.startsAt);
     final ink = _over ? PTColors.fgMute : PTColors.canvas;
-    final sub = placement.zonesDiffer && placement.theirs != null
+    final moved = night.movedFrom == null
+        ? null
+        : placeNight(night.movedFrom!, partnerZone: partner?.timezone).mine;
+    final zoneLine = placement.zonesDiffer && placement.theirs != null
         ? '$_first · ${formatClock(placement.theirs!)}'
               '${placement.theirCity.isEmpty ? '' : ' ${placement.theirCity}'}'
         : null;
+    // One line under the title saying where the night stands.
+    final sub = switch (standing) {
+      _ when moved != null && !_over =>
+        'Moved from ${formatDay(moved)} · ${mine ? 'you suggested it' : '$_first suggested it'}',
+      NightStanding.accepted => '${started ? 'Starting now' : 'Locked in'} · $_first is in',
+      NightStanding.declined => mine ? "$_first can't make it" : "You can't make it",
+      NightStanding.cancelled => 'This night was cancelled',
+      _ => zoneLine,
+    };
 
     final actions = _actions(context);
     return PTColumn(
@@ -750,6 +807,29 @@ class _NightCard extends StatelessWidget {
         PTRevealKeep(
           visible: !_over && night.hasFile,
           child: _FileLine(file: file, mine: mine, first: _first, live: live),
+        ),
+        PTRevealKeep(
+          visible: moved != null && !_over,
+          child: Row(
+            spacing: 8,
+            children: [
+              const Icon(BoothIcons.clock, size: 16, color: PTColors.fgDim),
+              Expanded(
+                child: Text.rich(
+                  TextSpan(
+                    children: [
+                      TextSpan(
+                        text: moved == null ? '' : formatMoment(moved),
+                        style: const TextStyle(decoration: TextDecoration.lineThrough),
+                      ),
+                      TextSpan(text: ' becomes ${formatMoment(placement.mine)}'),
+                    ],
+                  ),
+                  style: PTText.caption.copyWith(color: PTColors.fgDim, height: 1.4),
+                ),
+              ),
+            ],
+          ),
         ),
         PTRevealKeep(
           visible: placement.lateForThem && !_over,
@@ -837,14 +917,34 @@ class _NightCard extends StatelessWidget {
         ),
       ],
       NightStanding.accepted => [
-        Builder(
-          builder: (buttonContext) => PTButton(
-            label: 'Add to calendar',
-            variant: .secondary,
-            icon: BoothIcons.calendar,
-            height: 44,
-            onPressed: () => _calendar(buttonContext),
-          ),
+        Row(
+          spacing: 10,
+          children: [
+            Expanded(
+              child: Builder(
+                builder: (buttonContext) => PTButton(
+                  label: 'Add to calendar',
+                  variant: .secondary,
+                  icon: BoothIcons.calendar,
+                  height: 44,
+                  maxLines: 2,
+                  onPressed: () => _calendar(buttonContext),
+                ),
+              ),
+            ),
+            Expanded(
+              child: Builder(
+                builder: (buttonContext) => PTButton(
+                  label: 'Share .ics',
+                  variant: .secondary,
+                  icon: BoothIcons.share,
+                  height: 44,
+                  maxLines: 2,
+                  onPressed: () => _shareIcs(buttonContext),
+                ),
+              ),
+            ),
+          ],
         ),
         Wrap(
           alignment: WrapAlignment.center,
@@ -860,7 +960,36 @@ class _NightCard extends StatelessWidget {
           ],
         ),
       ],
-      _ => const [],
+      NightStanding.cancelled => [
+        PTButton(
+          label: 'Plan another night',
+          variant: .secondary,
+          height: 44,
+          onPressed: () => showPlanNight(context),
+        ),
+      ],
+      NightStanding.declined => [
+        Row(
+          spacing: 10,
+          children: [
+            Expanded(
+              child: PTButton(
+                label: 'Suggest another time',
+                variant: .secondary,
+                height: 42,
+                maxLines: 2,
+                onPressed: () => _move(context),
+              ),
+            ),
+            DialogTextButton(
+              label: 'Cancel',
+              color: PTColors.danger,
+              onPressed: () => _cancel(context),
+            ),
+          ],
+        ),
+      ],
+      NightStanding.done => const [],
     };
   }
 }
@@ -969,7 +1098,7 @@ class _FileLine extends StatelessWidget {
       FileStage.stopped => (
         mine
             ? 'The connection dropped at ${file.percent}%. '
-                  '${live != null ? 'Nothing was lost: Try again carries on from there.' : 'Choose the file again to carry on.'}'
+                  '${live != null ? 'Nothing was lost; it picks up where it left off.' : 'Choose the file again to carry on.'}'
             : 'The upload paused at ${file.percent}%. $first needs to open SyncTogether to carry on.',
         PTColors.danger,
         BoothIcons.cloudUpload,
@@ -1105,8 +1234,14 @@ class _Badge extends StatelessWidget {
         fit: BoxFit.scaleDown,
         child: Text(
           text,
-          maxLines: 1,
-          style: PTText.mono.copyWith(fontSize: 9.5, color: color, letterSpacing: 0.6),
+          maxLines: 2,
+          textAlign: TextAlign.center,
+          style: PTText.mono.copyWith(
+            fontSize: 9.5,
+            color: color,
+            letterSpacing: 0.6,
+            height: 1.25,
+          ),
         ),
       ),
     );

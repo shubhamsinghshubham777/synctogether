@@ -92,3 +92,9 @@ Product events fire only where a human caused them: `pair_invite_created`, `pair
 A shared watchlist and "Pick tonight" were built and then removed. This app plays the pair's own files and YouTube links, so there is no catalogue to recommend from, and a bare list of typed titles did not earn its place. If it comes back it should start from a real need (a title that reaches the room's source picker), not from a list.
 
 A QR code for the invite (a long-distance pair is rarely in the same room, and the share sheet, link, code and email already cover it); "ping me when Sam is on"; a per-week breakdown behind the streak dots; hours-and-days granularity on the reunion card (the reunion is a calendar date with no time).
+
+## A night's states on the card (board 66)
+
+- `date_nights.moved_from` is set by `reschedule_date_night` to the time the night moved from (a second move before an answer keeps the first), cleared by trigger when the new time is accepted, kept on a decline. The card shows a "NEW TIME / YOUR ANSWER" badge, "Moved from ..." under the title and a struck-through "A becomes B" line.
+- `nightStanding` gives an accepted night the same 30 minutes of grace the list does before it counts as `done`, so "Starting now" is still an accepted card. Cancelled and declined nights stay listed for 48 hours after `updated_at` (`recentlyEndedNights`), with "Plan another night" / "Suggest another time" on them.
+- The accepted card has two calendar actions: the system add-to-calendar, and "Share .ics" (always the file).

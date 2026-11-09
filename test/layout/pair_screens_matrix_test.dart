@@ -10,6 +10,7 @@ import 'package:synctogether/player/local_video.dart';
 import 'package:synctogether/pairing/date_night_screen.dart';
 import 'package:synctogether/pairing/history_screen.dart';
 import 'package:synctogether/pairing/notification_settings_screen.dart';
+import 'package:synctogether/pairing/pair_logic.dart';
 import 'package:synctogether/pairing/pair_models.dart';
 import 'package:synctogether/pairing/pair_service.dart';
 import 'package:synctogether/pairing/push_service.dart';
@@ -343,6 +344,9 @@ void main() {
     await pumpAtSize(tester, const HistoryScreen(), c, textScale: s, singlePane: true);
     await tester.pump(const Duration(milliseconds: 500));
     expect(find.textContaining('45 older nights are kept safe'), findsOneWidget);
+    final first = now.subtract(const Duration(days: 1)).toLocal();
+    expect(find.text(weekdayShort(first)), findsWidgets);
+    expect(find.text('${first.day}'), findsWidgets);
     expect(find.text('Export my history'), findsOneWidget);
     await finishCase(tester);
   });
@@ -362,6 +366,8 @@ void main() {
     await tester.pump(const Duration(milliseconds: 600));
     expect(find.text('Share image'), findsOneWidget);
     expect(find.textContaining('hours watching the same screen'), findsOneWidget);
+    expect(find.text('47 NIGHTS'), findsOneWidget);
+    expect(find.text('31 FILMS'), findsOneWidget);
     await finishCase(tester);
   });
 

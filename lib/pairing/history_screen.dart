@@ -259,16 +259,7 @@ class _SessionRow extends StatelessWidget {
       child: Row(
         spacing: 12,
         children: [
-          Container(
-            width: 44,
-            height: 44,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: PTColors.aisle,
-              borderRadius: BorderRadius.circular(PTRadius.control),
-            ),
-            child: const Icon(BoothIcons.film, size: 18, color: PTColors.fgMute),
-          ),
+          _DateTile(day: local),
           Expanded(
             child: Column(
               crossAxisAlignment: .start,
@@ -281,7 +272,7 @@ class _SessionRow extends StatelessWidget {
                   style: PTText.body.copyWith(fontSize: 15, fontWeight: .w600, color: PTColors.fg),
                 ),
                 Text(
-                  formatMoment(local).toUpperCase(),
+                  formatClock(local).toUpperCase(),
                   style: PTText.mono.copyWith(fontSize: 11, color: PTColors.fgMute),
                 ),
               ],
@@ -339,6 +330,57 @@ class _LockedCard extends StatelessWidget {
               },
             ),
         ],
+      ),
+    );
+  }
+}
+
+/// The row's lead: the day the night started, as a weekday over a day number. A night
+/// can hold many films and a video can vanish, so the tile says only what is always true.
+/// Fixed 44 x 44: text scales to 1.3x and then fits inside the box, it never grows it.
+class _DateTile extends StatelessWidget {
+  const _DateTile({required this.day});
+
+  final DateTime day;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      label: formatDay(day),
+      excludeSemantics: true,
+      child: Container(
+        width: 44,
+        height: 44,
+        padding: const EdgeInsets.all(2),
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: PTColors.aisle,
+          borderRadius: BorderRadius.circular(PTRadius.control),
+        ),
+        child: MediaQuery.withClampedTextScaling(
+          maxScaleFactor: 1.3,
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Column(
+              mainAxisSize: .min,
+              children: [
+                Text(
+                  weekdayShort(day),
+                  style: PTText.mono.copyWith(fontSize: 9, height: 1.1, color: PTColors.fgMute),
+                ),
+                Text(
+                  '${day.day}',
+                  style: PTText.mono.copyWith(
+                    fontSize: 18,
+                    height: 1.1,
+                    fontWeight: .w600,
+                    color: PTColors.fg,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

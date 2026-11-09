@@ -507,4 +507,30 @@ void fileViewTests() {
       expect(fileViewOf(night(bytes: 1000), now).percent, 99);
     });
   });
+
+  group('year card and history tile helpers', () {
+    PairSession at(String iso, {int seconds = 3600}) =>
+        PairSession(title: null, startedAt: DateTime.parse(iso), seconds: seconds);
+
+    test('stat labels are singular for exactly one', () {
+      expect(countLabel(1, 'Night'), '1 NIGHT');
+      expect(countLabel(0, 'Film'), '0 FILMS');
+      expect(countLabel(61, 'Night'), '61 NIGHTS');
+    });
+
+    test('the tile shows a short caps weekday', () {
+      expect(weekdayShort(DateTime(2026, 11, 8)), 'SUN');
+      expect(weekdayShort(DateTime(2026, 11, 14)), 'SAT');
+    });
+
+    test('a month counts only for a real night in that year', () {
+      final months = watchedMonths([
+        at('2026-11-08T18:54:00Z'),
+        at('2026-03-02T20:00:00Z'),
+        at('2026-05-02T20:00:00Z', seconds: 300),
+        at('2025-12-31T23:00:00Z'),
+      ], 2026);
+      expect(months, {3, 11});
+    });
+  });
 }

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 
 import '../analytics.dart';
+import '../diagnostics.dart';
 import '../profile/profile_service.dart';
 import '../ui/booth_icons.g.dart';
 import '../ui/buttons.dart';
@@ -29,6 +30,7 @@ class YearRecapScreen extends StatefulWidget {
 class _YearRecapScreenState extends State<YearRecapScreen> {
   final _boundary = GlobalKey();
   PairStats? _stats;
+  Set<int> _months = const {};
   int _year = DateTime.now().year;
   bool _sharing = false;
 
@@ -48,8 +50,16 @@ class _YearRecapScreenState extends State<YearRecapScreen> {
       year = recap;
       stats = await PairService.instance.loadStatsForYear(year);
     }
+    var months = <int>{};
+    try {
+      months = watchedMonths(await PairService.instance.exportHistory(), year);
+    } catch (e, s) {
+      // The strip is decoration; the card still shows without it.
+      reportNonFatal(e, s, during: 'loading the months for the year card');
+    }
     if (mounted) {
       setState(() {
+        _months = months;
         _stats = stats;
         _year = year;
       });
@@ -105,7 +115,14 @@ class _YearRecapScreenState extends State<YearRecapScreen> {
         Center(
           child: RepaintBoundary(
             key: _boundary,
-            child: _YearCard(year: _year, mine: mine, theirs: theirs, apart: apart, stats: stats),
+            child: _YearCard(
+              year: _year,
+              mine: mine,
+              theirs: theirs,
+              apart: apart,
+              stats: stats,
+              months: _months,
+            ),
           ),
         ),
         Builder(
@@ -130,6 +147,8 @@ class _YearRecapScreenState extends State<YearRecapScreen> {
 class _YearCard extends StatelessWidget {
   static const _w = 340.0;
   static const _h = 425.0;
+  // Width the film strip takes from the right edge, so no text ever touches it.
+  static const _stripRoom = 22.0;
 
   const _YearCard({
     required this.year,
@@ -137,6 +156,7 @@ class _YearCard extends StatelessWidget {
     required this.theirs,
     required this.apart,
     required this.stats,
+    required this.months,
   });
 
   final int year;
@@ -144,6 +164,7 @@ class _YearCard extends StatelessWidget {
   final String theirs;
   final String? apart;
   final PairStats stats;
+  final Set<int> months;
 
   @override
   Widget build(BuildContext context) {
@@ -164,80 +185,92 @@ class _YearCard extends StatelessWidget {
               child: MediaQuery(
                 data: MediaQuery.of(context).copyWith(textScaler: TextScaler.noScaling),
                 child: Container(
-                  padding: const EdgeInsets.all(26),
                   decoration: BoxDecoration(
                     color: PTColors.canvas,
                     borderRadius: BorderRadius.circular(PTRadius.panel),
                     border: Border.all(color: PTColors.rail),
                   ),
-                  child: Column(
-                    crossAxisAlignment: .start,
-                    spacing: 14,
-                    children: [
-                      Text(
-                        'OUR YEAR · $year',
-                        style: PTText.label.copyWith(color: PTColors.primary, letterSpacing: 2),
-                      ),
-                      FittedBox(
-                        fit: BoxFit.scaleDown,
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                          '$mine & $theirs',
-                          style: PTText.display.copyWith(fontSize: 38, height: 0.95),
-                        ),
-                      ),
-                      if (apart != null)
-                        Row(
-                          spacing: 8,
-                          children: [
-                            const Icon(BoothIcons.globe, size: 16, color: PTColors.fgDim),
-                            Expanded(
-                              child: Text(
-                                apart!,
-                                maxLines: 1,
-                                overflow: .ellipsis,
-                                style: PTText.caption.copyWith(color: PTColors.fgSoft),
+                  clipBehavior: Clip.antiAlias,
+                  child: CustomPaint(
+                    painter: _BoothPainter(months),
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(26, 26, 26 + _stripRoom, 26),
+                      child: Column(
+                        crossAxisAlignment: .start,
+                        spacing: 14,
+                        children: [
+                          Text(
+                            'OUR YEAR · $year',
+                            style: PTText.label.copyWith(color: PTColors.primary, letterSpacing: 2),
+                          ),
+                          FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              '$mine & $theirs',
+                              style: PTText.display.copyWith(fontSize: 38, height: 0.95),
+                            ),
+                          ),
+                          if (apart != null)
+                            Row(
+                              spacing: 8,
+                              children: [
+                                const Icon(BoothIcons.globe, size: 16, color: PTColors.fgDim),
+                                Expanded(
+                                  child: Text(
+                                    apart!,
+                                    maxLines: 1,
+                                    overflow: .ellipsis,
+                                    style: PTText.caption.copyWith(color: PTColors.fgSoft),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          const Spacer(),
+                          FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              hoursLabel(stats.hours),
+                              style: PTText.display.copyWith(
+                                fontSize: 84,
+                                height: 0.9,
+                                color: PTColors.streak,
                               ),
                             ),
-                          ],
-                        ),
-                      const Spacer(),
-                      FittedBox(
-                        fit: BoxFit.scaleDown,
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                          hoursLabel(stats.hours),
-                          style: PTText.display.copyWith(
-                            fontSize: 84,
-                            height: 0.9,
-                            color: PTColors.streak,
                           ),
-                        ),
-                      ),
-                      Text(
-                        'hours watching the same screen',
-                        style: PTText.body.copyWith(fontSize: 15, color: PTColors.fgDim),
-                      ),
-                      const Divider(height: 1, color: PTColors.rail),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          for (final t in [
-                            '${stats.nights} NIGHTS',
-                            '${stats.films} FILMS',
-                            '${stats.bestStreakWeeks} WK STREAK',
-                          ])
-                            Text(
-                              t,
-                              style: PTText.mono.copyWith(fontSize: 10.5, color: PTColors.fgSoft),
+                          Text(
+                            'hours watching the same screen',
+                            style: PTText.body.copyWith(fontSize: 15, color: PTColors.fgDim),
+                          ),
+                          const Divider(height: 1, color: PTColors.rail),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              for (final t in [
+                                countLabel(stats.nights, 'Night'),
+                                countLabel(stats.films, 'Film'),
+                                '${stats.bestStreakWeeks} WK STREAK',
+                              ])
+                                Text(
+                                  t,
+                                  style: PTText.mono.copyWith(
+                                    fontSize: 10.5,
+                                    color: PTColors.fgSoft,
+                                  ),
+                                ),
+                            ],
+                          ),
+                          Text(
+                            'sync·together',
+                            style: PTText.cardHeading.copyWith(
+                              fontSize: 14,
+                              color: PTColors.fgMute,
                             ),
+                          ),
                         ],
                       ),
-                      Text(
-                        'sync·together',
-                        style: PTText.cardHeading.copyWith(fontSize: 14, color: PTColors.fgMute),
-                      ),
-                    ],
+                    ),
                   ),
                 ),
               ),
@@ -247,4 +280,60 @@ class _YearCard extends StatelessWidget {
       },
     );
   }
+}
+
+/// The card's backdrop: a projector beam off the top-left corner (two flat, hard-edged
+/// wedges - no gradient) and a film strip down the right edge, one frame per month,
+/// Beam-filled for each month the pair watched together.
+class _BoothPainter extends CustomPainter {
+  const _BoothPainter(this.months);
+
+  final Set<int> months;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final wide = Path()
+      ..moveTo(0, 0)
+      ..lineTo(size.width * 0.62, 0)
+      ..lineTo(0, size.height * 0.5)
+      ..close();
+    final narrow = Path()
+      ..moveTo(0, 0)
+      ..lineTo(size.width * 0.34, 0)
+      ..lineTo(0, size.height * 0.27)
+      ..close();
+    canvas.drawPath(wide, Paint()..color = PTColors.primary.withValues(alpha: 0.07));
+    canvas.drawPath(narrow, Paint()..color = PTColors.primary.withValues(alpha: 0.08));
+
+    const stripW = 14.0;
+    const frames = 12;
+    final left = size.width - stripW - 12;
+    const top = 26.0;
+    final span = size.height - top * 2;
+    final slot = span / frames;
+    final line = Paint()
+      ..color = PTColors.rail
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1;
+    final hole = Paint()..color = PTColors.rail;
+    for (var i = 0; i < frames; i++) {
+      final y = top + i * slot;
+      final frame = RRect.fromRectAndRadius(
+        Rect.fromLTWH(left, y + 2, stripW, slot - 4),
+        const Radius.circular(2),
+      );
+      if (months.contains(i + 1)) {
+        canvas.drawRRect(frame, Paint()..color = PTColors.primary);
+      } else {
+        canvas.drawRRect(frame, line);
+      }
+      for (final dx in [left - 5, left + stripW + 3]) {
+        canvas.drawCircle(Offset(dx, y + slot / 2), 1.2, hole);
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(_BoothPainter old) =>
+      old.months.length != months.length || old.months != months;
 }

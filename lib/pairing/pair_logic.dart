@@ -88,6 +88,9 @@ const _months = [
 String formatDay(DateTime wall) =>
     '${_weekdays[wall.weekday - 1]} ${wall.day} ${_months[wall.month - 1]}';
 
+/// "SUN" - the history tile's weekday.
+String weekdayShort(DateTime wall) => _weekdays[wall.weekday - 1].toUpperCase();
+
 /// "Sat 14 Nov · 9:00 PM"
 String formatMoment(DateTime wall) => '${formatDay(wall)} · ${formatClock(wall)}';
 
@@ -293,6 +296,17 @@ bool isLoggableSitting(Duration together) => together >= const Duration(minutes:
 
 String hoursLabel(double hours) =>
     hours == hours.roundToDouble() ? '${hours.round()}' : hours.toStringAsFixed(1);
+
+/// "1 NIGHT", "2 NIGHTS" - the year card's stat labels.
+String countLabel(int n, String singular, [String? plural]) =>
+    '$n ${(n == 1 ? singular : (plural ?? '${singular}S')).toUpperCase()}';
+
+/// Which months (1-12) of [year] had a night together, for the year card's film strip.
+/// Counted in UTC, the same clock the server's own year stats use.
+Set<int> watchedMonths(Iterable<PairSession> sessions, int year) => {
+  for (final s in sessions)
+    if (s.seconds >= 1200 && s.startedAt.toUtc().year == year) s.startedAt.toUtc().month,
+};
 
 String durationLabel(int seconds) {
   final h = seconds ~/ 3600;

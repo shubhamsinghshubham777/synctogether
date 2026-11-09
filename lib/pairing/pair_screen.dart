@@ -664,7 +664,9 @@ Future<void> editReunion(BuildContext context) async {
             )
           else
             Text(
-              '$first set this date and keeps it to themselves.',
+              locked
+                  ? '$first set this date and keeps it to themselves.'
+                  : '$first set this date. Either of you can change it.',
               style: PTText.caption.copyWith(color: PTColors.fgSoft),
             ),
           Row(

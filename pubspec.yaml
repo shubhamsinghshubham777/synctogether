@@ -35,6 +35,7 @@ dependencies:
   path_provider: 2.1.6
   sentry_flutter: 9.30.0
   shared_preferences: 2.5.5
+  saf_stream: 4.0.0
   share_plus: 13.3.1
   sign_in_with_apple: 8.2.0
   storage_space: 1.2.0

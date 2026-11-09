@@ -2,9 +2,12 @@ import 'dart:async';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
+import 'package:fast_file_picker/fast_file_picker.dart';
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show defaultTargetPlatform, kIsWeb, TargetPlatform;
 import 'package:flutter/rendering.dart';
+import 'package:saf_stream/saf_stream.dart';
 
 import '../analytics.dart';
 import '../diagnostics.dart';
@@ -101,21 +104,31 @@ class _YearRecapScreenState extends State<YearRecapScreen> {
     }
   }
 
-  /// Desktop only: a save dialog. On a phone the share sheet already has "Save Image".
+  /// Desktop: a save dialog. Android: pick a folder through the system's own document picker
+  /// and write the picture into it - no storage permission is asked for, the folder grant is
+  /// the user's choice for that one save. (iOS's share sheet already has "Save Image".)
   Future<void> _save() async {
     setState(() => _saving = true);
     try {
       final bytes = await _capture();
       if (bytes == null) return;
       final name = 'our-year-$_year.png';
-      final where = await getSaveLocation(
-        suggestedName: name,
-        acceptedTypeGroups: const [
-          XTypeGroup(label: 'PNG image', extensions: ['png'], mimeTypes: ['image/png']),
-        ],
-      );
-      if (where == null) return;
-      await XFile.fromData(bytes, mimeType: 'image/png', name: name).saveTo(where.path);
+      if (_isAndroid) {
+        final folder = await FastFilePicker.pickFolder(writePermission: true);
+        final uri = folder?.uri;
+        if (uri == null) return;
+        await SafStream().writeFileBytes(uri, name, 'image/png', bytes, overwrite: false);
+      } else {
+        final where = await getSaveLocation(
+          suggestedName: name,
+          acceptedTypeGroups: const [
+            XTypeGroup(label: 'PNG image', extensions: ['png'], mimeTypes: ['image/png']),
+          ],
+        );
+        if (where == null) return;
+        await XFile.fromData(bytes, mimeType: 'image/png', name: name).saveTo(where.path);
+      }
+      trace('year card saved', category: 'media', data: {'platform': defaultTargetPlatform.name});
       if (mounted) showPTSnack(context, 'Saved.', kind: .success);
     } catch (e, st) {
       reportNonFatal(e, st, during: 'saving the year card');
@@ -124,6 +137,8 @@ class _YearRecapScreenState extends State<YearRecapScreen> {
       if (mounted) setState(() => _saving = false);
     }
   }
+
+  static bool get _isAndroid => !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
 
   @override
   Widget build(BuildContext context) {
@@ -191,7 +206,7 @@ class _YearRecapScreenState extends State<YearRecapScreen> {
                 ),
               ),
             ),
-            if (isDesktop)
+            if (isDesktop || _isAndroid)
               Expanded(
                 child: PTButton(
                   label: 'Save',

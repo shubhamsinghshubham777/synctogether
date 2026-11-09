@@ -245,7 +245,7 @@ class _EmptyPatron extends StatelessWidget {
   Widget build(BuildContext context) {
     final steps = [
       'Choose a day and a time. ${sameZone ? 'The time is shown once.' : 'Both clocks are shown.'}',
-      'Attach a YouTube link, or skip it.',
+      'Attach a YouTube link or a file, or skip it.',
       '$first says yes. You get a nudge 15 minutes before.',
     ];
     return Column(

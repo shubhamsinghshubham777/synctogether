@@ -67,6 +67,14 @@ void main() {
     );
   });
 
+  testWidgets('a shared date set by the other person can still be changed', (tester) async {
+    await _open(tester, _pair(setBy: 'sam'));
+    expect(find.textContaining('Either of you can change it'), findsOneWidget);
+    expect(find.textContaining('keeps it to themselves'), findsNothing);
+    expect(find.text('Clear'), findsOneWidget);
+    expect(find.text('Save'), findsOneWidget);
+  });
+
   testWidgets('under eight days the card counts days and hours', (tester) async {
     final view = reunionView(DateTime(2026, 11, 13), DateTime(2026, 11, 9, 13));
     await tester.pumpWidget(

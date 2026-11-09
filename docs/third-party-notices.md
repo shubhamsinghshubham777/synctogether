@@ -20,6 +20,16 @@ Because the libraries are separate shared objects, you can replace them with
 your own build of the same version. Also bundled and under their own licenses:
 libass, dav1d, FreeType, FriBidi, HarfBuzz, libxml2, Mbed TLS, uchardet.
 
+## ANGLE and libwebrtc (Windows)
+
+Prebuilt, unmodified binaries committed in `third_party/` so builds do not
+depend on GitHub being reachable.
+
+- ANGLE (BSD-3-Clause): https://github.com/alexmercerind/flutter-windows-ANGLE-OpenGL-ES,
+  `v1.0.1`, used by media_kit's Windows renderer
+- libwebrtc (BSD-3-Clause): https://github.com/webrtc-sdk/libwebrtc, release
+  `libwebrtc.m150.7871.02`, used by flutter_webrtc
+
 ## media_kit
 
 MIT. https://github.com/media-kit/media-kit. The `media_kit_libs_*_video`

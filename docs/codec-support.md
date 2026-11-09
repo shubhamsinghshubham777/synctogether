@@ -22,9 +22,11 @@ upstream 1.x; diff against the pub package to see exactly that.
 
 **Why Windows is on a different mpv.** No full-codec Windows build exists at
 mpv 0.36, and building one means pinning every 2023 dependency of a
-toolchain that tracks upstream HEAD. The Windows archive is mirrored on our own
-release `deps-libmpv-win-20261011` (a pre-release; it must never be marked
-"latest", so it never becomes the repo's latest release), since upstream
+toolchain that tracks upstream HEAD. The Windows archive is committed under
+`third_party/media_kit_libs_windows_video/windows/vendor/` and the build copies
+it from there (MD5-checked), so no build depends on GitHub being reachable.
+It is also mirrored on our own release `deps-libmpv-win-20261011` (a
+pre-release; it must never be marked "latest") as a backup, since upstream
 deletes builds after about a month.
 
 ## The contract
@@ -102,9 +104,11 @@ AVI and in Matroska); the full build passes all 21.
 
 - **Apple/Android**: change the version and checksum in the vendored Makefile /
   `build.gradle`; confirm the release contains `video-full` assets.
-- **Windows**: download the new `mpv-dev-lgpl-x86_64-*.7z`, mirror it on a new
-  `deps-libmpv-win-<date>` pre-release (`--latest=false`), update the URL and md5
-  in the vendored `CMakeLists.txt`, then re-run the probe and the subtitle
+- **Windows**: download the new `mpv-dev-lgpl-x86_64-*.7z`, replace the file in
+  `third_party/media_kit_libs_windows_video/windows/vendor/` (delete the old
+  one), update the archive name and md5 in the vendored `CMakeLists.txt`, and
+  optionally mirror it on a new `deps-libmpv-win-<date>` pre-release
+  (`--latest=false`) as a backup. Then re-run the probe and the subtitle
   tests: mpv option names and defaults move between versions.
 
 ## Licensing

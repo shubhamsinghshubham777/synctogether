@@ -28,6 +28,22 @@ function(download_and_verify url md5 locationForArchive)
     endif()
   endif()
 
+  # Prefer the copy committed under vendor/ so a build never depends on
+  # GitHub being reachable. Only used when its MD5 matches the pinned one.
+  if(NOT EXISTS "${locationForArchive}")
+    get_filename_component(_archive_name "${locationForArchive}" NAME)
+    set(_vendored "${CMAKE_CURRENT_FUNCTION_LIST_DIR}/vendor/${_archive_name}")
+    if(EXISTS "${_vendored}")
+      file(MD5 "${_vendored}" VENDORED_MD5)
+      if(md5 STREQUAL VENDORED_MD5)
+        file(COPY "${_vendored}" DESTINATION "${CMAKE_BINARY_DIR}")
+        message(STATUS "Using vendored ${_archive_name}.")
+      else()
+        message(WARNING "Vendored ${_archive_name} has the wrong MD5; downloading instead.")
+      endif()
+    endif()
+  endif()
+
   # Download the archive if it doesn't exist.
   if(NOT EXISTS "${locationForArchive}")
     message(STATUS "Downloading archive from ${url}...")

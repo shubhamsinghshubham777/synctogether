@@ -20,6 +20,10 @@ import 'pair_widgets.dart';
 
 /// "Our year": one card, stats only - no titles, no chat - sized 4:5 for a story
 /// or a chat, with the wordmark on it. Safe to share by construction.
+/// How wide the card may be shown. Wider than its 340 design points so a desktop window is
+/// not left mostly empty, capped so it never swallows the screen.
+const _kCardMaxWidth = 520.0;
+
 class YearRecapScreen extends StatefulWidget {
   const YearRecapScreen({super.key});
 
@@ -112,18 +116,32 @@ class _YearRecapScreenState extends State<YearRecapScreen> {
       title: 'Our year',
       spacing: 16,
       children: [
-        Center(
-          child: RepaintBoundary(
-            key: _boundary,
-            child: _YearCard(
-              year: _year,
-              mine: mine,
-              theirs: theirs,
-              apart: apart,
-              stats: stats,
-              months: _months,
-            ),
-          ),
+        // The card is drawn at its fixed design size and only *shown* scaled to the space,
+        // so the exported image is the same 1020 x 1275 whatever screen it came from.
+        LayoutBuilder(
+          builder: (context, box) {
+            final width = box.maxWidth < _kCardMaxWidth ? box.maxWidth : _kCardMaxWidth;
+            return Center(
+              child: SizedBox(
+                width: width,
+                height: width * _YearCard._h / _YearCard._w,
+                child: FittedBox(
+                  fit: BoxFit.contain,
+                  child: RepaintBoundary(
+                    key: _boundary,
+                    child: _YearCard(
+                      year: _year,
+                      mine: mine,
+                      theirs: theirs,
+                      apart: apart,
+                      stats: stats,
+                      months: _months,
+                    ),
+                  ),
+                ),
+              ),
+            );
+          },
         ),
         Builder(
           builder: (buttonContext) => PTButton(
@@ -171,113 +189,95 @@ class _YearCard extends StatelessWidget {
     // The card is an image people share, so it is drawn at one fixed design size
     // with text scaling off - it must look the same for everyone who sends it,
     // however large their system text is - and scaled down to fit the screen.
-    return LayoutBuilder(
-      builder: (context, box) {
-        final width = box.maxWidth < _w ? box.maxWidth : _w;
-        return SizedBox(
-          width: width,
-          height: width * _h / _w,
-          child: FittedBox(
-            fit: BoxFit.contain,
-            child: SizedBox(
-              width: _w,
-              height: _h,
-              child: MediaQuery(
-                data: MediaQuery.of(context).copyWith(textScaler: TextScaler.noScaling),
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: PTColors.canvas,
-                    borderRadius: BorderRadius.circular(PTRadius.panel),
-                    border: Border.all(color: PTColors.rail),
+    return SizedBox(
+      width: _w,
+      height: _h,
+      child: MediaQuery(
+        data: MediaQuery.of(context).copyWith(textScaler: TextScaler.noScaling),
+        child: Container(
+          decoration: BoxDecoration(
+            color: PTColors.canvas,
+            borderRadius: BorderRadius.circular(PTRadius.panel),
+            border: Border.all(color: PTColors.rail),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: CustomPaint(
+            painter: _BoothPainter(months),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(26, 26, 26 + _stripRoom, 26),
+              child: Column(
+                crossAxisAlignment: .start,
+                spacing: 14,
+                children: [
+                  Text(
+                    'OUR YEAR · $year',
+                    style: PTText.label.copyWith(color: PTColors.primary, letterSpacing: 2),
                   ),
-                  clipBehavior: Clip.antiAlias,
-                  child: CustomPaint(
-                    painter: _BoothPainter(months),
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(26, 26, 26 + _stripRoom, 26),
-                      child: Column(
-                        crossAxisAlignment: .start,
-                        spacing: 14,
-                        children: [
-                          Text(
-                            'OUR YEAR · $year',
-                            style: PTText.label.copyWith(color: PTColors.primary, letterSpacing: 2),
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      '$mine & $theirs',
+                      style: PTText.display.copyWith(fontSize: 38, height: 0.95),
+                    ),
+                  ),
+                  if (apart != null)
+                    Row(
+                      spacing: 8,
+                      children: [
+                        const Icon(BoothIcons.globe, size: 16, color: PTColors.fgDim),
+                        Expanded(
+                          child: Text(
+                            apart!,
+                            maxLines: 1,
+                            overflow: .ellipsis,
+                            style: PTText.caption.copyWith(color: PTColors.fgSoft),
                           ),
-                          FittedBox(
-                            fit: BoxFit.scaleDown,
-                            alignment: Alignment.centerLeft,
-                            child: Text(
-                              '$mine & $theirs',
-                              style: PTText.display.copyWith(fontSize: 38, height: 0.95),
-                            ),
-                          ),
-                          if (apart != null)
-                            Row(
-                              spacing: 8,
-                              children: [
-                                const Icon(BoothIcons.globe, size: 16, color: PTColors.fgDim),
-                                Expanded(
-                                  child: Text(
-                                    apart!,
-                                    maxLines: 1,
-                                    overflow: .ellipsis,
-                                    style: PTText.caption.copyWith(color: PTColors.fgSoft),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          const Spacer(),
-                          FittedBox(
-                            fit: BoxFit.scaleDown,
-                            alignment: Alignment.centerLeft,
-                            child: Text(
-                              hoursLabel(stats.hours),
-                              style: PTText.display.copyWith(
-                                fontSize: 84,
-                                height: 0.9,
-                                color: PTColors.streak,
-                              ),
-                            ),
-                          ),
-                          Text(
-                            'hours watching the same screen',
-                            style: PTText.body.copyWith(fontSize: 15, color: PTColors.fgDim),
-                          ),
-                          const Divider(height: 1, color: PTColors.rail),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              for (final t in [
-                                countLabel(stats.nights, 'Night'),
-                                countLabel(stats.films, 'Film'),
-                                '${stats.bestStreakWeeks} WK STREAK',
-                              ])
-                                Text(
-                                  t,
-                                  style: PTText.mono.copyWith(
-                                    fontSize: 10.5,
-                                    color: PTColors.fgSoft,
-                                  ),
-                                ),
-                            ],
-                          ),
-                          Text(
-                            'sync·together',
-                            style: PTText.cardHeading.copyWith(
-                              fontSize: 14,
-                              color: PTColors.fgMute,
-                            ),
-                          ),
-                        ],
+                        ),
+                      ],
+                    ),
+                  const Spacer(),
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      hoursLabel(stats.hours),
+                      style: PTText.display.copyWith(
+                        fontSize: 84,
+                        height: 0.9,
+                        color: PTColors.streak,
                       ),
                     ),
                   ),
-                ),
+                  Text(
+                    'hours watching the same screen',
+                    style: PTText.body.copyWith(fontSize: 15, color: PTColors.fgDim),
+                  ),
+                  const Divider(height: 1, color: PTColors.rail),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      for (final t in [
+                        countLabel(stats.nights, 'Night'),
+                        countLabel(stats.films, 'Film'),
+                        '${stats.bestStreakWeeks} WK STREAK',
+                      ])
+                        Text(
+                          t,
+                          style: PTText.mono.copyWith(fontSize: 10.5, color: PTColors.fgSoft),
+                        ),
+                    ],
+                  ),
+                  Text(
+                    'sync·together',
+                    style: PTText.cardHeading.copyWith(fontSize: 14, color: PTColors.fgMute),
+                  ),
+                ],
               ),
             ),
           ),
-        );
-      },
+        ),
+      ),
     );
   }
 }

@@ -250,8 +250,13 @@ enum ReunionPhase {
 }
 
 class ReunionView {
-  const ReunionView(this.phase, this.daysLeft);
+  const ReunionView(this.phase, this.daysLeft, {this.wholeDays = 0, this.hoursPart = 0});
   final ReunionPhase phase;
+
+  /// Exact time to the start of the reunion day, as whole days and the hours after them.
+  /// Only the near phase shows it ("3 days 11 h"); the distant one stays on calendar days.
+  final int wholeDays;
+  final int hoursPart;
 
   /// Whole calendar days, by the device's own date. Negative once it has passed.
   final int daysLeft;
@@ -272,7 +277,13 @@ ReunionView reunionView(DateTime reunionOn, DateTime now) {
       : left < 8
       ? ReunionPhase.near
       : ReunionPhase.distant;
-  return ReunionView(phase, left);
+  final span = day.difference(now);
+  return ReunionView(
+    phase,
+    left,
+    wholeDays: span.isNegative ? 0 : span.inDays,
+    hoursPart: span.isNegative ? 0 : span.inHours % 24,
+  );
 }
 
 /// Time two people spend in Our Room *together*: the clock runs only while both

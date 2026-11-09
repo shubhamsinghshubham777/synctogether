@@ -16,6 +16,7 @@ import '../ui/booth.dart';
 import '../ui/booth_icons.g.dart';
 import '../ui/buttons.dart';
 import '../ui/glass.dart';
+import '../ui/inputs.dart';
 import '../ui/loader.dart';
 import '../ui/panel_switcher.dart';
 import '../ui/reveal.dart';
@@ -539,7 +540,7 @@ class _Hub extends StatelessWidget {
                 title: 'Streak and history',
                 value: streak > 0 ? '$streak ${streak == 1 ? 'week' : 'weeks'}' : 'Start one',
                 valueColor: streak > 0 ? PTColors.streak : null,
-                onTap: () => openPage(context, '/lobby/pair/history'),
+                onTap: () => openPage(context, '/lobby/pair/streak'),
               ),
               const PairDivider(),
               PairRow(
@@ -594,8 +595,24 @@ Future<void> openOurRoom(BuildContext context, {bool call = false}) async {
 Future<void> editReunion(BuildContext context) async {
   final pair = PairService.instance.pair;
   if (pair == null) return;
+  final me = ProfileService.instance.profile?.id;
+  // Someone else set it and keeps it to themselves: I can still choose whether it shows on
+  // my lobby, but not change the date.
+  final locked = !pair.canEditReunion(me);
+  final iSetIt = pair.reunionSetBy == null || pair.reunionSetBy == me;
+  final first = pair.partner.displayName.split(' ').first;
   final labelController = TextEditingController(text: pair.reunionLabel ?? '');
   var picked = pair.reunionOn;
+  var shared = pair.reunionSharedEdit;
+  var show = pair.showReunion;
+  Future<void> run(Future<void> Function() action) async {
+    try {
+      await action();
+    } catch (e) {
+      if (context.mounted) showPTSnack(context, PairErrorCode.fromError(e).message, kind: .error);
+    }
+  }
+
   await showGlassDialog<void>(
     context: context,
     width: 420,
@@ -610,48 +627,85 @@ Future<void> editReunion(BuildContext context) async {
             variant: .secondary,
             icon: BoothIcons.calendar,
             height: 46,
-            onPressed: () async {
-              final now = DateTime.now();
-              final d = await showPTDateTimePicker(
-                ctx,
-                initial: picked ?? now.add(const Duration(days: 30)),
-                min: DateTime(now.year, now.month, now.day),
-                max: now.add(const Duration(days: 365 * 3)),
-                dateOnly: true,
-                boundsCaption: 'Three years ahead is as far as we can plan.',
-              );
-              if (d != null) setState(() => picked = d);
-            },
+            onPressed: locked
+                ? null
+                : () async {
+                    final now = DateTime.now();
+                    final d = await showPTDateTimePicker(
+                      ctx,
+                      initial: picked ?? now.add(const Duration(days: 30)),
+                      min: DateTime(now.year, now.month, now.day),
+                      max: now.add(const Duration(days: 365 * 3)),
+                      dateOnly: true,
+                      boundsCaption: 'Three years ahead is as far as we can plan.',
+                    );
+                    if (d != null) setState(() => picked = d);
+                  },
           ),
           TextField(
             controller: labelController,
+            enabled: !locked,
             maxLength: 60,
             style: PTText.body,
             decoration: const InputDecoration(hintText: 'A label, like "Sam lands at Heathrow"'),
           ),
+          PTToggleRow(
+            title: 'Show on the lobby',
+            subtitle: 'Only on your own lobby',
+            value: show,
+            onChanged: (v) => setState(() => show = v),
+          ),
+          if (iSetIt)
+            PTToggleRow(
+              title: 'Either of us can edit',
+              subtitle: shared ? '$first can change the date too' : 'Only you can change it',
+              value: shared,
+              onChanged: (v) => setState(() => shared = v),
+            )
+          else
+            Text(
+              '$first set this date and keeps it to themselves.',
+              style: PTText.caption.copyWith(color: PTColors.fgSoft),
+            ),
           Row(
             spacing: 10,
             children: [
-              Expanded(
-                child: PTButton(
-                  label: 'Clear',
-                  variant: .secondary,
-                  height: 44,
-                  onPressed: () async {
-                    Navigator.of(ctx).pop();
-                    await PairService.instance.setReunion(null, null);
-                  },
+              if (!locked)
+                Expanded(
+                  child: PTButton(
+                    label: 'Clear',
+                    variant: .secondary,
+                    height: 44,
+                    onPressed: () async {
+                      Navigator.of(ctx).pop();
+                      await run(
+                        () => PairService.instance.setReunion(null, null, showOnLobby: show),
+                      );
+                    },
+                  ),
                 ),
-              ),
               Expanded(
                 child: PTButton(
-                  label: 'Save',
+                  label: locked ? 'Done' : 'Save',
                   height: 44,
-                  onPressed: picked == null
+                  onPressed: !locked && picked == null
                       ? null
                       : () async {
                           Navigator.of(ctx).pop();
-                          await PairService.instance.setReunion(picked, labelController.text);
+                          await run(
+                            () => locked
+                                ? PairService.instance.setReunion(
+                                    pair.reunionOn,
+                                    pair.reunionLabel,
+                                    showOnLobby: show,
+                                  )
+                                : PairService.instance.setReunion(
+                                    picked,
+                                    labelController.text,
+                                    sharedEdit: iSetIt ? shared : null,
+                                    showOnLobby: show,
+                                  ),
+                          );
                         },
                 ),
               ),

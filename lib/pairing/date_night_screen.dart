@@ -173,7 +173,7 @@ class _Upcoming extends StatelessWidget {
         ..._endedCards(ended, me: me, now: now, pair: pair),
         if (!patron && canSellPremium) const _PatronRow(),
         PTPressable(
-          onTap: () => openPage(context, '/lobby/pair/history'),
+          onTap: () => openPage(context, '/lobby/pair/streak'),
           pressedScale: 0.99,
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 10),

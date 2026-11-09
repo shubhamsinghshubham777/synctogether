@@ -533,4 +533,38 @@ void fileViewTests() {
       expect(months, {3, 11});
     });
   });
+
+  group('reunion countdown and who may edit it', () {
+    test('under eight days it counts days and hours to the start of the day', () {
+      final view = reunionView(DateTime(2026, 11, 13), DateTime(2026, 11, 9, 13));
+      expect(view.phase, ReunionPhase.near);
+      expect(view.wholeDays, 3);
+      expect(view.hoursPart, 11);
+    });
+
+    test('far out it stays on calendar days', () {
+      final view = reunionView(DateTime(2026, 12, 26), DateTime(2026, 11, 9, 13));
+      expect(view.phase, ReunionPhase.distant);
+      expect(view.daysLeft, 47);
+    });
+
+    PairInfo pair({String? setBy, bool shared = true}) => PairInfo(
+      pairId: 'p',
+      since: DateTime(2026),
+      partner: const PairPartner(id: 'sam', displayName: 'Sam'),
+      reunionOn: setBy == null ? null : DateTime(2026, 12, 26),
+      reunionSetBy: setBy,
+      reunionSharedEdit: shared,
+    );
+
+    test('either may edit a shared or unset date', () {
+      expect(pair().canEditReunion('me'), isTrue);
+      expect(pair(setBy: 'sam').canEditReunion('me'), isTrue);
+    });
+
+    test('a locked date is editable only by whoever set it', () {
+      expect(pair(setBy: 'sam', shared: false).canEditReunion('me'), isFalse);
+      expect(pair(setBy: 'me', shared: false).canEditReunion('me'), isTrue);
+    });
+  });
 }

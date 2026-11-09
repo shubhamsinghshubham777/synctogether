@@ -14,6 +14,7 @@ import 'package:synctogether/pairing/pair_logic.dart';
 import 'package:synctogether/pairing/pair_models.dart';
 import 'package:synctogether/pairing/pair_service.dart';
 import 'package:synctogether/pairing/push_service.dart';
+import 'package:synctogether/pairing/streak_screen.dart';
 import 'package:synctogether/pairing/year_recap_screen.dart';
 import 'package:synctogether/platform.dart';
 import 'package:synctogether/rewards/rewards_service.dart';
@@ -382,11 +383,37 @@ void main() {
     );
     await pumpAtSize(tester, const HistoryScreen(), c, textScale: s, singlePane: true);
     await tester.pump(const Duration(milliseconds: 500));
+    expect(find.text('Our history'), findsOneWidget);
+    expect(find.text('Last 7 days'.toUpperCase()), findsOneWidget);
+    expect(find.text('OLDER'), findsOneWidget);
+    expect(find.bySemanticsLabel('45 older nights, locked'), findsOneWidget);
     expect(find.textContaining('45 older nights are kept safe'), findsOneWidget);
     final first = now.subtract(const Duration(days: 1)).toLocal();
     expect(find.text(weekdayShort(first)), findsWidgets);
     expect(find.text('${first.day}'), findsWidgets);
     expect(find.text('Export my history'), findsOneWidget);
+    await finishCase(tester);
+  });
+
+  screenMatrix('pair/streak', (tester, c, s) async {
+    PairService.instance = FakePairService(
+      pair: samePairInfo(patron: true),
+      stats: const PairStats(
+        streakWeeks: 12,
+        bestStreakWeeks: 12,
+        nights: 47,
+        hours: 112.4,
+        films: 31,
+        doneThisWeek: true,
+      ),
+    );
+    await pumpAtSize(tester, const StreakScreen(), c, textScale: s, singlePane: true);
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.text('Our streak'), findsOneWidget);
+    expect(find.text('Our history'), findsOneWidget);
+    expect(find.text('Our year'), findsOneWidget);
+    expect(find.text('Plan this week'), findsOneWidget);
+    expect(find.text('WATCHED TOGETHER'), findsNothing, reason: 'the list lives on its own screen');
     await finishCase(tester);
   });
 

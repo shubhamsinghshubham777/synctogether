@@ -17,9 +17,9 @@ import 'pair_service.dart';
 import 'pair_share.dart';
 import 'pair_widgets.dart';
 
-/// Your streak and what you watched together. The last seven days are free; the
-/// rest is kept (never deleted) behind Patron on either side - and the export
-/// is always free, so a lapse never feels like losing the memories.
+/// What you watched together. The last seven days are free; the rest is kept (never
+/// deleted) behind Patron on either side - and the export is always free, so a lapse
+/// never feels like losing the memories.
 class HistoryScreen extends StatefulWidget {
   const HistoryScreen({super.key});
 
@@ -60,47 +60,19 @@ class _HistoryScreenState extends State<HistoryScreen> {
     return ListenableBuilder(
       listenable: PairService.instance,
       builder: (context, _) {
-        final svc = PairService.instance;
-        final stats = svc.stats;
-        final history = svc.history;
+        final history = PairService.instance.history;
 
-        // Group the visible sittings by month, newest first.
-        final byMonth = <String, List<PairSession>>{};
+        // With the full archive the sittings are grouped by month, newest first; without it
+        // everything visible is from the last seven days.
+        final groups = <String, List<PairSession>>{};
         for (final s in history.items) {
-          byMonth.putIfAbsent(monthHeading(s.startedAt.toLocal()), () => []).add(s);
+          final heading = history.patron ? monthHeading(s.startedAt.toLocal()) : 'Last 7 days';
+          groups.putIfAbsent(heading, () => []).add(s);
         }
 
         return PairPage(
-          title: 'Our streak',
+          title: 'Our history',
           children: [
-            _StreakCard(stats: stats),
-            Row(
-              spacing: 10,
-              children: [
-                Expanded(
-                  child: _Stat(value: '${stats.nights}', label: 'nights'),
-                ),
-                Expanded(
-                  child: _Stat(value: hoursLabel(stats.hours), label: 'hours'),
-                ),
-                Expanded(
-                  child: _Stat(value: '${stats.films}', label: 'films'),
-                ),
-              ],
-            ),
-            const PairNote(
-              'A week counts when you spent twenty minutes together in it. Missing one only affects this streak, never your own.',
-            ),
-            PairPanel(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: PairRow(
-                icon: BoothIcons.star,
-                title: 'Our year',
-                onTap: () => openPage(context, '/lobby/pair/year'),
-              ),
-            ),
-            const SizedBox(height: 4),
-            const PairKicker('Watched together'),
             if (history.items.isEmpty && history.lockedCount == 0)
               PairPanel(
                 child: Text(
@@ -109,7 +81,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 ),
               )
             else ...[
-              for (final entry in byMonth.entries) ...[
+              for (final entry in groups.entries) ...[
                 PairKicker(entry.key),
                 PairPanel(
                   padding: const EdgeInsets.symmetric(horizontal: 14),
@@ -123,7 +95,11 @@ class _HistoryScreenState extends State<HistoryScreen> {
                   ),
                 ),
               ],
-              if (history.lockedCount > 0) _LockedCard(count: history.lockedCount),
+              if (history.lockedCount > 0) ...[
+                const PairKicker('Older'),
+                _LockedRows(count: history.lockedCount),
+                _LockedCard(count: history.lockedCount),
+              ],
             ],
             if (history.items.isNotEmpty || history.lockedCount > 0)
               Builder(
@@ -143,107 +119,65 @@ class _HistoryScreenState extends State<HistoryScreen> {
   }
 }
 
-class _StreakCard extends StatelessWidget {
-  const _StreakCard({required this.stats});
+/// The older nights that are kept but hidden: up to three placeholder rows behind a lock,
+/// so the list shows that there is more without showing what.
+class _LockedRows extends StatelessWidget {
+  const _LockedRows({required this.count});
 
-  final PairStats stats;
+  final int count;
 
   @override
   Widget build(BuildContext context) {
-    final weeks = stats.streakWeeks;
-    final lit = weeks.clamp(0, 8);
-    return PairPanel(
-      padding: const EdgeInsets.all(18),
-      child: Column(
-        crossAxisAlignment: .stretch,
-        spacing: 16,
-        children: [
-          Row(
-            spacing: 10,
+    Widget bar(double w, double h) => Container(
+      width: w,
+      height: h,
+      decoration: BoxDecoration(
+        color: PTColors.aisle,
+        borderRadius: BorderRadius.circular(PTRadius.control),
+      ),
+    );
+    final rows = count.clamp(1, 3);
+    return Semantics(
+      label: '$count older ${count == 1 ? 'night' : 'nights'}, locked',
+      child: ExcludeSemantics(
+        child: PairPanel(
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+          child: Column(
             children: [
-              const Icon(BoothIcons.fire, size: 28, color: PTColors.streak),
-              Text(
-                '$weeks',
-                style: PTText.display.copyWith(fontSize: 48, height: 1, color: PTColors.streak),
-              ),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: .start,
-                  spacing: 2,
-                  children: [
-                    Text(
-                      weeks == 1 ? 'week of date nights' : 'weeks of date nights',
-                      style: PTText.body.copyWith(
-                        fontWeight: .w600,
-                        fontSize: 15,
-                        color: PTColors.fg,
+              for (var i = 0; i < rows; i++) ...[
+                if (i > 0) const PairDivider(),
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  child: Row(
+                    spacing: 12,
+                    children: [
+                      Container(
+                        width: 44,
+                        height: 44,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: PTColors.aisle,
+                          borderRadius: BorderRadius.circular(PTRadius.control),
+                        ),
+                        child: const Icon(BoothIcons.lock, size: 16, color: PTColors.fgMute),
                       ),
-                    ),
-                    Text(
-                      'BEST · ${stats.bestStreakWeeks} ${stats.bestStreakWeeks == 1 ? 'WEEK' : 'WEEKS'}',
-                      style: PTText.mono.copyWith(fontSize: 11, color: PTColors.fgMute),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            spacing: 8,
-            children: [
-              for (var i = 0; i < 8; i++)
-                Container(
-                  width: 22,
-                  height: 22,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: i < lit ? PTColors.streak : Colors.transparent,
-                    border: Border.all(
-                      color: i < lit ? PTColors.streak : PTColors.rail,
-                      width: 1.5,
-                    ),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: .start,
+                          spacing: 8,
+                          children: [bar(120.0 + 40 * (i % 3), 10), bar(70, 8)],
+                        ),
+                      ),
+                    ],
                   ),
                 ),
+              ],
             ],
           ),
-          Text(
-            stats.doneThisWeek
-                ? "That's this week done. See you next week."
-                : weeks > 0
-                ? 'One night together a week keeps it going. Next one by Sunday.'
-                : 'Spend twenty minutes together this week to start one.',
-            textAlign: TextAlign.center,
-            style: PTText.caption.copyWith(color: PTColors.fgSoft),
-          ),
-        ],
+        ),
       ),
     );
   }
-}
-
-class _Stat extends StatelessWidget {
-  const _Stat({required this.value, required this.label});
-
-  final String value;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) => PairPanel(
-    padding: const EdgeInsets.all(14),
-    child: Column(
-      crossAxisAlignment: .start,
-      spacing: 4,
-      children: [
-        FittedBox(
-          fit: BoxFit.scaleDown,
-          alignment: Alignment.centerLeft,
-          child: Text(value, style: PTText.display.copyWith(fontSize: 30, height: 1)),
-        ),
-        Text(label, style: PTText.caption.copyWith(color: PTColors.fgSoft, fontSize: 12)),
-      ],
-    ),
-  );
 }
 
 class _SessionRow extends StatelessWidget {

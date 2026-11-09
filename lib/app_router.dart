@@ -12,6 +12,7 @@ import 'auth/login_screen.dart';
 import 'pairing/date_night_plan.dart' show PlanNightScreen;
 import 'pairing/date_night_screen.dart';
 import 'pairing/history_screen.dart';
+import 'pairing/streak_screen.dart';
 import 'pairing/notification_settings_screen.dart';
 import 'pairing/pair_accept_screen.dart';
 import 'pairing/pair_screen.dart';
@@ -133,6 +134,10 @@ GoRouter buildRouter([Player? player]) {
               GoRoute(
                 path: 'plan-night',
                 pageBuilder: (context, state) => _detail(state, const PlanNightScreen()),
+              ),
+              GoRoute(
+                path: 'streak',
+                pageBuilder: (context, state) => _detail(state, const StreakScreen()),
               ),
               GoRoute(
                 path: 'history',

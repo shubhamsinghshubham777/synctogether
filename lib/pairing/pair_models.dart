@@ -70,6 +70,9 @@ class PairInfo {
     required this.partner,
     this.reunionOn,
     this.reunionLabel,
+    this.reunionSharedEdit = true,
+    this.reunionSetBy,
+    this.showReunion = true,
     this.patron = false,
     this.roomId,
     this.roomCode,
@@ -84,6 +87,9 @@ class PairInfo {
       // A date with no time of day: parsed as a calendar day, not an instant.
       reunionOn: reunion == null ? null : DateTime.tryParse(reunion),
       reunionLabel: json['reunion_label'] as String?,
+      reunionSharedEdit: json['reunion_shared_edit'] as bool? ?? true,
+      reunionSetBy: json['reunion_set_by'] as String?,
+      showReunion: json['show_reunion'] as bool? ?? true,
       patron: json['patron'] as bool? ?? false,
       roomId: json['room_id'] as String?,
       roomCode: json['room_code'] as String?,
@@ -95,6 +101,18 @@ class PairInfo {
   final PairPartner partner;
   final DateTime? reunionOn;
   final String? reunionLabel;
+
+  /// Whether the other person may change the date, and who set it. With sharing off only
+  /// the person who set it can edit or clear it.
+  final bool reunionSharedEdit;
+  final String? reunionSetBy;
+
+  /// My own lobby preference: whether the countdown shows on my lobby.
+  final bool showReunion;
+
+  /// Whether [me] may change or clear the date right now.
+  bool canEditReunion(String? me) =>
+      reunionSetBy == null || reunionSharedEdit || reunionSetBy == me;
 
   /// Either partner has Patron. Decides who may schedule and how much history
   /// is shown - the server enforces both, this only shapes the affordance.
@@ -403,6 +421,10 @@ enum PairErrorCode {
   patronRequired(
     'patron_required',
     'Planning a date night needs Patron on either side. Answering one never does.',
+  ),
+  reunionLocked(
+    'reunion_locked',
+    'That date is kept by whoever set it. Ask them to change it, or to let you edit.',
   ),
   invalidTime('invalid_time', 'Pick a time at least a few minutes from now.'),
   invalidTitle('invalid_title', 'Give it a name first.'),

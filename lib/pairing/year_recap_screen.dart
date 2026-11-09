@@ -1,12 +1,16 @@
 import 'dart:async';
+import 'dart:typed_data';
 import 'dart:ui' as ui;
 
+import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 
 import '../analytics.dart';
 import '../diagnostics.dart';
+import '../platform.dart';
 import '../profile/profile_service.dart';
+import '../ui/banners.dart';
 import '../ui/booth_icons.g.dart';
 import '../ui/buttons.dart';
 import '../ui/loader.dart';
@@ -37,6 +41,7 @@ class _YearRecapScreenState extends State<YearRecapScreen> {
   Set<int> _months = const {};
   int _year = DateTime.now().year;
   bool _sharing = false;
+  bool _saving = false;
 
   @override
   void initState() {
@@ -70,23 +75,53 @@ class _YearRecapScreenState extends State<YearRecapScreen> {
     }
   }
 
-  Future<void> _share(BuildContext buttonContext) async {
+  /// The card as a PNG at 3x its design size, or null if it is not on screen.
+  Future<Uint8List?> _capture() async {
     final render = _boundary.currentContext?.findRenderObject();
-    if (render is! RenderRepaintBoundary) return;
+    if (render is! RenderRepaintBoundary) return null;
+    final image = await render.toImage(pixelRatio: 3);
+    final data = await image.toByteData(format: ui.ImageByteFormat.png);
+    return data?.buffer.asUint8List();
+  }
+
+  Future<void> _share(BuildContext buttonContext) async {
     setState(() => _sharing = true);
     try {
-      final image = await render.toImage(pixelRatio: 3);
-      final data = await image.toByteData(format: ui.ImageByteFormat.png);
-      if (data == null || !buttonContext.mounted) return;
+      final bytes = await _capture();
+      if (bytes == null || !buttonContext.mounted) return;
       final shared = await shareBytes(
         buttonContext,
-        bytes: data.buffer.asUint8List(),
+        bytes: bytes,
         name: 'our-year-$_year.png',
         mimeType: 'image/png',
       );
       if (shared) Analytics.instance.track('pair_year_shared');
     } finally {
       if (mounted) setState(() => _sharing = false);
+    }
+  }
+
+  /// Desktop only: a save dialog. On a phone the share sheet already has "Save Image".
+  Future<void> _save() async {
+    setState(() => _saving = true);
+    try {
+      final bytes = await _capture();
+      if (bytes == null) return;
+      final name = 'our-year-$_year.png';
+      final where = await getSaveLocation(
+        suggestedName: name,
+        acceptedTypeGroups: const [
+          XTypeGroup(label: 'PNG image', extensions: ['png'], mimeTypes: ['image/png']),
+        ],
+      );
+      if (where == null) return;
+      await XFile.fromData(bytes, mimeType: 'image/png', name: name).saveTo(where.path);
+      if (mounted) showPTSnack(context, 'Saved.', kind: .success);
+    } catch (e, st) {
+      reportNonFatal(e, st, during: 'saving the year card');
+      if (mounted) showPTSnack(context, "Couldn't save just now. Try again.", kind: .error);
+    } finally {
+      if (mounted) setState(() => _saving = false);
     }
   }
 
@@ -143,13 +178,29 @@ class _YearRecapScreenState extends State<YearRecapScreen> {
             );
           },
         ),
-        Builder(
-          builder: (buttonContext) => PTButton(
-            label: 'Share image',
-            icon: BoothIcons.share,
-            loading: _sharing,
-            onPressed: stats.nights == 0 ? null : () => _share(buttonContext),
-          ),
+        Row(
+          spacing: 10,
+          children: [
+            Expanded(
+              child: Builder(
+                builder: (buttonContext) => PTButton(
+                  label: 'Share image',
+                  icon: BoothIcons.share,
+                  loading: _sharing,
+                  onPressed: stats.nights == 0 ? null : () => _share(buttonContext),
+                ),
+              ),
+            ),
+            if (isDesktop)
+              Expanded(
+                child: PTButton(
+                  label: 'Save',
+                  variant: .secondary,
+                  loading: _saving,
+                  onPressed: stats.nights == 0 ? null : _save,
+                ),
+              ),
+          ],
         ),
         PairNote(
           stats.nights == 0

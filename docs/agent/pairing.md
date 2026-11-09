@@ -98,3 +98,12 @@ A QR code for the invite (a long-distance pair is rarely in the same room, and t
 - `date_nights.moved_from` is set by `reschedule_date_night` to the time the night moved from (a second move before an answer keeps the first), cleared by trigger when the new time is accepted, kept on a decline. The card shows a "NEW TIME / YOUR ANSWER" badge, "Moved from ..." under the title and a struck-through "A becomes B" line.
 - `nightStanding` gives an accepted night the same 30 minutes of grace the list does before it counts as `done`, so "Starting now" is still an accepted card. Cancelled and declined nights stay listed for 48 hours after `updated_at` (`recentlyEndedNights`), with "Plan another night" / "Suggest another time" on them.
 - The accepted card has two calendar actions: the system add-to-calendar, and "Share .ics" (always the file).
+
+## Streak, history and the reunion switches (boards 63 and 64)
+
+- **Streak and history are two screens.** `/lobby/pair/streak` (`StreakScreen`: the weekly flame, totals, doors to history and the year card, "Plan this week") and `/lobby/pair/history` (`HistoryScreen`: the sittings, locked placeholder rows for what Patron hides, export). The hub's "Streak and history" row opens the streak.
+- **"Either of us can edit" is a real permission.** `pairs.reunion_shared_edit` + `reunion_set_by`; `set_reunion` refuses the other person with `reunion_locked` while it is off, only the person who set the date can flip it, clearing hands it back to both. `PairInfo.canEditReunion(me)` shapes the dialog; the server enforces.
+- **"Show on the lobby" is per person** (`pair_members.show_reunion`), always changeable, and hides only the countdown card on that person's own lobby.
+- `my_pair()` is redefined by three migrations now (pairing, partner nickname, reunion sharing): copy the *latest* body when changing it again, or you silently drop the nickname.
+- The notification screen has no "Watchlist additions" switch: Our Room has no watchlist yet. Add the switch and the "added a title" push together with the feature.
+- The year card's "Save" is desktop-only (a save dialog); phones use the share sheet's own "Save Image".

@@ -25,7 +25,7 @@ Future<void> showBadgeCatalog(BuildContext context, RewardState state, {String? 
     width: 520,
     scrollable: false,
     sheetOnCompact: true,
-    padding: const EdgeInsets.fromLTRB(28, 26, 20, 22),
+    padding: const EdgeInsets.fromLTRB(28, 26, 0, 0),
     builder: (context) => BadgeCatalog(state: state, focusId: focusId),
   );
 }
@@ -90,7 +90,7 @@ class _BadgeCatalogState extends State<BadgeCatalog> {
       ),
     ];
     final header = Padding(
-      padding: const EdgeInsets.only(right: 8),
+      padding: const EdgeInsets.only(right: 28),
       child: GlassDialogHeader(
         eyebrow: 'Badges',
         title: 'Every badge',
@@ -114,7 +114,7 @@ class _BadgeCatalogState extends State<BadgeCatalog> {
                 header,
                 const SizedBox(height: 14),
                 Padding(
-                  padding: const EdgeInsets.only(right: 16),
+                  padding: const EdgeInsets.only(right: 28, bottom: 22),
                   child: Column(crossAxisAlignment: .stretch, children: rows),
                 ),
               ],
@@ -132,7 +132,7 @@ class _BadgeCatalogState extends State<BadgeCatalog> {
                 height: 40,
                 child: ListView(
                   shrinkWrap: true,
-                  padding: const EdgeInsets.only(right: 16),
+                  padding: const EdgeInsets.fromLTRB(0, 0, 28, 22),
                   children: rows,
                 ),
               ),

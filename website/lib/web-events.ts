@@ -18,12 +18,12 @@ export function isWebEventName(value: unknown): value is WebEventName {
 }
 
 /**
- * The path an event is filed under. An invite code is a join credential for a
- * live room, so `/join/ABC123` is stored as `/join/*` - pageviews keep the raw
- * path for now, events never need it.
+ * The path an event is filed under. An invite code is a credential - for a live
+ * room (`/join/ABC123`) or for pairing with someone (`/pair/ABC123`) - so both
+ * are stored with the code replaced by `*`. Events never need it.
  */
 export function eventPath(pathname: unknown): string {
   if (typeof pathname !== "string" || !pathname.startsWith("/")) return "/";
   const clean = pathname.split(/[?#]/)[0].slice(0, 255);
-  return clean.replace(/^\/join\/[^/]+/, "/join/*");
+  return clean.replace(/^\/(join|pair)\/[^/]+/, "/$1/*");
 }

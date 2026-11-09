@@ -13,6 +13,9 @@ test("only listed event names are accepted", () => {
 test("the invite code never reaches the events table", () => {
   assert.equal(eventPath("/join/ABC123"), "/join/*");
   assert.equal(eventPath("/join/ABC123?x=1#y"), "/join/*");
+  assert.equal(eventPath("/pair/ABC123"), "/pair/*");
+  assert.equal(eventPath("/pair/ABC123?x=1#y"), "/pair/*");
+  assert.equal(eventPath("/pairing/ABC123"), "/pairing/ABC123", "only the exact /pair/ prefix is a credential");
   assert.equal(eventPath("/download"), "/download");
   assert.equal(eventPath("/download?code=ABC123"), "/download");
 });

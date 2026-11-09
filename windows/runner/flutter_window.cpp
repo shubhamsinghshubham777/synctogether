@@ -4,6 +4,7 @@
 
 #include "flutter/generated_plugin_registrant.h"
 #include "mic_level.h"
+#include "push_channel.h"
 #include "store_purchase.h"
 #include "system_fonts.h"
 
@@ -32,6 +33,7 @@ bool FlutterWindow::OnCreate() {
   RegisterMicLevelChannel(flutter_controller_->engine()->messenger());
   RegisterStorePurchaseChannel(flutter_controller_->engine()->messenger(),
                                GetHandle());
+  RegisterPushChannel(flutter_controller_->engine()->messenger(), GetHandle());
   SetChildContent(flutter_controller_->view()->GetNativeWindow());
 
   flutter_controller_->engine()->SetNextFrameCallback([&]() {
@@ -77,6 +79,9 @@ FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
   switch (message) {
     case kStorePurchaseMessage:
       RunStorePurchaseCallbacks();
+      return 0;
+    case kPushMessage:
+      RunPushCallbacks();
       return 0;
     case WM_FONTCHANGE:
       flutter_controller_->engine()->ReloadSystemFonts();

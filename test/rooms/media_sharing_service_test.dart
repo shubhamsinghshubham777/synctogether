@@ -555,6 +555,129 @@ void main() {
       expect(abortBody!['bytesUploaded'], 5000);
     });
 
+    test(
+      'keepSlotOnFailure leaves the slot alone when a part fails, but a cancel still aborts',
+      () async {
+        final smallFile = File('${tempDir.path}/keep_movie.mp4');
+        await smallFile.writeAsBytes(List.filled(1024, 65));
+
+        MediaSharingService serviceThatFails(List<String> actions, {CancellationToken? cancel}) {
+          return MediaSharingService(
+            edgeFunctionCaller: (action, body) async {
+              actions.add(action);
+              if (action == 'staged-initiate') {
+                return {
+                  'stagedId': 's-keep',
+                  'uploadId': 'u-keep',
+                  'r2Key': 'users/u1/staged/keep.mp4',
+                  'partSizeBytes': 10 * 1024 * 1024,
+                };
+              }
+              if (action == 'staged-part-urls') {
+                cancel?.cancel();
+                throw const HttpException('connection dropped');
+              }
+              return {'success': true};
+            },
+            httpClientFactory: () => _MockHttpClient(),
+          );
+        }
+
+        final dropped = <String>[];
+        await expectLater(
+          () =>
+              serviceThatFails(dropped).uploadStagedFile(file: smallFile, keepSlotOnFailure: true),
+          throwsA(isA<HttpException>()),
+        );
+        expect(dropped, isNot(contains('staged-abort')), reason: 'the slot stays for a resume');
+
+        final token = CancellationToken();
+        final cancelled = <String>[];
+        await expectLater(
+          () => serviceThatFails(
+            cancelled,
+            cancel: token,
+          ).uploadStagedFile(file: smallFile, keepSlotOnFailure: true, cancelToken: token),
+          throwsA(isA<HttpException>()),
+        );
+        expect(cancelled, contains('staged-abort'), reason: 'a cancel is still a cancel');
+
+        final lobby = <String>[];
+        await expectLater(
+          () => serviceThatFails(lobby).uploadStagedFile(file: smallFile),
+          throwsA(isA<HttpException>()),
+        );
+        expect(lobby, contains('staged-abort'), reason: 'the lobby default is unchanged');
+      },
+    );
+
+    test('resume skips the parts the server already holds and never initiates again', () async {
+      final file = File('${tempDir.path}/resume_movie.mp4');
+      await file.writeAsBytes(List.filled(3000, 65));
+      final calls = <String>[];
+      List<dynamic>? requestedParts;
+      List<dynamic>? completedWith;
+      var sessionCreated = false;
+
+      final service = MediaSharingService(
+        edgeFunctionCaller: (action, body) async {
+          calls.add(action);
+          if (action == 'staged-list-parts') {
+            return {
+              'parts': [
+                {'partNumber': 1, 'etag': '"aaa"', 'size': 1024},
+                {'partNumber': 2, 'etag': '"bbb"', 'size': 1024},
+              ],
+            };
+          }
+          if (action == 'staged-part-urls') {
+            requestedParts = body['partNumbers'] as List;
+            return {
+              'parts': [
+                for (final n in requestedParts!)
+                  {'partNumber': n, 'url': 'http://localhost/part$n'},
+              ],
+            };
+          }
+          if (action == 'staged-complete') {
+            completedWith = body['parts'] as List;
+            return {'success': true};
+          }
+          return {};
+        },
+        httpClientFactory: () => _MockHttpClient(),
+      );
+
+      final events = <UploadProgress>[];
+      final session = await service.uploadStagedFile(
+        file: file,
+        onProgress: events.add,
+        onSessionCreated: (_) => sessionCreated = true,
+        resume: const StagedUploadSession(
+          stagedId: 's-resume',
+          fileName: 'resume_movie.mp4',
+          fileSize: 3000,
+          uploadId: 'u-resume',
+          r2Key: 'users/u1/staged/resume.mp4',
+          totalParts: 3,
+          partSizeBytes: 1024,
+        ),
+      );
+
+      expect(calls, isNot(contains('staged-initiate')));
+      expect(sessionCreated, isFalse, reason: 'a resumed upload is not a new session');
+      expect(requestedParts, [3], reason: 'only the missing part is requested and sent');
+      expect(
+        events.first.bytesUploaded,
+        2048,
+        reason: 'the first report already counts what is held',
+      );
+      expect(events.last.state, 'ready');
+      expect(completedWith, hasLength(3), reason: 'complete lists the held parts and the new one');
+      expect(session.completedParts.keys, containsAll([1, 2, 3]));
+      expect(session.completedParts[1], 'aaa', reason: 'quotes around an ETag are stripped');
+    });
+
     test('uploadStagedFile auto-aborts when cancelToken is cancelled', () async {
       final calledActions = <String>[];
       final smallFile = File('${tempDir.path}/cancel_movie.mp4');

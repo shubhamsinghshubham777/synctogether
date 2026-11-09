@@ -42,6 +42,34 @@ class MainActivity : FlutterActivity() {
     MediaAccess.register(flutterEngine.dartExecutor.binaryMessenger, applicationContext)
     // "From Photos": the system photo picker, no permission.
     photoPicker.register(flutterEngine.dartExecutor.binaryMessenger)
+    // Push over FCM; also reads the notification tap that launched the app.
+    Push.register(flutterEngine.dartExecutor.binaryMessenger, this)
+    // "Add to Calendar": the calendar app's own insert screen. No permission, and
+    // the app never reads anyone's calendar.
+    MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "app.synctogether/calendar")
+      .setMethodCallHandler { call, result ->
+        if (call.method != "addEvent") return@setMethodCallHandler result.notImplemented()
+        val intent = Intent(Intent.ACTION_INSERT)
+          .setData(android.provider.CalendarContract.Events.CONTENT_URI)
+          .putExtra(android.provider.CalendarContract.Events.TITLE, call.argument<String>("title"))
+          .putExtra(android.provider.CalendarContract.Events.DESCRIPTION, call.argument<String>("notes"))
+          .putExtra(
+            android.provider.CalendarContract.EXTRA_EVENT_BEGIN_TIME,
+            call.argument<Number>("start")?.toLong() ?: 0L,
+          )
+          .putExtra(
+            android.provider.CalendarContract.EXTRA_EVENT_END_TIME,
+            call.argument<Number>("end")?.toLong() ?: 0L,
+          )
+        try {
+          startActivity(intent)
+          // Android does not say whether it was saved.
+          result.success("opened")
+        } catch (_: android.content.ActivityNotFoundException) {
+          result.success("unsupported")
+        }
+      }
+    Push.handleIntent(intent)
     MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "app.synctogether/background_call")
       .setMethodCallHandler { call, result ->
         when (call.method) {
@@ -119,6 +147,7 @@ class MainActivity : FlutterActivity() {
     grantResults: IntArray,
   ) {
     super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+    if (Push.onPermissionResult(this, requestCode)) return
     if (requestCode == NOTIFICATION_REQUEST) notificationRequestInFlight = false
     if (requestCode != MIC_REQUEST) return
     val pending = pendingStart ?: return
@@ -169,6 +198,11 @@ class MainActivity : FlutterActivity() {
     }
     recorder = null
     latestPeak = 0.0
+  }
+
+  override fun onNewIntent(intent: Intent) {
+    super.onNewIntent(intent)
+    Push.handleIntent(intent)
   }
 
   override fun onDestroy() {

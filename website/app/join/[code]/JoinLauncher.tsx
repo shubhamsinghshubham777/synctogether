@@ -78,7 +78,59 @@ function isPhone(): boolean {
   return /android|iphone|ipod|mobile/i.test(navigator.userAgent);
 }
 
-export function JoinLauncher({ code, heading }: { code: string; heading?: React.ReactNode }) {
+/**
+ * What differs between a room invite and a pairing invite: the app link it
+ * hands off to, and the words on the ticket. The hand-off logic is the same,
+ * which is why one launcher serves both.
+ */
+export type InviteKind = "join" | "pair";
+
+const COPY: Record<
+  InviteKind,
+  {
+    admit: string;
+    admitLong: string;
+    title: string;
+    sub: (code: string) => string;
+    typeIt: string;
+    stamp: [string, string, string];
+    pitch: string;
+  }
+> = {
+  join: {
+    admit: "Admit one",
+    admitLong: " · you're invited",
+    title: "Movie night",
+    sub: (code) => `Your seat is saved in room ${code}`,
+    typeIt: "on the join card. The room will still be waiting.",
+    stamp: ["Seat", "Saved", "Will call"],
+    pitch:
+      "SyncTogether keeps a film on the same frame for everyone in the room, with your faces beside it. Free on Mac and Windows. No account needed to join.",
+  },
+  pair: {
+    admit: "Pair code",
+    admitLong: " · for two",
+    title: "Your person",
+    sub: (code) => `Pairing invite ${code}`,
+    typeIt: "in Enter a code. The invite will still be waiting.",
+    stamp: ["Admit", "Two", "Private"],
+    // Pairing is the one thing here that needs an account: the room and the
+    // history are kept on it so they follow a person to a new phone.
+    pitch:
+      "SyncTogether keeps a film on the same frame for the two of you, with your faces beside it, in a private room that is always yours. Free on Mac and Windows. Pairing uses a free account, so your room and your history follow you.",
+  },
+};
+
+export function JoinLauncher({
+  code,
+  heading,
+  kind = "join",
+}: {
+  code: string;
+  heading?: React.ReactNode;
+  kind?: InviteKind;
+}) {
+  const copy = COPY[kind];
   const phone = useSyncExternalStore(subscribe, isPhone, () => false);
   const [copied, setCopied] = useState(false);
   // Bumped per attempt so the progress bar restarts on "Try again".
@@ -130,7 +182,7 @@ export function JoinLauncher({ code, heading }: { code: string; heading?: React.
     rememberVisit();
     // Assigning rather than opening a window: a popup blocker will not stop a
     // same-tab scheme navigation, and a blocked popup looks like a dead link.
-    window.location.href = `synctogether://join/${code}`;
+    window.location.href = `synctogether://${kind}/${code}`;
     const timer = window.setTimeout(() => settle("fallback"), 1600);
 
     return () => {
@@ -138,7 +190,7 @@ export function JoinLauncher({ code, heading }: { code: string; heading?: React.
       document.removeEventListener("visibilitychange", onHidden);
       window.removeEventListener("blur", onBlur);
     };
-  }, [state, code]);
+  }, [state, code, kind]);
 
   const display = "font-[family-name:var(--font-space-grotesk)]";
   const mono = "font-[family-name:var(--font-jetbrains-mono)]";
@@ -174,17 +226,17 @@ export function JoinLauncher({ code, heading }: { code: string; heading?: React.
             }
           >
             <p className={`${mono} text-[10px] sm:text-[11px] uppercase tracking-[0.14em] text-[#A33A22]`}>
-              Admit one<span className="hidden sm:inline"> · you&apos;re invited</span>
+              {copy.admit}<span className="hidden sm:inline">{copy.admitLong}</span>
             </p>
             <p className={`${display} mt-2 text-3xl sm:text-[44px] font-extrabold tracking-[-0.035em] leading-[0.98]`}>
-              Movie night
+              {copy.title}
             </p>
-            <p className="mt-3 text-sm text-[#5A4F44]">Your seat is saved in room {code}</p>
+            <p className="mt-3 text-sm text-[#5A4F44]">{copy.sub(code)}</p>
           </Ticket>
           <JoinStamp
-            top="Seat"
-            big="Saved"
-            bottom="Will call"
+            top={copy.stamp[0]}
+            big={copy.stamp[1]}
+            bottom={copy.stamp[2]}
             className="absolute -top-10 sm:-top-12 right-[6.5rem] sm:right-[8.5rem]"
           />
         </div>
@@ -235,11 +287,7 @@ export function JoinLauncher({ code, heading }: { code: string; heading?: React.
                   ? "Movie night, from wherever you both are."
                   : "You'll need the app to join."}
               </p>
-              <p className="text-[17px] text-gray-400 leading-[1.55]">
-                SyncTogether keeps a film on the same frame for everyone in the
-                room, with your faces beside it. Free on Mac and Windows. No
-                account needed to join.
-              </p>
+              <p className="text-[17px] text-gray-400 leading-[1.55]">{copy.pitch}</p>
             </div>
 
             <ol className="border-t border-aisle">
@@ -279,8 +327,7 @@ export function JoinLauncher({ code, heading }: { code: string; heading?: React.
 
             <p className="text-[13px] text-gray-500 leading-[1.55]">
               {phone ? "On your computer? " : "Nothing happened? "}Install, open the app and type{" "}
-              <span className={`${mono} text-white`}>{code}</span> on the join
-              card. The room will still be waiting.
+              <span className={`${mono} text-white`}>{code}</span> {copy.typeIt}
             </p>
           </div>
         )}

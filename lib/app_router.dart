@@ -9,6 +9,15 @@ import 'package:supabase_flutter/supabase_flutter.dart' show AuthChangeEvent;
 
 import 'auth/auth_service.dart';
 import 'auth/login_screen.dart';
+import 'pairing/date_night_plan.dart' show PlanNightScreen;
+import 'pairing/date_night_screen.dart';
+import 'pairing/history_screen.dart';
+import 'pairing/notification_settings_screen.dart';
+import 'pairing/pair_accept_screen.dart';
+import 'pairing/pair_screen.dart';
+import 'pairing/pair_service.dart';
+import 'pairing/push_service.dart';
+import 'pairing/year_recap_screen.dart';
 import 'profile/banned_screen.dart';
 import 'profile/entitlement_service.dart';
 import 'profile/profile_screen.dart';
@@ -107,6 +116,37 @@ GoRouter buildRouter([Player? player]) {
           GoRoute(
             path: 'profile',
             pageBuilder: (context, state) => _detail(state, const ProfileScreen()),
+          ),
+          GoRoute(
+            path: 'pair',
+            pageBuilder: (context, state) => _detail(state, const PairScreen()),
+            routes: [
+              GoRoute(
+                path: 'accept/:code',
+                pageBuilder: (context, state) =>
+                    _detail(state, PairAcceptScreen(code: state.pathParameters['code']!)),
+              ),
+              GoRoute(
+                path: 'nights',
+                pageBuilder: (context, state) => _detail(state, const DateNightScreen()),
+              ),
+              GoRoute(
+                path: 'plan-night',
+                pageBuilder: (context, state) => _detail(state, const PlanNightScreen()),
+              ),
+              GoRoute(
+                path: 'history',
+                pageBuilder: (context, state) => _detail(state, const HistoryScreen()),
+              ),
+              GoRoute(
+                path: 'year',
+                pageBuilder: (context, state) => _detail(state, const YearRecapScreen()),
+              ),
+              GoRoute(
+                path: 'notifications',
+                pageBuilder: (context, state) => _detail(state, const NotificationSettingsScreen()),
+              ),
+            ],
           ),
           GoRoute(
             path: 'leaderboard',
@@ -253,6 +293,16 @@ CustomTransitionPage<void> _sharedAxis(GoRouterState state, Widget child) {
   });
 }
 
+/// Whether an auth event is a reason to (re-)register this device for push: a
+/// sign-in, a refresh, and a cold start that restored a session. Signing out, or
+/// a start with nobody signed in, is not.
+@visibleForTesting
+bool authEventStartsPush(AuthChangeEvent event, {required bool hasSession}) => switch (event) {
+  AuthChangeEvent.signedIn || AuthChangeEvent.tokenRefreshed || AuthChangeEvent.userUpdated => true,
+  AuthChangeEvent.initialSession => hasSession,
+  _ => false,
+};
+
 /// Re-runs router redirects on every auth event; also keeps the loaded
 /// profile in step with the session (signedOut wipes it).
 class _AuthRefresh extends ChangeNotifier {
@@ -266,13 +316,24 @@ class _AuthRefresh extends ChangeNotifier {
           ProfileService.instance.load();
           EntitlementService.instance.load();
           RewardsService.instance.load();
+          PairService.instance.load();
+          PushService.instance.onSignedIn();
           // Blocks are account-scoped, so they have to be in place before the
           // first room renders rather than fetched when one is opened.
           ModerationService.instance.load();
+        case AuthChangeEvent.initialSession:
+          // A cold start with a stored session announces itself like this, not as
+          // signedIn, and nothing else registers this device with the server after
+          // a relaunch (a token refresh only comes about hourly). Without this a
+          // reinstall's new token, or a corrected environment, never arrives.
+          if (authEventStartsPush(state.event, hasSession: state.session != null)) {
+            PushService.instance.onSignedIn();
+          }
         case AuthChangeEvent.signedOut:
           ProfileService.instance.clear();
           EntitlementService.instance.clear();
           RewardsService.instance.clear();
+          PairService.instance.clear();
           RoomService.instance.clear();
           ModerationService.instance.clear();
         default:

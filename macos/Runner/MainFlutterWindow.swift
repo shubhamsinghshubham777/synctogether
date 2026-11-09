@@ -2,6 +2,7 @@ import Cocoa
 import FlutterMacOS
 import AVFoundation
 import CoreAudio
+import UserNotifications
 
 class MainFlutterWindow: NSWindow {
   /// The Flutter header (`CinemaMarqueeBar`, 52 logical px) the traffic lights
@@ -65,6 +66,7 @@ class MainFlutterWindow: NSWindow {
     RegisterGeneratedPlugins(registry: flutterViewController)
     SystemFontsChannel.register(with: flutterViewController.engine.binaryMessenger)
     MicLevelChannel.register(with: flutterViewController.engine.binaryMessenger)
+    PushChannel.register(with: flutterViewController.engine.binaryMessenger)
 
     super.awakeFromNib()
     DispatchQueue.main.async { [weak self] in self?.placeTrafficLights() }
@@ -247,6 +249,91 @@ enum MicLevelChannel {
         for i in 0..<(length / 2) { peak = max(peak, abs(Int32(samples[i]))) }
       }
       MicLevelChannel.latestPeak = Float(peak) / 32768
+    }
+  }
+}
+
+/// Push notifications over APNs - directly, with no third-party SDK. Same
+/// contract as the iOS runner (`app.synctogether/push`), so the Dart side is one
+/// implementation. Nothing here prompts by itself: `permission` only reads, and
+/// `request` is the one call that shows the system alert.
+///
+/// Registration needs the `aps-environment` entitlement, which only a
+/// provisioned (store) build carries. A local debug build has none, so
+/// `registerForRemoteNotifications` fails quietly and the app runs without push.
+enum PushChannel {
+  private static var channel: FlutterMethodChannel?
+  private static var lastToken: String?
+  private static var pendingRoute: String?
+  private static var dartReady = false
+
+  #if DEBUG
+    private static let environment = "sandbox"
+  #else
+    private static let environment = "production"
+  #endif
+
+  static func register(with messenger: FlutterBinaryMessenger) {
+    let channel = FlutterMethodChannel(name: "app.synctogether/push", binaryMessenger: messenger)
+    self.channel = channel
+    channel.setMethodCallHandler { call, result in
+      switch call.method {
+      case "configure":
+        dartReady = true
+        result(nil)
+      case "permission":
+        status { granted in
+          if granted == "granted" { NSApplication.shared.registerForRemoteNotifications() }
+          result(granted)
+        }
+      case "request":
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { ok, _ in
+          DispatchQueue.main.async {
+            if ok { NSApplication.shared.registerForRemoteNotifications() }
+            result(ok ? "granted" : "denied")
+          }
+        }
+      case "token":
+        guard let token = lastToken else { return result(nil) }
+        result(["token": token, "environment": environment])
+      case "launchRoute":
+        let route = pendingRoute
+        pendingRoute = nil
+        result(route)
+      case "openSettings":
+        if let url = URL(string: "x-apple.systempreferences:com.apple.Notifications-Settings.extension") {
+          NSWorkspace.shared.open(url)
+        }
+        result(nil)
+      default:
+        result(FlutterMethodNotImplemented)
+      }
+    }
+  }
+
+  private static func status(_ done: @escaping (String) -> Void) {
+    UNUserNotificationCenter.current().getNotificationSettings { settings in
+      let value: String
+      switch settings.authorizationStatus {
+      case .authorized, .provisional: value = "granted"
+      case .denied: value = "denied"
+      default: value = "unknown"
+      }
+      DispatchQueue.main.async { done(value) }
+    }
+  }
+
+  static func deliver(token data: Data) {
+    let token = data.map { String(format: "%02x", $0) }.joined()
+    lastToken = token
+    channel?.invokeMethod("token", arguments: ["token": token, "environment": environment])
+  }
+
+  static func tapped(route: String?) {
+    if dartReady, let channel = channel {
+      channel.invokeMethod("tap", arguments: ["route": route as Any])
+    } else {
+      pendingRoute = route
     }
   }
 }

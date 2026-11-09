@@ -3,6 +3,9 @@ import UIKit
 import AVFoundation
 import PhotosUI
 import UniformTypeIdentifiers
+import UserNotifications
+import EventKit
+import EventKitUI
 
 @main
 @objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
@@ -10,7 +13,47 @@ import UniformTypeIdentifiers
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
+    // The delegate has to be in place before launch finishes, or the tap that
+    // launched the app from a notification is delivered to nobody.
+    UNUserNotificationCenter.current().delegate = self
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
+  }
+
+  override func application(
+    _ application: UIApplication,
+    didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data
+  ) {
+    PushChannel.deliver(token: deviceToken)
+    super.application(application, didRegisterForRemoteNotificationsWithDeviceToken: deviceToken)
+  }
+
+  override func application(
+    _ application: UIApplication,
+    didFailToRegisterForRemoteNotificationsWithError error: Error
+  ) {
+    // No token is a normal outcome (no network, simulator without a profile).
+    // The Dart side keeps working without push.
+    NSLog("push registration failed: \(error.localizedDescription)")
+    super.application(application, didFailToRegisterForRemoteNotificationsWithError: error)
+  }
+
+  // A notification arriving while the app is open is still shown: a call or a
+  // reminder is the thing the person asked to hear about.
+  override func userNotificationCenter(
+    _ center: UNUserNotificationCenter,
+    willPresent notification: UNNotification,
+    withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
+  ) {
+    completionHandler([.banner, .list, .sound])
+  }
+
+  override func userNotificationCenter(
+    _ center: UNUserNotificationCenter,
+    didReceive response: UNNotificationResponse,
+    withCompletionHandler completionHandler: @escaping () -> Void
+  ) {
+    PushChannel.tapped(route: response.notification.request.content.userInfo["route"] as? String)
+    completionHandler()
   }
 
   func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
@@ -29,6 +72,12 @@ import UniformTypeIdentifiers
     }
     if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "DisplayRegionsChannel") {
       DisplayRegionsChannel.register(with: registrar.messenger())
+    }
+    if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "PushChannel") {
+      PushChannel.register(with: registrar.messenger())
+    }
+    if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "CalendarChannel") {
+      CalendarChannel.register(with: registrar.messenger())
     }
   }
 }
@@ -420,5 +469,216 @@ final class RegionProbeView: UIView {
   override func didMoveToWindow() {
     super.didMoveToWindow()
     DisplayRegionsChannel.push()
+  }
+}
+
+/// Push notifications over APNs - directly, with no third-party SDK. The server
+/// (`push-dispatch`) holds the key; this only registers the device and hands the
+/// token to Dart. Dart side: lib/pairing/push_service.dart (channel
+/// `app.synctogether/push`).
+///
+/// Nothing here prompts by itself. `permission` only reads; `request` is the one
+/// call that shows the system alert, and Dart only makes it because a person just
+/// turned a notification on.
+///
+/// A development-signed build's token only works on Apple's sandbox gateway and a
+/// distribution-signed one's only on production, so the signing decides which one
+/// the server is told to use (see `environment`).
+enum PushChannel {
+  private static var channel: FlutterMethodChannel?
+  private static var lastToken: String?
+  // A tap that arrived before Dart was listening: the one that launched the app.
+  private static var pendingRoute: String?
+  private static var dartReady = false
+
+  /// Which APNs gateway this build's token belongs to. The build configuration
+  /// cannot say: `flutter run --release` is a Release build signed for
+  /// development, whose token only the sandbox gateway accepts. What does say is
+  /// the provisioning profile the app was signed with, whose `aps-environment`
+  /// is `development` for an Xcode or `flutter run` install and `production` for
+  /// ad hoc. An App Store or TestFlight build carries no profile at all and is
+  /// production. (A simulator has no profile either; it never gets a token.)
+  private static let environment: String = {
+    guard
+      let url = Bundle.main.url(forResource: "embedded", withExtension: "mobileprovision"),
+      let data = try? Data(contentsOf: url),
+      let text = String(data: data, encoding: .isoLatin1),
+      let key = text.range(of: "<key>aps-environment</key>"),
+      let open = text.range(of: "<string>", range: key.upperBound..<text.endIndex),
+      let close = text.range(of: "</string>", range: open.upperBound..<text.endIndex)
+    else {
+      #if DEBUG
+        return "sandbox"
+      #else
+        return "production"
+      #endif
+    }
+    return text[open.upperBound..<close.lowerBound] == "development" ? "sandbox" : "production"
+  }()
+
+  static func register(with messenger: FlutterBinaryMessenger) {
+    let channel = FlutterMethodChannel(name: "app.synctogether/push", binaryMessenger: messenger)
+    self.channel = channel
+    channel.setMethodCallHandler { call, result in
+      switch call.method {
+      case "configure":
+        dartReady = true
+        result(nil)
+      case "permission":
+        status { granted in
+          // Already allowed: make sure the token callback fires this launch.
+          if granted == "granted" { registerForRemote() }
+          result(granted)
+        }
+      case "request":
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { ok, _ in
+          DispatchQueue.main.async {
+            if ok { registerForRemote() }
+            result(ok ? "granted" : "denied")
+          }
+        }
+      case "token":
+        guard let token = lastToken else { return result(nil) }
+        result(["token": token, "environment": environment])
+      case "launchRoute":
+        let route = pendingRoute
+        pendingRoute = nil
+        result(route)
+      case "openSettings":
+        // The notifications page itself is iOS 16+; older systems get the app's
+        // own settings page, which has the same switch one tap further in.
+        let target: String
+        if #available(iOS 16.0, *) {
+          target = UIApplication.openNotificationSettingsURLString
+        } else {
+          target = UIApplication.openSettingsURLString
+        }
+        if let url = URL(string: target) {
+          UIApplication.shared.open(url)
+        }
+        result(nil)
+      default:
+        result(FlutterMethodNotImplemented)
+      }
+    }
+  }
+
+  private static func status(_ done: @escaping (String) -> Void) {
+    UNUserNotificationCenter.current().getNotificationSettings { settings in
+      let value: String
+      switch settings.authorizationStatus {
+      case .authorized, .provisional, .ephemeral: value = "granted"
+      case .denied: value = "denied"
+      default: value = "unknown"
+      }
+      DispatchQueue.main.async { done(value) }
+    }
+  }
+
+  private static func registerForRemote() {
+    UIApplication.shared.registerForRemoteNotifications()
+  }
+
+  static func deliver(token data: Data) {
+    let token = data.map { String(format: "%02x", $0) }.joined()
+    lastToken = token
+    channel?.invokeMethod("token", arguments: ["token": token, "environment": environment])
+  }
+
+  static func tapped(route: String?) {
+    if dartReady, let channel = channel {
+      channel.invokeMethod("tap", arguments: ["route": route as Any])
+    } else {
+      pendingRoute = route
+    }
+  }
+}
+
+/// "Add to Calendar": the system's own event editor, pre-filled. Dart side:
+/// lib/pairing/calendar_bridge.dart (channel `app.synctogether/calendar`).
+///
+/// On iOS 17+ `EKEventEditViewController` runs out of process and needs no
+/// permission at all - the app never sees the calendar, only whether the person
+/// saved. Before 17 the editor needs calendar access, so it is requested then
+/// (and only then, when the person has just asked to add an event); refused
+/// access answers `unsupported` and Dart falls back to a calendar file.
+final class CalendarChannel: NSObject, EKEventEditViewDelegate {
+  private static let shared = CalendarChannel()
+  private var pending: FlutterResult?
+
+  static func register(with messenger: FlutterBinaryMessenger) {
+    let channel = FlutterMethodChannel(name: "app.synctogether/calendar", binaryMessenger: messenger)
+    channel.setMethodCallHandler { call, result in
+      guard call.method == "addEvent", let args = call.arguments as? [String: Any],
+        let title = args["title"] as? String,
+        let start = (args["start"] as? NSNumber)?.doubleValue,
+        let end = (args["end"] as? NSNumber)?.doubleValue
+      else { return result(FlutterMethodNotImplemented) }
+      shared.present(
+        title: title,
+        start: Date(timeIntervalSince1970: start / 1000),
+        end: Date(timeIntervalSince1970: end / 1000),
+        notes: args["notes"] as? String,
+        result: result)
+    }
+  }
+
+  private func present(title: String, start: Date, end: Date, notes: String?, result: @escaping FlutterResult) {
+    // A second request while the sheet is up replaces the first.
+    pending?("dismissed")
+    pending = result
+    let store = EKEventStore()
+
+    let show = {
+      let event = EKEvent(eventStore: store)
+      event.title = title
+      event.startDate = start
+      event.endDate = end
+      event.notes = notes
+      // The reminder the push would have sent, in the person's own calendar too.
+      event.addAlarm(EKAlarm(relativeOffset: -15 * 60))
+      if let calendar = store.defaultCalendarForNewEvents { event.calendar = calendar }
+
+      let controller = EKEventEditViewController()
+      controller.eventStore = store
+      controller.event = event
+      controller.editViewDelegate = self
+      guard let top = CalendarChannel.topController() else {
+        self.finish("unsupported")
+        return
+      }
+      top.present(controller, animated: true)
+    }
+
+    if #available(iOS 17.0, *) {
+      show()
+    } else {
+      store.requestAccess(to: .event) { granted, _ in
+        DispatchQueue.main.async {
+          if granted { show() } else { self.finish("unsupported") }
+        }
+      }
+    }
+  }
+
+  private func finish(_ value: String) {
+    pending?(value)
+    pending = nil
+  }
+
+  func eventEditViewController(
+    _ controller: EKEventEditViewController, didCompleteWith action: EKEventEditViewAction
+  ) {
+    controller.dismiss(animated: true)
+    finish(action == .saved ? "added" : "dismissed")
+  }
+
+  private static func topController() -> UIViewController? {
+    let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+    let scene = scenes.first { $0.activationState == .foregroundActive } ?? scenes.first
+    var top = scene?.windows.first(where: { $0.isKeyWindow })?.rootViewController
+      ?? scene?.windows.first?.rootViewController
+    while let presented = top?.presentedViewController { top = presented }
+    return top
   }
 }

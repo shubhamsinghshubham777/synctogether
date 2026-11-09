@@ -16,6 +16,9 @@ import 'package:synctogether/analytics.dart';
 import 'package:synctogether/app_router.dart';
 import 'package:synctogether/app_version.dart';
 import 'package:synctogether/auth/auth_service.dart';
+import 'package:synctogether/pairing/pair_lobby.dart';
+import 'package:synctogether/pairing/pair_models.dart';
+import 'package:synctogether/pairing/pair_service.dart';
 import 'package:synctogether/diagnostics.dart';
 import 'package:synctogether/env.dart';
 import 'package:synctogether/profile/entitlement_service.dart';
@@ -55,6 +58,51 @@ import 'package:synctogether/ui/scroll_fade.dart';
 /// two columns (it stacked 9 px short of the line, leaving tickets below the
 /// fold beside empty margins), while the 900 px desktop minimum still stacks.
 const double kLobbySplitWidth = 940;
+
+/// The two ends under the duration slider: the shortest room, and what the
+/// longest can be. The short label keeps its own width and the caption takes the
+/// rest - two Flexibles would split the row evenly and cut the longer one short
+/// while the other left space unused.
+@visibleForTesting
+class DurationBounds extends StatelessWidget {
+  const DurationBounds({super.key, required this.caption});
+
+  final String caption;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Text('5 MIN', style: PTText.label.copyWith(fontSize: 10)),
+        const SizedBox(width: 12),
+        Expanded(
+          // A narrow phone wraps the caption (a 320 px one needs two lines, and
+          // three at large text) rather than cutting a word off the one thing
+          // that explains the limit.
+          child: Text(
+            caption,
+            maxLines: 3,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.end,
+            style: PTText.label.copyWith(fontSize: 10),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Under the duration slider's right end. A Patron room starts at the slider's
+/// maximum and grows from inside the room, so say so: "4 HOURS MAX" alone reads
+/// as the whole story and hides the 24 hours they pay for.
+@visibleForTesting
+String durationCaption(TierLimits limits) {
+  String span(int minutes) => minutes >= 120 ? '${minutes ~/ 60} HOURS' : '$minutes MIN';
+  if (!limits.picksExtensionLength) return '${span(limits.maxSessionMinutes)} MAX';
+  final total = limits.maxTotalSessionMinutes;
+  final totalLabel = total >= 120 ? '${total ~/ 60} H' : '$total MIN';
+  return '${span(limits.maxSessionMinutes)} · EXTEND TO $totalLabel';
+}
 
 class LobbyScreen extends StatefulWidget {
   const LobbyScreen({super.key});
@@ -115,6 +163,8 @@ class _LobbyScreenState extends State<LobbyScreen> with WindowListener {
       }),
     );
     unawaited(RewardsService.instance.load());
+    unawaited(PairService.instance.load());
+    unawaited(PairService.instance.syncTimezone());
     unawaited(_loadMyRooms());
     _myRoomsPollTimer = Timer.periodic(kMyRoomsPollInterval, (_) {
       if (mounted && RoomService.instance.currentRoom == null && _appIsVisible()) {
@@ -200,6 +250,13 @@ class _LobbyScreenState extends State<LobbyScreen> with WindowListener {
 
   /// Invite deep link received before sign-in lands here after login.
   Future<void> _consumePendingJoin() async {
+    final pairCode = PairService.instance.pendingPairCode;
+    if (pairCode != null && mounted) {
+      PairService.instance.pendingPairCode = null;
+      trace('consuming a parked pair invite', category: 'deeplink');
+      context.go('/lobby/pair/accept/$pairCode');
+      return;
+    }
     final code = RoomService.instance.pendingJoinCode;
     if (code == null || !mounted) return;
     RoomService.instance.pendingJoinCode = null;
@@ -209,8 +266,7 @@ class _LobbyScreenState extends State<LobbyScreen> with WindowListener {
 
   int get _durationCap => EntitlementService.instance.limitsOrFallback.maxSessionMinutes;
 
-  String get _durationCapLabel =>
-      _durationCap >= 120 ? '${_durationCap ~/ 60} hours' : '$_durationCap min';
+  String get _durationCaption => durationCaption(EntitlementService.instance.limitsOrFallback);
 
   String get _durationLabel => _minutesLabel(_durationMinutes);
 
@@ -494,10 +550,16 @@ class _LobbyScreenState extends State<LobbyScreen> with WindowListener {
     setState(() => _joining = true);
     try {
       final room = await RoomService.instance.joinRoom(code, via: via);
-      if (mounted) context.go(roomPath(room.id));
+      if (mounted) {
+        _codeKey.currentState?.clear();
+        context.go(roomPath(room.id));
+      }
     } catch (e, s) {
       final failure = RoomErrorCode.fromError(e);
       if (failure == .unknown) reportNonFatal(e, s, during: 'joining a room by code');
+      // A pair code is typed into the same box: when it is not a room, it may be
+      // somebody asking to pair, so show that instead of "no room with that code".
+      if (failure == .roomNotFound && await _openPairInvite(code)) return;
       if (mounted) {
         _snack(failure.message);
         _codeKey.currentState?.clear();
@@ -510,6 +572,22 @@ class _LobbyScreenState extends State<LobbyScreen> with WindowListener {
       }
     } finally {
       if (mounted) setState(() => _joining = false);
+    }
+  }
+
+  /// Whether [code] is a live pair invite, opening its accept screen if so.
+  /// Quiet on every failure: this only ever runs after the room lookup already
+  /// failed, and its answer is the same "no room" message either way.
+  Future<bool> _openPairInvite(String code) async {
+    if (!PairService.instance.isSignedInAccount) return false;
+    try {
+      final invite = await PairService.instance.previewInvite(code);
+      if (!mounted || invite.status != PairInviteStatus.pending) return false;
+      _codeKey.currentState?.clear();
+      context.go('/lobby/pair/accept/${invite.code}');
+      return true;
+    } catch (_) {
+      return false;
     }
   }
 
@@ -1247,6 +1325,10 @@ class _LobbyScreenState extends State<LobbyScreen> with WindowListener {
           ),
         ),
         SizedBox(height: compact ? 22 : 36),
+        _intro(
+          delay: const Duration(milliseconds: 90),
+          child: PairLobbySection(compact: compact),
+        ),
         if (compact)
           _intro(delay: const Duration(milliseconds: 120), child: _compactActions())
         else ...[
@@ -1365,16 +1447,7 @@ class _LobbyScreenState extends State<LobbyScreen> with WindowListener {
               onChanged: (v) =>
                   setState(() => _durationMinutes = 5 + ((v * (_durationCap - 5)) / 5).round() * 5),
             ),
-            Row(
-              mainAxisAlignment: .spaceBetween,
-              children: [
-                Flexible(child: Text('5 MIN', style: PTText.label.copyWith(fontSize: 10))),
-                Text(
-                  '${_durationCapLabel.toUpperCase()} MAX',
-                  style: PTText.label.copyWith(fontSize: 10),
-                ),
-              ],
-            ),
+            DurationBounds(caption: _durationCaption),
           ],
         ),
         _stagedMediaSection(compact),

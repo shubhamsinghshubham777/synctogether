@@ -23,6 +23,8 @@ import 'package:synctogether/av/background_call.dart';
 import 'package:synctogether/av/livekit_service.dart';
 import 'package:synctogether/av/video_trial.dart';
 import 'package:synctogether/diagnostics.dart';
+import 'package:synctogether/pairing/pair_logic.dart';
+import 'package:synctogether/pairing/pair_service.dart';
 import 'package:synctogether/platform.dart';
 import 'package:synctogether/player/local_video.dart';
 import 'package:synctogether/player/local_video_chooser.dart';
@@ -338,6 +340,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
   Timer? _countdownTimer;
   Duration _timeLeft = Duration.zero;
   bool _warningDismissed = false;
+  bool _dateNightBannerDismissed = false;
   bool _connected = true;
   bool _ended = false;
   Timer? _idleSourceTimer;
@@ -503,6 +506,10 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
   Map<String, RecapPerson> _recapPeople = const {};
   String _recapSelfId = '';
   bool _firstPresenceSeen = false;
+
+  /// Time the two partners spent in Our Room together, for the pair's history
+  /// and streak. Only ever ticks in a room that belongs to a pair.
+  final _together = TogetherClock();
   HeartbeatOutcome? _lastHeartbeatOutcome;
 
   MemberTally _tally(String userId, String displayName) {
@@ -697,6 +704,8 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     final start = _sessionStart;
     if (_sessionReported || start == null) return;
     _sessionReported = true;
+    // Presence still says who was here: this is the last moment it does.
+    _logTogether();
     // Captured here, not at the exit: this is the one point both `_leaveRoom`
     // and `_evictSelf` funnel through *before* the sync channel is torn down,
     // so it is the last moment presence still says who was in the room.
@@ -710,6 +719,40 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
       'facecam_used': _facecamUsed,
       'room_id': widget.roomId,
     });
+  }
+
+  /// Feeds the together-clock from who is present. Our Room only: in any other
+  /// room "together" means nothing. When the partner drops out, what has been
+  /// accrued so far is written straight away - so a closed laptop or a killed app
+  /// costs at most the minutes since, not the whole night. The server keeps the
+  /// longest report for a sitting, so the final write on exit simply supersedes.
+  void _trackTogether(List<PresentMember> present) {
+    if (_room?.isOurRoom != true) return;
+    final partnerId = PairService.instance.pair?.partner.id;
+    final myId = AuthService.instance.user?.id;
+    if (partnerId == null || myId == null) return;
+    final ids = {for (final m in present) m.userId};
+    final together = ids.contains(partnerId) && ids.contains(myId);
+    final wasTogether = _togetherNow;
+    _together.update(DateTime.now(), together: together);
+    _togetherNow = together;
+    if (wasTogether && !together) _logTogether();
+  }
+
+  bool _togetherNow = false;
+
+  void _logTogether() {
+    final startedAt = _together.startedAt;
+    if (_room?.isOurRoom != true || startedAt == null) return;
+    final total = _together.total(DateTime.now());
+    if (!isLoggableSitting(total)) return;
+    unawaited(
+      PairService.instance.logSession(
+        title: sittingTitle(_canonicalMedia.name),
+        startedAt: startedAt,
+        together: total,
+      ),
+    );
   }
 
   void _captureRecap(Duration length) {
@@ -1467,6 +1510,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     final sync = _sync;
     final prevCount = _present.length;
     setState(() => _present = present);
+    _trackTogether(present);
     final av = _av;
     if (av != null) {
       if (prevCount >= 2 && present.length < 2) {
@@ -1554,6 +1598,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
             selfId: sync?.userId ?? '',
             selfIsHost: sync?.isHost ?? false,
             canAssignHost: (sync?.isHost ?? false) || isOwner,
+            ourRoom: _room?.isOurRoom ?? false,
           );
   }
 
@@ -1739,11 +1784,6 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     _isModeSelectionDialogOpen = false;
     _updateReadiness();
     if (!mounted) return;
-
-    if (mode == InitialMode.leave) {
-      await _leaveRoom();
-      return;
-    }
 
     if (mode == InitialMode.local) {
       await _pickVideo();
@@ -4223,6 +4263,13 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
   ({String title, String body, IconData icon})? get _endedCopy {
     final room = _room;
     if (room == null) return null;
+    if (room.isOurRoom) {
+      return (
+        title: 'Our Room is resting',
+        body: 'It is always in your lobby. Open it again whenever you two are ready.',
+        icon: BoothIcons.heart,
+      );
+    }
     if (room.persistent) {
       return (
         title: 'Room saved',
@@ -4281,6 +4328,9 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
   }
 
   bool get _canShowPremiumUpsell {
+    // Patron on either side already covers both of them; the offer is for the
+    // pair that has none.
+    if ((_room?.isOurRoom ?? false) && (PairService.instance.pair?.patron ?? false)) return false;
     if (!canSellPremium ||
         EntitlementService.instance.isPremium ||
         !AuthService.instance.isSignedIn) {
@@ -5529,8 +5579,42 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
   /// what stops `_tickCountdown`'s per-second rebuild from restarting the T-5
   /// auto-dismiss ring, and an unkeyed wrapper would reintroduce that by making
   /// the list match children positionally again.
+  /// The date night that is on, when its planner attached a film and nobody has
+  /// started it yet: Our Room opened with the film loaded, and this says so.
+  Widget? _dateNightBanner() {
+    final room = _room;
+    if (room == null || !room.isOurRoom || _dateNightBannerDismissed || _playing) return null;
+    final svc = PairService.instance;
+    final now = DateTime.now().toUtc();
+    final night = featuredNight(now, svc.nights);
+    if (night == null || !isNightImminent(now, night)) return null;
+    final mine = night.proposedBy == _sync?.userId;
+    final first = svc.pair?.partner.displayName.split(' ').first ?? 'Your person';
+    final arriving = night.hasFile && !night.fileReady && !night.fileStopped;
+    if (!night.attachmentReady && !arriving) return null;
+    return PTEntrance(
+      key: ValueKey(arriving ? 'date-night-arriving' : 'date-night-ready'),
+      offset: -8,
+      duration: PTMotion.state,
+      child: PTBanner(
+        kind: arriving ? .warning : .info,
+        icon: arriving ? BoothIcons.cloudUpload : BoothIcons.film,
+        title: 'Date night · ${night.title}',
+        subtitle: arriving
+            ? '${mine ? 'Your' : "$first's"} movie is still uploading (${night.uploadPercent}%). '
+                  'It plays as soon as it lands, or pick something else.'
+            : mine
+            ? "Tonight's film is loaded. Press play when you're both here."
+            : "$first picked tonight's film. Press play when you're both here.",
+        onDismiss: () => setState(() => _dateNightBannerDismissed = true),
+      ),
+    );
+  }
+
   List<Widget> _banners() {
+    final dateNight = _dateNightBanner();
     return [
+      ?dateNight,
       if (!_warningDismissed &&
           _timeLeft > Duration.zero &&
           _timeLeft <= const Duration(minutes: 5))
@@ -6319,7 +6403,8 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
                         style: PTText.panelHeading.copyWith(fontSize: 17),
                       ),
                     ),
-                    RoomCodeChip(code: room.code, onCopy: _copyCode, fontSize: 12, plain: true),
+                    if (!room.isOurRoom)
+                      RoomCodeChip(code: room.code, onCopy: _copyCode, fontSize: 12, plain: true),
                     Tooltip(
                       message: _syncDotTooltip,
                       child: Row(
@@ -6358,31 +6443,33 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
             mainAxisSize: .min,
             spacing: 14,
             children: [
-              MouseRegion(
-                cursor: isHost ? SystemMouseCursors.click : MouseCursor.defer,
-                child: GestureDetector(
-                  onTap: isHost && !_extending ? _extendRoom : null,
-                  child: Tooltip(
-                    message: isHost ? 'Extend room duration' : 'Time remaining',
-                    child: PTPulse(
-                      enabled: _timeLeft > Duration.zero && _timeLeft <= const Duration(minutes: 1),
-                      low: 0.35,
-                      child: AnimatedDefaultTextStyle(
-                        duration: PTMotion.functional(context, PTMotion.state),
-                        style: PTText.label.copyWith(
-                          fontSize: 12,
-                          color: urgent ? PTColors.warning : PTColors.fgMute,
-                        ),
-                        child: Text(
-                          spelled ? 'HOUSE LIGHTS IN $_houseLightsLabel' : _houseLightsLabel,
-                          maxLines: 1,
+              if (_showClock)
+                MouseRegion(
+                  cursor: isHost ? SystemMouseCursors.click : MouseCursor.defer,
+                  child: GestureDetector(
+                    onTap: isHost && !_extending ? _extendRoom : null,
+                    child: Tooltip(
+                      message: isHost ? 'Extend room duration' : 'Time remaining',
+                      child: PTPulse(
+                        enabled:
+                            _timeLeft > Duration.zero && _timeLeft <= const Duration(minutes: 1),
+                        low: 0.35,
+                        child: AnimatedDefaultTextStyle(
+                          duration: PTMotion.functional(context, PTMotion.state),
+                          style: PTText.label.copyWith(
+                            fontSize: 12,
+                            color: urgent ? PTColors.warning : PTColors.fgMute,
+                          ),
+                          child: Text(
+                            spelled ? 'HOUSE LIGHTS IN $_houseLightsLabel' : _houseLightsLabel,
+                            maxLines: 1,
+                          ),
                         ),
                       ),
                     ),
                   ),
                 ),
-              ),
-              if (invite)
+              if (invite && !room.isOurRoom)
                 PTButton(
                   label: 'Invite',
                   variant: .secondary,
@@ -6453,6 +6540,8 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     .locked => 'IN SYNC · ${_present.length} SEATS',
     .catchingUp => 'CATCHING UP',
     .reconnecting => 'RECONNECTING…',
+    .idle when (_room?.isOurRoom ?? false) =>
+      _present.length < 2 ? 'WAITING FOR ${_partnerFirstName.toUpperCase()}' : 'TOGETHER',
     .idle => _present.length < 2 ? 'SAVING SEATS' : 'HOUSE OPEN',
   };
 
@@ -6466,6 +6555,23 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
   }
 
   /// "2H 55M", or "4:59" inside the last hour's final minutes.
+  /// Our Room's other person, for the header. The roster knows them even while
+  /// they are offline; "them" only while it has not loaded.
+  String get _partnerFirstName {
+    // What I call them: the pair knows my nickname for them, the roster does not.
+    final label = PairService.instance.pair?.partner.displayName;
+    final me = _sync?.userId;
+    final other = _members.where((m) => m.userId != me).firstOrNull;
+    final first = (label ?? other?.displayName ?? '').split(' ').first.trim();
+    if (first.isEmpty) return 'THEM';
+    return first.length > 12 ? first.substring(0, 12) : first;
+  }
+
+  /// Our Room does not run on a visible clock until the last half hour: a
+  /// countdown on the couple's own room reads like a rental, and nothing is
+  /// lost by saying it only when it matters.
+  bool get _showClock => !(_room?.isOurRoom ?? false) || _timeLeft <= const Duration(minutes: 30);
+
   String get _houseLightsLabel {
     final h = _timeLeft.inHours;
     final m = _timeLeft.inMinutes.remainder(60);
@@ -6645,7 +6751,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
                             color: urgent ? PTColors.warning : PTColors.fgDim,
                           ),
                           child: Text(
-                            '$_syncDotLabel · $_houseLightsLabel',
+                            _showClock ? '$_syncDotLabel · $_houseLightsLabel' : _syncDotLabel,
                             maxLines: 1,
                             overflow: .ellipsis,
                           ),

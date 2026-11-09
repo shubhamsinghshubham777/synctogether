@@ -10,6 +10,7 @@ add_executable(${BINARY_NAME} WIN32
   "flutter_window.cpp"
   "main.cpp"
   "mic_level.cpp"
+  "push_channel.cpp"
   "store_purchase.cpp"
   "system_fonts.cpp"
   "utils.cpp"

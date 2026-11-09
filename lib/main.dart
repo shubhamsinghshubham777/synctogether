@@ -15,6 +15,10 @@ import 'package:synctogether/diagnostics.dart';
 import 'package:synctogether/env.dart';
 import 'package:synctogether/mock/mock_dependencies.dart';
 import 'package:synctogether/mock/store_capture.dart';
+import 'package:synctogether/pairing/pair_links.dart';
+import 'package:synctogether/pairing/pair_models.dart';
+import 'package:synctogether/pairing/pair_service.dart';
+import 'package:synctogether/pairing/push_service.dart';
 import 'package:synctogether/platform.dart';
 import 'package:synctogether/player/photo_picker.dart' show sweepPhotoExports;
 import 'package:synctogether/profile/apple_iap_service.dart';
@@ -146,6 +150,7 @@ class _MainAppState extends State<MainApp> with WidgetsBindingObserver {
   final _appLinks = AppLinks();
   StreamSubscription<Uri>? _linkSub;
   StreamSubscription<String>? _authFailureSub;
+  StreamSubscription<PushTarget?>? _pushTapSub;
 
   @override
   void initState() {
@@ -158,6 +163,13 @@ class _MainAppState extends State<MainApp> with WidgetsBindingObserver {
       (message) => showPTSnackVia(_scaffoldMessengerKey.currentState, message, kind: .error),
     );
     _linkSub = _appLinks.uriLinkStream.listen((uri) => _onDeepLink(uri, source: 'stream'));
+    // A tapped notification: Apple, Android and the Windows toast all arrive here
+    // as a route, through the same target mapping as `synctogether://push`.
+    _pushTapSub = PushService.instance.taps.listen(_followPushTarget);
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final launch = await PushService.instance.takeLaunchTarget();
+      if (launch != null) await _followPushTarget(launch);
+    });
     // The native side replays the launch URL only to the FIRST stream
     // subscriber - which is supabase_flutter (it subscribes inside
     // Supabase.initialize, before runApp). Cold-start invite links must
@@ -184,6 +196,9 @@ class _MainAppState extends State<MainApp> with WidgetsBindingObserver {
   /// flows through this stream (it's a broadcast shared with supabase_flutter);
   /// the `join` host filter is what keeps it out of this handler.
   Future<void> _onDeepLink(Uri uri, {required String source}) async {
+    if (uri.scheme == 'synctogether' && (uri.host == 'pair' || uri.host == 'push')) {
+      return _onPairLink(uri, source: source);
+    }
     if (uri.scheme != 'synctogether' || uri.host != 'join') return;
     final code = uri.pathSegments.isNotEmpty ? uri.pathSegments.first : null;
     if (code == null || code.isEmpty) return;
@@ -229,6 +244,64 @@ class _MainAppState extends State<MainApp> with WidgetsBindingObserver {
     }
   }
 
+  /// `synctogether://pair/<code>` and `synctogether://push?route=…`. Same
+  /// de-duplication as invites: a cold-start link can arrive twice.
+  Future<void> _onPairLink(Uri uri, {required String source}) async {
+    final now = DateTime.now();
+    if (uri.toString() == _lastLinkHandled &&
+        now.difference(_lastLinkHandledAt) < const Duration(seconds: 5)) {
+      return;
+    }
+    _lastLinkHandled = uri.toString();
+    _lastLinkHandledAt = now;
+
+    final code = pairCodeFromLink(uri);
+    if (code != null) {
+      trace('pair link received', category: 'deeplink', data: {'source': source});
+      if (!AuthService.instance.isSignedIn) {
+        PairService.instance.pendingPairCode = code;
+        router.go('/login');
+        return;
+      }
+      router.go('/lobby/pair/accept/$code');
+      return;
+    }
+
+    final target = pushTargetFromLink(uri);
+    trace(
+      'notification link received',
+      category: 'deeplink',
+      data: {'source': source, 'known': target != null},
+    );
+    await _followPushTarget(target);
+  }
+
+  /// Where a tapped notification goes. Signed out, it waits at the login screen:
+  /// the router redirect already sends them there, and the target is dropped
+  /// rather than parked - a stale "Sam is calling" is not worth resuming.
+  Future<void> _followPushTarget(PushTarget? target) async {
+    if (!AuthService.instance.isSignedIn) return;
+    switch (target) {
+      case OpenOurRoom():
+        try {
+          final room = await PairService.instance.openOurRoom();
+          router.go(roomPath(room.id));
+        } catch (e) {
+          showPTSnackVia(
+            _scaffoldMessengerKey.currentState,
+            PairErrorCode.fromError(e).message,
+            kind: .error,
+          );
+        }
+      case OpenPath(:final path):
+        // The lobby goes underneath, so Back from the page lands there.
+        router.go('/lobby');
+        if (path != '/lobby') router.push(path);
+      case null:
+        router.go('/lobby');
+    }
+  }
+
   final _scaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
 
   @override
@@ -245,6 +318,7 @@ class _MainAppState extends State<MainApp> with WidgetsBindingObserver {
     WidgetsBinding.instance.removeObserver(this);
     _linkSub?.cancel();
     _authFailureSub?.cancel();
+    _pushTapSub?.cancel();
     super.dispose();
   }
 

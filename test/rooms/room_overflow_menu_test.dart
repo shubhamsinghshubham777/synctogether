@@ -7,6 +7,65 @@ import 'package:synctogether/sync/sync_service.dart';
 
 void main() {
   group('RoomOverflowMenu', () {
+    testWidgets('in Our Room there is no invite, no remote lock and no end-for-everyone', (
+      tester,
+    ) async {
+      final data = ValueNotifier<RoomMenuData?>(
+        RoomMenuData(
+          members: [
+            RoomMember(
+              roomId: 'room-1',
+              userId: 'me',
+              role: 'host',
+              joinedAt: DateTime(2026, 1, 1),
+            ),
+            RoomMember(
+              roomId: 'room-1',
+              userId: 'sam',
+              role: 'host',
+              joinedAt: DateTime(2026, 1, 1),
+            ),
+          ],
+          present: const [],
+          media: RoomMedia.none,
+          transportLock: false,
+          selfId: 'me',
+          selfIsHost: true,
+          ourRoom: true,
+        ),
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => TextButton(
+                onPressed: () => showRoomOverflowMenu(
+                  context: context,
+                  data: data,
+                  onCopyInvite: () {},
+                  onLeave: () {},
+                  onEndRoom: () {},
+                  onExtendRoom: () {},
+                  onTransportLockChanged: (_) {},
+                  onKick: (_) {},
+                ),
+                child: const Text('open'),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('THE TWO OF YOU'), findsOneWidget);
+      expect(find.text('Copy invite link'), findsNothing);
+      expect(find.text('Take the remote'), findsNothing);
+      expect(find.text('End for everyone'), findsNothing);
+      expect(find.text('Leave room'), findsOneWidget, reason: 'leaving is still one tap');
+      expect(find.text('Extend room'), findsOneWidget);
+    });
+
     testWidgets('displays Extend room for host and invokes callback on tap', (tester) async {
       var extendTapped = false;
       final data = ValueNotifier<RoomMenuData?>(

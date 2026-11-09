@@ -95,6 +95,14 @@ gradle.taskGraph.whenReady {
     }
 }
 
+dependencies {
+    // Push (FCM). No google-services plugin: the app initialises Firebase itself
+    // from options supplied at build time (see Push.kt), so the project is the
+    // operator's and none is baked into the source.
+    implementation(platform("com.google.firebase:firebase-bom:33.7.0"))
+    implementation("com.google.firebase:firebase-messaging")
+}
+
 flutter {
     source = "../.."
 }

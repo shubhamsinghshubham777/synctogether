@@ -15,6 +15,7 @@ enum AnalyticsGroup {
   rooms('Rooms and watching'),
   engagement('Things you do in a room'),
   rewards('Streaks and badges'),
+  pair('Your person'),
   safety('Safety and moderation'),
   premium('Premium');
 
@@ -358,6 +359,80 @@ const kAnalyticsEvents = <AnalyticsEventDoc>[
     why:
         'Confirms the purchase reached the app. No payment details are ever involved -'
         ' card details never touch SyncTogether at all.',
+  ),
+
+  // --- Your person ---------------------------------------------------------
+  AnalyticsEventDoc(
+    event: 'pair_invite_created',
+    group: .pair,
+    what: 'You opened the pairing page and got an invite code.',
+    why: 'The start of the pairing funnel: how many people want to pair at all.',
+  ),
+  AnalyticsEventDoc(
+    event: 'pair_invite_shared',
+    group: .pair,
+    what: 'You copied your pair invite.',
+    why: 'Separates people who looked from people who actually sent it.',
+    properties: ['whether you copied the link or the code'],
+  ),
+  AnalyticsEventDoc(
+    event: 'pair_invite_emailed',
+    group: .pair,
+    what: 'You invited your person by email.',
+    why:
+        'Whether people prefer typing an address to sending a link. The address itself is never sent to us as analytics.',
+  ),
+  AnalyticsEventDoc(
+    event: 'pair_accepted',
+    group: .pair,
+    what: 'You accepted a pair invite.',
+    why: 'The end of the pairing funnel, and the number that says the feature works.',
+  ),
+  AnalyticsEventDoc(
+    event: 'pair_ended',
+    group: .pair,
+    what: 'You unpaired.',
+    why: 'The counter-signal: pairing that people take back was not worth having.',
+  ),
+  AnalyticsEventDoc(
+    event: 'our_room_opened',
+    group: .pair,
+    what: 'You opened Our Room, the room you share with your person.',
+    why: 'Tells us whether a room that is always there gets used more than one-off rooms.',
+  ),
+  AnalyticsEventDoc(
+    event: 'partner_called',
+    group: .pair,
+    what: 'You rang your person from the lobby.',
+    why: 'Shows whether calling is how a date night actually starts.',
+  ),
+  AnalyticsEventDoc(
+    event: 'date_night_planned',
+    group: .pair,
+    what: 'You planned a date night.',
+    why: 'Whether scheduling is a reason to have Patron, measured before it is priced.',
+    properties: ['whether you attached a YouTube link or chose to pick together'],
+  ),
+  AnalyticsEventDoc(
+    event: 'date_night_answered',
+    group: .pair,
+    what: 'You answered a date night invite.',
+    why: 'Shows whether planned nights are kept, or whether times are being missed.',
+    properties: ['whether you said yes'],
+  ),
+  AnalyticsEventDoc(
+    event: 'pair_year_shared',
+    group: .pair,
+    what: 'You shared your year-together card.',
+    why:
+        'Whether the card is something people want to post - the one thing here that might bring someone new.',
+  ),
+  AnalyticsEventDoc(
+    event: 'push_enabled',
+    group: .pair,
+    what: 'You allowed notifications.',
+    why: 'Whether people say yes when we ask at the moment it makes sense, and on which device.',
+    properties: ['your platform'],
   ),
 ];
 

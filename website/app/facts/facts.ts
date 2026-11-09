@@ -46,6 +46,11 @@ export const FACTS: { label: string; value: string }[] = [
     value: `${premium.limits.members} people per room, sessions up to 24 hours, ${premium.limits.av.toLowerCase()}, file sharing ${premium.limits.mediaSharing}.`,
   },
   {
+    label: "Pairing",
+    value:
+      "Two signed-in accounts can pair for free and share Our Room, a private room that stays put between nights, with date nights across time zones, a weekly streak and a shared history. Guests cannot pair. Planning date nights and history older than 7 days need a Patron on either side.",
+  },
+  {
     label: "File sharing",
     value: "A signed-in host can upload the video to the room so members without a copy stream it instead of finding their own.",
   },

@@ -105,6 +105,26 @@ class PairService extends ChangeNotifier {
     return user != null && !user.isAnonymous;
   }
 
+  /// Demo mode only (`lib/mock/mock_dependencies.dart`): installs a ready-made
+  /// pair so the store and review captures show the pairing screens with no
+  /// backend. Pure state assignment, nothing is sent anywhere.
+  void seedDemo({
+    required PairInfo pair,
+    List<DateNight> nights = const [],
+    PairStats stats = PairStats.empty,
+    PairHistory history = PairHistory.empty,
+    bool partnerOnline = false,
+  }) {
+    _pair = pair;
+    _nights = nights;
+    _nightsLoaded = true;
+    _stats = stats;
+    _history = history;
+    _partnerOnline = partnerOnline;
+    _loaded = true;
+    notifyListeners();
+  }
+
   // ---------------------------------------------------------------- loading
 
   /// Loads the pair and, when paired, the shared lists. Safe to call often: it

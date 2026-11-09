@@ -24,7 +24,7 @@
 
 ---
 
-SyncTogether is a modern cross-platform application for synchronized media playback across devices. Create a **room**, share a 6-character room code (or a `synctogether://join/<code>` invite link), and keep everyone's playback in lockstep - play, pause, and seeks broadcast in real-time, accompanied by synchronized chat, animated emoji reactions, and live voice & video facecams.
+SyncTogether is a modern cross-platform application for synchronized media playback across devices. Create a **room**, share a 6-character room code (or a `synctogether://join/<code>` invite link), and keep everyone's playback in lockstep - play, pause, and seeks broadcast in real-time, accompanied by synchronized chat, animated emoji reactions, and live voice & video facecams. Two signed-in accounts can also **pair** for a free, persistent private room (Our Room) with date nights across time zones, a weekly streak and shared history - see [`docs/agent/pairing.md`](docs/agent/pairing.md).
 
 ## Preview
 

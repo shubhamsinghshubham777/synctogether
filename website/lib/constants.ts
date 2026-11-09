@@ -279,11 +279,36 @@ export const FAQ_ITEMS = [
     ]
   },
   {
+    category: "Pairing & Our Room",
+    questions: [
+      {
+        q: "How do I pair with my partner?",
+        a: "Sign in, open the pair screen from the lobby and send your person an invite link, a 6-character code or an email invite. When they accept, the two of you share Our Room, a private room that is always yours. An invite lasts 48 hours."
+      },
+      {
+        q: "Is pairing free?",
+        a: "Yes. Any two signed-in accounts can pair for free, and Our Room never uses one of your room slots. If either of you is a Premium member, you both can also plan date nights and see your full history. On Free you see the last 7 days, and you can export all of it any time."
+      },
+      {
+        q: "Can guests pair?",
+        a: "No. Pairing needs an account for each of you (Google, Apple or an emailed code), so the room and your history stay with the two of you."
+      },
+      {
+        q: "How do time zones work for date nights?",
+        a: "Each of you sees a date night at your own local time, and your person's clock shows up only when it differs from yours. Both of you get a reminder 15 minutes before it starts."
+      },
+      {
+        q: "What happens if we unpair?",
+        a: "Either of you can unpair. It ends the pair for both: Our Room, date nights and history are removed, and anyone still in the room is sent back to the lobby. Deleting an account does the same, so export your history first if you want to keep it."
+      }
+    ]
+  },
+  {
     category: "Premium & billing",
     questions: [
       {
         q: "What do I get with SyncTogether Premium?",
-        a: "Premium unlocks 20 persistent rooms, up to 16 participants per room, up to 24-hour sessions, crystal-clear Voice & Video facecams, 24 animated emoji reactions, persistent room memory, a claimable @handle with your own public profile page, and an extra streak freeze so a busy week doesn't break your run."
+        a: "Premium unlocks 20 persistent rooms, up to 16 participants per room, up to 24-hour sessions, crystal-clear Voice & Video facecams, 24 animated emoji reactions, persistent room memory, date-night planning and your full history if you are paired, a claimable @handle with your own public profile page, and an extra streak freeze so a busy week doesn't break your run."
       },
       {
         q: "How do I subscribe?",

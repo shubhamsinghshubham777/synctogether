@@ -8,7 +8,7 @@ import { getPatronPrices } from "@/lib/store-prices";
 export const metadata: Metadata = {
   title: "Pricing & Plans · SyncTogether Premium",
   description:
-    "Upgrade to SyncTogether Premium for 20 persistent rooms, 16 members, 24-hour sessions, video facecams, and extended emoji reactions.",
+    "Upgrade to SyncTogether Premium for 20 persistent rooms, 16 members, 24-hour sessions, video facecams, and extended emoji reactions. Pairing and Our Room for two are free.",
 };
 
 export default async function PricingPage() {
@@ -26,7 +26,7 @@ export default async function PricingPage() {
             <span className="text-brass">Patron seats</span> for the big ones.
           </span>
         }
-        lede="Free rooms hold 8 people for 4 hours. Patron, our Premium plan, is for the whole group, the all-day marathon, and the room you can keep and reopen."
+        lede="Free rooms hold 8 people for 4 hours. Patron, our Premium plan, is for the whole group, the all-day marathon, and the room you can keep and reopen. Two of you? Pairing and Our Room are free."
         aside={
           <dl className={`${mono} grid grid-cols-3 border border-rail rounded-md divide-x divide-rail text-center`}>
             {[
@@ -51,6 +51,21 @@ export default async function PricingPage() {
 
       <Reveal>
         <PricingTable prices={prices} />
+      </Reveal>
+
+      <Reveal>
+        <section className="border border-rail rounded-md p-6 sm:p-8 space-y-3 max-w-3xl">
+          <p className={`${mono} text-[11px] tracking-[0.16em] text-signal uppercase`}>For two</p>
+          <h2 className={`${display} text-2xl sm:text-3xl font-extrabold tracking-[-0.03em]`}>
+            Pairing and Our Room are free.
+          </h2>
+          <p className="text-[15px] leading-relaxed text-gray-400">
+            Any two signed-in accounts can pair and share Our Room, a private room that is always yours. It
+            never uses one of your room slots, and the chat carries over between nights. Guests can&apos;t pair.
+            If either of you is a Patron, you both get video facecams, can plan date nights, and can see your
+            whole history. On Free, you see the last 7 days, and you can export all of it any time.
+          </p>
+        </section>
       </Reveal>
 
     </div>

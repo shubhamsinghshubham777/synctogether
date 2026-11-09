@@ -193,9 +193,9 @@ them set. Changing any of these needs a rebuild and a release.
 | `SUPABASE_URL` / `SUPABASE_PUBLISHABLE_KEY` | Required. Debug builds fall back to the local stack. |
 | `STORE_BUILD` | Store distribution. On macOS it is the Mac App Store build (StoreKit); on Windows it is the Microsoft Store build (Windows.Services.Store); on **Android it is the Google Play build**, which is consumption-only - Premium bought elsewhere unlocks, but no upsell, price or link is shown (`canSellPremium`, which is true on Apple builds and the Microsoft Store build). Every Play release must set it. iOS is always the App Store build regardless. |
 | `STORE_TARGET` | With `CAPTURE_STORE`: `mac` selects the Mac App Store screenshot set. Off in real builds. |
-| `DEMO_MODE` / `DEMO_ROOM` | Mock data for screenshots. Off in real builds. |
+| `DEMO_MODE` / `DEMO_ROOM` | Mock data for screenshots, including a demo pair (Alex and Maya: Our Room, a booked date night, a 12-week streak, history and the year card; `MockPairService` in `lib/mock/mock_dependencies.dart`). Off in real builds. |
 | `DEMO_TIER` | With `DEMO_MODE`: `free` (default) or `premium`, so Patron-side states can be shot. |
-| `CAPTURE_STORE` | Store-screenshot capture flow: 1920x1080 into `store/` (Microsoft Store and README). Add `STORE_TARGET=mac` and `STORE_BUILD=true` for the Mac App Store set, 2880x1800 into `store/mac/`. Off in real builds. |
+| `CAPTURE_STORE` | Store-screenshot capture flow: 1920x1080 into `store/` (Microsoft Store and README). Includes the pairing set (Our Room, pair hub, date nights, streak, year card) after the room shots. Add `STORE_TARGET=mac` and `STORE_BUILD=true` for the Mac App Store set, 2880x1800 into `store/mac/`. Off in real builds. |
 | `CAPTURE_WEBSITE` | Writes the homepage product shot. Off in real builds. |
 | `CAPTURE_REVIEW` | With `DEMO_MODE`: renders every screen and state that has a design board to `build/review/<tier>/` at 1280x720 @ 1.5x, for comparing the build against the canvas. Run the built binary from the repo root. Off in real builds. |
 

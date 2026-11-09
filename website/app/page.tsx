@@ -8,6 +8,8 @@ import { WhyNotScreenShare } from "@/components/WhyNotScreenShare";
 import { ReactionPlayground } from "@/components/ReactionPlayground";
 import { TierPreviewSection } from "@/components/TierPreviewSection";
 import { Ticket } from "@/components/Ticket";
+import Image from "next/image";
+import Link from "next/link";
 import { getPatronPrices } from "@/lib/store-prices";
 
 export const revalidate = 3600; // ISR hourly
@@ -200,6 +202,44 @@ export default async function HomePage() {
         </Reveal>
       </section>
       </div>
+
+      {/* 5. FOR TWO - the pairing feature, for long-distance couples */}
+      <section className="px-4 sm:px-6 lg:px-8 max-w-7xl min-[2000px]:max-w-[1920px] mx-auto py-10 md:py-12">
+        <Reveal>
+          <div className="grid lg:grid-cols-[1fr_1.1fr] gap-10 lg:gap-14 items-center">
+            <div className="space-y-5">
+              <Kicker n="05">For two</Kicker>
+              <h2 className={`${display} text-4xl sm:text-5xl font-extrabold tracking-[-0.035em] leading-[0.95]`}>
+                A room that&apos;s only ever yours.
+              </h2>
+              <p className="text-[17px] leading-relaxed text-gray-400 max-w-xl">
+                Far from your person? Pair two accounts and you get Our Room, a private room that stays put
+                between nights, free on every plan. Plan a date night that shows each of you your own local
+                time, get a nudge before it starts, and build a weekly streak of films watched together.
+              </p>
+              <ul className="space-y-2 text-[15px] text-gray-300">
+                <li>Date nights across time zones, with a reminder 15 minutes before.</li>
+                <li>Nicknames, a reunion countdown and a shareable year card for the two of you.</li>
+                <li>The chat carries over, and a finished film waits for you to pick it up again.</li>
+              </ul>
+              <Link
+                href="/guides/long-distance-date-night-ideas"
+                className="inline-block text-white font-semibold underline underline-offset-[6px] decoration-gray-600 hover:decoration-beam-500"
+              >
+                Long-distance date night ideas
+              </Link>
+            </div>
+            <Image
+              src="/art/pair-room.avif"
+              alt="Our Room: two people watching the same film from different cities"
+              width={1200}
+              height={800}
+              sizes="(min-width: 1024px) 560px, 100vw"
+              className="w-full h-auto rounded-md border border-rail"
+            />
+          </div>
+        </Reveal>
+      </section>
 
       <Reveal>
         <TierPreviewSection prices={prices} />

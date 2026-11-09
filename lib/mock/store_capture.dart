@@ -6,6 +6,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
 import 'package:go_router/go_router.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
+import 'package:synctogether/pairing/pair_service.dart';
 import 'package:synctogether/platform.dart';
 import 'package:synctogether/profile/apple_iap_service.dart';
 import 'package:window_manager/window_manager.dart';
@@ -67,6 +68,14 @@ const _kStoreDir = _kMacStore ? 'store/mac' : 'store';
 const _kStoreLogical = _kMacStore ? Size(1440, 900) : _kCaptureLogical;
 const _kStoreRatio = _kMacStore ? 2.0 : _kCaptureRatio;
 
+/// Closes any dialog an earlier shot left open (the media chooser): routing to
+/// another page does not dismiss a dialog, so it would sit over the next shot.
+void _dismissDialogs(GoRouter router) {
+  final context = router.routerDelegate.navigatorKey.currentContext;
+  if (context == null) return;
+  Navigator.of(context, rootNavigator: true).popUntil((route) => route is! PopupRoute);
+}
+
 /// `STORE_TARGET=ios` (phone / iPhone Duo): the flow cannot screenshot the
 /// status bar, so it walks the demo routes and prints `[SHOT] <name>` once
 /// each has settled; `scripts/capture-ios-shots.sh` answers with
@@ -109,6 +118,23 @@ Future<void> _runMobileStoreCapture(GoRouter router) async {
     }
     FocusManager.instance.primaryFocus?.unfocus();
     await Future.delayed(const Duration(milliseconds: 1000));
+  }
+  // The pairing set. Our Room installs its own two-person demo room first.
+  _dismissDialogs(router);
+  await PairService.instance.openOurRoom();
+  const pairShots = <(String, String)>[
+    ('8_our_room', '/lobby/room/demo-our-room'),
+    ('9_pair_hub', '/lobby/pair'),
+    ('10_date_nights', '/lobby/pair/nights'),
+    ('11_streak', '/lobby/pair/streak'),
+    ('12_year_card', '/lobby/pair/year'),
+  ];
+  for (final (name, path) in pairShots) {
+    router.go(path);
+    await Future.delayed(const Duration(milliseconds: 3500));
+    // ignore: avoid_print
+    print('[SHOT] $name');
+    await Future.delayed(const Duration(milliseconds: 3500));
   }
   // ignore: avoid_print
   print('[SHOT] done');
@@ -161,7 +187,26 @@ Future<void> runStoreCaptureFlow(BuildContext context, GoRouter router) async {
   await Future.delayed(const Duration(milliseconds: 2500));
   await captureBoundaryToFile('$_kStoreDir/4_media_chooser.png', pixelRatio: _kStoreRatio);
 
-  // 5. Subscription purchase screen - the App Review screenshot each App
+  // 5. The pairing set: Our Room, the pair hub, the date night, the streak and
+  // the year card. Our Room installs its own two-person demo room first.
+  _dismissDialogs(router);
+  await PairService.instance.openOurRoom();
+  const pairShots = <(String, String)>[
+    ('6_our_room', '/lobby/room/demo-our-room'),
+    ('7_pair_hub', '/lobby/pair'),
+    ('8_date_nights', '/lobby/pair/nights'),
+    ('9_streak', '/lobby/pair/streak'),
+    ('10_year_card', '/lobby/pair/year'),
+  ];
+  for (final (name, path) in pairShots) {
+    // ignore: avoid_print
+    print('[STORE CAPTURE] Capturing $name...');
+    router.go(path);
+    await Future.delayed(const Duration(milliseconds: 3500));
+    await captureBoundaryToFile('$_kStoreDir/$name.png', pixelRatio: _kStoreRatio);
+  }
+
+  // 11. Subscription purchase screen - the App Review screenshot each App
   // Store subscription needs. Only meaningful with STORE_BUILD=true, which is
   // what shows the StoreKit offer; 1440x900 at 2x is a Mac App Store size.
   if (isAppleStoreBuild) {

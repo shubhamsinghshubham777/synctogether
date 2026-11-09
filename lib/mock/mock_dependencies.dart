@@ -4,6 +4,8 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:synctogether/auth/auth_service.dart';
+import 'package:synctogether/pairing/pair_models.dart';
+import 'package:synctogether/pairing/pair_service.dart';
 import 'package:synctogether/av/livekit_service.dart';
 import 'package:synctogether/profile/entitlement_service.dart';
 import 'package:synctogether/profile/profile_models.dart';
@@ -188,6 +190,187 @@ final mockChatMessagesList = [
   ),
 ];
 
+/// Demo pair: Alex and Maya, an ocean apart. Seeded into [MockPairService] so
+/// the pairing screens render with a streak, a date night and some history.
+final mockOurRoom = Room(
+  id: 'demo-our-room',
+  name: 'Our Room',
+  code: 'OURRM1',
+  createdBy: 'user-alex',
+  durationMinutes: 240,
+  maxMembers: 2,
+  avLevel: .video,
+  mediaKind: .local,
+  mediaName: 'Sunday_Sofa_CC_4K.mp4',
+  mediaDuration: const Duration(hours: 2, minutes: 49, seconds: 3),
+  persistent: true,
+  pairId: 'demo-pair',
+  createdAt: DateTime.now().subtract(const Duration(minutes: 40)),
+  expiresAt: DateTime.now().add(const Duration(hours: 3)),
+);
+
+final mockOurRoomMembers = [
+  RoomMember(
+    roomId: 'demo-our-room',
+    userId: 'user-alex',
+    role: 'host',
+    joinedAt: DateTime.now().subtract(const Duration(minutes: 40)),
+    profile: const Profile(id: 'user-alex', displayName: 'Alex Rivers', isGuest: false),
+  ),
+  RoomMember(
+    roomId: 'demo-our-room',
+    userId: 'user-maya',
+    role: 'host',
+    joinedAt: DateTime.now().subtract(const Duration(minutes: 38)),
+    profile: const Profile(id: 'user-maya', displayName: 'Maya', isGuest: false),
+  ),
+];
+
+final mockOurRoomPresence = [
+  PresentMember(
+    userId: 'user-alex',
+    displayName: 'Alex Rivers',
+    role: 'host',
+    joinedAt: DateTime.now().subtract(const Duration(minutes: 40)),
+    readyStatus: .ready,
+    loadedFileName: 'Sunday_Sofa_CC_4K.mp4',
+  ),
+  PresentMember(
+    userId: 'user-maya',
+    displayName: 'Maya',
+    role: 'host',
+    joinedAt: DateTime.now().subtract(const Duration(minutes: 38)),
+    readyStatus: .ready,
+    loadedFileName: 'Sunday_Sofa_CC_4K.mp4',
+  ),
+];
+
+final mockOurRoomChat = [
+  ChatMessage(
+    senderId: 'user-maya',
+    displayName: 'Maya',
+    content: 'Okay I have snacks. Press play whenever you are ready!',
+    sentAt: DateTime.now().subtract(const Duration(minutes: 4)),
+  ),
+  ChatMessage(
+    senderId: 'user-alex',
+    displayName: 'Alex Rivers',
+    content: 'Ready. Seeing you on screen is the best part of my week.',
+    sentAt: DateTime.now().subtract(const Duration(minutes: 3)),
+  ),
+  ChatMessage(
+    senderId: 'user-maya',
+    displayName: 'Maya',
+    content: 'Eleven more days and I get to steal your popcorn in person.',
+    sentAt: DateTime.now().subtract(const Duration(minutes: 1)),
+  ),
+];
+
+final mockPairInfo = PairInfo(
+  pairId: 'demo-pair',
+  since: DateTime.now().subtract(const Duration(days: 214)),
+  partner: const PairPartner(
+    id: 'user-maya',
+    displayName: 'Maya',
+    realName: 'Maya',
+    timezone: 'America/Los_Angeles',
+  ),
+  reunionOn: DateTime.now().add(const Duration(days: 11)),
+  reunionLabel: 'Landing in Lisbon',
+  patron: true,
+  roomId: 'demo-our-room',
+  roomCode: 'OURRM1',
+);
+
+/// Pairing with no backend: the demo pair, a booked date night and a streak.
+class MockPairService extends PairService {
+  MockPairService() {
+    final now = DateTime.now();
+    seedDemo(
+      pair: mockPairInfo,
+      partnerOnline: true,
+      nights: [
+        DateNight(
+          id: 'demo-night-1',
+          title: 'Movie night',
+          startsAt: now.add(const Duration(days: 2, hours: 3)),
+          proposedBy: 'user-maya',
+          status: .accepted,
+          attachKind: 'youtube',
+          youtubeUrl: 'https://www.youtube.com/watch?v=R6MlUcmOul8',
+          updatedAt: now,
+        ),
+      ],
+      stats: const PairStats(
+        streakWeeks: 12,
+        bestStreakWeeks: 12,
+        doneThisWeek: true,
+        nights: 41,
+        hours: 96.5,
+        films: 29,
+      ),
+      history: PairHistory(
+        patron: true,
+        items: [
+          for (var i = 0; i < 6; i++)
+            PairSession(
+              title: const [
+                'Sunday Sofa Screening',
+                'Tears of Steel',
+                'Cooking show marathon',
+              ][i % 3],
+              startedAt: now.subtract(Duration(days: 1 + i * 3)),
+              seconds: 5400 + i * 900,
+            ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  bool get isSignedInAccount => true;
+
+  @override
+  Future<void> load() async {}
+
+  @override
+  Future<void> retryNights() async {}
+
+  @override
+  Future<void> syncTimezone() async {}
+
+  @override
+  Future<void> loadPrefs() async {}
+
+  @override
+  Future<Room> openOurRoom() async {
+    final backend = MockSyncBackend(
+      room: mockOurRoom,
+      presence: mockOurRoomPresence,
+      chatHistory: mockOurRoomChat,
+    );
+    SyncService.defaultBackendOverride = backend;
+    return mockOurRoom;
+  }
+
+  @override
+  Future<PairHistory> loadHistory() async => history;
+
+  /// What the year card's film strip reads: a night in most months since the
+  /// pair began in April, with a gap in June so the strip is not a solid bar.
+  @override
+  Future<List<PairSession>> exportHistory() async {
+    final year = DateTime.now().year;
+    return [
+      for (final month in const [4, 5, 7, 8, 9, 10, 11])
+        PairSession(title: 'Movie night', startedAt: DateTime(year, month, 3, 20), seconds: 7200),
+    ];
+  }
+
+  @override
+  Future<PairStats> loadStatsForYear(int year) async => stats;
+}
+
 class MockAuthService extends AuthService {
   bool _signedIn = true;
   final _authController = StreamController<AuthState>.broadcast();
@@ -362,11 +545,13 @@ class MockRoomService extends RoomService {
   @override
   Future<Room?> fetchRoom(String roomId) async {
     final match = _rooms.where((r) => r.room.id == roomId).firstOrNull;
+    if (roomId == mockOurRoom.id) return mockOurRoom;
     return match?.room ?? mockRoomOne;
   }
 
   @override
-  Future<List<RoomMember>> fetchMembers(String roomId) async => mockMembersList;
+  Future<List<RoomMember>> fetchMembers(String roomId) async =>
+      roomId == mockOurRoom.id ? mockOurRoomMembers : mockMembersList;
 
   @override
   Future<RoomMemberCosmetics> fetchMemberTiers(String roomId) async => const RoomMemberCosmetics(
@@ -618,6 +803,7 @@ void installMockDependencies() {
   ProfileService.instance = MockProfileService();
   EntitlementService.instance = MockEntitlementService();
   RoomService.instance = MockRoomService();
+  PairService.instance = MockPairService();
   SyncService.defaultBackendOverride = MockSyncBackend(
     room: mockRoomOne,
     presence: mockPresentList,

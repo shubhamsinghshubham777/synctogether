@@ -1646,6 +1646,7 @@ class _ProfileScreenState extends State<ProfileScreen> with WindowListener {
           },
         ),
         PTButtonBar(
+          keepOrder: true,
           buttons: [
             if (Env.sitePage('privacy') case final page?)
               PTButton(

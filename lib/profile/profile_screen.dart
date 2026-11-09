@@ -9,6 +9,7 @@ import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:synctogether/env.dart';
 import 'package:synctogether/nav.dart';
+import 'package:synctogether/ui/escape_back.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:synctogether/app_version.dart';
@@ -328,25 +329,27 @@ class _ProfileScreenState extends State<ProfileScreen> with WindowListener {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: AmbientBackground(
-        child: ListenableBuilder(
-          listenable: Listenable.merge([
-            ProfileService.instance,
-            EntitlementService.instance,
-            RewardsService.instance,
-          ]),
-          builder: (context, _) {
-            final profile = ProfileService.instance.profile;
-            if (profile == null) {
-              return const Center(child: PTLoader(size: 32));
-            }
-            return PTResponsive(
-              desktop: (_) => _desktop(profile),
-              portrait: (_) => _portrait(profile),
-              landscape: (_) => _landscape(profile),
-            );
-          },
+    return PTEscapeBack(
+      child: Scaffold(
+        body: AmbientBackground(
+          child: ListenableBuilder(
+            listenable: Listenable.merge([
+              ProfileService.instance,
+              EntitlementService.instance,
+              RewardsService.instance,
+            ]),
+            builder: (context, _) {
+              final profile = ProfileService.instance.profile;
+              if (profile == null) {
+                return const Center(child: PTLoader(size: 32));
+              }
+              return PTResponsive(
+                desktop: (_) => _desktop(profile),
+                portrait: (_) => _portrait(profile),
+                landscape: (_) => _landscape(profile),
+              );
+            },
+          ),
         ),
       ),
     );

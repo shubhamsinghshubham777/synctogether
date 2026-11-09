@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:synctogether/env.dart';
 import 'package:synctogether/nav.dart';
+import 'package:synctogether/ui/escape_back.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:synctogether/analytics.dart';
@@ -216,22 +217,24 @@ class _SubscriptionScreenState extends State<SubscriptionScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: AmbientBackground(
-        child: ListenableBuilder(
-          listenable: Listenable.merge([
-            ProfileService.instance,
-            EntitlementService.instance,
-            AppleIapService.instance,
-            MicrosoftIapService.instance,
-          ]),
-          builder: (context, _) {
-            return PTResponsive(
-              desktop: (_) => _layout(compact: false),
-              portrait: (_) => _layout(compact: true),
-              landscape: (_) => _layout(compact: true),
-            );
-          },
+    return PTEscapeBack(
+      child: Scaffold(
+        body: AmbientBackground(
+          child: ListenableBuilder(
+            listenable: Listenable.merge([
+              ProfileService.instance,
+              EntitlementService.instance,
+              AppleIapService.instance,
+              MicrosoftIapService.instance,
+            ]),
+            builder: (context, _) {
+              return PTResponsive(
+                desktop: (_) => _layout(compact: false),
+                portrait: (_) => _layout(compact: true),
+                landscape: (_) => _layout(compact: true),
+              );
+            },
+          ),
         ),
       ),
     );

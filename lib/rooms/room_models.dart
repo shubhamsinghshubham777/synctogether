@@ -81,6 +81,8 @@ class Room {
     this.mediaUploadId,
     this.mediaUploadState = 'none',
     this.mediaSharingLevel = 'none',
+    this.mediaExpiresAt,
+    this.mediaShareExpiredAt,
     this.videoTrialEndsAt,
     this.isBanned = false,
     this.pairId,
@@ -136,6 +138,15 @@ class Room {
   final String mediaUploadState;
   final String mediaSharingLevel;
 
+  /// Our Room only: when a shared film kept past its session is released. Null while a
+  /// session is live (and for every other room).
+  final DateTime? mediaExpiresAt;
+
+  /// Our Room only: set when that deadline passed and the film was released; cleared
+  /// when the room's media or its sharing state changes. It is what lets the app say
+  /// "the shared copy was removed" instead of leaving a film nobody can stream.
+  final DateTime? mediaShareExpiredAt;
+
   /// When a free room's video trial runs out; null until somebody starts it.
   /// Never cleared, so a spent trial stays spent across end and resume.
   final DateTime? videoTrialEndsAt;
@@ -171,6 +182,8 @@ class Room {
     String? mediaUploadId,
     String? mediaUploadState,
     String? mediaSharingLevel,
+    DateTime? mediaExpiresAt,
+    DateTime? mediaShareExpiredAt,
     DateTime? videoTrialEndsAt,
     bool? isBanned,
     String? pairId,
@@ -204,6 +217,8 @@ class Room {
       mediaUploadId: mediaUploadId ?? this.mediaUploadId,
       mediaUploadState: mediaUploadState ?? this.mediaUploadState,
       mediaSharingLevel: mediaSharingLevel ?? this.mediaSharingLevel,
+      mediaExpiresAt: mediaExpiresAt ?? this.mediaExpiresAt,
+      mediaShareExpiredAt: mediaShareExpiredAt ?? this.mediaShareExpiredAt,
       videoTrialEndsAt: videoTrialEndsAt ?? this.videoTrialEndsAt,
     );
   }
@@ -248,6 +263,12 @@ class Room {
       mediaUploadId: json['media_upload_id'] as String?,
       mediaUploadState: json['media_upload_state'] as String? ?? 'none',
       mediaSharingLevel: json['media_sharing_level'] as String? ?? 'none',
+      mediaExpiresAt: json['media_expires_at'] != null
+          ? DateTime.parse(json['media_expires_at'] as String)
+          : null,
+      mediaShareExpiredAt: json['media_share_expired_at'] != null
+          ? DateTime.parse(json['media_share_expired_at'] as String)
+          : null,
       videoTrialEndsAt: json['video_trial_ends_at'] != null
           ? DateTime.parse(json['video_trial_ends_at'] as String)
           : null,

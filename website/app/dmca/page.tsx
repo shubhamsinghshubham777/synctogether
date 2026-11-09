@@ -46,7 +46,7 @@ export default function DmcaPage() {
             nothing at all: each participant plays their own copy of a file from their own
             device, and only playback position is exchanged. In Cloud Media Sharing mode a room
             host may upload a video so that guests without a copy can stream it; those files are
-            stored temporarily and deleted when the room closes or expires. Notices under this
+            stored temporarily and deleted when the room closes or expires (in Our Room, a private room shared by two paired accounts, a finished film is deleted 36 hours after the session ends, or 7 days with Patron). Notices under this
             policy concern content uploaded through Cloud Media Sharing.
           </div>
         </section>

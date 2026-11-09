@@ -546,7 +546,12 @@ class PairService extends ChangeNotifier {
     }
   }
 
-  Future<void> setReunion(DateTime? on, String? label) async {
+  Future<void> setReunion(
+    DateTime? on,
+    String? label, {
+    bool? sharedEdit,
+    bool? showOnLobby,
+  }) async {
     try {
       await _client.rpc(
         'set_reunion',
@@ -555,6 +560,8 @@ class PairService extends ChangeNotifier {
               ? null
               : '${on.year.toString().padLeft(4, '0')}-${on.month.toString().padLeft(2, '0')}-${on.day.toString().padLeft(2, '0')}',
           'p_label': label,
+          'p_shared_edit': sharedEdit,
+          'p_show': showOnLobby,
         },
       );
       await load();

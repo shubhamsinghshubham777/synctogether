@@ -3,6 +3,7 @@ import 'package:synctogether/ui/booth_icons.g.dart';
 import 'package:synctogether/ui/inputs.dart';
 import 'package:synctogether/ui/rolling_text.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:synctogether/rooms/our_room_media.dart';
 import 'package:synctogether/rooms/widgets/media_sharing_prompt_dialog.dart';
 import 'package:synctogether/rooms/widgets/sharing_progress_indicator.dart';
 
@@ -100,6 +101,39 @@ void main() {
       expect(result, isNotNull);
       expect(result!.shouldShare, isTrue);
       expect(result!.rememberChoice, isTrue);
+    });
+
+    Future<void> openWith(WidgetTester tester, {String? keepNote}) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Builder(
+            builder: (context) => ElevatedButton(
+              onPressed: () => showMediaSharingPromptDialog(
+                context: context,
+                fileName: 'film.mkv',
+                fileSize: 150 * 1024 * 1024,
+                keepNote: keepNote,
+              ),
+              child: const Text('Open Dialog'),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('Open Dialog'));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('an ordinary room says the upload goes when the room closes', (tester) async {
+      await openWith(tester);
+      expect(find.textContaining("It's removed when the room closes."), findsOneWidget);
+    });
+
+    testWidgets('Our Room says how long it is kept instead, and not the old promise', (
+      tester,
+    ) async {
+      await openWith(tester, keepNote: ourRoomKeepNote(patron: false));
+      expect(find.textContaining('36 hours after your session'), findsOneWidget);
+      expect(find.textContaining('removed when the room closes'), findsNothing);
     });
 
     testWidgets('returns local only selection', (tester) async {

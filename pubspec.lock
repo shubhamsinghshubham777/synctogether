@@ -923,6 +923,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.13.0"
+  saf_stream:
+    dependency: "direct main"
+    description:
+      name: saf_stream
+      sha256: d07728adb74ddc87f1052cb627cab3e961b4a58d15c7c010f1d8b9cc86f317b3
+      url: "https://pub.dev"
+    source: hosted
+    version: "4.0.0"
   saf_util:
     dependency: transitive
     description:

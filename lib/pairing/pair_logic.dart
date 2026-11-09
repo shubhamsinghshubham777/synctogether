@@ -88,6 +88,9 @@ const _months = [
 String formatDay(DateTime wall) =>
     '${_weekdays[wall.weekday - 1]} ${wall.day} ${_months[wall.month - 1]}';
 
+/// "SUN" - the history tile's weekday.
+String weekdayShort(DateTime wall) => _weekdays[wall.weekday - 1].toUpperCase();
+
 /// "Sat 14 Nov · 9:00 PM"
 String formatMoment(DateTime wall) => '${formatDay(wall)} · ${formatClock(wall)}';
 
@@ -160,7 +163,9 @@ NightStanding nightStanding(DateTime now, DateNight night, String myId) {
     case .declined:
       return .declined;
     case .accepted:
-      return night.startsAt.isBefore(now) ? .done : .accepted;
+      // The same half hour of grace the list gives a night that has just started, so
+      // "starting now" is still an accepted night, not one already in the history.
+      return night.startsAt.isBefore(now.subtract(const Duration(minutes: 30))) ? .done : .accepted;
     case .proposed:
       return night.proposedBy == myId ? .awaitingThem : .awaitingMe;
   }
@@ -177,6 +182,19 @@ List<DateNight> upcomingNights(DateTime now, Iterable<DateNight> nights) {
           n.status != DateNightStatus.declined)
         n,
   ]..sort((a, b) => a.startsAt.compareTo(b.startsAt));
+}
+
+/// Cancelled and declined nights stay on the list for two days after the change, newest
+/// first, so the other person sees what happened (and can plan another) before it goes.
+List<DateNight> recentlyEndedNights(DateTime now, Iterable<DateNight> nights) {
+  final cutoff = now.subtract(const Duration(hours: 48));
+  return [
+    for (final n in nights)
+      if ((n.status == DateNightStatus.cancelled || n.status == DateNightStatus.declined) &&
+          n.updatedAt != null &&
+          n.updatedAt!.isAfter(cutoff))
+        n,
+  ]..sort((a, b) => b.updatedAt!.compareTo(a.updatedAt!));
 }
 
 /// The date night the lobby card should feature: the next accepted one that is
@@ -232,8 +250,13 @@ enum ReunionPhase {
 }
 
 class ReunionView {
-  const ReunionView(this.phase, this.daysLeft);
+  const ReunionView(this.phase, this.daysLeft, {this.wholeDays = 0, this.hoursPart = 0});
   final ReunionPhase phase;
+
+  /// Exact time to the start of the reunion day, as whole days and the hours after them.
+  /// Only the near phase shows it ("3 days 11 h"); the distant one stays on calendar days.
+  final int wholeDays;
+  final int hoursPart;
 
   /// Whole calendar days, by the device's own date. Negative once it has passed.
   final int daysLeft;
@@ -254,7 +277,13 @@ ReunionView reunionView(DateTime reunionOn, DateTime now) {
       : left < 8
       ? ReunionPhase.near
       : ReunionPhase.distant;
-  return ReunionView(phase, left);
+  final span = day.difference(now);
+  return ReunionView(
+    phase,
+    left,
+    wholeDays: span.isNegative ? 0 : span.inDays,
+    hoursPart: span.isNegative ? 0 : span.inHours % 24,
+  );
 }
 
 /// Time two people spend in Our Room *together*: the clock runs only while both
@@ -293,6 +322,17 @@ bool isLoggableSitting(Duration together) => together >= const Duration(minutes:
 
 String hoursLabel(double hours) =>
     hours == hours.roundToDouble() ? '${hours.round()}' : hours.toStringAsFixed(1);
+
+/// "1 NIGHT", "2 NIGHTS" - the year card's stat labels.
+String countLabel(int n, String singular, [String? plural]) =>
+    '$n ${(n == 1 ? singular : (plural ?? '${singular}S')).toUpperCase()}';
+
+/// Which months (1-12) of [year] had a night together, for the year card's film strip.
+/// Counted in UTC, the same clock the server's own year stats use.
+Set<int> watchedMonths(Iterable<PairSession> sessions, int year) => {
+  for (final s in sessions)
+    if (s.seconds >= 1200 && s.startedAt.toUtc().year == year) s.startedAt.toUtc().month,
+};
 
 String durationLabel(int seconds) {
   final h = seconds ~/ 3600;

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:synctogether/ui/escape_back.dart';
 import 'package:flutter/services.dart' show MissingPluginException;
 import 'package:window_manager/window_manager.dart';
 
@@ -100,74 +101,79 @@ class _PairPageState extends State<PairPage> with WindowListener {
   @override
   Widget build(BuildContext context) {
     final gutter = MediaQuery.sizeOf(context).width >= 720 ? 48.0 : 20.0;
-    return Scaffold(
-      body: AmbientBackground(
-        child: SafeArea(
-          top: !isDesktop,
-          child: Column(
-            children: [
-              if (isDesktop)
-                CinemaMarqueeBar(
-                  height: 52,
-                  fullscreen: _fullscreen,
-                  leading: Padding(
-                    padding: const EdgeInsets.only(left: 12),
-                    child: _back(size: 36, iconSize: 18),
-                  ),
-                  trailing: widget.trailing == null
-                      ? null
-                      : Padding(padding: const EdgeInsets.only(right: 16), child: widget.trailing),
-                )
-              else
-                Padding(
-                  padding: EdgeInsets.fromLTRB(gutter - 8, 10, gutter, 6),
-                  child: Row(
-                    children: [
-                      Expanded(child: _back()),
-                      ?widget.trailing,
-                    ],
-                  ),
-                ),
-              Expanded(
-                child: ScrollFadeEdge(
-                  height: 36,
-                  child: SingleChildScrollView(
-                    keyboardDismissBehavior: .onDrag,
-                    padding: EdgeInsets.fromLTRB(
-                      gutter,
-                      18,
-                      gutter,
-                      widget.footer == null ? 48 : 20,
+    return PTEscapeBack(
+      child: Scaffold(
+        body: AmbientBackground(
+          child: SafeArea(
+            top: !isDesktop,
+            child: Column(
+              children: [
+                if (isDesktop)
+                  CinemaMarqueeBar(
+                    height: 52,
+                    fullscreen: _fullscreen,
+                    leading: Padding(
+                      padding: const EdgeInsets.only(left: 12),
+                      child: _back(size: 36, iconSize: 18),
                     ),
-                    child: Center(
-                      child: ConstrainedBox(
-                        constraints: BoxConstraints(maxWidth: widget.maxWidth),
-                        child: Column(
-                          crossAxisAlignment: .stretch,
-                          spacing: widget.spacing,
-                          children: widget.children,
+                    trailing: widget.trailing == null
+                        ? null
+                        : Padding(
+                            padding: const EdgeInsets.only(right: 16),
+                            child: widget.trailing,
+                          ),
+                  )
+                else
+                  Padding(
+                    padding: EdgeInsets.fromLTRB(gutter - 8, 10, gutter, 6),
+                    child: Row(
+                      children: [
+                        Expanded(child: _back()),
+                        ?widget.trailing,
+                      ],
+                    ),
+                  ),
+                Expanded(
+                  child: ScrollFadeEdge(
+                    height: 36,
+                    child: SingleChildScrollView(
+                      keyboardDismissBehavior: .onDrag,
+                      padding: EdgeInsets.fromLTRB(
+                        gutter,
+                        18,
+                        gutter,
+                        widget.footer == null ? 48 : 20,
+                      ),
+                      child: Center(
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(maxWidth: widget.maxWidth),
+                          child: Column(
+                            crossAxisAlignment: .stretch,
+                            spacing: widget.spacing,
+                            children: widget.children,
+                          ),
                         ),
                       ),
                     ),
                   ),
                 ),
-              ),
-              if (widget.footer != null)
-                Padding(
-                  padding: EdgeInsets.fromLTRB(
-                    gutter,
-                    8,
-                    gutter,
-                    14 + MediaQuery.paddingOf(context).bottom * 0.5,
-                  ),
-                  child: Center(
-                    child: ConstrainedBox(
-                      constraints: BoxConstraints(maxWidth: widget.maxWidth),
-                      child: widget.footer,
+                if (widget.footer != null)
+                  Padding(
+                    padding: EdgeInsets.fromLTRB(
+                      gutter,
+                      8,
+                      gutter,
+                      14 + MediaQuery.paddingOf(context).bottom * 0.5,
+                    ),
+                    child: Center(
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(maxWidth: widget.maxWidth),
+                        child: widget.footer,
+                      ),
                     ),
                   ),
-                ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

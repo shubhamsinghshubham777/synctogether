@@ -507,4 +507,64 @@ void fileViewTests() {
       expect(fileViewOf(night(bytes: 1000), now).percent, 99);
     });
   });
+
+  group('year card and history tile helpers', () {
+    PairSession at(String iso, {int seconds = 3600}) =>
+        PairSession(title: null, startedAt: DateTime.parse(iso), seconds: seconds);
+
+    test('stat labels are singular for exactly one', () {
+      expect(countLabel(1, 'Night'), '1 NIGHT');
+      expect(countLabel(0, 'Film'), '0 FILMS');
+      expect(countLabel(61, 'Night'), '61 NIGHTS');
+    });
+
+    test('the tile shows a short caps weekday', () {
+      expect(weekdayShort(DateTime(2026, 11, 8)), 'SUN');
+      expect(weekdayShort(DateTime(2026, 11, 14)), 'SAT');
+    });
+
+    test('a month counts only for a real night in that year', () {
+      final months = watchedMonths([
+        at('2026-11-08T18:54:00Z'),
+        at('2026-03-02T20:00:00Z'),
+        at('2026-05-02T20:00:00Z', seconds: 300),
+        at('2025-12-31T23:00:00Z'),
+      ], 2026);
+      expect(months, {3, 11});
+    });
+  });
+
+  group('reunion countdown and who may edit it', () {
+    test('under eight days it counts days and hours to the start of the day', () {
+      final view = reunionView(DateTime(2026, 11, 13), DateTime(2026, 11, 9, 13));
+      expect(view.phase, ReunionPhase.near);
+      expect(view.wholeDays, 3);
+      expect(view.hoursPart, 11);
+    });
+
+    test('far out it stays on calendar days', () {
+      final view = reunionView(DateTime(2026, 12, 26), DateTime(2026, 11, 9, 13));
+      expect(view.phase, ReunionPhase.distant);
+      expect(view.daysLeft, 47);
+    });
+
+    PairInfo pair({String? setBy, bool shared = true}) => PairInfo(
+      pairId: 'p',
+      since: DateTime(2026),
+      partner: const PairPartner(id: 'sam', displayName: 'Sam'),
+      reunionOn: setBy == null ? null : DateTime(2026, 12, 26),
+      reunionSetBy: setBy,
+      reunionSharedEdit: shared,
+    );
+
+    test('either may edit a shared or unset date', () {
+      expect(pair().canEditReunion('me'), isTrue);
+      expect(pair(setBy: 'sam').canEditReunion('me'), isTrue);
+    });
+
+    test('a locked date is editable only by whoever set it', () {
+      expect(pair(setBy: 'sam', shared: false).canEditReunion('me'), isFalse);
+      expect(pair(setBy: 'me', shared: false).canEditReunion('me'), isTrue);
+    });
+  });
 }

@@ -7,6 +7,7 @@ import '../ui/booth_icons.g.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:synctogether/nav.dart';
+import 'package:synctogether/ui/escape_back.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:window_manager/window_manager.dart';
@@ -178,20 +179,22 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> with WindowListen
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: AmbientBackground(
-        child: ListenableBuilder(
-          listenable: Listenable.merge([RewardsService.instance, AnalyticsConsent.instance]),
-          builder: (context, _) {
-            final state = RewardsService.instance.state;
-            return PTResponsive(
-              portrait: (_) => _layout(state, compact: true),
-              // Phone landscape is 390 tall: the compact header, not the 48 px
-              // desktop gutters. Tablets fall back to desktop.
-              landscape: (_) => _layout(state, compact: MediaQuery.sizeOf(context).width < 840),
-              desktop: (_) => _layout(state, compact: false),
-            );
-          },
+    return PTEscapeBack(
+      child: Scaffold(
+        body: AmbientBackground(
+          child: ListenableBuilder(
+            listenable: Listenable.merge([RewardsService.instance, AnalyticsConsent.instance]),
+            builder: (context, _) {
+              final state = RewardsService.instance.state;
+              return PTResponsive(
+                portrait: (_) => _layout(state, compact: true),
+                // Phone landscape is 390 tall: the compact header, not the 48 px
+                // desktop gutters. Tablets fall back to desktop.
+                landscape: (_) => _layout(state, compact: MediaQuery.sizeOf(context).width < 840),
+                desktop: (_) => _layout(state, compact: false),
+              );
+            },
+          ),
         ),
       ),
     );

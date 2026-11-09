@@ -21,7 +21,10 @@ import 'package:synctogether/av/livekit_service.dart';
 import 'package:synctogether/mock/mock_dependencies.dart';
 import 'package:synctogether/profile/entitlement_service.dart';
 import 'package:synctogether/profile/profile_service.dart';
+import 'package:synctogether/pairing/pair_service.dart';
 import 'package:synctogether/player/mode_selection_dialog.dart';
+import 'package:synctogether/rooms/local_media_store.dart';
+import 'package:synctogether/rooms/media_sharing_service.dart';
 import 'package:synctogether/player/youtube_url_dialog.dart';
 import 'package:synctogether/rooms/room_dependencies.dart';
 import 'package:synctogether/rooms/room_models.dart';
@@ -47,6 +50,7 @@ import 'package:synctogether/ui/marquee.dart';
 import 'package:synctogether/ui/pt_motion.dart';
 import 'package:synctogether/ui/responsive.dart';
 
+import '../support/fake_pair_service.dart';
 import '../support/screen_matrix.dart';
 import '../sync/fakes.dart';
 import 'layout_support.dart';
@@ -370,6 +374,127 @@ void expectCardBottomAnchored(WidgetTester tester, ScreenCase c, double s) {
 
 void main() {
   setUp(() => _VideoProbe.mounts = 0);
+
+  // Our Room: both people are hosts, both are shown "choose a file or a YouTube
+  // link" in an empty room, and one of them shares a file. The other one's chooser
+  // must go away on its own and the shared copy must start to stream; before this
+  // the chooser stayed (sharing a local file sends no mode switch) and the streaming
+  // path only ran for non-hosts, so a partner who was also a host never got it.
+  // Through `screenMatrix` like every other case here: it owns the global test state
+  // (platform override, inset and hinge checks) that a bare testWidgets would leak.
+  final desktopOnly = kScreenMatrix.where((c) => c.name == 'desktop').toList();
+
+  Future<_Harness> openEmptyWithChooser(WidgetTester tester, ScreenCase c, double s) async {
+    // These rooms remember no file; the store caches what it read, and the cases that
+    // run after must read their own remembered copy, not this emptiness.
+    LocalMediaStore.instance.resetCacheForTesting();
+    addTearDown(LocalMediaStore.instance.resetCacheForTesting);
+    final h = await _pumpRoom(
+      tester,
+      c,
+      s,
+      room: _emptyRoom(),
+      members: 2,
+      selfHost: true,
+      remembered: false,
+    );
+    expect(find.byType(ModeSelectionDialog), findsOneWidget, reason: 'the chooser is up');
+    return h;
+  }
+
+  Map<String, dynamic> sharedFileMediaSet() => {
+    'senderId': 'user-bea',
+    'timestamp': 1,
+    'kind': 'local',
+    'name': 'film.mkv',
+    'durationMs': 7200000,
+    'updatedAtMs': DateTime.now().millisecondsSinceEpoch,
+  };
+
+  screenMatrix(
+    'another host sharing a file closes the chooser we were still showing',
+    (tester, c, s) async {
+      final h = await openEmptyWithChooser(tester, c, s);
+      h.backend.channelInUse.deliver('media_set', sharedFileMediaSet());
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(find.byType(ModeSelectionDialog), findsNothing);
+      await _finish(tester);
+    },
+    cases: desktopOnly,
+    textScales: const [1.0],
+  );
+
+  screenMatrix(
+    'the upload finishing starts the stream here, even though we are a host',
+    (tester, c, s) async {
+      final h = await openEmptyWithChooser(tester, c, s);
+      final channel = h.backend.channelInUse;
+      channel.deliver('media_set', sharedFileMediaSet());
+      await tester.pump();
+      channel.deliver('sharing_toggled', {
+        'senderId': 'user-bea',
+        'timestamp': 2,
+        'enabled': true,
+        'fileName': 'film.mkv',
+        'fileSize': 1000,
+        'uploadState': 'ready',
+      });
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+      // The download link comes from the backend, which a test has none of, so the
+      // attempt ends as a reported failure and the "could not load" note: proof that
+      // a host tried to stream the shared copy (Our Room: both people are hosts).
+      expect(find.byType(ModeSelectionDialog), findsNothing);
+      expect(find.textContaining('Failed to load shared media'), findsOneWidget);
+      expect(tester.takeException(), isA<MediaSharingException>());
+      await _finish(tester);
+    },
+    cases: desktopOnly,
+    textScales: const [1.0],
+  );
+
+  // Our Room, a new session after the kept film was released: say so, instead of a
+  // silent "Locate your copy". The room names a film, has no shared copy, and this
+  // device has no file.
+  screenMatrix(
+    'our room whose kept film was released says so',
+    (tester, c, s) async {
+      LocalMediaStore.instance.resetCacheForTesting();
+      addTearDown(LocalMediaStore.instance.resetCacheForTesting);
+      final realPair = PairService.instance;
+      // No pair loaded: the room screen's together-clock reads the signed-in user only
+      // when there is a partner, and a test has no Supabase session to read.
+      PairService.instance = FakePairService();
+      addTearDown(() => PairService.instance = realPair);
+      await _pumpRoom(
+        tester,
+        c,
+        s,
+        room: _room().copyWith(pairId: 'pair-1', mediaShareExpiredAt: DateTime.now()),
+        members: 2,
+        remembered: false,
+      );
+      expect(find.text('The shared copy was removed'), findsOneWidget);
+      expect(find.text('Pick my copy'), findsOneWidget);
+      await _finish(tester);
+    },
+    cases: desktopOnly,
+    textScales: const [1.0],
+  );
+
+  screenMatrix(
+    'a room that never shared a film says nothing about a removed copy',
+    (tester, c, s) async {
+      LocalMediaStore.instance.resetCacheForTesting();
+      addTearDown(LocalMediaStore.instance.resetCacheForTesting);
+      await _pumpRoom(tester, c, s, room: _room(), members: 2, remembered: false);
+      expect(find.text('The shared copy was removed'), findsNothing);
+      await _finish(tester);
+    },
+    cases: desktopOnly,
+    textScales: const [1.0],
+  );
 
   screenMatrix('room local idle', (tester, c, s) async {
     await _pumpRoom(tester, c, s);

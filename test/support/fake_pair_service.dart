@@ -191,7 +191,12 @@ class FakePairService extends PairService {
   void dismissBanner(String code) => calls.add('dismissBanner:$code');
 
   @override
-  Future<void> setReunion(DateTime? on, String? label) async => calls.add('setReunion:$on:$label');
+  Future<void> setReunion(
+    DateTime? on,
+    String? label, {
+    bool? sharedEdit,
+    bool? showOnLobby,
+  }) async => calls.add('setReunion:$on:$label');
 
   @override
   Future<bool> callPartner() async {

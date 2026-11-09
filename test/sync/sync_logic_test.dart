@@ -1396,4 +1396,45 @@ void main() {
       );
     });
   });
+  group('shouldStreamSharedCopy', () {
+    bool go({
+      bool ended = false,
+      bool uploadingHere = false,
+      bool shareReady = true,
+      String? fileName = 'film.mkv',
+      String? loadedFileName,
+      bool alreadyStarting = false,
+    }) => shouldStreamSharedCopy(
+      ended: ended,
+      uploadingHere: uploadingHere,
+      shareReady: shareReady,
+      fileName: fileName,
+      loadedFileName: loadedFileName,
+      alreadyStarting: alreadyStarting,
+    );
+
+    test('the partner who did not upload streams it, host or not', () {
+      // Our Room: both people are hosts. Nothing here asks who is the host.
+      expect(go(), isTrue);
+    });
+
+    test('the uploader never streams its own upload', () {
+      expect(go(uploadingHere: true), isFalse);
+      expect(go(loadedFileName: 'film.mkv'), isFalse, reason: 'it already has the file open');
+    });
+
+    test('waits until the copy is ready, and until the room says which file', () {
+      expect(go(shareReady: false), isFalse);
+      expect(go(fileName: null), isFalse);
+    });
+
+    test('does nothing twice, and nothing once the room has ended', () {
+      expect(go(alreadyStarting: true), isFalse);
+      expect(go(ended: true), isFalse);
+    });
+
+    test('someone holding a different file is moved to the shared one', () {
+      expect(go(loadedFileName: 'other.mkv'), isTrue);
+    });
+  });
 }

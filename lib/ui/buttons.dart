@@ -811,7 +811,7 @@ class PTButtonBar extends StatelessWidget {
       maxLines: 1,
     )..layout();
     final icons = (button.icon != null ? 1 : 0) + (button.trailingIcon != null ? 1 : 0);
-    final width = painter.width + icons * 29 + 2 * (button.expand ? 8 : 22) + 4;
+    final width = painter.width + icons * 29 + 2 * (button.expand ? 8 : 22) + 12;
     painter.dispose();
     return width;
   }

@@ -29,7 +29,7 @@ Our Room is an ordinary `rooms` row with `pair_id` set (unique per pair), create
 1. `create_room` and `resume_room` count live and persistent rooms with `r.pair_id is null`, so Our Room **never uses a room slot** (a free account is `max_live_rooms` 4). These were patched from their *live* definitions (`pg_get_functiondef`), not from the migration files: the latest body of `create_room` lives in `20261006130000`, not where the name is first defined.
 2. `room_state` returns `live`/`idle` for a pair room whatever the owner's tier, never `expired`. Without this a free owner's Our Room read `expired` and was swept.
 3. `sweep_rooms` skips pair rooms in the "drop persistence for lapsed premium" step and in the idle-TTL delete, and prunes their chat at 90 days.
-4. `retire_room` **keeps the chat** of a pair room (the lobby promises "chat history carries over").
+4. `retire_room` **keeps the chat** of a pair room (the lobby promises "chat history carries over"). It also **keeps a finished shared film for a while** (36 h free, 7 days with Patron on either side; `docs/agent/backend-and-entitlements.md`, media sharing): "continue tomorrow" must not mean a second upload, which a free account's 2.5 GB weekly allowance would refuse for a 2 GB film. The share dialog, the resting-room message and the Patron offer at session end ("Keep it for 7 days with Patron", source `room_ended_film`) all say so, and `website/app/privacy`, `terms` and `dmca` state the exception - **change the numbers in `app_settings.our_room_media`, `lib/rooms/our_room_media.dart` and those three pages together**.
 5. `join_room` answers `room_not_found` to anyone not in the pair, so a stranger holding the code cannot occupy a live room. `list_my_rooms` excludes pair rooms: Our Room is reached through the pair card, never as a ticket.
 
 **Both partners are hosts.** `set_room_media` is host-only and either partner must be able to choose what plays. Hosts cannot kick one another (`kick_member` refuses), so neither can remove the other, and succession on leave still has a host to fall back on. Presence is read from the room's own channel; "is my person on" comes from private presence on `pair:<pair id>`, authorised by the same `my_pair_id()` rule (`pair_id_from_topic` policies on `realtime.messages`).
@@ -92,3 +92,18 @@ Product events fire only where a human caused them: `pair_invite_created`, `pair
 A shared watchlist and "Pick tonight" were built and then removed. This app plays the pair's own files and YouTube links, so there is no catalogue to recommend from, and a bare list of typed titles did not earn its place. If it comes back it should start from a real need (a title that reaches the room's source picker), not from a list.
 
 A QR code for the invite (a long-distance pair is rarely in the same room, and the share sheet, link, code and email already cover it); "ping me when Sam is on"; a per-week breakdown behind the streak dots; hours-and-days granularity on the reunion card (the reunion is a calendar date with no time).
+
+## A night's states on the card (board 66)
+
+- `date_nights.moved_from` is set by `reschedule_date_night` to the time the night moved from (a second move before an answer keeps the first), cleared by trigger when the new time is accepted, kept on a decline. The card shows a "NEW TIME / YOUR ANSWER" badge, "Moved from ..." under the title and a struck-through "A becomes B" line.
+- `nightStanding` gives an accepted night the same 30 minutes of grace the list does before it counts as `done`, so "Starting now" is still an accepted card. Cancelled and declined nights stay listed for 48 hours after `updated_at` (`recentlyEndedNights`), with "Plan another night" / "Suggest another time" on them.
+- The accepted card has two calendar actions: the system add-to-calendar, and "Share .ics" (always the file).
+
+## Streak, history and the reunion switches (boards 63 and 64)
+
+- **Streak and history are two screens.** `/lobby/pair/streak` (`StreakScreen`: the weekly flame, totals, doors to history and the year card, "Plan this week") and `/lobby/pair/history` (`HistoryScreen`: the sittings, locked placeholder rows for what Patron hides, export). The hub's "Streak and history" row opens the streak.
+- **"Either of us can edit" is a real permission.** `pairs.reunion_shared_edit` + `reunion_set_by`; `set_reunion` refuses the other person with `reunion_locked` while it is off, only the person who set the date can flip it, clearing hands it back to both. `PairInfo.canEditReunion(me)` shapes the dialog; the server enforces.
+- **"Show on the lobby" is per person** (`pair_members.show_reunion`), always changeable, and hides only the countdown card on that person's own lobby.
+- `my_pair()` is redefined by three migrations now (pairing, partner nickname, reunion sharing): copy the *latest* body when changing it again, or you silently drop the nickname.
+- The notification screen has no "Watchlist additions" switch: Our Room has no watchlist yet. Add the switch and the "added a title" push together with the feature.
+- The year card's "Save" is desktop-only (a save dialog); phones use the share sheet's own "Save Image".

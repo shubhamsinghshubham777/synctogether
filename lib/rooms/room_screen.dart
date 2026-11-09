@@ -30,6 +30,8 @@ import 'package:synctogether/player/local_video.dart';
 import 'package:synctogether/player/local_video_chooser.dart';
 import 'package:synctogether/player/media_file_types.dart';
 import 'package:synctogether/player/photo_exports.dart';
+import 'package:synctogether/rooms/our_room_media.dart';
+import 'package:synctogether/rooms/widgets/shared_copy_expired_banner.dart';
 import 'package:synctogether/rooms/widgets/streaming_fallback_banner.dart';
 import 'package:synctogether/player/photo_picker.dart';
 import 'package:synctogether/player/recent_format.dart';
@@ -358,7 +360,13 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
   /// the host's shared copy: say so once, quietly (info banner, never error).
   bool _streamingFallbackNotice = false;
 
+  /// The "shared copy was removed" note (Our Room) was dismissed for this visit.
+  bool _copyExpiredDismissed = false;
+
   bool _resumeAttempted = false;
+
+  /// A shared-copy stream is being opened, so a second "it is ready" signal does not start another.
+  bool _startingSharedStream = false;
   bool _extending = false;
   final _resuming = ValueNotifier<bool>(false);
   String? _evictionReason;
@@ -729,8 +737,9 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
   void _trackTogether(List<PresentMember> present) {
     if (_room?.isOurRoom != true) return;
     final partnerId = PairService.instance.pair?.partner.id;
+    if (partnerId == null) return;
     final myId = AuthService.instance.user?.id;
-    if (partnerId == null || myId == null) return;
+    if (myId == null) return;
     final ids = {for (final m in present) m.userId};
     final together = ids.contains(partnerId) && ids.contains(myId);
     final wasTogether = _togetherNow;
@@ -1128,18 +1137,18 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
           _uploadEtaSeconds = event.etaSeconds;
           _uploadState = event.state;
         });
+        if (event.state == 'ready') _streamSharedMediaIfNeeded(_canonicalMedia.name);
       }),
       sync.sharingToggledStream.listen((event) {
         if (!mounted) return;
         if (event.uploadState != null) {
           setState(() => _uploadState = event.uploadState!);
         }
-        if (!(_sync?.isHost ?? false) &&
-            (event.uploadState == 'ready' || _sync?.mediaUploadState == 'ready')) {
-          final targetFileName = event.fileName ?? _canonicalMedia.name;
-          if (targetFileName != null && _localFileName != targetFileName) {
-            unawaited(_startStreamingSharedMedia(targetFileName));
-          }
+        // Whoever did not upload the file streams it. That is not "everyone who is not
+        // the host": in Our Room both people are hosts, and the partner has to
+        // stream what the other shared. The uploader already has the file open.
+        if (event.uploadState == 'ready' || _sync?.mediaUploadState == 'ready') {
+          _streamSharedMediaIfNeeded(event.fileName ?? _canonicalMedia.name);
         }
       }),
       sync.avEndpointStream.listen((endpoint) => _av?.followEndpoint(endpoint)),
@@ -1747,19 +1756,26 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
   // Mode switching (ported from PTVideoPlayer - dialog dismissal is delicate)
   // ---------------------------------------------------------------------------
 
+  /// Closes the "choose a file or a YouTube link" dialogs because someone else has
+  /// already chosen for the room (a mode switch, or media the room now has). The URL
+  /// dialog sits on top of the source chooser, so it pops first.
+  void _dismissSourceDialogs() {
+    if (!mounted) return;
+    if (_isYouTubeUrlDialogOpen) {
+      _urlDialogDismissedRemotely = true;
+      Navigator.of(context).pop();
+      _isYouTubeUrlDialogOpen = false;
+    }
+    if (_isModeSelectionDialogOpen) {
+      Navigator.of(context).pop();
+      _isModeSelectionDialogOpen = false;
+    }
+  }
+
   Future<void> _onRemoteModeSwitch(dynamic event) async {
     if (mounted) {
       if (_awaitingFirstSource) _resolveFirstSource();
-      // URL dialog sits on top of the source chooser; pop in that order.
-      if (_isYouTubeUrlDialogOpen) {
-        _urlDialogDismissedRemotely = true;
-        Navigator.of(context).pop();
-        _isYouTubeUrlDialogOpen = false;
-      }
-      if (_isModeSelectionDialogOpen) {
-        Navigator.of(context).pop();
-        _isModeSelectionDialogOpen = false;
-      }
+      _dismissSourceDialogs();
     }
     trace('remote mode switch', category: 'media', data: {'mode': event.mode});
     final PlaybackMode mode = event.mode == 'youtube' ? .youtube : .local;
@@ -2252,6 +2268,11 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
         context: context,
         fileName: name,
         fileSize: size,
+        // Our Room keeps the upload for a while after the session; every other room
+        // removes it when the room closes.
+        keepNote: (_room?.isOurRoom ?? false)
+            ? ourRoomKeepNote(patron: PairService.instance.pair?.patron ?? false)
+            : null,
       );
       if (result != null) {
         shouldShare = result.shouldShare;
@@ -2667,6 +2688,8 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
   }
 
   Future<void> _startStreamingSharedMedia(String fileName, {Duration? seekTo}) async {
+    if (_startingSharedStream) return;
+    _startingSharedStream = true;
     try {
       final dl = await _mediaSharingService.fetchDownloadUrl(roomId: widget.roomId);
       if (!mounted || _ended) return;
@@ -2690,6 +2713,8 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     } catch (e, s) {
       reportNonFatal(e, s, during: 'streaming shared media for room ${widget.roomId}');
       if (mounted) _snack("Failed to load shared media. You can locate your own copy.");
+    } finally {
+      _startingSharedStream = false;
     }
   }
 
@@ -3095,9 +3120,51 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
       _canonicalMedia = media;
       _mismatchDismissed = false;
     });
+    // The room has something now, chosen by someone else (a broadcast never comes
+    // back to its sender): the chooser we were still showing has nothing left to ask.
+    if (media.isSet) {
+      if (_awaitingFirstSource) _resolveFirstSource();
+      _dismissSourceDialogs();
+    }
     _publishMenuData();
     _updateReadiness();
+    // The first media this screen sees goes through the resume path (held position,
+    // the remembered local copy, the fallback notice); only a change after that is
+    // adopted here.
+    final firstMedia = !_resumeAttempted;
     unawaited(_resumeFromCanonicalMedia());
+    if (!firstMedia && media.kind == .local) _streamSharedMediaIfNeeded(media.name);
+  }
+
+  /// Starts streaming the room's shared copy when it is ready and this device is not
+  /// the one that uploaded it (the uploader, and anyone who opened their own copy
+  /// under the same name, already has the file). Safe to call from every signal that
+  /// can mean "it is ready now": it does nothing twice.
+  void _streamSharedMediaIfNeeded(String? fileName) {
+    if (!mounted || fileName == null) return;
+    final ready =
+        _sync?.mediaUploadState == 'ready' ||
+        _room?.mediaUploadState == 'ready' ||
+        _uploadState == 'ready';
+    if (!shouldStreamSharedCopy(
+      ended: _ended,
+      uploadingHere: _isUploadingSharedMedia,
+      shareReady: ready,
+      fileName: fileName,
+      loadedFileName: _localFileName,
+      alreadyStarting: _startingSharedStream,
+    )) {
+      return;
+    }
+    trace(
+      'streaming the shared copy as it became ready',
+      category: 'media',
+      data: {'room_id': widget.roomId, 'file': fileName},
+    );
+    _resolveFirstSource();
+    _idleSourceTimer?.cancel();
+    _dismissSourceDialogs();
+    unawaited(_startStreamingSharedMedia(fileName));
   }
 
   // ---------------------------------------------------------------------------
@@ -4264,9 +4331,12 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     final room = _room;
     if (room == null) return null;
     if (room.isOurRoom) {
+      const base = 'It is always in your lobby. Open it again whenever you two are ready.';
       return (
         title: 'Our Room is resting',
-        body: 'It is always in your lobby. Open it again whenever you two are ready.',
+        body: _ourRoomFilmKept
+            ? '$base Your film is kept. ${ourRoomKeepNote(patron: PairService.instance.pair?.patron ?? false)}'
+            : base,
         icon: BoothIcons.heart,
       );
     }
@@ -4321,11 +4391,39 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
         await _maybeShowRecap();
         if (mounted) context.go('/lobby');
       },
+      // A free pair whose film is being kept is offered the long window, once, here:
+      // never while they are watching.
+      premiumUpsellLabel: _ourRoomFilmKept ? ourRoomKeepUpsellLabel : null,
       onPremiumUpsell: () {
-        context.go('/lobby/subscribe?source=room_ended');
+        context.go(
+          _ourRoomFilmKept
+              ? '/lobby/subscribe?source=room_ended_film'
+              : '/lobby/subscribe?source=room_ended',
+        );
       },
     );
   }
+
+  /// Our Room ended with a finished shared film in it: it is kept for a while, not
+  /// removed (see `ourRoomKeepNote`).
+  bool get _ourRoomFilmKept =>
+      (_room?.isOurRoom ?? false) &&
+      (_sync?.mediaUploadState == 'ready' ||
+          _uploadState == 'ready' ||
+          _room?.mediaUploadState == 'ready');
+
+  /// Our Room named a film whose shared copy has been released, and this device has no
+  /// copy open and nothing is being shared again: say so, instead of a silent "Locate".
+  bool get _showCopyExpiredNotice =>
+      !_copyExpiredDismissed &&
+      (_room?.isOurRoom ?? false) &&
+      _room?.mediaShareExpiredAt != null &&
+      _canonicalMedia.kind == .local &&
+      _canonicalMedia.name != null &&
+      _localFileName != _canonicalMedia.name &&
+      _sync?.mediaUploadState != 'ready' &&
+      _uploadState != 'ready' &&
+      _uploadState != 'uploading';
 
   bool get _canShowPremiumUpsell {
     // Patron on either side already covers both of them; the offer is for the
@@ -5710,6 +5808,22 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
               onPressed: _pickVideo,
             ),
             onDismiss: () => setState(() => _mismatchDismissed = true),
+          ),
+        ),
+      if (_showCopyExpiredNotice)
+        PTEntrance(
+          key: const ValueKey('shared-copy-expired'),
+          offset: -8,
+          duration: PTMotion.state,
+          child: SharedCopyExpiredBanner(
+            subtitle: ourRoomCopyExpiredSubtitle(
+              patron: PairService.instance.pair?.patron ?? false,
+            ),
+            onPickMyCopy: () {
+              setState(() => _copyExpiredDismissed = true);
+              _pickVideo();
+            },
+            onDismiss: () => setState(() => _copyExpiredDismissed = true),
           ),
         ),
       if (_streamingFallbackNotice && _localFileName != _canonicalMedia.name)

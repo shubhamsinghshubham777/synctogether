@@ -4,15 +4,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:synctogether/mock/mock_dependencies.dart';
+import 'package:synctogether/profile/profile_models.dart';
+import 'package:synctogether/profile/profile_service.dart';
 import 'package:synctogether/pairing/date_night_plan.dart';
 import 'package:synctogether/pairing/pair_page.dart';
 import 'package:synctogether/player/local_video.dart';
 import 'package:synctogether/pairing/date_night_screen.dart';
 import 'package:synctogether/pairing/history_screen.dart';
 import 'package:synctogether/pairing/notification_settings_screen.dart';
+import 'package:synctogether/pairing/pair_logic.dart';
 import 'package:synctogether/pairing/pair_models.dart';
 import 'package:synctogether/pairing/pair_service.dart';
 import 'package:synctogether/pairing/push_service.dart';
+import 'package:synctogether/pairing/streak_screen.dart';
 import 'package:synctogether/pairing/year_recap_screen.dart';
 import 'package:synctogether/platform.dart';
 import 'package:synctogether/rewards/rewards_service.dart';
@@ -52,6 +56,25 @@ DateNight _night(String id, DateNightStatus status, Duration from, {String by = 
       proposedBy: by,
       status: status,
     );
+
+/// An account with a given first name, for the cards that print it.
+class _NamedProfile extends MockProfileService {
+  _NamedProfile(this.name);
+
+  final String name;
+
+  @override
+  Profile? get profile => Profile(id: 'user-alex', displayName: name, isGuest: false);
+}
+
+DateNight _ended(String id, DateNightStatus status, {String by = 'sam'}) => DateNight(
+  id: id,
+  title: 'Spirited Away',
+  startsAt: DateTime.now().toUtc().add(const Duration(days: 4)),
+  proposedBy: by,
+  status: status,
+  updatedAt: DateTime.now().toUtc().subtract(const Duration(hours: 2)),
+);
 
 DateNight _fileNight(
   String id, {
@@ -98,6 +121,36 @@ void main() {
     SharedPreferences.setMockInitialValues({});
     installMockDependencies();
     RewardsService.instance = FakeRewardsService();
+  });
+
+  screenMatrix('pair/night-states-moved-and-over', (tester, c, s) async {
+    final soon = DateTime.now().toUtc().add(const Duration(days: 3));
+    PairService.instance = FakePairService(
+      pair: samePairInfo(patron: true),
+      nights: [
+        DateNight(
+          id: 'moved',
+          title: 'Spirited Away',
+          startsAt: soon,
+          proposedBy: 'sam',
+          status: DateNightStatus.proposed,
+          movedFrom: soon.subtract(const Duration(days: 2)),
+        ),
+        _night('started', DateNightStatus.accepted, const Duration(minutes: -3)),
+        _ended('declined', DateNightStatus.declined, by: 'user-alex'),
+        _ended('cancelled', DateNightStatus.cancelled),
+      ],
+    );
+    await pumpAtSize(tester, const DateNightScreen(), c, textScale: s, singlePane: true);
+    await tester.pump(const Duration(milliseconds: 600));
+    expect(find.text('NEW TIME\nYOUR ANSWER'), findsOneWidget);
+    expect(find.textContaining('Moved from'), findsOneWidget);
+    expect(find.textContaining(' becomes '), findsOneWidget);
+    expect(find.textContaining('Starting now'), findsOneWidget);
+    expect(find.text('Share .ics'), findsOneWidget);
+    expect(find.text('Plan another night'), findsOneWidget);
+    expect(find.text('Suggest another time'), findsWidgets);
+    await finishCase(tester);
   });
 
   screenMatrix('pair/nights', (tester, c, s) async {
@@ -342,10 +395,94 @@ void main() {
     );
     await pumpAtSize(tester, const HistoryScreen(), c, textScale: s, singlePane: true);
     await tester.pump(const Duration(milliseconds: 500));
+    expect(find.text('Our history'), findsOneWidget);
+    expect(find.text('Last 7 days'.toUpperCase()), findsOneWidget);
+    expect(find.text('OLDER'), findsOneWidget);
+    expect(find.bySemanticsLabel('45 older nights, locked'), findsOneWidget);
     expect(find.textContaining('45 older nights are kept safe'), findsOneWidget);
+    final first = now.subtract(const Duration(days: 1)).toLocal();
+    expect(find.text(weekdayShort(first)), findsWidgets);
+    expect(find.text('${first.day}'), findsWidgets);
     expect(find.text('Export my history'), findsOneWidget);
     await finishCase(tester);
   });
+
+  screenMatrix('pair/streak', (tester, c, s) async {
+    PairService.instance = FakePairService(
+      pair: samePairInfo(patron: true),
+      stats: const PairStats(
+        streakWeeks: 12,
+        bestStreakWeeks: 12,
+        nights: 47,
+        hours: 112.4,
+        films: 31,
+        doneThisWeek: true,
+      ),
+    );
+    await pumpAtSize(tester, const StreakScreen(), c, textScale: s, singlePane: true);
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.text('Our streak'), findsOneWidget);
+    expect(find.text('Our history'), findsOneWidget);
+    expect(find.text('Our year'), findsOneWidget);
+    expect(find.text('Plan this week'), findsOneWidget);
+    expect(find.text('WATCHED TOGETHER'), findsNothing, reason: 'the list lives on its own screen');
+    await finishCase(tester);
+  });
+
+  // The card shows each person's first word, so the worst case is one long unbroken name:
+  // it must scale down on one line, never wrap, clip or overflow, at every size.
+  for (final (label, mine, theirs, zone) in [
+    (
+      'long',
+      'Bartholomewalexandriamaximilian',
+      'Wolfeschlegelsteinhausenbergerdorff',
+      'America/Argentina/ComodRivadavia',
+    ),
+    (
+      'emoji',
+      '\u{1F9D1}\u{200D}\u{1F680}Astronaut\u{1F31F}',
+      '\u{1F496}\u{1F496}\u{1F496}\u{1F496}\u{1F496}\u{1F496}',
+      'Pacific/Port_Moresby',
+    ),
+    (
+      'cjk',
+      '\u5C71\u7530\u592A\u90CE\u5C71\u7530\u592A\u90CE\u5C71\u7530',
+      '\u5F20\u4F1F\u5F20\u4F1F\u5F20\u4F1F\u5F20\u4F1F\u5F20',
+      'Asia/Shanghai',
+    ),
+    (
+      'arabic',
+      '\u0645\u062D\u0645\u062F\u0639\u0628\u062F\u0627\u0644\u0644\u0647\u0627\u0644\u0645\u0646\u0635\u0648\u0631\u064A',
+      '\u0641\u0627\u0637\u0645\u0629',
+      'Asia/Riyadh',
+    ),
+  ]) {
+    screenMatrix('pair/year-names-$label', (tester, c, s) async {
+      ProfileService.instance = _NamedProfile(mine);
+      PairService.instance = FakePairService(
+        pair: PairInfo(
+          pairId: 'pair-1',
+          since: DateTime.utc(2026, 3, 2),
+          partner: PairPartner(id: 'sam', displayName: theirs, timezone: zone),
+        ),
+        stats: const PairStats(
+          streakWeeks: 12,
+          bestStreakWeeks: 12,
+          nights: 47,
+          hours: 1112.4,
+          films: 31,
+        ),
+      );
+      await pumpAtSize(tester, const YearRecapScreen(), c, textScale: s, singlePane: true);
+      await tester.pump(const Duration(milliseconds: 600));
+      // One line for a short pair, two for a long one; either way both names are on the card.
+      final oneLine = find.text('$mine & $theirs');
+      final twoLines = find.text('$mine &');
+      expect(oneLine.evaluate().length + twoLines.evaluate().length, 1);
+      expect(find.text('47 NIGHTS'), findsOneWidget);
+      await finishCase(tester);
+    });
+  }
 
   screenMatrix('pair/year', (tester, c, s) async {
     PairService.instance = FakePairService(
@@ -362,6 +499,8 @@ void main() {
     await tester.pump(const Duration(milliseconds: 600));
     expect(find.text('Share image'), findsOneWidget);
     expect(find.textContaining('hours watching the same screen'), findsOneWidget);
+    expect(find.text('47 NIGHTS'), findsOneWidget);
+    expect(find.text('31 FILMS'), findsOneWidget);
     await finishCase(tester);
   });
 

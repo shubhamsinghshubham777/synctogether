@@ -23,6 +23,7 @@ import 'package:synctogether/rewards/rewards_service.dart';
 import 'package:synctogether/rewards/widgets/badge_catalog_dialog.dart';
 import 'package:synctogether/rewards/widgets/recap_card.dart';
 import 'package:synctogether/rewards/widgets/shared_recaps_dialog.dart';
+import 'package:synctogether/rooms/our_room_media.dart';
 import 'package:synctogether/rooms/reactions.dart';
 import 'package:synctogether/rooms/room_models.dart';
 import 'package:synctogether/rooms/widgets/emoji_quick_bar.dart';
@@ -216,6 +217,15 @@ void main() {
       context: ctx,
       fileName: 'A_Very_Long_File_Name_For_The_Director_s_Cut_2160p_HDR10.mkv',
       fileSize: 4294967296,
+    ),
+  );
+  opener(
+    'media-sharing-prompt-our-room',
+    (ctx) => showMediaSharingPromptDialog(
+      context: ctx,
+      fileName: 'A_Very_Long_File_Name_For_The_Director_s_Cut_2160p_HDR10.mkv',
+      fileSize: 4294967296,
+      keepNote: ourRoomKeepNote(patron: true),
     ),
   );
   opener('turnstile', (ctx) => showTurnstileDialog(ctx));

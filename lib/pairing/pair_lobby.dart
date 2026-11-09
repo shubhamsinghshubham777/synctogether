@@ -52,7 +52,7 @@ class PairLobbySection extends StatelessWidget {
         final pair = svc.pair!;
         final now = DateTime.now().toUtc();
         final night = featuredNight(now, svc.nights);
-        final reunion = pair.reunionOn == null
+        final reunion = pair.reunionOn == null || !pair.showReunion
             ? null
             : reunionView(pair.reunionOn!, DateTime.now());
         return Padding(
@@ -533,6 +533,11 @@ class ReunionCard extends StatelessWidget {
     final (big, unit, kicker) = switch (view.phase) {
       ReunionPhase.today => ('0', 'days', 'Together'),
       ReunionPhase.tomorrow => ('1', 'day', 'Tomorrow'),
+      ReunionPhase.near => (
+        '${view.wholeDays}',
+        view.wholeDays == 1 ? 'day' : 'days',
+        'Until we are together',
+      ),
       _ => ('${view.daysLeft}', view.daysLeft == 1 ? 'day' : 'days', 'Until we are together'),
     };
     final line = switch (view.phase) {
@@ -577,6 +582,14 @@ class ReunionCard extends StatelessWidget {
                   style: PTText.body.copyWith(fontSize: 18, color: PTColors.fgSoft),
                 ),
               ),
+              // Under eight days the hours count too.
+              if (view.phase == ReunionPhase.near) ...[
+                Text(
+                  '${view.hoursPart}',
+                  style: PTText.display.copyWith(fontSize: 34, height: 0.9, color: PTColors.fg),
+                ),
+                Text('h', style: PTText.body.copyWith(fontSize: 18, color: PTColors.fgSoft)),
+              ],
             ],
           ),
           if (line.isNotEmpty) Text(line, style: PTText.caption.copyWith(color: PTColors.fgSoft)),

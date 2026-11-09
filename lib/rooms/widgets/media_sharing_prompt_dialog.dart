@@ -17,17 +17,24 @@ Future<MediaSharingPromptResult?> showMediaSharingPromptDialog({
   required BuildContext context,
   required String fileName,
   required int fileSize,
+
+  /// What happens to the upload when the session ends, when it is not "removed when
+  /// the room closes" (Our Room keeps it for a while; see `ourRoomKeepNote`).
+  String? keepNote,
 }) {
   return showGlassDialog<MediaSharingPromptResult>(
     context: context,
     barrierDismissible: false,
     width: 440,
-    builder: (context) => _MediaSharingPromptDialog(fileName: fileName, fileSize: fileSize),
+    builder: (context) =>
+        _MediaSharingPromptDialog(fileName: fileName, fileSize: fileSize, keepNote: keepNote),
   );
 }
 
 class _MediaSharingPromptDialog extends StatefulWidget {
-  const _MediaSharingPromptDialog({required this.fileName, required this.fileSize});
+  const _MediaSharingPromptDialog({required this.fileName, required this.fileSize, this.keepNote});
+
+  final String? keepNote;
 
   final String fileName;
   final int fileSize;
@@ -91,7 +98,7 @@ class _MediaSharingPromptDialogState extends State<_MediaSharingPromptDialog> {
         // says "removed when the room closes" rather than promising a moment.
         Text(
           'We upload it once, so seats without a copy can stream it. '
-          "It's removed when the room closes.",
+          "${widget.keepNote ?? "It's removed when the room closes."}",
           style: PTText.body.copyWith(fontSize: 14, color: PTColors.white(0.7), height: 1.5),
         ),
         const SizedBox(height: 12),

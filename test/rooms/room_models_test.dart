@@ -434,6 +434,22 @@ void main() {
       expect(room.mediaSharingLevel, 'none');
     });
 
+    test('Room.fromJson parses the Our Room retention fields', () {
+      final room = Room.fromJson({
+        ..._minimalRow(),
+        'media_expires_at': '2026-11-10T09:00:00+00:00',
+        'media_share_expired_at': '2026-11-09T09:00:00+00:00',
+      });
+      expect(room.mediaExpiresAt, DateTime.utc(2026, 11, 10, 9));
+      expect(room.mediaShareExpiredAt, DateTime.utc(2026, 11, 9, 9));
+    });
+
+    test('and they are null for every other room', () {
+      final room = Room.fromJson(_minimalRow());
+      expect(room.mediaExpiresAt, isNull);
+      expect(room.mediaShareExpiredAt, isNull);
+    });
+
     test('RoomErrorCode maps media sharing errors correctly', () {
       expect(
         RoomErrorCode.fromError('error: active_upload_in_progress'),

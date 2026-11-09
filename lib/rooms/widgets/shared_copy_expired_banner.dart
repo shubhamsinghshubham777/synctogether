@@ -21,7 +21,7 @@ class SharedCopyExpiredBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => PTBanner(
-    kind: .info,
+    kind: .warning,
     icon: Symbols.cloud_off_rounded,
     title: 'The shared copy was removed',
     subtitle: subtitle,

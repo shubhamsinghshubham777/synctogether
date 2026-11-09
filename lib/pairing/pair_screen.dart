@@ -17,6 +17,9 @@ import '../ui/booth_icons.g.dart';
 import '../ui/buttons.dart';
 import '../ui/glass.dart';
 import '../ui/loader.dart';
+import '../ui/panel_switcher.dart';
+import '../ui/reveal.dart';
+import '../ui/pt_date_time_picker.dart';
 import '../ui/pt_theme.dart';
 import 'pair_logic.dart';
 import 'pair_models.dart';
@@ -269,119 +272,140 @@ class _InviteFlow extends StatelessWidget {
           style: PTText.body.copyWith(color: PTColors.fgSoft, height: 1.5),
         ),
         const PairNameCheck(),
-        if (inv == null && !busy && !loading)
-          // The request came back with nothing (offline, a server hiccup). Say
-          // so and offer another go, rather than spin for ever.
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 20),
-            child: Column(
-              spacing: 12,
-              children: [
-                Text(
-                  "Couldn't get a code just now.",
-                  style: PTText.body.copyWith(color: PTColors.fgSoft),
-                ),
-                PTButton(
-                  label: 'Try again',
-                  variant: .secondary,
-                  expand: false,
-                  onPressed: onRetry,
-                ),
-              ],
-            ),
-          )
-        else if (inv == null)
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 28),
-            child: Center(child: PTLoader()),
-          )
-        else ...[
-          PTTicket(
-            paper: true,
-            stubWidth: 124,
-            semanticLabel: 'Pair code ${inv.code}',
-            body: Padding(
-              padding: const EdgeInsets.fromLTRB(22, 18, 12, 18),
-              child: Column(
-                crossAxisAlignment: .start,
-                mainAxisSize: .min,
-                spacing: 6,
-                children: [
-                  Text(
-                    'PAIR CODE · ${(hoursLeft ?? 48).clamp(1, 48)} H LEFT',
-                    style: PTText.label.copyWith(color: PTColors.liveInk, letterSpacing: 1.2),
-                  ),
-                  Text(
-                    'Your pair code',
-                    style: PTText.cardHeading.copyWith(color: PTColors.canvas, fontSize: 22),
-                  ),
-                  Text(
-                    'Works once. Send it to your person.',
-                    style: PTText.mono.copyWith(
-                      fontSize: 11,
-                      color: PTColors.canvas.withValues(alpha: 0.62),
+        // The three states of the invite (couldn't get one, getting one, here it is)
+        // trade places as one motion: the height follows and nothing pops.
+        PTPanelSwitcher(
+          child: inv == null
+              ? (!busy && !loading
+                    ? KeyedSubtree(
+                        key: const ValueKey('invite-retry'),
+                        // The request came back with nothing (offline, a server hiccup). Say
+                        // so and offer another go, rather than spin for ever.
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 20),
+                          child: Column(
+                            spacing: 12,
+                            children: [
+                              Text(
+                                "Couldn't get a code just now.",
+                                style: PTText.body.copyWith(color: PTColors.fgSoft),
+                              ),
+                              PTButton(
+                                label: 'Try again',
+                                variant: .secondary,
+                                expand: false,
+                                onPressed: onRetry,
+                              ),
+                            ],
+                          ),
+                        ),
+                      )
+                    : KeyedSubtree(
+                        key: const ValueKey('invite-loading'),
+                        child: const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 28),
+                          child: Center(child: PTLoader()),
+                        ),
+                      ))
+              : Column(
+                  key: const ValueKey('invite-ready'),
+                  crossAxisAlignment: .stretch,
+                  spacing: 14,
+                  children: [
+                    PTTicket(
+                      paper: true,
+                      stubWidth: 124,
+                      semanticLabel: 'Pair code ${inv.code}',
+                      body: Padding(
+                        padding: const EdgeInsets.fromLTRB(22, 18, 12, 18),
+                        child: Column(
+                          crossAxisAlignment: .start,
+                          mainAxisSize: .min,
+                          spacing: 6,
+                          children: [
+                            Text(
+                              'PAIR CODE · ${(hoursLeft ?? 48).clamp(1, 48)} H LEFT',
+                              style: PTText.label.copyWith(
+                                color: PTColors.liveInk,
+                                letterSpacing: 1.2,
+                              ),
+                            ),
+                            Text(
+                              'Your pair code',
+                              style: PTText.cardHeading.copyWith(
+                                color: PTColors.canvas,
+                                fontSize: 22,
+                              ),
+                            ),
+                            Text(
+                              'Works once. Send it to your person.',
+                              style: PTText.mono.copyWith(
+                                fontSize: 11,
+                                color: PTColors.canvas.withValues(alpha: 0.62),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      stub: Center(
+                        child: Text(
+                          inv.code,
+                          style: PTText.mono.copyWith(
+                            fontSize: 17,
+                            fontWeight: .w600,
+                            letterSpacing: 1.4,
+                            color: PTColors.canvas,
+                          ),
+                        ),
+                      ),
                     ),
-                  ),
-                ],
-              ),
-            ),
-            stub: Center(
-              child: Text(
-                inv.code,
-                style: PTText.mono.copyWith(
-                  fontSize: 17,
-                  fontWeight: .w600,
-                  letterSpacing: 1.4,
-                  color: PTColors.canvas,
+                    Builder(
+                      builder: (buttonContext) => PTButton(
+                        label: 'Share invite',
+                        icon: BoothIcons.share,
+                        onPressed: () => onShare(inv, buttonContext),
+                      ),
+                    ),
+                    Row(
+                      spacing: 10,
+                      children: [
+                        Expanded(
+                          child: PTButton(
+                            label: 'Copy link',
+                            variant: .secondary,
+                            icon: BoothIcons.link,
+                            onPressed: () => onCopyLink(inv),
+                          ),
+                        ),
+                        Expanded(
+                          child: PTButton(
+                            label: 'Copy code',
+                            variant: .secondary,
+                            icon: BoothIcons.file,
+                            onPressed: () => onCopyCode(inv),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const _EmailInvite(),
+                    const PairPushPrompt(text: 'Get a ping the moment they accept.'),
+                    Row(
+                      spacing: 10,
+                      children: [
+                        const Icon(BoothIcons.clock, size: 16, color: PTColors.fgMute),
+                        Expanded(
+                          child: Text(
+                            'Waiting for your person to accept…',
+                            style: PTText.body.copyWith(color: PTColors.fgSoft, fontSize: 14),
+                          ),
+                        ),
+                        DialogTextButton(label: 'New code', onPressed: busy ? null : onCancel),
+                      ],
+                    ),
+                    const PairCodeEntry(),
+                  ],
                 ),
-              ),
-            ),
-          ),
-          Builder(
-            builder: (buttonContext) => PTButton(
-              label: 'Share invite',
-              icon: BoothIcons.share,
-              onPressed: () => onShare(inv, buttonContext),
-            ),
-          ),
-          Row(
-            spacing: 10,
-            children: [
-              Expanded(
-                child: PTButton(
-                  label: 'Copy link',
-                  variant: .secondary,
-                  icon: BoothIcons.link,
-                  onPressed: () => onCopyLink(inv),
-                ),
-              ),
-              Expanded(
-                child: PTButton(
-                  label: 'Copy code',
-                  variant: .secondary,
-                  icon: BoothIcons.file,
-                  onPressed: () => onCopyCode(inv),
-                ),
-              ),
-            ],
-          ),
-          const _EmailInvite(),
-          const PairPushPrompt(text: 'Get a ping the moment they accept.'),
-          Row(
-            spacing: 10,
-            children: [
-              const Icon(BoothIcons.clock, size: 16, color: PTColors.fgMute),
-              Expanded(
-                child: Text(
-                  'Waiting for your person to accept…',
-                  style: PTText.body.copyWith(color: PTColors.fgSoft, fontSize: 14),
-                ),
-              ),
-              DialogTextButton(label: 'New code', onPressed: busy ? null : onCancel),
-            ],
-          ),
-          const PairCodeEntry(),
-        ],
+        ),
         const SizedBox(height: 8),
         const PairNote(
           'Pairing is optional. Rooms with friends and family work exactly as before.',
@@ -424,7 +448,6 @@ class _Hub extends StatelessWidget {
             spacing: 14,
             children: [
               Row(
-                spacing: 14,
                 children: [
                   PairAvatars(
                     myId: me?.id ?? '',
@@ -433,6 +456,7 @@ class _Hub extends StatelessWidget {
                     partner: partner,
                     partnerOnline: svc.partnerOnline,
                   ),
+                  const SizedBox(width: 14),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: .start,
@@ -469,7 +493,15 @@ class _Hub extends StatelessWidget {
                       ],
                     ),
                   ),
-                  if (svc.partnerOnline) const PairPill('Online'),
+                  // Unfolds in beside the name when they come online, folds away when
+                  // they leave; its gap travels with it so a hidden pill leaves none.
+                  PTRevealKeep(
+                    visible: svc.partnerOnline,
+                    axis: Axis.horizontal,
+                    alignment: Alignment.centerRight,
+                    gap: 14,
+                    child: const PairPill('Online'),
+                  ),
                 ],
               ),
               PartnerClockLine(partner: partner),
@@ -580,11 +612,13 @@ Future<void> editReunion(BuildContext context) async {
             height: 46,
             onPressed: () async {
               final now = DateTime.now();
-              final d = await showDatePicker(
-                context: ctx,
-                initialDate: picked ?? now.add(const Duration(days: 30)),
-                firstDate: DateTime(now.year, now.month, now.day),
-                lastDate: now.add(const Duration(days: 365 * 3)),
+              final d = await showPTDateTimePicker(
+                ctx,
+                initial: picked ?? now.add(const Duration(days: 30)),
+                min: DateTime(now.year, now.month, now.day),
+                max: now.add(const Duration(days: 365 * 3)),
+                dateOnly: true,
+                boundsCaption: 'Three years ahead is as far as we can plan.',
               );
               if (d != null) setState(() => picked = d);
             },
@@ -703,18 +737,34 @@ class _EmailInviteState extends State<_EmailInvite> {
           loading: _busy,
           onPressed: _send,
         ),
-        Text(
-          "Accounts that hide their email with Apple can't be found this way. Send those the link or code.",
-          style: PTText.caption.copyWith(color: PTColors.fgMute, height: 1.45),
+        // The note and the two lines that can follow it share a column, so a line that
+        // is not there takes no space and one that is folds open under the note.
+        Column(
+          crossAxisAlignment: .stretch,
+          children: [
+            Text(
+              "Accounts that hide their email with Apple can't be found this way. Send those the link or code.",
+              style: PTText.caption.copyWith(color: PTColors.fgMute, height: 1.45),
+            ),
+            PTRevealKeep(
+              visible: _sent,
+              gap: 10,
+              child: Text(
+                'Invite on its way. If that address has an account, they will see it in the app. '
+                'Not sure they have one? The link above works either way.',
+                style: PTText.caption.copyWith(color: PTColors.fgSoft, height: 1.45),
+              ),
+            ),
+            PTRevealKeep(
+              visible: _problem != null,
+              gap: 10,
+              child: Text(
+                _problem ?? '',
+                style: PTText.body.copyWith(color: PTColors.danger, fontSize: 14),
+              ),
+            ),
+          ],
         ),
-        if (_sent)
-          Text(
-            'Invite on its way. If that address has an account, they will see it in the app. '
-            'Not sure they have one? The link above works either way.',
-            style: PTText.caption.copyWith(color: PTColors.fgSoft, height: 1.45),
-          ),
-        if (_problem != null)
-          Text(_problem!, style: PTText.body.copyWith(color: PTColors.danger, fontSize: 14)),
       ],
     );
   }

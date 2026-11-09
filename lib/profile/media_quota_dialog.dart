@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../ui/progress_bar.dart';
 import '../ui/booth_icons.g.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_symbols_icons/symbols.dart';
@@ -374,22 +375,10 @@ class _Allowance extends StatelessWidget {
             Text('LEFT OF ${Profile.formatBytes(limit)}'.toUpperCase(), style: PTText.label),
           ],
         ),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(2),
-          child: SizedBox(
-            height: 4,
-            child: Stack(
-              fit: .expand,
-              children: [
-                const ColoredBox(color: PTColors.rail),
-                FractionallySizedBox(
-                  alignment: .centerLeft,
-                  widthFactor: fraction,
-                  child: ColoredBox(color: fraction > 0.85 ? PTColors.warning : PTColors.online),
-                ),
-              ],
-            ),
-          ),
+        PTProgressBar(
+          value: fraction,
+          color: fraction > 0.85 ? PTColors.warning : PTColors.online,
+          track: PTColors.rail,
         ),
         Text(
           [

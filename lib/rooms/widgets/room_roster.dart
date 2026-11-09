@@ -3,6 +3,8 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:synctogether/rewards/rewards_models.dart';
 import 'package:synctogether/sync/sync_service.dart';
+import 'package:synctogether/ui/rolling_text.dart';
+import 'package:synctogether/ui/reveal.dart';
 import 'package:synctogether/ui/booth.dart';
 import 'package:synctogether/ui/booth_icons.g.dart';
 import 'package:synctogether/ui/identity.dart';
@@ -247,13 +249,19 @@ class _MiniStack extends StatelessWidget {
     return Row(
       mainAxisSize: .min,
       children: [
-        if (waiting)
-          Container(
+        // The waiting dot unfolds in when someone is still to be ready, and folds away
+        // when they are.
+        PTRevealKeep(
+          visible: waiting,
+          axis: Axis.horizontal,
+          alignment: Alignment.centerLeft,
+          child: Container(
             width: 8,
             height: 8,
             margin: EdgeInsets.only(right: shown > 0 ? 8 : 0),
             decoration: const BoxDecoration(shape: .circle, color: PTColors.textAccent),
           ),
+        ),
         if (shown > 0)
           SizedBox(
             height: _kMiniOuter,
@@ -282,15 +290,19 @@ class _MiniStack extends StatelessWidget {
                       ),
                     ),
                   ),
-                if (more > 0)
-                  Padding(
-                    padding: const EdgeInsets.only(left: 6),
-                    child: Text(
-                      '+$more',
-                      maxLines: 1,
-                      style: PTText.label.copyWith(fontSize: 10, color: PTColors.fgMute),
-                    ),
+                // "+N" unfolds when the stack overflows, and the number rolls as people
+                // come and go.
+                PTRevealKeep(
+                  visible: more > 0,
+                  axis: Axis.horizontal,
+                  alignment: Alignment.centerLeft,
+                  gap: 6,
+                  child: PTRollingText(
+                    '+$more',
+                    style: PTText.label.copyWith(fontSize: 10, color: PTColors.fgMute),
+                    dir: 1,
                   ),
+                ),
               ],
             ),
           ),

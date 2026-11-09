@@ -8,6 +8,7 @@ import 'package:synctogether/ui/buttons.dart';
 import 'package:synctogether/ui/glass.dart';
 import 'package:synctogether/ui/identity.dart';
 import 'package:synctogether/ui/marquee.dart';
+import 'package:synctogether/ui/optical.dart';
 import 'package:synctogether/ui/pt_motion.dart';
 import 'package:synctogether/ui/pt_theme.dart';
 
@@ -168,7 +169,12 @@ class RoomPillBody extends StatelessWidget {
                           enabled:
                               timeLeft > Duration.zero && timeLeft <= const Duration(minutes: 1),
                           low: 0.35,
-                          child: Icon(BoothIcons.schedule, size: 13, color: PTColors.white(0.7)),
+                          child: PTOpticalIcon(
+                            BoothIcons.schedule,
+                            beside: PTText.mono.copyWith(fontSize: 11),
+                            size: 13,
+                            color: PTColors.white(0.7),
+                          ),
                         ),
                       Flexible(
                         child: AnimatedDefaultTextStyle(

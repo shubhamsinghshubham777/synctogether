@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../../ui/rolling_text.dart';
 import '../../ui/booth_icons.g.dart';
 
 import 'package:flutter/material.dart';
@@ -80,12 +81,12 @@ class _ExtendRoomDialogState extends State<ExtendRoomDialog> {
                 height: 7,
                 decoration: const BoxDecoration(color: PTColors.ember, shape: .circle),
               ),
+              // The countdown rolls only the digits that moved each second.
               Flexible(
-                child: Text(
+                child: PTRollingText(
                   'Lights up in ${countdownLabel(left)}'.toUpperCase(),
-                  maxLines: 1,
-                  overflow: .ellipsis,
                   style: PTText.label.copyWith(color: PTColors.ember, fontWeight: .w600),
+                  dir: -1,
                 ),
               ),
             ],

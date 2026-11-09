@@ -5,6 +5,7 @@ import 'package:synctogether/mock/mock_dependencies.dart';
 import 'package:synctogether/pairing/date_night_plan.dart';
 import 'package:synctogether/pairing/pair_service.dart';
 import 'package:synctogether/ui/pt_theme.dart';
+import 'package:synctogether/ui/rolling_text.dart';
 
 import '../support/fake_pair_service.dart';
 
@@ -55,6 +56,67 @@ void main() {
       expect(form.lateForThem, isFalse);
       expect(form.sendLabel, 'Send to Sam');
       form.dispose();
+    });
+  });
+
+  group('when', () {
+    testWidgets('one panel shows the day and your time together; there are no Day / Time buttons', (
+      tester,
+    ) async {
+      await _open(tester);
+      expect(find.text('DAY'), findsNothing);
+      expect(find.text('YOUR TIME'), findsNothing);
+      expect(find.text('WHEN'), findsOneWidget);
+      expect(find.bySemanticsLabel(RegExp('^When: .*Change')), findsOneWidget);
+    });
+
+    testWidgets('tapping it opens the picker, and the answer lands back in the panel', (
+      tester,
+    ) async {
+      await _open(tester, zone: null);
+      await tester.tap(find.text('WHEN'));
+      await tester.pump();
+      final panel = find.byWidgetPredicate((w) => w is PTRollingText && w.text.contains('·'));
+      expect(panel, findsOneWidget);
+      await tester.tap(panel);
+      await tester.pumpAndSettle();
+      expect(find.text('Set'), findsOneWidget, reason: 'the picker is open');
+      await tester.tap(find.text('Set'));
+      await tester.pumpAndSettle();
+      expect(find.text('Set'), findsNothing);
+      expect(panel, findsOneWidget);
+    });
+  });
+
+  group('what you are watching, in motion', () {
+    testWidgets('the link field folds open under the choice, it does not snap in', (tester) async {
+      await _open(tester);
+      expect(find.byType(TextField), findsOneWidget, reason: 'only the name field at first');
+      final before = tester.getSize(find.byType(PlanNightBody)).height;
+      await tester.tap(find.text('A YouTube link'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 60));
+      final during = tester.getSize(find.byType(PlanNightBody)).height;
+      await tester.pumpAndSettle();
+      final after = tester.getSize(find.byType(PlanNightBody)).height;
+      expect(after, greaterThan(before));
+      expect(during, greaterThan(before), reason: 'already opening');
+      expect(during, lessThan(after), reason: 'and not all the way yet');
+      expect(find.byType(TextField), findsNWidgets(2));
+    });
+
+    testWidgets('choosing together again folds it shut and leaves no gap', (tester) async {
+      await _open(tester);
+      final start = tester.getSize(find.byType(PlanNightBody)).height;
+      await tester.tap(find.text('A YouTube link'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text("We'll choose together"));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 60));
+      expect(find.byType(TextField), findsNWidgets(2), reason: 'still on its way out');
+      await tester.pumpAndSettle();
+      expect(find.byType(TextField), findsOneWidget);
+      expect(tester.getSize(find.byType(PlanNightBody)).height, start, reason: 'no leftover gap');
     });
   });
 

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../ui/optical.dart';
 import '../../ui/booth_icons.g.dart';
 import 'package:synctogether/ui/buttons.dart';
 import 'package:synctogether/ui/glass.dart';
@@ -66,7 +67,12 @@ class _MediaSharingPromptDialogState extends State<_MediaSharingPromptDialog> {
             child: Row(
               spacing: 10,
               children: [
-                Icon(BoothIcons.file, size: 17, color: PTColors.white(0.6)),
+                PTOpticalIcon(
+                  BoothIcons.file,
+                  beside: PTText.mono.copyWith(fontSize: 13),
+                  size: 17,
+                  color: PTColors.white(0.6),
+                ),
                 Expanded(
                   child: Text(
                     widget.fileName,

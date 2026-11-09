@@ -1,4 +1,6 @@
 import 'dart:async';
+import '../ui/rolling_text.dart';
+import '../ui/reveal.dart';
 import '../ui/booth_icons.g.dart';
 import 'dart:io';
 import 'dart:math' as math;
@@ -628,7 +630,6 @@ class _AvSettingsDialogContentState extends State<_AvSettingsDialogContent> {
     return Padding(
       padding: const EdgeInsets.only(top: 10),
       child: Row(
-        spacing: 10,
         children: [
           Expanded(
             child: SizedBox(
@@ -638,13 +639,24 @@ class _AvSettingsDialogContentState extends State<_AvSettingsDialogContent> {
               ),
             ),
           ),
-          if (_micFailed || _micTesting)
-            Text(
-              _micFailed ? "Couldn't open that mic" : 'Say something',
-              style: PTText.finePrint.copyWith(
-                color: _micFailed ? PTColors.danger : PTColors.white(0.5),
+          // The hint unfolds beside the meter while testing, and swaps with the
+          // failure line as one motion.
+          PTRevealKeep(
+            visible: _micFailed || _micTesting,
+            axis: Axis.horizontal,
+            alignment: Alignment.centerRight,
+            gap: 10,
+            child: PTShift(
+              keyValue: _micFailed,
+              dir: 1,
+              child: Text(
+                _micFailed ? "Couldn't open that mic" : 'Say something',
+                style: PTText.finePrint.copyWith(
+                  color: _micFailed ? PTColors.danger : PTColors.white(0.5),
+                ),
               ),
             ),
+          ),
         ],
       ),
     );
@@ -654,7 +666,6 @@ class _AvSettingsDialogContentState extends State<_AvSettingsDialogContent> {
     return Padding(
       padding: const EdgeInsets.only(top: 10),
       child: Row(
-        spacing: 10,
         children: [
           Expanded(
             child: SizedBox(
@@ -666,8 +677,16 @@ class _AvSettingsDialogContentState extends State<_AvSettingsDialogContent> {
               ),
             ),
           ),
-          if (_isPlayingTestSound)
-            Text('Playing sound', style: PTText.finePrint.copyWith(color: PTColors.white(0.5))),
+          PTRevealKeep(
+            visible: _isPlayingTestSound,
+            axis: Axis.horizontal,
+            alignment: Alignment.centerRight,
+            gap: 10,
+            child: Text(
+              'Playing sound',
+              style: PTText.finePrint.copyWith(color: PTColors.white(0.5)),
+            ),
+          ),
         ],
       ),
     );

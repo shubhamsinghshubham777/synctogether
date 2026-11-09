@@ -6,6 +6,7 @@ import 'package:flutter/rendering.dart';
 
 import 'glass.dart';
 import 'loader.dart';
+import 'optical.dart';
 import 'pt_motion.dart';
 import 'pt_theme.dart';
 import 'responsive.dart';
@@ -136,10 +137,20 @@ class _PTButtonState extends State<PTButton> {
                     spacing: 10,
                     children: [
                       if (showIcons && widget.icon != null)
-                        Icon(widget.icon, size: 19, color: foreground),
+                        PTOpticalIcon(
+                          widget.icon!,
+                          beside: label.style!,
+                          size: 19,
+                          color: foreground,
+                        ),
                       Flexible(child: label),
                       if (showIcons && widget.trailingIcon != null)
-                        Icon(widget.trailingIcon, size: 19, color: foreground),
+                        PTOpticalIcon(
+                          widget.trailingIcon!,
+                          beside: label.style!,
+                          size: 19,
+                          color: foreground,
+                        ),
                     ],
                   );
                 },
@@ -333,12 +344,7 @@ class _PTIconButtonState extends State<PTIconButton> with SingleTickerProviderSt
             height: widget.size,
             decoration: decoration,
             alignment: .center,
-            child: Transform.translate(
-              offset:
-                  widget.offset ??
-                  (widget.icon.fontFamily == 'BoothIcons' ? const Offset(0, 1.0) : Offset.zero),
-              child: glyph,
-            ),
+            child: Transform.translate(offset: widget.offset ?? Offset.zero, child: glyph),
           ),
         ),
       ),

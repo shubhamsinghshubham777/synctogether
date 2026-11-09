@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../ui/reveal.dart';
 import '../ui/booth_icons.g.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -250,15 +251,18 @@ class _CameraCaptureDialogState extends State<CameraCaptureDialog> {
             constraints.maxWidth < _kPreviewSize ? constraints.maxWidth : _kPreviewSize,
           ),
         ),
-        if (_cameras.isNotEmpty) ...[const SizedBox(height: 16), _buildCameraSelector()],
-        if (_error != null) ...[
-          const SizedBox(height: 16),
-          DialogNote(
+        // The camera chooser and the error note unfold under the preview when they
+        // are needed, instead of snapping in and resizing the dialog.
+        PTRevealKeep(visible: _cameras.isNotEmpty, gap: 16, child: _buildCameraSelector()),
+        PTRevealKeep(
+          visible: _error != null,
+          gap: 16,
+          child: DialogNote(
             tone: DialogNoteTone.danger,
             icon: BoothIcons.videocamOff,
-            child: Text(_error!, style: const TextStyle(color: PTColors.danger)),
+            child: Text(_error ?? '', style: const TextStyle(color: PTColors.danger)),
           ),
-        ],
+        ),
         const SizedBox(height: 24),
         PTButtonBar(
           buttons: [

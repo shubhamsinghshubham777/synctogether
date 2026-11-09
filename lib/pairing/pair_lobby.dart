@@ -4,6 +4,9 @@ import 'package:flutter/material.dart';
 
 import '../nav.dart';
 import '../profile/profile_service.dart';
+import '../ui/reveal.dart';
+import '../ui/panel_switcher.dart';
+import '../ui/rolling_text.dart';
 import '../ui/banners.dart';
 import '../ui/booth_icons.g.dart';
 import '../ui/buttons.dart';
@@ -54,13 +57,17 @@ class PairLobbySection extends StatelessWidget {
             : reunionView(pair.reunionOn!, DateTime.now());
         return Padding(
           padding: EdgeInsets.only(bottom: gap),
-          child: Column(
-            crossAxisAlignment: .stretch,
+          child: PTColumn(
             spacing: 12,
             children: [
               OurRoomCard(pair: pair, online: svc.partnerOnline, night: night, compact: compact),
-              if (reunion != null && reunion.phase != ReunionPhase.past)
-                ReunionCard(view: reunion, label: pair.reunionLabel),
+              // Setting (or reaching) the reunion date folds the countdown open or shut.
+              PTRevealKeep(
+                visible: reunion != null && reunion.phase != ReunionPhase.past,
+                child: reunion == null
+                    ? const SizedBox.shrink()
+                    : ReunionCard(view: reunion, label: pair.reunionLabel),
+              ),
             ],
           ),
         );
@@ -315,16 +322,7 @@ class _OurRoomCardState extends State<OurRoomCard> {
                                 ),
                               ),
                             ),
-                            // The label is mostly lowercase, so its optical centre is the
-                            // x-height, a pixel below the glyph's own centre.
-                            Transform.translate(
-                              offset: const Offset(0, 1),
-                              child: const Icon(
-                                BoothIcons.chevronRight,
-                                size: 14,
-                                color: PTColors.link,
-                              ),
-                            ),
+                            const Icon(BoothIcons.chevronRight, size: 14, color: PTColors.link),
                           ],
                         ),
                       ),
@@ -332,122 +330,182 @@ class _OurRoomCardState extends State<OurRoomCard> {
                   ),
                 ),
               ),
-              if (night != null && imminent) ...[
-                const SizedBox(width: 8),
-                PairPill(
-                  '${countdownTo(night.startsAt, now).minutes.clamp(0, 99)} min',
+              // Unfolds in beside the line when the night turns imminent.
+              PTRevealKeep(
+                visible: night != null && imminent,
+                axis: Axis.horizontal,
+                alignment: Alignment.centerLeft,
+                gap: 8,
+                child: PairPill(
+                  night == null
+                      ? ''
+                      : '${countdownTo(night.startsAt, now).minutes.clamp(0, 99)} min',
                   color: PTColors.primary,
                   fill: PTColors.pillWarning,
                 ),
-              ],
+              ),
             ],
           ),
-          Row(
-            spacing: 14,
+          // The names and the movie line share a column with no spacing of its own: the
+          // line carries its gap, so when it is folded away nothing is left behind.
+          Column(
+            crossAxisAlignment: .stretch,
             children: [
-              PairAvatars(
-                myId: me?.id ?? '',
-                myName: me?.displayName ?? 'You',
-                myAvatarUrl: me?.avatarUrl,
-                partner: partner,
-                size: 44,
-                partnerOnline: widget.online ? true : null,
+              Row(
+                spacing: 14,
+                children: [
+                  PairAvatars(
+                    myId: me?.id ?? '',
+                    myName: me?.displayName ?? 'You',
+                    myAvatarUrl: me?.avatarUrl,
+                    partner: partner,
+                    size: 44,
+                    partnerOnline: widget.online ? true : null,
+                  ),
+                  Expanded(
+                    child: Text(
+                      '$first & ${partner.displayName.split(' ').first}',
+                      style: PTText.cardHeading.copyWith(
+                        fontSize: widget.compact ? 22 : 24,
+                        height: 1,
+                      ),
+                      maxLines: 1,
+                      overflow: .ellipsis,
+                    ),
+                  ),
+                ],
               ),
-              Expanded(
-                child: Text(
-                  '$first & ${partner.displayName.split(' ').first}',
-                  style: PTText.cardHeading.copyWith(fontSize: widget.compact ? 22 : 24, height: 1),
-                  maxLines: 1,
-                  overflow: .ellipsis,
-                ),
+              Row(
+                spacing: 8,
+                children: [
+                  Container(
+                    width: 8,
+                    height: 8,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: widget.online ? PTColors.online : PTColors.away,
+                    ),
+                  ),
+                  Expanded(
+                    child: Text(
+                      widget.online
+                          ? '${partner.displayName.split(' ').first} is on${_clock(partner)}'
+                          : "${partner.displayName.split(' ').first} isn't on right now${_clock(partner)}",
+                      style: PTText.body.copyWith(
+                        fontSize: 14,
+                        color: widget.online ? PTColors.online : PTColors.fgSoft,
+                      ),
+                      maxLines: 2,
+                      overflow: .ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+              // The film its planner attached: ready, or on its way. Said only when it
+              // is true and the night is close, so the card never promises early.
+              // "Ready" and "still arriving" trade places as one motion, and the row folds
+              // away when neither is true.
+              PTPanelSwitcher(
+                child: night != null && imminent && night.attachmentReady
+                    ? KeyedSubtree(
+                        key: const ValueKey('movie-ready'),
+                        child: Padding(
+                          padding: const EdgeInsets.only(top: 14),
+                          child: Row(
+                            spacing: 8,
+                            children: [
+                              const Icon(BoothIcons.check, size: 16, color: PTColors.online),
+                              Expanded(
+                                child: Text(
+                                  'Your movie is ready',
+                                  style: PTText.caption.copyWith(color: PTColors.online),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      )
+                    : night != null && imminent && night.hasFile && !night.fileStopped
+                    ? KeyedSubtree(
+                        key: const ValueKey('movie-arriving'),
+                        child: Padding(
+                          padding: const EdgeInsets.only(top: 14),
+                          child: Row(
+                            spacing: 8,
+                            children: [
+                              const Icon(BoothIcons.cloudUpload, size: 16, color: PTColors.warning),
+                              Expanded(
+                                // Only the digits that moved roll as the upload advances.
+                                child: Text.rich(
+                                  TextSpan(
+                                    children: [
+                                      const TextSpan(text: 'Your movie is still arriving ('),
+                                      WidgetSpan(
+                                        alignment: PlaceholderAlignment.baseline,
+                                        baseline: TextBaseline.alphabetic,
+                                        child: PTRollingText(
+                                          '${night.uploadPercent}',
+                                          style: PTText.caption.copyWith(color: PTColors.warning),
+                                        ),
+                                      ),
+                                      const TextSpan(text: '%)'),
+                                    ],
+                                  ),
+                                  style: PTText.caption.copyWith(color: PTColors.warning),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      )
+                    : const SizedBox(key: ValueKey('movie-none'), width: double.infinity),
               ),
             ],
           ),
-          Row(
-            spacing: 8,
-            children: [
-              Container(
-                width: 8,
-                height: 8,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: widget.online ? PTColors.online : PTColors.away,
-                ),
-              ),
-              Expanded(
-                child: Text(
-                  widget.online
-                      ? '${partner.displayName.split(' ').first} is on${_clock(partner)}'
-                      : "${partner.displayName.split(' ').first} isn't on right now${_clock(partner)}",
-                  style: PTText.body.copyWith(
-                    fontSize: 14,
-                    color: widget.online ? PTColors.online : PTColors.fgSoft,
+          // Call + Open when they are on, just Open when they are not: swapped as one
+          // motion rather than a button appearing under the finger.
+          PTPanelSwitcher(
+            child: widget.online
+                ? KeyedSubtree(
+                    key: const ValueKey('actions-online'),
+                    child: LayoutBuilder(
+                      builder: (context, box) {
+                        // Two labels need roughly 300 px at normal size and grow with
+                        // the text; when they would not both fit, they stack.
+                        final scale = MediaQuery.textScalerOf(context).scale(15) / 15;
+                        final stack = box.maxWidth < 300 * scale.clamp(1.0, 2.0);
+                        final call = PTButton(
+                          label: 'Call ${partner.displayName.split(' ').first}',
+                          icon: BoothIcons.phone,
+                          loading: _calling,
+                          onPressed: _call,
+                        );
+                        final open = PTButton(
+                          label: 'Open Our Room',
+                          variant: .secondary,
+                          onPressed: () => openOurRoom(context),
+                        );
+                        return stack
+                            ? Column(
+                                crossAxisAlignment: .stretch,
+                                spacing: 10,
+                                children: [call, open],
+                              )
+                            : Row(
+                                spacing: 10,
+                                children: [
+                                  Expanded(child: call),
+                                  Expanded(child: open),
+                                ],
+                              );
+                      },
+                    ),
+                  )
+                : KeyedSubtree(
+                    key: const ValueKey('actions-offline'),
+                    child: PTButton(label: 'Open Our Room', onPressed: () => openOurRoom(context)),
                   ),
-                  maxLines: 2,
-                  overflow: .ellipsis,
-                ),
-              ),
-            ],
           ),
-          // The film its planner attached: ready, or on its way. Said only when it
-          // is true and the night is close, so the card never promises early.
-          if (night != null && imminent && night.attachmentReady)
-            Row(
-              spacing: 8,
-              children: [
-                const Icon(BoothIcons.check, size: 16, color: PTColors.online),
-                Expanded(
-                  child: Text(
-                    'Your movie is ready',
-                    style: PTText.caption.copyWith(color: PTColors.online),
-                  ),
-                ),
-              ],
-            )
-          else if (night != null && imminent && night.hasFile && !night.fileStopped)
-            Row(
-              spacing: 8,
-              children: [
-                const Icon(BoothIcons.cloudUpload, size: 16, color: PTColors.warning),
-                Expanded(
-                  child: Text(
-                    'Your movie is still arriving (${night.uploadPercent}%)',
-                    style: PTText.caption.copyWith(color: PTColors.warning),
-                  ),
-                ),
-              ],
-            ),
-          if (widget.online)
-            LayoutBuilder(
-              builder: (context, box) {
-                // Two labels need roughly 300 px at normal size and grow with
-                // the text; when they would not both fit, they stack.
-                final scale = MediaQuery.textScalerOf(context).scale(15) / 15;
-                final stack = box.maxWidth < 300 * scale.clamp(1.0, 2.0);
-                final call = PTButton(
-                  label: 'Call ${partner.displayName.split(' ').first}',
-                  icon: BoothIcons.phone,
-                  loading: _calling,
-                  onPressed: _call,
-                );
-                final open = PTButton(
-                  label: 'Open Our Room',
-                  variant: .secondary,
-                  onPressed: () => openOurRoom(context),
-                );
-                return stack
-                    ? Column(crossAxisAlignment: .stretch, spacing: 10, children: [call, open])
-                    : Row(
-                        spacing: 10,
-                        children: [
-                          Expanded(child: call),
-                          Expanded(child: open),
-                        ],
-                      );
-              },
-            )
-          else
-            PTButton(label: 'Open Our Room', onPressed: () => openOurRoom(context)),
         ],
       ),
     );

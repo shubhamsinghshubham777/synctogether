@@ -202,6 +202,68 @@ void main() {
     });
   });
 
+  group('MyRoomsSection motion', () {
+    Widget app(List<MyRoom> rooms) => MaterialApp(
+      home: Scaffold(
+        body: SingleChildScrollView(
+          child: MyRoomsSection(
+            rooms: rooms,
+            serverNow: DateTime.utc(2026, 9, 13, 0),
+            busyRoomId: null,
+            onOpen: (_) {},
+            onDelete: (_) {},
+            onClearEnded: (_) {},
+          ),
+        ),
+      ),
+    );
+
+    testWidgets('a ticket that goes folds shut and the list glides up, no jump', (tester) async {
+      // One column (a phone): folding one ticket shrinks the list as it goes. Where two
+      // sit side by side the row only closes once both are gone and the rest re-deal.
+      tester.view
+        ..physicalSize = const Size(400, 900)
+        ..devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final three = [
+        _fakeMyRoom(id: '1', name: 'Alpha', isLive: true),
+        _fakeMyRoom(id: '2', name: 'Bravo', isLive: true),
+        _fakeMyRoom(id: '3', name: 'Charlie', isLive: true),
+      ];
+      await tester.pumpWidget(app(three));
+      await tester.pumpAndSettle();
+      final before = tester.getSize(find.byType(MyRoomsSection)).height;
+      await tester.pumpWidget(app([three[0], three[2]]));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 60));
+      final during = tester.getSize(find.byType(MyRoomsSection)).height;
+      expect(find.text('Bravo'), findsOneWidget, reason: 'still folding out');
+      await tester.pumpAndSettle();
+      final after = tester.getSize(find.byType(MyRoomsSection)).height;
+      expect(find.text('Bravo'), findsNothing);
+      expect(after, lessThan(before));
+      expect(during, lessThan(before), reason: 'already closing');
+      expect(during, greaterThan(after), reason: 'not all the way yet');
+    });
+
+    testWidgets('Clear ended unfolds beside the title when a room ends', (tester) async {
+      await tester.pumpWidget(app([_fakeMyRoom(id: '1', name: 'Alpha', isLive: true)]));
+      await tester.pumpAndSettle();
+      expect(find.text('Clear ended'), findsNothing);
+      await tester.pumpWidget(
+        app([
+          _fakeMyRoom(id: '1', name: 'Alpha', isLive: true),
+          _fakeMyRoom(id: '2', name: 'Bravo'),
+        ]),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 60));
+      expect(find.text('Clear ended'), findsOneWidget, reason: 'on its way in');
+      await tester.pumpAndSettle();
+      expect(find.text('Clear ended'), findsOneWidget);
+    });
+  });
+
   group('ClearEndedRoomsDialog tests', () {
     testWidgets('shows warning, count, and persistent room reassurance note', (tester) async {
       await tester.pumpWidget(

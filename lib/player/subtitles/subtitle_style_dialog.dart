@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../../ui/reveal.dart';
 import '../../ui/booth_icons.g.dart';
 
 import 'package:flutter/material.dart';
@@ -139,8 +140,11 @@ class _SubtitleStyleSheetState extends State<SubtitleStyleSheet> {
         ),
         _Section('Font', [
           _FontRow(family: s.fontFamily, onTap: _pickFont),
-          if (weights.length > 1)
-            Wrap(
+          // The weights a font offers unfold under its name; a font with one weight
+          // (or none to choose) folds them away.
+          PTRevealKeep(
+            visible: weights.length > 1,
+            child: Wrap(
               spacing: 8,
               runSpacing: 8,
               children: [
@@ -152,6 +156,7 @@ class _SubtitleStyleSheetState extends State<SubtitleStyleSheet> {
                   ),
               ],
             ),
+          ),
           PTCheckTile(
             label: 'Italic',
             value: s.italic,
@@ -391,8 +396,7 @@ class _Section extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: .stretch,
+    return PTColumn(
       spacing: 10,
       children: [
         // Hairline over a mono kicker: sections read as a programme, not cards.

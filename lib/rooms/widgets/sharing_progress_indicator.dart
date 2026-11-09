@@ -1,3 +1,5 @@
+import '../../ui/rolling_text.dart';
+import '../../ui/progress_bar.dart';
 import '../../ui/booth_icons.g.dart';
 import 'package:flutter/material.dart';
 import '../../ui/pt_theme.dart';
@@ -92,9 +94,10 @@ class SharingProgressIndicator extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              Text(
+              // Only the digits that moved roll as the upload advances.
+              PTRollingText(
                 '$percentage%',
-                style: theme.textTheme.bodyMedium?.copyWith(
+                style: (theme.textTheme.bodyMedium ?? PTText.body).copyWith(
                   fontWeight: FontWeight.bold,
                   color: isDone
                       ? PTColors.online
@@ -126,20 +129,16 @@ class SharingProgressIndicator extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 8),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: LinearProgressIndicator(
-              value: isDone ? 1.0 : (isFailed ? 0.0 : fraction),
-              minHeight: 6,
-              backgroundColor: theme.colorScheme.onSurface.withValues(alpha: 0.1),
-              valueColor: AlwaysStoppedAnimation<Color>(
-                isDone
-                    ? PTColors.online
-                    : isFailed
-                    ? theme.colorScheme.error
-                    : theme.colorScheme.primary,
-              ),
-            ),
+          PTProgressBar(
+            value: isDone ? 1.0 : (isFailed ? 0.0 : fraction),
+            height: 6,
+            radius: 4,
+            track: theme.colorScheme.onSurface.withValues(alpha: 0.1),
+            color: isDone
+                ? PTColors.online
+                : isFailed
+                ? theme.colorScheme.error
+                : theme.colorScheme.primary,
           ),
           if (stats.isNotEmpty && !isDone && !isFailed) ...[
             const SizedBox(height: 6),

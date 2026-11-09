@@ -43,13 +43,19 @@ class _StreakScreenState extends State<StreakScreen> {
               spacing: 10,
               children: [
                 Expanded(
-                  child: _Stat(value: '${stats.nights}', label: 'nights'),
+                  child: _Stat(
+                    value: '${stats.nights}',
+                    label: stats.nights == 1 ? 'night' : 'nights',
+                  ),
                 ),
                 Expanded(
-                  child: _Stat(value: hoursLabel(stats.hours), label: 'hours'),
+                  child: _Stat(
+                    value: hoursLabel(stats.hours),
+                    label: stats.hours == 1 ? 'hour' : 'hours',
+                  ),
                 ),
                 Expanded(
-                  child: _Stat(value: '${stats.films}', label: 'films'),
+                  child: _Stat(value: '${stats.films}', label: stats.films == 1 ? 'film' : 'films'),
                 ),
               ],
             ),

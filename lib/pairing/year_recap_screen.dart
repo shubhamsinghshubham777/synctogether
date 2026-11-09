@@ -170,7 +170,12 @@ class _YearRecapScreenState extends State<YearRecapScreen> {
         // so the exported image is the same 1020 x 1275 whatever screen it came from.
         LayoutBuilder(
           builder: (context, box) {
-            final width = box.maxWidth < _kCardMaxWidth ? box.maxWidth : _kCardMaxWidth;
+            // Also limited by the window's height, so the card and its buttons fit together
+            // in a short window instead of pushing the buttons below the fold.
+            final byHeight =
+                (MediaQuery.sizeOf(context).height - 300) * _YearCard._w / _YearCard._h;
+            final cap = byHeight.clamp(280.0, _kCardMaxWidth);
+            final width = box.maxWidth < cap ? box.maxWidth : cap;
             return Center(
               child: SizedBox(
                 width: width,
@@ -234,6 +239,9 @@ class _YearCard extends StatelessWidget {
   // Width the film strip takes from the right edge, so no text ever touches it.
   static const _stripRoom = 22.0;
 
+  // Past this many characters the two names go on two lines.
+  static const _oneLineNames = 22;
+
   const _YearCard({
     required this.year,
     required this.mine,
@@ -249,6 +257,23 @@ class _YearCard extends StatelessWidget {
   final String? apart;
   final PairStats stats;
   final Set<int> months;
+
+  /// "Maya & Sam" on one line, scaled down to fit. A long pair ("Bartholomew... & Wolfe...")
+  /// would shrink past reading on one line, so it breaks after the ampersand and each name
+  /// gets the full width.
+  Widget _names() {
+    Widget line(String text) => FittedBox(
+      fit: BoxFit.scaleDown,
+      alignment: Alignment.centerLeft,
+      child: Text(text, maxLines: 1, style: PTText.display.copyWith(fontSize: 38, height: 0.95)),
+    );
+    if ('$mine & $theirs'.length <= _oneLineNames) return line('$mine & $theirs');
+    return Column(
+      crossAxisAlignment: .start,
+      spacing: 2,
+      children: [line('$mine &'), line(theirs)],
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -279,14 +304,7 @@ class _YearCard extends StatelessWidget {
                     'OUR YEAR · $year',
                     style: PTText.label.copyWith(color: PTColors.primary, letterSpacing: 2),
                   ),
-                  FittedBox(
-                    fit: BoxFit.scaleDown,
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      '$mine & $theirs',
-                      style: PTText.display.copyWith(fontSize: 38, height: 0.95),
-                    ),
-                  ),
+                  _names(),
                   if (apart != null)
                     Row(
                       spacing: 8,

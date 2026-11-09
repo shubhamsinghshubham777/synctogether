@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:synctogether/mock/mock_dependencies.dart';
+import 'package:synctogether/profile/profile_models.dart';
+import 'package:synctogether/profile/profile_service.dart';
 import 'package:synctogether/pairing/date_night_plan.dart';
 import 'package:synctogether/pairing/pair_page.dart';
 import 'package:synctogether/player/local_video.dart';
@@ -54,6 +56,16 @@ DateNight _night(String id, DateNightStatus status, Duration from, {String by = 
       proposedBy: by,
       status: status,
     );
+
+/// An account with a given first name, for the cards that print it.
+class _NamedProfile extends MockProfileService {
+  _NamedProfile(this.name);
+
+  final String name;
+
+  @override
+  Profile? get profile => Profile(id: 'user-alex', displayName: name, isGuest: false);
+}
 
 DateNight _ended(String id, DateNightStatus status, {String by = 'sam'}) => DateNight(
   id: id,
@@ -416,6 +428,61 @@ void main() {
     expect(find.text('WATCHED TOGETHER'), findsNothing, reason: 'the list lives on its own screen');
     await finishCase(tester);
   });
+
+  // The card shows each person's first word, so the worst case is one long unbroken name:
+  // it must scale down on one line, never wrap, clip or overflow, at every size.
+  for (final (label, mine, theirs, zone) in [
+    (
+      'long',
+      'Bartholomewalexandriamaximilian',
+      'Wolfeschlegelsteinhausenbergerdorff',
+      'America/Argentina/ComodRivadavia',
+    ),
+    (
+      'emoji',
+      '\u{1F9D1}\u{200D}\u{1F680}Astronaut\u{1F31F}',
+      '\u{1F496}\u{1F496}\u{1F496}\u{1F496}\u{1F496}\u{1F496}',
+      'Pacific/Port_Moresby',
+    ),
+    (
+      'cjk',
+      '\u5C71\u7530\u592A\u90CE\u5C71\u7530\u592A\u90CE\u5C71\u7530',
+      '\u5F20\u4F1F\u5F20\u4F1F\u5F20\u4F1F\u5F20\u4F1F\u5F20',
+      'Asia/Shanghai',
+    ),
+    (
+      'arabic',
+      '\u0645\u062D\u0645\u062F\u0639\u0628\u062F\u0627\u0644\u0644\u0647\u0627\u0644\u0645\u0646\u0635\u0648\u0631\u064A',
+      '\u0641\u0627\u0637\u0645\u0629',
+      'Asia/Riyadh',
+    ),
+  ]) {
+    screenMatrix('pair/year-names-$label', (tester, c, s) async {
+      ProfileService.instance = _NamedProfile(mine);
+      PairService.instance = FakePairService(
+        pair: PairInfo(
+          pairId: 'pair-1',
+          since: DateTime.utc(2026, 3, 2),
+          partner: PairPartner(id: 'sam', displayName: theirs, timezone: zone),
+        ),
+        stats: const PairStats(
+          streakWeeks: 12,
+          bestStreakWeeks: 12,
+          nights: 47,
+          hours: 1112.4,
+          films: 31,
+        ),
+      );
+      await pumpAtSize(tester, const YearRecapScreen(), c, textScale: s, singlePane: true);
+      await tester.pump(const Duration(milliseconds: 600));
+      // One line for a short pair, two for a long one; either way both names are on the card.
+      final oneLine = find.text('$mine & $theirs');
+      final twoLines = find.text('$mine &');
+      expect(oneLine.evaluate().length + twoLines.evaluate().length, 1);
+      expect(find.text('47 NIGHTS'), findsOneWidget);
+      await finishCase(tester);
+    });
+  }
 
   screenMatrix('pair/year', (tester, c, s) async {
     PairService.instance = FakePairService(

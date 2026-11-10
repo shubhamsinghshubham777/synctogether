@@ -69,7 +69,7 @@ Shoot with `--dart-define=DEMO_MODE=true` (as for the Mac set). If iPad is not g
 
 ## iPhone Duo screenshots
 
-App Store Connect has its own **iPhone Duo** slot (`APP_IPHONE_DUO`) that takes the device's native sizes: 2007x2853 / 2853x2007 (inner display) and 1398x2034 / 2034x1398 (outer). Portrait and landscape can share one set. Upload the raw simulator captures (`store/ios/screenshots/duo-native/`), not captioned cards on an iPhone canvas.
+App Store Connect has its own **iPhone Duo** slot (`APP_IPHONE_DUO`) that takes the device's native sizes: 2007x2853 / 2853x2007 (inner display) and 1398x2034 / 2034x1398 (outer). Portrait and landscape can share one set. Upload the raw simulator captures (`store/ios/screenshots/iphone-duo/`), not captioned cards on an iPhone canvas.
 
 - `asc` older than 6.x does not know the type (`unsupported screenshot display type`); `brew upgrade asc`, then `asc screenshots upload --device-type IPHONE_DUO`.
 - Simulator PNGs carry an alpha channel, which ASC rejects: flatten with `magick in.png -background '#121010' -alpha remove -alpha off PNG24:out.png`.

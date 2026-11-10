@@ -54,12 +54,14 @@ export default async function PricingPage() {
       </Reveal>
 
       <Reveal>
-        <section className="border border-rail rounded-md p-6 sm:p-8 space-y-3 max-w-3xl">
-          <p className={`${mono} text-[11px] tracking-[0.16em] text-signal uppercase`}>For two</p>
-          <h2 className={`${display} text-2xl sm:text-3xl font-extrabold tracking-[-0.03em]`}>
-            Pairing and Our Room are free.
-          </h2>
-          <p className="text-[15px] leading-relaxed text-gray-400">
+        <section className="border border-rail rounded-md p-6 sm:p-8 grid gap-3 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:gap-x-16 lg:items-start">
+          <div className="space-y-3">
+            <p className={`${mono} text-[11px] tracking-[0.16em] text-signal uppercase`}>For two</p>
+            <h2 className={`${display} text-2xl sm:text-3xl font-extrabold tracking-[-0.03em]`}>
+              Pairing and Our Room are free.
+            </h2>
+          </div>
+          <p className="text-[15px] leading-relaxed text-gray-400 lg:pt-6">
             Any two signed-in accounts can pair and share Our Room, a private room that is always yours. It
             never uses one of your room slots, and the chat carries over between nights. Guests can&apos;t pair.
             If either of you is a Patron, you both get video facecams, can plan date nights, and can see your

@@ -51,6 +51,7 @@ export function DownloadCTA({ align = "center" }: { align?: "center" | "start" }
     <div className={`w-full flex flex-col gap-3 ${start ? "items-start" : "items-center"}`}>
       {/* Phone with no app for it: carry the link to a computer instead. */}
       <div className={`${isIOS ? "hidden" : "sm:hidden"} w-full space-y-3`}>
+        <div data-hero-cta className="w-full">
         <PTButton
           onClick={copyLink}
           variant="primary"
@@ -60,6 +61,7 @@ export function DownloadCTA({ align = "center" }: { align?: "center" | "start" }
         >
           {copied ? "Link copied" : "Copy the download link"}
         </PTButton>
+        </div>
         <p className="text-[13px] leading-relaxed text-gray-400" aria-live="polite">
           {copied
             ? "Paste it anywhere you'll open on your computer."
@@ -73,13 +75,16 @@ export function DownloadCTA({ align = "center" }: { align?: "center" | "start" }
           start ? "justify-start" : "justify-center"
         }`}
       >
-        <PTButton
-          href={primaryHref}
-          variant="primary"
-          className="!h-[54px] !px-6 !rounded-[4px] !text-[17px] !font-semibold"
-        >
-          {primaryLabel}
-        </PTButton>
+        {/* data-hero-cta: the hero scrub rings this once at its payoff (globals.css). */}
+        <div data-hero-cta className="rounded-[4px]">
+          <PTButton
+            href={primaryHref}
+            variant="primary"
+            className="!h-[54px] !px-6 !rounded-[4px] !text-[17px] !font-semibold"
+          >
+            {primaryLabel}
+          </PTButton>
+        </div>
         <Link
           href="/download"
           className="text-[15px] font-semibold text-screen underline underline-offset-[6px] decoration-[#5A4F44] hover:decoration-beam-500 transition-colors"

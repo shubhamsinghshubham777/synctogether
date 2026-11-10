@@ -10,6 +10,13 @@ test("only listed event names are accepted", () => {
   assert.equal(isWebEventName({ name: "join_fallback" }), false);
 });
 
+test("the hero scrub events are listed, and near-misses are not", () => {
+  assert.equal(isWebEventName("hero_scrub_start"), true);
+  assert.equal(isWebEventName("hero_scrub_synced"), true);
+  assert.equal(isWebEventName("hero_scrub"), false);
+  assert.equal(isWebEventName("hero_scrub_synced "), false);
+});
+
 test("the invite code never reaches the events table", () => {
   assert.equal(eventPath("/join/ABC123"), "/join/*");
   assert.equal(eventPath("/join/ABC123?x=1#y"), "/join/*");

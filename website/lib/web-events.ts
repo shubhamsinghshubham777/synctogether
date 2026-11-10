@@ -9,6 +9,9 @@ export const WEB_EVENT_NAMES = [
   "join_fallback",
   "store_click_mac",
   "store_click_windows",
+  // The hero scrub: the first press on the playhead, and the first committed release (a tap counts, as in the app).
+  "hero_scrub_start",
+  "hero_scrub_synced",
 ] as const;
 
 export type WebEventName = (typeof WEB_EVENT_NAMES)[number];

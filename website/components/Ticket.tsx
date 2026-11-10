@@ -12,6 +12,8 @@ interface TicketProps {
   className?: string;
   /** Stub width; boards size it per use (120px on the hero, 150px on /join). */
   stubClassName?: string;
+  /** The hero scrub strip: a thinner body and a smaller notch. */
+  compact?: boolean;
 }
 
 /**
@@ -30,14 +32,21 @@ export function Ticket({
   animate = false,
   className = "",
   stubClassName = "w-28 sm:w-36",
+  compact = false,
 }: TicketProps) {
   return (
     <div
       className={`ticket flex text-left ${
         paper ? "bg-screen text-booth" : "bg-seat text-white ring-1 ring-inset ring-rail"
-      } ${animate ? "ticket-print" : ""} ${className}`}
+      } ${animate ? "ticket-print" : ""} ${compact ? "ticket-compact" : ""} ${className}`}
     >
-      <div className="flex-1 min-w-0 px-6 py-5 sm:px-[30px] sm:py-[22px]">{children}</div>
+      <div
+        className={
+          compact ? "flex-1 min-w-0 pl-3.5 pr-2 py-2 flex flex-col justify-center" : "flex-1 min-w-0 px-6 py-5 sm:px-[30px] sm:py-[22px]"
+        }
+      >
+        {children}
+      </div>
       <div
         className={`ticket-stub flex ${stubClassName} shrink-0 items-center justify-center border-l-2 border-dashed ${
           paper ? "border-[#B8AB98]" : "border-rail"

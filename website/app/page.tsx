@@ -1,6 +1,5 @@
 import { Reveal } from "@/components/motion/Reveal";
-import { HeroPoster } from "@/components/hero/HeroPoster";
-import { TiltPoster } from "@/components/hero/TiltPoster";
+import { HeroScrub } from "@/components/hero/HeroScrub";
 import { HeroStage } from "@/components/hero/HeroStage";
 import { DownloadCTA } from "@/components/hero/DownloadCTA";
 import { TrustStrip } from "@/components/TrustStrip";
@@ -84,30 +83,33 @@ export default async function HomePage() {
   return (
     <div className="relative overflow-x-clip">
       {/* 1. HERO - the projection booth canvas's split composition */}
-      <section className="relative px-4 sm:px-6 lg:px-8 max-w-7xl min-[2000px]:max-w-[1920px] mx-auto pt-6 pb-10 lg:pt-10 lg:pb-8">
-        <div className="grid lg:grid-cols-[1.05fr_1fr] gap-12 lg:gap-14 items-start min-[2000px]:items-center">
-          <div className="flex flex-col gap-[26px]">
-            <div className="flex flex-wrap items-center gap-4">
+      <section className="relative px-4 sm:px-6 lg:px-8 max-w-7xl min-[2000px]:max-w-[1920px] mx-auto pt-4 sm:pt-6 pb-10 lg:pt-10 lg:pb-8">
+        {/* Below lg the left column dissolves into the flex column so the
+            cluster can sit between the headline and the button (CSS order;
+            DOM and tab order stay kicker, headline, copy, button, cluster). */}
+        <div className="flex flex-col gap-4 lg:grid lg:grid-cols-[1.05fr_1fr] lg:gap-14 lg:items-start min-[2000px]:items-center">
+          <div className="contents lg:flex lg:flex-col lg:gap-[26px]">
+            <div className="flex flex-wrap items-center gap-4 max-lg:order-1">
               <p className={`${mono} text-xs tracking-[0.14em] text-gray-500`}>
                 IPHONE · IPAD · MAC · WINDOWS
               </p>
             </div>
             <h1
-              className={`${display} font-extrabold text-[clamp(50px,6vw,86px)] min-[2000px]:text-[clamp(96px,5vw,132px)] leading-[0.88] tracking-[-0.045em]`}
+              className={`${display} font-extrabold text-[clamp(50px,6vw,86px)] min-[2000px]:text-[clamp(96px,5vw,132px)] leading-[0.88] tracking-[-0.045em] max-lg:order-2`}
             >
               <span className="line-in">Same movie.</span>
               <span className="line-in [animation-delay:90ms]">Same second.</span>
               <span className="line-in [animation-delay:180ms] text-beam-500">Different couches.</span>
             </h1>
-            <p className="text-base sm:text-[19px] leading-[1.55] text-gray-300 max-w-[520px] min-[2000px]:max-w-[720px] min-[2000px]:text-[24px]">
+            <p className="text-base sm:text-[19px] leading-[1.55] text-gray-300 max-w-[520px] min-[2000px]:max-w-[720px] min-[2000px]:text-[24px] max-lg:order-5">
               Open a room, send the ticket, press play once. Your own files or YouTube, with
               chat, reactions and facecams, and everyone stays within a frame of each other.
             </p>
-            <DownloadCTA align="start" />
+            <div className="max-lg:order-4">
+              <DownloadCTA align="start" />
+            </div>
           </div>
-          <TiltPoster>
-            <HeroPoster />
-          </TiltPoster>
+          <HeroScrub className="max-lg:order-3" />
         </div>
       </section>
 

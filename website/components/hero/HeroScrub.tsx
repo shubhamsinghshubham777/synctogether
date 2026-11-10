@@ -48,7 +48,7 @@ function Film({ index, priority = false }: { index: number; priority?: boolean }
 /**
  * The hero's right side: four screens on one film. It does what the app does:
  * while you scrub only your own screen moves, and on release everyone lands on
- * your frame together (docs/hero-scrub-spec.md, canvas boards 74-81). This is
+ * your frame together (design canvas boards 74-81). This is
  * the whole no-JS fallback too: same frame, every seat IN SYNC, the strip line. `HeroScrubEngine` (client, renders nothing) enhances it after
  * hydration; the engine only changes attributes, transforms and text, so
  * nothing here is ever added, removed or reordered at runtime.

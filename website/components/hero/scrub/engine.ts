@@ -1,5 +1,5 @@
 /**
- * The hero scrub engine (docs/hero-scrub-spec.md). Plain TypeScript, no React:
+ * The hero scrub engine (design canvas boards 74-81). Plain TypeScript, no React:
  * it only changes attributes, `style.transform` and the text of nodes the
  * server already rendered, so React's tree is never disturbed.
  *

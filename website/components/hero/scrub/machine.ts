@@ -1,5 +1,5 @@
 /**
- * The pure half of the hero scrub (docs/hero-scrub-spec.md). No DOM, no
+ * The pure half of the hero scrub (design canvas boards 74-81). No DOM, no
  * timers: the engine feeds it plain numbers and the unit tests drive it the
  * same way. Positions are fractions of the film, 0..1.
  *

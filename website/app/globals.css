@@ -585,7 +585,7 @@ button:focus-visible {
   }
 }
 
-/* Hero scrub (components/hero/HeroScrub.tsx, docs/hero-scrub-spec.md). Four
+/* Hero scrub (components/hero/HeroScrub.tsx; design canvas boards 74-81). Four
    screens on one playhead. Everything that moves is transform or opacity; the
    engine writes the playhead and frame transforms, the rest runs from
    data-state. Geometry is fixed rows plus 16:9 windows, so nothing shifts when

@@ -5,16 +5,18 @@
 <h1 align="center">SyncTogether</h1>
 
 <p align="center">
-  <strong>Watch videos together, perfectly in sync. Cross-platform, low-latency, and self-hostable.</strong>
+  <strong>Movie night, even when you're apart. Watch together in lockstep, see and hear each other, and keep a private place for the two of you. Cross-platform and self-hostable.</strong>
 </p>
 
 <p align="center">
   <a href="#license"><img src="https://img.shields.io/badge/License-PolyForm_Noncommercial_1.0.0-blue.svg" alt="License: PolyForm Noncommercial 1.0.0"></a>
   <img src="https://img.shields.io/badge/Flutter-3.44.x-02569B?logo=flutter" alt="Flutter">
-  <img src="https://img.shields.io/badge/Platforms-macOS_%7C_Windows-FFB23F" alt="Platforms">
+  <img src="https://img.shields.io/badge/Platforms-iPhone_%7C_iPad_%7C_iPhone_Duo_%7C_macOS_%7C_Windows-FFB23F" alt="Platforms">
 </p>
 
 <p align="center">
+  <a href="https://apps.apple.com/app/synctogether-watch-party/id6809185202"><img src="https://tools.applemediaservices.com/api/badges/download-on-the-app-store/black/en-us" height="52" alt="Download on the App Store"></a>
+  &nbsp;
   <a href="https://apps.apple.com/in/app/synctogether-watch-party/id6809185202?mt=12"><img src="https://tools.applemediaservices.com/api/badges/download-on-the-mac-app-store/black/en-us" height="52" alt="Download on the Mac App Store"></a>
   &nbsp;
   <a href="https://apps.microsoft.com/detail/9P1BZTSXHDFS"><img src="https://get.microsoft.com/images/en-us%20dark.svg" height="52" alt="Get it from Microsoft"></a>
@@ -24,7 +26,7 @@
 
 ---
 
-SyncTogether is a modern cross-platform application for synchronized media playback across devices. Create a **room**, share a 6-character room code (or a `synctogether://join/<code>` invite link), and keep everyone's playback in lockstep - play, pause, and seeks broadcast in real-time, accompanied by synchronized chat, animated emoji reactions, and live voice & video facecams. Two signed-in accounts can also **pair** for a free, persistent private room (Our Room) with date nights across time zones, a weekly streak and shared history - see [`docs/agent/pairing.md`](docs/agent/pairing.md).
+SyncTogether plays the same video at the same moment for everyone in the room, on iPhone, iPad (and iPhone Duo, where the layout adapts to the inner display and the fold), Mac and Windows. Create a **room**, share a 6-character room code (or a `synctogether://join/<code>` invite link), and keep everyone's playback in lockstep - play, pause, and seeks broadcast in real-time, accompanied by synchronized chat, animated emoji reactions, and live voice & video facecams. Two signed-in accounts can also **pair** for a free, persistent private room (Our Room) with date nights across time zones, a weekly streak and shared history - see [`docs/agent/pairing.md`](docs/agent/pairing.md).
 
 ## Preview
 
@@ -33,13 +35,16 @@ SyncTogether is a modern cross-platform application for synchronized media playb
 | <img src="store/1_lobby.jpg" alt="Lobby Screen" /> | <img src="store/2_theater_room.jpg" alt="Theater Room" /> |
 | **Room Chat** | **Media Chooser** |
 | <img src="store/3_room_chat.jpg" alt="Room Chat" /> | <img src="store/4_media_chooser.jpg" alt="Media Chooser" /> |
+| **Our Room** | **Date Nights** |
+| <img src="store/6_our_room.jpg" alt="Our Room" /> | <img src="store/8_date_nights.jpg" alt="Date Nights" /> |
 
 ---
 
 ## Key Features
 
 - **Strict Lockstep Sync** - Coordinated playback in lockstep with readiness gates, authority drift-correction heartbeats, and authority-answered state recovery for late joiners.
-- **Two Playback Modes** - Local video files (via `media_kit` hardware-accelerated rendering with file hash mismatch warnings) and YouTube (via internal loopback IFrame bridge).
+- **For Couples & Long-Distance** - Pair two signed-in accounts for Our Room, a free private room that is always yours, plus date nights across time zones, a weekly streak, shared history, a reunion countdown and a year card.
+- **Two Playback Modes** - Local video files (via `media_kit` hardware-accelerated rendering with a same-file check, and an optional upload so members without a copy can stream it) and YouTube (via internal loopback IFrame bridge).
 - **Voice & Video Facecams** - Multi-participant live AV tiles powered by a LiveKit SFU with dynamic mic/camera controls.
 - **Persisted Chat & Quick Reactions** - In-room chat history, typing indicators, and Google Noto animated emoji reactions.
 - **Flexible Authentication** - Instant anonymous guest accounts (protected by Cloudflare Turnstile), Sign in with Apple, Google Sign-In, or Passwordless Email OTP with seamless in-place identity upgrades.
@@ -115,7 +120,7 @@ fvm flutter analyze
 
 Every release ships through a store, built via GitHub Actions (`.github/workflows/publish_stores.yaml`), and the store handles updates:
 - **macOS**: Mac App Store (`publish_mac_app_store.yaml`).
-- **iOS / iPadOS**: workflow exists (`publish_ios_app_store.yaml`), but mobile releases are not planned for now.
+- **iOS / iPadOS** (including iPhone Duo): App Store (`publish_ios_app_store.yaml`).
 - **Windows**: MSIX for the Microsoft Store (`publish_microsoft_store.yaml`).
 - **Android**: not released and not planned for now; no workflow publishes it.
 

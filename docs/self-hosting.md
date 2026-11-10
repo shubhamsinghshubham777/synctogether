@@ -224,7 +224,8 @@ update public.app_settings set value = jsonb_build_object('enabled', true,
 supabase functions deploy push-dispatch
 ```
 
-**Set the provider secrets first and the endpoint last:** a push for a platform with no credentials is skipped and dropped, not retried, so enabling the endpoint before the secrets discards whatever was queued. Until `endpoint_url` is set nothing is delivered and nothing fails; the queue is pruned after two days. The Android client also needs `FIREBASE_API_KEY`, `FIREBASE_APP_ID`, `FIREBASE_PROJECT_ID` and `FIREBASE_SENDER_ID` as `--dart-define`s, and an iOS or macOS build needs the Push Notifications capability and an `aps-environment` entitlement.
+> [!WARNING]
+> **Set the provider secrets first and the endpoint last:** a push for a platform with no credentials is skipped and dropped, not retried, so enabling the endpoint before the secrets discards whatever was queued. Until `endpoint_url` is set nothing is delivered and nothing fails; the queue is pruned after two days. The Android client also needs `FIREBASE_API_KEY`, `FIREBASE_APP_ID`, `FIREBASE_PROJECT_ID` and `FIREBASE_SENDER_ID` as `--dart-define`s, and an iOS or macOS build needs the Push Notifications capability and an `aps-environment` entitlement.
 
 `apple-iap` is only needed if you sell Premium through the Mac App Store (secrets `APPLE_BUNDLE_ID`, `APPLE_APP_APPLE_ID`); a self-hosted instance can skip it. `ms-iap` is the Microsoft Store equivalent (secrets `MS_STORE_TENANT_ID`, `MS_STORE_CLIENT_ID`, `MS_STORE_CLIENT_SECRET`, `MS_STORE_PRODUCT_IDS`), also optional.
 

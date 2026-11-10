@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRoomSim } from "@/components/room-sim/useRoomSim";
 import { RoomFrame } from "@/components/room-sim/RoomFrame";
+import { Facecams, INITIAL_FACECAMS, PersonId } from "@/components/room-sim/types";
 import { useMediaQuery } from "@/lib/useMediaQuery";
 import { useReducedMotion } from "@/lib/useReducedMotion";
 import { useSaveData } from "@/lib/useSaveData";
@@ -63,9 +64,11 @@ export function HeroStage({ header }: { header?: React.ReactNode } = {}) {
   const hasRunAutoDemo = useRef(false);
 
   const sim = useRoomSim({ active });
-  // Mic is local to each device: every frame keeps its own, none mirror the host.
-  const [guestMics, setGuestMics] = useState<[boolean, boolean]>([false, false]);
-  const toggleGuestMic = (i: 0 | 1) => setGuestMics((m) => (i === 0 ? [!m[0], m[1]] : [m[0], !m[1]]));
+  // Everyone's mic and camera live in one place: a window's buttons are its owner's, and the
+  // change shows on that person's tile in every window.
+  const [people, setPeople] = useState<Facecams>(INITIAL_FACECAMS);
+  const toggle = (who: PersonId, kind: "mic" | "cam") =>
+    setPeople((p) => ({ ...p, [who]: { ...p[who], [kind]: !p[who][kind] } }));
 
   const [phase, setPhase] = useState<SyncPhase>("synced");
   const [offsets, setOffsets] = useState<[number, number, number]>(SYNCED_OFFSETS);
@@ -291,7 +294,7 @@ export function HeroStage({ header }: { header?: React.ReactNode } = {}) {
   const secState = guestState(0);
   const secStateC = guestState(1);
   // What the guests' own transports show: their own playback, not the host's.
-  const guestSim = (i: 0 | 1) => ({ ...sim, playing: guestPlaying[i], micOn: guestMics[i] });
+  const guestSim = (i: 0 | 1) => ({ ...sim, playing: guestPlaying[i] });
   const secTone = phase === "synced" ? ("cue" as const) : ("signal" as const);
 
   const identity = { roomName: "movie night", roomCode: "WZ2CWX", osChrome: "macos" as const };
@@ -319,7 +322,9 @@ export function HeroStage({ header }: { header?: React.ReactNode } = {}) {
           <RoomFrame
             state={guestSim(0)}
             offsetSec={offsets[1]}
-            onToggleMic={() => toggleGuestMic(0)}
+            self="guest"
+            people={people}
+            onToggleMic={() => toggle("guest", "mic")}
             onTogglePlay={() => toggleGuestPlay(0)}
             className="flex-1"
             fidelity="reduced"
@@ -337,6 +342,10 @@ export function HeroStage({ header }: { header?: React.ReactNode } = {}) {
           <RoomFrame
             state={sim}
             actions={sim.actions}
+            self="sam"
+            people={people}
+            onToggleMic={() => toggle("sam", "mic")}
+            onToggleCam={() => toggle("sam", "cam")}
             offsetSec={offsets[0]}
             fidelity="full"
             identity={identity}
@@ -358,9 +367,10 @@ export function HeroStage({ header }: { header?: React.ReactNode } = {}) {
           <RoomFrame
             state={guestSim(1)}
             offsetSec={offsets[2]}
-            onToggleMic={() => toggleGuestMic(1)}
+            self="maya"
+            people={people}
+            onToggleMic={() => toggle("maya", "mic")}
             onTogglePlay={() => toggleGuestPlay(1)}
-            mayaFirst
             className="flex-1"
             fidelity="reduced"
             identity={identity}

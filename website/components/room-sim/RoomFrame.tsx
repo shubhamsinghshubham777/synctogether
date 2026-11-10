@@ -17,7 +17,7 @@ import {
   Send,
   Loader2,
 } from "lucide-react";
-import { RoomSimActions, RoomSimState } from "./types";
+import { Facecams, PEOPLE, PersonInfo, PersonId, RoomSimActions, RoomSimState, TILE_ORDER } from "./types";
 import { kReactions } from "@/lib/reactions";
 
 function randomBundledReaction() {
@@ -35,8 +35,12 @@ export interface RoomFrameIdentity {
 export interface RoomFrameProps {
   state: RoomSimState;
   actions?: RoomSimActions; // omitted => non-interactive frame
-  onToggleMic?: () => void; // mic is per-device: lets a non-interactive frame toggle only its own mic
-  mayaFirst?: boolean; // reduced frames only: put the third facecam on top of the rail
+  /** Who sits at this window. Their tile comes first, and the buttons below are theirs. */
+  self?: PersonId;
+  /** Everyone's mic and camera, shared by all windows so a toggle shows on every tile. */
+  people: Facecams;
+  onToggleMic?: () => void;
+  onToggleCam?: () => void;
   onTogglePlay?: () => void; // lets a non-interactive frame drive just the play/pause button
   /** Seconds this frame lags (negative) or leads (positive) the canonical clock. */
   offsetSec: number;
@@ -75,9 +79,11 @@ function formatTime(sec: number) {
 export function RoomFrame({
   state,
   actions,
+  self = "sam",
+  people,
   onToggleMic,
+  onToggleCam,
   onTogglePlay,
-  mayaFirst,
   offsetSec,
   fidelity,
   identity,
@@ -271,22 +277,16 @@ export function RoomFrame({
                 state.camsOn ? "translate-x-0 opacity-100" : "-translate-x-4 opacity-0 pointer-events-none"
               }`}
             >
-              {fidelity === "full" ? (
-                <>
-                  <FacecamTile avatar="/avatars/av-02-cam.avif" name="Sam Rivera" premium />
-                  <FacecamTile avatar="/avatars/av-01-cam.avif" name="Guest-0397" muted />
-                  <FacecamTile avatar="/avatars/av-04-cam.avif" name="Maya" className="hidden lg:block" />
-                </>
-              ) : (
-                <>
-                  <FacecamTile avatar="/avatars/av-01-cam.avif" muted className={mayaFirst ? "order-2" : ""} />
-                  <FacecamTile avatar="/avatars/av-02-cam.avif" premium className={mayaFirst ? "order-3" : ""} />
-                  <FacecamTile
-                    avatar="/avatars/av-04-cam.avif"
-                    className={`hidden lg:block ${mayaFirst ? "order-1" : ""}`}
-                  />
-                </>
-              )}
+              {TILE_ORDER[self].map((id, i) => (
+                <FacecamTile
+                  key={id}
+                  person={PEOPLE[id]}
+                  mic={people[id].mic}
+                  cam={people[id].cam}
+                  showName={fidelity === "full"}
+                  className={i === 2 ? "hidden lg:block" : ""}
+                />
+              ))}
             </div>
           </div>
 
@@ -379,17 +379,17 @@ export function RoomFrame({
             </button>
             <div className="w-px h-4 bg-rail mx-1" />
             <IconToggle
-              active={state.micOn}
-              onClick={onToggleMic ?? actions?.toggleMic}
-              tabIndex={interactive ? undefined : -1}
+              active={people[self].mic}
+              onClick={onToggleMic}
+              tabIndex={interactive || onToggleMic ? undefined : -1}
               on={<Mic className="w-3.5 h-3.5" />}
               off={<MicOff className="w-3.5 h-3.5" />}
               title="Toggle mic"
             />
             {fidelity === "full" && (
               <IconToggle
-                active={state.camOn}
-                onClick={actions?.toggleCam}
+                active={people[self].cam}
+                onClick={onToggleCam}
                 on={<Video className="w-3.5 h-3.5" />}
                 off={<VideoOff className="w-3.5 h-3.5" />}
                 title="Toggle camera"
@@ -412,43 +412,50 @@ export function RoomFrame({
 }
 
 function FacecamTile({
-  avatar,
-  name,
-  premium,
-  muted,
+  person,
+  mic,
+  cam,
+  showName,
   className = "",
 }: {
-  /** The -cam crop, which fills the tile as the camera feed itself. */
-  avatar: string;
-  name?: string;
-  premium?: boolean;
-  muted?: boolean;
+  person: PersonInfo;
+  mic: boolean;
+  cam: boolean;
+  showName: boolean;
   className?: string;
 }) {
+  const muted = !mic;
   return (
     <div
       className={`w-20 sm:w-24 h-11 sm:h-[54px] rounded-[4px] border ${
-        premium ? "border-brass" : "border-rail"
+        person.premium ? "border-brass" : "border-rail"
       } relative overflow-hidden bg-aisle ${className}`}
     >
-      {/* Fixed 128px in every frame, so the three files decode once and the scaled-down
-          secondaries reuse them rather than pulling a second srcset candidate. */}
-      <Image src={avatar} alt="" fill sizes="128px" className="object-cover" />
-      {/* Scrim only under the label - a full-tile wash would dull the feed it sits on. */}
-      
-      {premium && (
+      {cam ? (
+        /* Fixed 128px in every frame, so the three files decode once and the scaled-down
+           secondaries reuse them rather than pulling a second srcset candidate. */
+        <Image src={person.avatar} alt="" fill sizes="128px" className="object-cover" />
+      ) : (
+        /* Camera off: the tile keeps its place and its label, the feed is gone. */
+        <div className="absolute inset-0 flex items-center justify-center bg-seat">
+          <span className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-aisle border border-rail flex items-center justify-center text-[11px] font-semibold text-screen/70">
+            {person.initial}
+          </span>
+        </div>
+      )}
+      {person.premium && (
         <Crown
           className="w-3 h-3 text-amber-400 fill-amber-400 absolute top-1 left-1 drop-shadow"
           aria-label="Premium Host"
         />
       )}
-      {name && (
+      {showName && (
         <span className="absolute bottom-1 left-1 px-1 rounded-[2px] bg-booth/70 text-[9px] font-semibold text-screen">
-          {name}
+          {person.name}
         </span>
       )}
       <div
-        className={`absolute top-1 right-1 w-3.5 h-3.5 rounded-full border flex items-center justify-center ${
+        className={`absolute top-1 right-1 w-3.5 h-3.5 rounded-full border flex items-center justify-center transition-colors ${
           muted
             ? "bg-[#2A1714]/90 border-red-500/40 text-red-400"
             : "bg-black/50 border-white/25 text-white/85"
@@ -479,6 +486,8 @@ function IconToggle({
     <button
       onClick={onClick}
       title={title}
+      aria-label={title}
+      aria-pressed={active}
       disabled={!onClick}
       tabIndex={tabIndex}
       className={`p-1.5 rounded-[4px] border transition-colors ${onClick ? "cursor-pointer" : ""} ${

@@ -23,8 +23,6 @@ export function useRoomSim(opts: { active: boolean }): RoomSimState & { actions:
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>(INITIAL_CHAT);
   const [chatOpen, setChatOpen] = useState(false);
   const [camsOn, setCamsOn] = useState(true);
-  const [micOn, setMicOn] = useState(false);
-  const [camOn, setCamOn] = useState(false);
   const [volume, setVolumeState] = useState(0.85);
   const [muted, setMuted] = useState(false);
 
@@ -95,8 +93,6 @@ export function useRoomSim(opts: { active: boolean }): RoomSimState & { actions:
     sendChat,
     setChatOpen,
     toggleCams: () => setCamsOn((v) => !v),
-    toggleMic: () => setMicOn((v) => !v),
-    toggleCam: () => setCamOn((v) => !v),
     setVolume: (v: number) => setVolumeState(v),
     toggleMuted: () => setMuted((v) => !v),
   };
@@ -109,8 +105,6 @@ export function useRoomSim(opts: { active: boolean }): RoomSimState & { actions:
     chatMessages,
     chatOpen,
     camsOn,
-    micOn,
-    camOn,
     volume,
     muted,
     actions,

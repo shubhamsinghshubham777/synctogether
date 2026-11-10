@@ -1,0 +1,84 @@
+{
+  "_note": "Single source for store copy. Run `python3 scripts/store-copy.py` to render per-store drafts into store/copy/out/. `--apply` overwrites the live files (metadata/, store/ios/listing_en-US.json); nothing is pushed to a store by this script. Vocabulary: Patron (never Premium), in sync / lockstep (never frame-perfect), facecams, rooms.",
+  "name": "SyncTogether - Watch Party",
+  "subtitle": "Long-Distance Movie Night",
+  "hook": "Movie night, even when you're apart. SyncTogether plays the same video at the same moment for everyone in the room, so you can watch together, hear each other and react together.",
+  "promo": {
+    "mac": "Movie night, even when you're apart. Pair with your person for a free private room, date nights across time zones and a weekly streak. Free on Mac.",
+    "ios": "Movie night, even when you're apart. Pair with your person for a free private room, date nights across time zones and a weekly streak. Free on iPhone, iPad & iPhone Duo.",
+    "windows": "Movie night, even when you're apart. Pair with your person for a free private room, date nights across time zones and a weekly streak. Free on Windows."
+  },
+  "platform_line": {
+    "mac": "Made for Mac: keyboard shortcuts, picture-in-picture, full-screen theater mode and a dark cinema look. Also on Windows, iPhone (including iPhone Duo) and iPad, with one account everywhere.",
+    "ios": "Made for iPhone, iPad and iPhone Duo, Apple's foldable iPhone: the layout adapts to its large inner display and the fold. Also on Mac and Windows, with one account everywhere.",
+    "windows": "Made for Windows, with hardware-accelerated playback. Also on Mac, iPhone (including iPhone Duo) and iPad, with one account everywhere."
+  },
+  "own_video": {
+    "mac": "Your own videos: play an MP4, MKV, MOV or WebM from your drive. SyncTogether checks that everyone has the same file, and signed-in hosts can optionally stream their file to members who do not have a copy.",
+    "ios": "Your own videos: pick an MP4, MKV, MOV or WebM from the Files app. SyncTogether checks that everyone has the same file, and signed-in hosts can optionally stream their file to members who do not have a copy.",
+    "windows": "Your own videos: play an MP4, MKV, MOV, WebM or AVI from your drive. SyncTogether checks that everyone has the same file, and signed-in hosts can optionally stream their file to members who do not have a copy."
+  },
+  "sign_in": {
+    "mac": "Join as a guest with one click, or sign in with Apple, Google or an email code.",
+    "ios": "Join as a guest with one tap, or sign in with Apple, Google or an email code.",
+    "windows": "Join as a guest with one click, or sign in with Google or an email code."
+  },
+  "pillars": [
+    {
+      "title": "WATCH THE SAME THING",
+      "body": "Play, pause and seek together and everyone stays in lockstep, with automatic drift correction and a readiness gate that waits until everyone is ready. Late joiners are brought straight to the right spot.\n- YouTube: paste a public link and start watching together.\n- {own_video}"
+    },
+    {
+      "title": "SEE AND HEAR EACH OTHER",
+      "body": "Voice and video facecams sit right beside the video. Room chat has typing indicators, and quick animated emoji reactions float across the screen."
+    },
+    {
+      "title": "YOUR OWN PLACE, FOR COUPLES AND LONG-DISTANCE",
+      "body": "Pair two accounts and get Our Room, a free private room that's always yours. Plan date nights across time zones with a reminder before they start, build a weekly streak, keep your history, count down to your reunion and share a year card. Pairing is free for any two signed-in accounts."
+    },
+    {
+      "title": "ROOMS IN SECONDS",
+      "body": "Create a private room, then share a 6-character code or an invite link. Friends can join as guests, with no setup. Members can report and block anyone who misbehaves."
+    },
+    {
+      "title": "PRIVACY-FIRST",
+      "body": "No ads, and your personal data is never sold. {sign_in} You can delete your account from your profile at any time."
+    }
+  ],
+  "free_to_start": "Free to start: guests can host a room of up to 4 for 60 minutes, and a free account gets up to 8 people and 4-hour sessions with voice chat.",
+  "patron": "SYNCTOGETHER PATRON (OPTIONAL)\nPatron is an auto-renewing subscription, available monthly or yearly, that unlocks up to 16 watchers per room, up to 20 active rooms, persistent rooms, video facecams, watch sessions up to 24 hours and extended animated reactions. If either partner in a pair is a Patron, you both can plan date nights and see your full history.",
+  "billing": {
+    "apple": "Payment is charged to your Apple ID account at confirmation of purchase. The subscription renews automatically unless it is cancelled at least 24 hours before the end of the current period. Your account is charged for renewal within 24 hours before the end of the current period. You can manage or cancel your subscription in your App Store account settings after purchase.",
+    "microsoft": "Subscriptions are purchased through the Microsoft Store and charged to your Microsoft account. They renew automatically at the end of each billing period unless cancelled at least 24 hours before renewal. You can manage or cancel your subscription at any time in your Microsoft account subscription settings."
+  },
+  "legal": "Terms of Use: https://synctogether.app/terms\nPrivacy Policy: https://synctogether.app/privacy",
+  "keywords": {
+    "mac": "together,sync,video,couples,friends,youtube,facecam,voice,chat,partner,long distance,date night",
+    "ios": "together,sync,video,couples,youtube,facecam,chat,partner,long distance,date night,iphone duo",
+    "windows": [
+      "watch together",
+      "watch party",
+      "long distance",
+      "date night",
+      "movie night",
+      "video sync",
+      "youtube sync"
+    ]
+  },
+  "windows_features": [
+    "Watch the same thing in lockstep: local video files or YouTube",
+    "Voice chat and video facecams beside the video",
+    "Chat with typing indicators and animated emoji reactions",
+    "Pair with your partner: a free Our Room, date nights across time zones, a weekly streak and shared history",
+    "Private rooms with a 6-character code or invite link",
+    "Join as a guest in seconds, no account needed",
+    "Optional cloud sharing: stream your video to friends who don't have the file",
+    "Rooms you can resume where you left off",
+    "Hardware-accelerated playback",
+    "Subtitle controls for track, size and style",
+    "Free accounts: 4-hour rooms with voice chat for up to 8 people",
+    "Optional Patron: 24-hour sessions, video facecams and 16 people per room"
+  ],
+  "windows_short_description": "Movie night, even when you're apart. Watch your own videos or YouTube in lockstep with friends or your partner, with voice, facecams, chat, reactions, date nights and a private Our Room.",
+  "windows_tiers": "TIERS AT A GLANCE\nGuest (no account): rooms of up to 4 for 60 minutes, text chat and reactions.\nFree account: up to 8 people, 4-hour sessions, up to 4 live rooms, voice chat, one 10-minute facecam trial per room, and rooms you can resume for 24 hours after a session ends.\nPatron (optional): up to 16 people, 24-hour sessions, video facecams, 20 persistent rooms, and larger uploads when you share a file. When a Patron hosts, everyone in the room gets the host's session length, capacity and facecams."
+}

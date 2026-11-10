@@ -136,7 +136,9 @@ Microsoft Store listing in Partner Center for Windows.
    Bump app version to X.Y.Z
    ```
 
-   Stage `pubspec.yaml`, `metadata/version/X.Y.Z/en-US.json` and
+   Run `python3 scripts/store-copy.py --check` first (notes shape, store limits,
+   listings in sync with `store/copy/en-US.json`). Stage `pubspec.yaml`,
+   `metadata/version/X.Y.Z/en-US.json` and
    `metadata/msstore_listing_en-US.json` together. No co-author trailers. Then
    `git push origin main`.
 
@@ -146,18 +148,32 @@ Microsoft Store listing in Partner Center for Windows.
    push-triggered run is pure duplication. Rewording the subject only costs the
    duplicate run back; it cannot let an untested commit reach a release.
 
-6. **Write the release notes and trigger the workflow.** Compose a Markdown
-   "What's Changed" section from the commits since the last tag - user-facing
-   summaries grouped by theme, not raw commit subjects. Lead with features,
-   then fixes; fold internal work (CI, refactors, docs) into a single line or
-   omit it. Keep it short - a handful of bullets. Include the heading, e.g.:
+6. **Write the release notes and trigger the workflow.** The notes are
+   the stores' "What's New", and nobody reads more than a few lines of it, so
+   they are **short**: user-facing, never raw commit subjects, never a
+   changelog. The one format, for every store and the GitHub release:
 
-   ```markdown
-   ## What's Changed
-   - The desktop app now opens in fullscreen
-   - Room names are length-limited on both client and server
-   - Faster CI builds (Windows 14 min → 90 s)
    ```
+   • PAIR UP: Link two accounts for a free private room, date nights across time zones and a weekly streak.
+   • OUR YEAR CARD: Share a summary of your year together.
+   • CALMER LOOK: Times and counters now move only where the numbers change.
+   • FIXES: Shared videos stream more reliably, and Esc goes back on desktop.
+   ```
+
+   **Hard rules** (`python3 scripts/store-copy.py --check` enforces the shape,
+   CI runs it):
+   - 2 to 4 bullets, **one line each**, `• TITLE: one short sentence`. Title is
+     1 to 3 words in capitals; the sentence is at most about 100 characters and
+     says what the user gets, not what changed.
+   - Under 400 characters in total. No section headings ("FOR COUPLES",
+     "EVERYTHING ELSE"), no blank lines, no version line.
+   - The biggest user-visible feature leads. At most two more features. If more
+     shipped, pick the ones users will feel and group the rest in the
+     marketing copy, not here.
+   - All fixes and polish fold into **one** final `• FIXES:` bullet (or drop
+     it when nothing a user would notice was fixed). Never one bullet per fix.
+   - Internal work (CI, refactors, docs, tests) is never mentioned.
+   - The same text goes in the Mac file and the Microsoft file, verbatim.
 
    > [!IMPORTANT]
    > **Release Notes Audience Guidelines**:
@@ -173,7 +189,7 @@ Microsoft Store listing in Partner Center for Windows.
    >      -> *User-friendly note*: **Sign In with Apple & Email Code**: You can now sign in instantly with your Apple ID or request a quick, passwordless login code sent to your email.
    >    - *Technical commit*: `fix(media): resolve sync drift on high-latency WebRTC facecam streams`
    >      -> *User-friendly note*: **Smoother Video Sync**: Improved playback synchronization and video facecam stability on slower internet connections.
-   > 3. **Format**:
+   > 3. **Format**: one line per bullet, see the rules above. Cut anything that needs a second sentence.
 
    The notes are not a workflow input; they become the stores' "What's New".
    You drafted them in step 4 and the user approved the exact text there, so by
@@ -190,8 +206,8 @@ Microsoft Store listing in Partner Center for Windows.
    desktop stores).
    - **Mac App Store**: new file `metadata/version/X.Y.Z/en-US.json`. Copy the
      previous version's file and change only `whatsNew`. **Every store uses the
-     same format, the Microsoft one**: `• TITLE: text`, one line per bullet, a
-     newline between bullets, no heading (never the old `• TITLE\ntext` layout).
+     same format**: `• TITLE: text`, one line per bullet, a newline between
+     bullets, no blank lines, no heading (never the old `• TITLE\ntext` layout).
      Without it the version keeps its copied What's New.
    - **Microsoft Store**: edit only the `ReleaseNotes` field of
      `metadata/msstore_listing_en-US.json`, as `• TITLE: text` bullets only. No

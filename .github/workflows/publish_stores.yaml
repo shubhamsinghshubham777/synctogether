@@ -152,14 +152,17 @@ jobs:
             echo "::warning::$FILE is missing; skipping the GitHub release."
             exit 0
           fi
-          # whatsNew is bullets ("<bullet> TITLE", newline, text) split by blank lines.
+          # whatsNew is one "• TITLE: text" bullet per line.
           python3 - "$FILE" > "$RUNNER_TEMP/notes.md" <<'PY'
           import json, sys
           nl = chr(10)
           out = []
-          for block in json.load(open(sys.argv[1], encoding="utf-8"))["whatsNew"].split(nl * 2):
-              title, _, rest = block.strip().lstrip(chr(8226)).strip().partition(nl)
-              out.append("- **" + title.strip() + "**" + (": " + " ".join(rest.split()) if rest.strip() else ""))
+          for line in json.load(open(sys.argv[1], encoding="utf-8"))["whatsNew"].split(nl):
+              line = line.strip().lstrip(chr(8226)).strip()
+              if not line:
+                  continue
+              title, sep, rest = line.partition(": ")
+              out.append("- **" + title.strip() + "**" + (": " + rest.strip() if sep else ""))
           print("## What's Changed" + nl + nl.join(out))
           PY
           gh release create "$TAG" --verify-tag --title "$TAG" --notes-file "$RUNNER_TEMP/notes.md"

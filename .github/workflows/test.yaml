@@ -53,6 +53,7 @@ jobs:
       website: ${{ steps.filter.outputs.website }}
       selfhost_guards: ${{ steps.filter.outputs.selfhost_guards }}
       selfhost_e2e: ${{ steps.filter.outputs.selfhost_e2e }}
+      store_copy: ${{ steps.filter.outputs.store_copy }}
     steps:
       - name: Checkout Repo
         uses: actions/checkout@v6
@@ -76,6 +77,11 @@ jobs:
               - 'linux/**'
             database:
               - 'supabase/**'
+            store_copy:
+              - 'store/copy/**'
+              - 'store/ios/*.json'
+              - 'metadata/**'
+              - 'scripts/store-copy.py'
             website:
               - 'website/**'
             # What a self-hoster relies on, checked statically (fast).
@@ -213,6 +219,21 @@ jobs:
           NEXT_PUBLIC_OPERATOR_ADDRESS: 1 Example Street|Springfield|Freedonia
           NEXT_PUBLIC_GOVERNING_LAW: Freedonia
         run: npm run build
+
+  store-copy:
+    name: Store listing copy
+    needs: changes
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    if: >-
+      (github.event_name == 'workflow_call' || github.event_name == 'workflow_dispatch' || needs.changes.outputs.store_copy == 'true') &&
+      (github.event_name != 'push' || !startsWith(github.event.head_commit.message, 'Bump app version to '))
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v6
+
+      - name: Store listings match store/copy/en-US.json and respect store limits
+        run: python3 scripts/store-copy.py --check
 
   selfhost-guards:
     name: Self-hosting guards

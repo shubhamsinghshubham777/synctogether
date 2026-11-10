@@ -39,6 +39,7 @@ import 'package:synctogether/ui/splash_screen.dart';
 import 'package:synctogether/ui/system_ui.dart';
 
 import 'package:sentry_flutter/sentry_flutter.dart';
+import 'package:synctogether/ui/error_boundary.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:window_manager/window_manager.dart';
 
@@ -130,6 +131,7 @@ Future<void> _bootstrap() async {
   AuthService.instance.start();
   AppleIapService.instance.start();
   MicrosoftIapService.instance.start();
+  installFriendlyErrorWidget();
   runApp(const MainApp());
 }
 

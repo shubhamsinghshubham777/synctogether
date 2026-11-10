@@ -133,6 +133,15 @@ class _LoginScreenState extends State<LoginScreen> with WindowListener {
           kind: .error,
         );
       }
+    } on BrowserUnavailableException {
+      trace('oauth browser unavailable', category: 'auth', data: {'during': during});
+      if (mounted) {
+        showPTSnack(
+          context,
+          "Couldn't open a browser on this device. Try signing in with email instead.",
+          kind: .error,
+        );
+      }
     } catch (e, s) {
       reportNonFatal(e, s, during: during);
       if (mounted) {

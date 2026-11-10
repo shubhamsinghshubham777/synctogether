@@ -97,6 +97,7 @@ import 'package:synctogether/ui/banners.dart';
 import 'package:synctogether/ui/booth.dart';
 import 'package:synctogether/ui/buttons.dart';
 import 'package:synctogether/ui/cinema_marquee_bar.dart';
+import 'package:synctogether/ui/error_boundary.dart';
 import 'package:synctogether/ui/popover.dart';
 import 'package:synctogether/ui/glass.dart';
 import 'package:synctogether/ui/identity.dart';
@@ -2996,6 +2997,13 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
       if (_localFileName != null && _duration == Duration.zero) _surfaceLocalLoadFailure();
       return;
     }
+    // The OS refused read access (moved to a protected folder, sandbox
+    // bookmark gone, drive unmounted): a property of the machine, not a bug.
+    if (error.contains('Operation not permitted') || error.contains('Permission denied')) {
+      trace('local file not readable', category: 'media');
+      if (_localFileName != null && _duration == Duration.zero) _surfaceLocalLoadFailure();
+      return;
+    }
     reportNonFatal(
       StateError('mpv: ${_redactPaths(error)}'),
       StackTrace.current,
@@ -5187,53 +5195,60 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
         }
         _leaveRoom();
       },
-      child: Scaffold(
-        backgroundColor: PTColors.screenBg,
-        // Cross-faded so the room *resolves* out of the spinner instead of the
-        // whole layout flashing into place under it.
-        body: AnimatedSwitcher(
-          duration: PTMotion.functional(context, PTMotion.panel),
-          switchInCurve: PTMotion.enter,
-          switchOutCurve: PTMotion.exit,
-          child: _loading
-              ? const Center(key: ValueKey('loading'), child: PTLoader(size: 32))
-              : Focus(
-                  key: const ValueKey('room'),
-                  focusNode: _shortcutFocus,
-                  autofocus: true,
-                  onKeyEvent: _handleKeyEvent,
-                  child: Stack(
-                    children: [
-                      if (!isDesktop && foldOf(context).isSplit)
-                        _folded(foldOf(context))
-                      else
-                        PTResponsive(
-                          desktop: (_) => _desktop(),
-                          tablet: (_) => _tablet(),
-                          portrait: (_) => _portrait(),
-                          landscape: (_) => _landscape(),
-                        ),
-                      if (_reactionStream != null && !_privacyHidden)
-                        Positioned.fill(
-                          child: IgnorePointer(
-                            child: ReactionOverlay(
-                              reactions: _reactionStream!,
-                              assets: _reactionAssets,
-                              spawnBottom: switch (layoutOf(context)) {
-                                PTLayout.desktop || PTLayout.tablet => 180,
-                                PTLayout.landscape => 150,
-                                PTLayout.portrait => 96,
-                              },
-                              compact: switch (layoutOf(context)) {
-                                .desktop || .tablet => false,
-                                _ => true,
-                              },
+      // A build failure anywhere in the room lands on a recovery screen whose
+      // way out is the real leave, instead of a grey box over a live membership.
+      child: PTErrorBoundary(
+        where: 'room',
+        onExit: _leaveRoom,
+        exitLabel: 'Leave room',
+        child: Scaffold(
+          backgroundColor: PTColors.screenBg,
+          // Cross-faded so the room *resolves* out of the spinner instead of the
+          // whole layout flashing into place under it.
+          body: AnimatedSwitcher(
+            duration: PTMotion.functional(context, PTMotion.panel),
+            switchInCurve: PTMotion.enter,
+            switchOutCurve: PTMotion.exit,
+            child: _loading
+                ? const Center(key: ValueKey('loading'), child: PTLoader(size: 32))
+                : Focus(
+                    key: const ValueKey('room'),
+                    focusNode: _shortcutFocus,
+                    autofocus: true,
+                    onKeyEvent: _handleKeyEvent,
+                    child: Stack(
+                      children: [
+                        if (!isDesktop && foldOf(context).isSplit)
+                          _folded(foldOf(context))
+                        else
+                          PTResponsive(
+                            desktop: (_) => _desktop(),
+                            tablet: (_) => _tablet(),
+                            portrait: (_) => _portrait(),
+                            landscape: (_) => _landscape(),
+                          ),
+                        if (_reactionStream != null && !_privacyHidden)
+                          Positioned.fill(
+                            child: IgnorePointer(
+                              child: ReactionOverlay(
+                                reactions: _reactionStream!,
+                                assets: _reactionAssets,
+                                spawnBottom: switch (layoutOf(context)) {
+                                  PTLayout.desktop || PTLayout.tablet => 180,
+                                  PTLayout.landscape => 150,
+                                  PTLayout.portrait => 96,
+                                },
+                                compact: switch (layoutOf(context)) {
+                                  .desktop || .tablet => false,
+                                  _ => true,
+                                },
+                              ),
                             ),
                           ),
-                        ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
+          ),
         ),
       ),
     );
@@ -6165,7 +6180,11 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     applier.setLift(100 * kSubtitleLiftPx * scale / videoHeight);
   }
 
-  Widget _videoSurface() => KeyedSubtree(key: _videoKey, child: _video());
+  Widget _videoSurface() => PTErrorBoundary(
+    where: 'video',
+    compact: true,
+    child: KeyedSubtree(key: _videoKey, child: _video()),
+  );
 
   /// Whether chat is laid out inline (always visible) rather than toggled as
   /// a floating panel: phone portrait, tablet portrait and folded panes.
@@ -6180,48 +6199,52 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
 
   Widget _chatPanel({bool embedded = false, bool docked = false}) {
     final sync = _sync!;
-    return RoomChatPanel(
-      draftController: _chatDraft,
-      keyboardMemory: _keyboardMemory,
-      onInlinePickerChanged: embedded
-          ? (up) {
-              if (mounted && _chatPickerUp != up) setState(() => _chatPickerUp = up);
-            }
-          : null,
-      sync: sync,
-      messages: _visibleMessages,
-      premiumMembers: _premiumMembers,
-      memberFrames: _memberFrames,
-      typingNames: _typingNames,
-      watchingCount: _present.length,
-      onClose: embedded ? () {} : _toggleChat,
-      onSend: _sendChat,
-      onCopied: _onChatCopied,
-      onPlaySharedVideo: (_sync?.isHost ?? false) ? _playSharedVideo : null,
-      onReportMessage: (msg) => _showReportDialog(
-        targetUserId: msg.senderId,
-        targetUser: msg.displayName,
-        messageSnippet: msg.content,
+    return PTErrorBoundary(
+      where: 'chat',
+      compact: true,
+      child: RoomChatPanel(
+        draftController: _chatDraft,
+        keyboardMemory: _keyboardMemory,
+        onInlinePickerChanged: embedded
+            ? (up) {
+                if (mounted && _chatPickerUp != up) setState(() => _chatPickerUp = up);
+              }
+            : null,
+        sync: sync,
+        messages: _visibleMessages,
+        premiumMembers: _premiumMembers,
+        memberFrames: _memberFrames,
+        typingNames: _typingNames,
+        watchingCount: _present.length,
+        onClose: embedded ? () {} : _toggleChat,
+        onSend: _sendChat,
+        onCopied: _onChatCopied,
+        onPlaySharedVideo: (_sync?.isHost ?? false) ? _playSharedVideo : null,
+        onReportMessage: (msg) => _showReportDialog(
+          targetUserId: msg.senderId,
+          targetUser: msg.displayName,
+          messageSnippet: msg.content,
+        ),
+        embedded: embedded,
+        docked: docked,
+        // The desktop compositions close it from their own chat key,
+        // but in floating overlay mode (fullscreen or roomy) provide the close button.
+        closable: !docked && layoutOf(context) != .desktop,
+        // Everyone present, blocked or not: the gate waits on all of them, so
+        // the roster mirrors the readiness overlay rather than the chat feed.
+        rosterFold: embedded ? _rosterFold : null,
+        roster: isDesktop || docked || embedded
+            ? [
+                for (final m in _present)
+                  ChatRosterSeat(
+                    member: m,
+                    ready: sync.memberSatisfiesGate(m),
+                    premium: _premiumMembers.contains(m.userId),
+                    frame: _memberFrames[m.userId],
+                  ),
+              ]
+            : null,
       ),
-      embedded: embedded,
-      docked: docked,
-      // The desktop compositions close it from their own chat key,
-      // but in floating overlay mode (fullscreen or roomy) provide the close button.
-      closable: !docked && layoutOf(context) != .desktop,
-      // Everyone present, blocked or not: the gate waits on all of them, so
-      // the roster mirrors the readiness overlay rather than the chat feed.
-      rosterFold: embedded ? _rosterFold : null,
-      roster: isDesktop || docked || embedded
-          ? [
-              for (final m in _present)
-                ChatRosterSeat(
-                  member: m,
-                  ready: sync.memberSatisfiesGate(m),
-                  premium: _premiumMembers.contains(m.userId),
-                  frame: _memberFrames[m.userId],
-                ),
-            ]
-          : null,
     );
   }
 

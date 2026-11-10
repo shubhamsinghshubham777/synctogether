@@ -20,6 +20,14 @@ import 'package:synctogether/rooms/media_sharing_cache.dart';
 
 /// Thin wrapper over Supabase auth. Session persistence and token refresh are
 /// handled by supabase_flutter; this only exposes the state the app reacts to.
+/// The system could not open a browser for OAuth (no browser registered, e.g. a
+/// locked-down or review device). An expected outcome, not a bug to report.
+class BrowserUnavailableException implements Exception {
+  const BrowserUnavailableException();
+  @override
+  String toString() => 'The browser could not be opened for OAuth sign-in';
+}
+
 class AuthService {
   AuthService();
   AuthService._();
@@ -328,7 +336,7 @@ class AuthService {
       // supabase_flutter passes that straight through - so a machine with no
       // registered browser fails silently unless we check.
       if (!await launch()) {
-        throw StateError('The browser could not be opened for OAuth sign-in');
+        throw const BrowserUnavailableException();
       }
     } catch (_) {
       _endOAuthWindow();

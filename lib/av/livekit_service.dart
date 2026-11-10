@@ -610,7 +610,7 @@ class LiveKitService extends ChangeNotifier {
       category: 'av',
       data: {'room_id': roomId, 'kind': kind, 'device': deviceFailed, 'error': '$e'},
     );
-    if (!isTransientAvError(e)) {
+    if (!deviceFailed && !isTransientAvError(e)) {
       reportNonFatal(e, s, during: 'syncing AV tracks for room $roomId');
     }
     if (!deviceFailed || !identical(room, _room)) return;

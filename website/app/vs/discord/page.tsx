@@ -84,7 +84,7 @@ export default function VsDiscordPage() {
         "You are showing someone something short, or a window that is not a video at all",
         "You need to share an app, a game or a whole desktop rather than a film",
         "Your group will not install anything new, ever",
-        "You are on Linux or mobile, which SyncTogether does not support",
+        "You need a Linux client",
       ]}
     />
   );

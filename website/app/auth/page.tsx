@@ -493,7 +493,7 @@ export default function AuthPage() {
             <p className={`${display} mt-1.5 text-2xl font-extrabold tracking-[-0.035em] leading-[0.98]`}>
               One account, web and app.
             </p>
-            <p className="mt-2 text-sm text-booth/70">Mac · Windows · this website</p>
+            <p className="mt-2 text-sm text-booth/70">iPhone · iPad · Mac · Windows · this website</p>
           </Ticket>
         </div>
       </div>

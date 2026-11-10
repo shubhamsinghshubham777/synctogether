@@ -209,7 +209,7 @@ export function ComparisonPage({
         <div className="flex flex-col gap-3.5">
           <p className={`${mono} text-xs tracking-[0.16em] uppercase text-gray-500`}>Now showing</p>
           <h2 className={`${display} text-3xl sm:text-[40px] font-extrabold tracking-[-0.04em] leading-[0.92] text-white`}>
-            Free on Mac and Windows.
+            Free on iPhone, iPad, Mac and Windows.
           </h2>
           <p className="text-base text-gray-500">No account needed to join a room.</p>
         </div>

@@ -131,7 +131,7 @@ export default function PrivacyPage() {
           </p>
           <ul className="space-y-2 text-gray-400 list-disc list-inside">
             <li>
-              The SyncTogether desktop client applications (macOS and Windows).
+              The SyncTogether client applications (iOS, iPadOS, macOS and Windows).
             </li>
             <li>
               The official website, documentation, and subscription management portal located at{" "}
@@ -314,7 +314,7 @@ export default function PrivacyPage() {
             Hardware Permissions &amp; System Access
           </h2>
           <p className="text-gray-300">
-            The SyncTogether desktop app requests the following operating system permissions strictly on an as-needed basis:
+            The SyncTogether app requests the following operating system permissions strictly on an as-needed basis:
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="p-4 sm:p-5 rounded-xl bg-white/[0.02] border border-white/5 space-y-1.5">
@@ -361,7 +361,7 @@ export default function PrivacyPage() {
             <p>
               <span className="text-white font-semibold">What becomes public, and only
               if you say so.</span> Leaderboards and public profile pages are strictly
-              opt-in, from Profile in the desktop app. Turning it on publishes your
+              opt-in, from Profile in the app. Turning it on publishes your
               display name, avatar, current streak, rank and badges. Turning it off
               removes you from every board and hides your profile page immediately. Your
               own rank stays visible privately either way, so the choice is an informed
@@ -382,7 +382,7 @@ export default function PrivacyPage() {
             </p>
             <p>
               <span className="text-white font-semibold">One switch, not two.</span>{" "}
-              Turning off &ldquo;Share usage data&rdquo; in the desktop app stops product
+              Turning off &ldquo;Share usage data&rdquo; in the app stops product
               analytics <em>and</em> the watch records that streaks, badges and
               leaderboards are built from. They are the same records, so one switch
               governs both. A control that quietly left half of it running would not be
@@ -529,7 +529,7 @@ export default function PrivacyPage() {
                 <strong className="text-gray-200">Strictly Essential Website Cookies:</strong> We use secure, HTTP-only authentication session cookies (<code>sb-*-auth-token</code>) to keep you signed in to your account portal.
               </li>
               <li>
-                <strong className="text-gray-200">Desktop Client Local Storage:</strong> The desktop app uses local storage (such as <code>SharedPreferences</code> and secure keychain tokens) to remember your login session, UI theme, volume preferences, and your analytics opt-out preference.
+                <strong className="text-gray-200">App Local Storage:</strong> The app uses local storage (such as <code>SharedPreferences</code> and secure keychain tokens) to remember your login session, UI theme, volume preferences, and your analytics opt-out preference.
               </li>
               <li>
                 <strong className="text-gray-200">No Advertising Cookies:</strong> We do not use third-party advertising, retargeting, or cross-site tracking cookies.

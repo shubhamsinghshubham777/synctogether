@@ -33,7 +33,7 @@ export default function VsTelepartyPage() {
         { feature: "Video facecams beside the film", ours: "Patron (Free gets a short trial)", theirs: "Premium only" },
         { feature: "Text chat", ours: "yes", theirs: "yes" },
         { feature: "Host can share the file with the room", ours: "yes", theirs: "no" },
-        { feature: "Platforms", ours: "Mac, Windows", theirs: "Chrome, Edge, Safari, Opera; iOS and Android apps" },
+        { feature: "Platforms", ours: "iPhone, iPad, Mac, Windows", theirs: "Chrome, Edge, Safari, Opera; iOS and Android apps" },
         { feature: "Price", ours: `Free, Patron ${PRICING_TIERS.premium.price.usdMonthly}/mo`, theirs: "Free, Premium $3.99/mo billed yearly ($6.59 monthly)" },
       ]}
       sections={[
@@ -41,7 +41,7 @@ export default function VsTelepartyPage() {
           heading: "They solve different halves of the problem",
           body: [
             "Teleparty is a browser extension, so it can only sync what a browser is already playing. That makes it excellent for the big streaming catalogues and structurally incapable of touching a file sitting in your downloads folder. There is no version of Teleparty that plays your own MKV.",
-            "SyncTogether is a native desktop app built around the opposite case. It opens the file locally on each machine with hardware-accelerated playback, and keeps play, pause and seek aligned across everyone in the room. For a 4K HDR file with multiple audio tracks and subtitles, this is the difference between watching it properly and not watching it at all.",
+            "SyncTogether is a native app built around the opposite case. It opens the file locally on each machine with hardware-accelerated playback, and keeps play, pause and seek aligned across everyone in the room. For a 4K HDR file with multiple audio tracks and subtitles, this is the difference between watching it properly and not watching it at all.",
           ],
         },
         {

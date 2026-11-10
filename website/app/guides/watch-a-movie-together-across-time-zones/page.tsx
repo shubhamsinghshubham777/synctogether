@@ -53,7 +53,7 @@ export default function WatchAMovieAcrossTimeZonesPage() {
             },
             {
               title: "SyncTogether for local files and YouTube",
-              text: "A desktop app for Mac and Windows with its own player. Anyone in the room can pause or seek and everyone follows, and voice and facecams are in the same window. A signed-in host can upload the file so the other person streams it instead of finding their own copy.",
+              text: "An app for iPhone, iPad, Mac and Windows with its own player. Anyone in the room can pause or seek and everyone follows, and voice and facecams are in the same window. A signed-in host can upload the file so the other person streams it instead of finding their own copy.",
             },
             {
               title: "Screen sharing on a video call",
@@ -99,7 +99,7 @@ export default function WatchAMovieAcrossTimeZonesPage() {
       ]}
       cta={{
         heading: "Try it for your next movie night.",
-        text: "SyncTogether is free on Mac and Windows. Create a room, send your partner the invite link, and press play together. Joining needs no account.",
+        text: "SyncTogether is free on iPhone, iPad, Mac and Windows. Create a room, send your partner the invite link, and press play together. Joining needs no account.",
       }}
     />
   );

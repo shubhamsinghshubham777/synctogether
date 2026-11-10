@@ -15,15 +15,15 @@ export const FACTS: { label: string; value: string }[] = [
   {
     label: "What it is",
     value:
-      "A desktop app that keeps a video on the same frame for everyone in a room. Play, pause, seek and audio track stay in sync, with voice and video facecams beside the film.",
+      "An app that keeps a video on the same frame for everyone in a room. Play, pause, seek and audio track stay in sync, with voice and video facecams beside the film.",
   },
   {
     label: "What it plays",
-    value: "Video files already on your computer (MP4, MKV and similar), and YouTube links. It does not sync Netflix, Disney+, Prime Video or HBO.",
+    value: "Video files already on your device (MP4, MKV and similar), and YouTube links. It does not sync Netflix, Disney+, Prime Video or HBO.",
   },
   {
     label: "Platforms",
-    value: "macOS 12 or later (Mac App Store) and Windows 10 or 11 (Microsoft Store). Not available on phones, tablets or Linux.",
+    value: "iOS or iPadOS 15.6 or later and macOS 12 or later (App Store), and Windows 10 or 11 (Microsoft Store)..",
   },
   {
     label: "Joining",

@@ -89,7 +89,7 @@ export default async function HomePage() {
           <div className="flex flex-col gap-[26px]">
             <div className="flex flex-wrap items-center gap-4">
               <p className={`${mono} text-xs tracking-[0.14em] text-gray-500`}>
-                NOW SHOWING ON MAC · WINDOWS
+                IPHONE · IPAD · MAC · WINDOWS
               </p>
             </div>
             <h1

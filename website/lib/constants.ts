@@ -49,7 +49,7 @@ export const SITE_CONFIG = {
   name: "SyncTogether",
   tagline: "Movie night, even when you're not in the same room.",
   description:
-    "Watch movies together when you are apart. SyncTogether keeps your own video files and YouTube on the same frame for everyone, with voice and facecams beside the film. Free on Mac and Windows.",
+    "Watch movies together when you are apart. SyncTogether keeps your own video files and YouTube on the same frame for everyone, with voice and facecams beside the film. Free on iPhone, iPad, Mac and Windows.",
   url: SITE_URL,
   supportEmail: requiredEnv(process.env.NEXT_PUBLIC_SUPPORT_EMAIL, "NEXT_PUBLIC_SUPPORT_EMAIL", "support@localhost"),
   githubRepo: "https://github.com/shubhamsinghshubham777/synctogether",
@@ -241,11 +241,11 @@ export const FAQ_ITEMS = [
     questions: [
       {
         q: "What is SyncTogether?",
-        a: "An app for Mac and Windows that keeps a film on the same frame for everyone in a room. Play your own MP4 or MKV, or a YouTube link. Play, pause, seek and audio track stay in lockstep, and a machine that falls behind catches up by itself."
+        a: "An app for iPhone, iPad, Mac and Windows that keeps a film on the same frame for everyone in a room. Play your own MP4 or MKV, or a YouTube link. Play, pause, seek and audio track stay in lockstep, and a machine that falls behind catches up by itself."
       },
       {
         q: "What platforms does SyncTogether support?",
-        a: "SyncTogether runs on macOS (12.0+) and Windows (10 and 11). It is not available on phones, tablets or Linux yet. Install it from the Mac App Store or the Microsoft Store; both stores keep it up to date for you."
+        a: "SyncTogether runs on iPhone and iPad (iOS 15.6+), macOS (12.0+) and Windows (10 and 11). Install it from the App Store (iPhone, iPad and Mac) or the Microsoft Store (Windows); both stores keep it up to date for you."
       },
       {
         q: "Do I need an account?",
@@ -312,7 +312,7 @@ export const FAQ_ITEMS = [
       },
       {
         q: "How do I subscribe?",
-        a: "Open the SyncTogether app on Mac or Windows (Microsoft Store version), go to Premium and pick Monthly or Annual. The store handles payment, tax and renewal. Premium belongs to your account, so it unlocks on every device you sign in on, Windows included."
+        a: "Open the SyncTogether app on your iPhone, iPad, Mac or Windows PC, go to Premium and pick Monthly or Annual. The store handles payment, tax and renewal. Premium belongs to your account, so it unlocks on every device you sign in on, whichever store you bought it from."
       },
       {
         q: "Can I cancel anytime?",
@@ -341,7 +341,7 @@ export const FAQ_ITEMS = [
       },
       {
         q: "Does the leaderboard show my name to strangers?",
-        a: "Only if you turn it on. Leaderboards and public profile pages are opt-in from Profile in the desktop app, and turning it on publishes your display name, avatar, streak, rank and badges, and nothing about what you watched, who you watched it with, or anything you typed. Turning it off removes you immediately. You can see your own rank privately either way."
+        a: "Only if you turn it on. Leaderboards and public profile pages are opt-in from Profile in the app, and turning it on publishes your display name, avatar, streak, rank and badges, and nothing about what you watched, who you watched it with, or anything you typed. Turning it off removes you immediately. You can see your own rank privately either way."
       },
       {
         q: "What is in a shared recap, and who can see it?",
@@ -353,7 +353,7 @@ export const FAQ_ITEMS = [
       },
       {
         q: "Can I opt out of analytics?",
-        a: "Yes. In the desktop app under Profile → 'Share usage data', you can toggle anonymous product analytics off at any time. Crash and diagnostic reporting carries no personal data."
+        a: "Yes. In the app under Profile → 'Share usage data', you can toggle anonymous product analytics off at any time. Crash and diagnostic reporting carries no personal data."
       },
       {
         q: "Are voice and video facecams recorded?",

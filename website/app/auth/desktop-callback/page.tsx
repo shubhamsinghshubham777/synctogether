@@ -134,12 +134,11 @@ function DesktopCallbackContent() {
           }
         >
           <p className={`${mono} text-[10px] sm:text-[11px] tracking-[0.14em] text-[#6B5F52]`}>
-            DESKTOP · SIGN-IN
+            APP · SIGN-IN
           </p>
           <p className={`${display} mt-1.5 text-2xl sm:text-4xl font-extrabold tracking-[-0.035em] leading-[0.95]`}>
             Your seat is held.
           </p>
-          <p className="mt-2 text-xs sm:text-sm text-[#5A4F44] truncate">synctogether://auth-callback</p>
         </Ticket>
         <div className="absolute right-0 -top-2 sm:-top-4">
           <Stamp top="LOGIN" main="OK" bottom="SIGNED IN" tone="signal" tilt={12} />

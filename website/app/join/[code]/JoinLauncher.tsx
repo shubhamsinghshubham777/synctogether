@@ -13,6 +13,7 @@ import { Check, Download, Mail } from "lucide-react";
 import { Ticket } from "@/components/Ticket";
 import { JoinStamp } from "@/components/JoinStamp";
 import { trackWebEvent } from "@/components/AnalyticsBeacon";
+import { useDesktopOS } from "@/components/hero/useDesktopOS";
 
 /**
  * Hands the invite to an installed app, or sells the app to somebody who has
@@ -23,7 +24,7 @@ import { trackWebEvent } from "@/components/AnalyticsBeacon";
  * exactly right and for a first-time recipient is the worst possible opening:
  * an unexplained OS permission dialog ("Open SyncTogether?") or, on a browser
  * with no handler, a bare failure - before a single word about what the thing
- * is. That recipient is the growth loop. The product needs two desktop installs
+ * is. That recipient is the growth loop. The product needs two installs
  * before it delivers any value at all, so this page converting or not
  * converting is the whole funnel.
  *
@@ -70,15 +71,6 @@ function rememberVisit() {
 }
 
 /**
- * Phones cannot install a desktop app, so their lit action is carrying the
- * link to a computer instead. Read like the visited flag: the server snapshot
- * is desktop, the real answer lands on the first client render.
- */
-function isPhone(): boolean {
-  return /android|iphone|ipod|mobile/i.test(navigator.userAgent);
-}
-
-/**
  * What differs between a room invite and a pairing invite: the app link it
  * hands off to, and the words on the ticket. The hand-off logic is the same,
  * which is why one launcher serves both.
@@ -105,7 +97,7 @@ const COPY: Record<
     typeIt: "on the join card. The room will still be waiting.",
     stamp: ["Seat", "Saved", "Will call"],
     pitch:
-      "SyncTogether keeps a film on the same frame for everyone in the room, with your faces beside it. Free on Mac and Windows. No account needed to join.",
+      "SyncTogether keeps a film on the same frame for everyone in the room, with your faces beside it. Free on iPhone, iPad, Mac and Windows. No account needed to join.",
   },
   pair: {
     admit: "Pair code",
@@ -117,7 +109,7 @@ const COPY: Record<
     // Pairing is the one thing here that needs an account: the room and the
     // history are kept on it so they follow a person to a new phone.
     pitch:
-      "SyncTogether keeps a film on the same frame for the two of you, with your faces beside it, in a private room that is always yours. Free on Mac and Windows. Pairing uses a free account, so your room and your history follow you.",
+      "SyncTogether keeps a film on the same frame for the two of you, with your faces beside it, in a private room that is always yours. Free on iPhone, iPad, Mac and Windows. Pairing uses a free account, so your room and your history follow you.",
   },
 };
 
@@ -131,7 +123,11 @@ export function JoinLauncher({
   kind?: InviteKind;
 }) {
   const copy = COPY[kind];
-  const phone = useSyncExternalStore(subscribe, isPhone, () => false);
+  // Android has no app yet, so its lit action is carrying the link to a device
+  // that can install one. iPhone and iPad take the same "Download free" path as
+  // a computer: /download lights the App Store door for them. The server
+  // snapshot is "macos", the real answer lands on the first client render.
+  const phone = useDesktopOS() === "android";
   const [copied, setCopied] = useState(false);
   // Bumped per attempt so the progress bar restarts on "Try again".
   const [attempt, setAttempt] = useState(0);
@@ -307,7 +303,7 @@ export function JoinLauncher({
               <div className="flex flex-col gap-3">
                 <button onClick={copyDownloadLink} className={lit}>
                   {copied ? <Check className="w-4 h-4" /> : <Mail className="w-4 h-4" />}
-                  <span aria-live="polite">{copied ? "Link copied. Send it to your computer" : "Copy the download link"}</span>
+                  <span aria-live="polite">{copied ? "Link copied. Send it to your computer or iPhone" : "Copy the download link"}</span>
                 </button>
                 <button onClick={attemptHandoff} className={outline}>
                   Open in the app
@@ -326,7 +322,7 @@ export function JoinLauncher({
             )}
 
             <p className="text-[13px] text-gray-500 leading-[1.55]">
-              {phone ? "On your computer? " : "Nothing happened? "}Install, open the app and type{" "}
+              {phone ? "On another device? " : "Nothing happened? "}Install, open the app and type{" "}
               <span className={`${mono} text-white`}>{code}</span> {copy.typeIt}
             </p>
           </div>

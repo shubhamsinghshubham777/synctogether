@@ -44,7 +44,7 @@ export default function VsSyncplayPage() {
         { feature: "YouTube", ours: "yes", theirs: "partial" },
         { feature: "Everyone must already have the file", ours: "no", theirs: "yes" },
         { feature: "Animated reactions and chat", ours: "yes", theirs: "partial" },
-        { feature: "Platforms", ours: "Mac, Windows", theirs: "Mac, Windows, Linux" },
+        { feature: "Platforms", ours: "iPhone, iPad, Mac, Windows", theirs: "Mac, Windows, Linux" },
       ]}
       sections={[
         {
@@ -81,7 +81,7 @@ export default function VsSyncplayPage() {
         "Only one of you has the file, or the copies do not match",
         "The person you are watching with will not install and configure two apps",
         "You want YouTube in the same tool",
-        "You are on Mac or Windows",
+        "You are on iPhone, iPad, Mac or Windows",
       ]}
       verdictAgainst={[
         "You are on Linux",

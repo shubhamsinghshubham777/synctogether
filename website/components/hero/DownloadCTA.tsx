@@ -9,17 +9,19 @@ import { useDesktopOS } from "./useDesktopOS";
 
 /**
  * The page's one lit button. `align="start"` for the hero column; centred
- * everywhere else. The lit button goes straight to the visitor's own store. On
- * phones it becomes "Copy the download link" so the link can reach a computer.
+ * everywhere else. The lit button goes straight to the visitor's own store. An
+ * iPhone or iPad visitor gets the App Store at every width; a phone with no app
+ * yet (Android) gets "Copy the download link" so the link can reach a computer.
  */
 export function DownloadCTA({ align = "center" }: { align?: "center" | "start" }) {
   const os = useDesktopOS();
   const isWindows = os === "windows";
+  const isIOS = os === "ios";
   const [copied, setCopied] = useState(false);
 
   const primaryLabel = isWindows ? "Get a free seat · Microsoft Store" : "Get a free seat · App Store";
   const primaryHref = isWindows ? SITE_CONFIG.microsoftStoreUrl : SITE_CONFIG.appStoreUrl;
-  const secondaryLabel = isWindows ? "Also on Mac" : "Also on Windows";
+  const secondaryLabel = isWindows ? "Also on Mac and iPhone" : isIOS ? "Also on Mac and Windows" : "Also on Windows and iPhone";
 
   async function copyLink() {
     const url = `${window.location.origin}/download`;
@@ -47,8 +49,8 @@ export function DownloadCTA({ align = "center" }: { align?: "center" | "start" }
 
   return (
     <div className={`w-full flex flex-col gap-3 ${start ? "items-start" : "items-center"}`}>
-      {/* Phone */}
-      <div className="sm:hidden w-full space-y-3">
+      {/* Phone with no app for it: carry the link to a computer instead. */}
+      <div className={`${isIOS ? "hidden" : "sm:hidden"} w-full space-y-3`}>
         <PTButton
           onClick={copyLink}
           variant="primary"
@@ -61,12 +63,16 @@ export function DownloadCTA({ align = "center" }: { align?: "center" | "start" }
         <p className="text-[13px] leading-relaxed text-gray-400" aria-live="polite">
           {copied
             ? "Paste it anywhere you'll open on your computer."
-            : "SyncTogether runs on Mac and Windows. Open the link on your computer."}
+            : "SyncTogether runs on Mac, Windows, iPhone and iPad. Open the link on your computer."}
         </p>
       </div>
 
       {/* Tablet and up */}
-      <div className={`hidden sm:flex flex-row items-center gap-5 ${start ? "justify-start" : "justify-center"}`}>
+      <div
+        className={`${isIOS ? "flex flex-col sm:flex-row" : "hidden sm:flex flex-row"} items-center gap-5 ${
+          start ? "justify-start" : "justify-center"
+        }`}
+      >
         <PTButton
           href={primaryHref}
           variant="primary"

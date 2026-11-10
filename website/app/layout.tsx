@@ -43,7 +43,7 @@ export const metadata: Metadata = {
     "long distance movie night",
     "watch together app",
     "sync video playback",
-    "watch party desktop app",
+    "watch party app for iPhone, iPad, Mac and Windows",
     "watch movies together online",
     "teleparty alternative",
     "syncplay alternative",
@@ -116,7 +116,7 @@ export default function RootLayout({
     "@context": "https://schema.org",
     "@type": "SoftwareApplication",
     name: "SyncTogether",
-    operatingSystem: "macOS 12.0+, Windows 10/11",
+    operatingSystem: "iOS 15.6+, iPadOS 15.6+, macOS 12.0+, Windows 10/11",
     applicationCategory: "MultimediaApplication",
     offers: {
       "@type": "Offer",

@@ -18,7 +18,7 @@ export function GET() {
     "## Pages",
     "",
     `- [Facts](${SITE_CONFIG.url}/facts): the facts above, on one page`,
-    `- [Download](${SITE_CONFIG.url}/download): Mac App Store and Microsoft Store links`,
+    `- [Download](${SITE_CONFIG.url}/download): App Store (iPhone, iPad, Mac) and Microsoft Store (Windows) links`,
     `- [Pricing](${SITE_CONFIG.url}/pricing): what each plan allows`,
     `- [FAQ](${SITE_CONFIG.url}/faq): common questions`,
     ...COMPARISONS.map(({ name, path }) => `- [vs ${name}](${SITE_CONFIG.url}${path}): honest comparison`),

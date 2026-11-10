@@ -8,9 +8,9 @@ import { DownloadInviteActions } from "@/components/DownloadInviteActions";
 import { SendToComputer } from "@/components/SendToComputer";
 
 export const metadata: Metadata = {
-  title: "Get SyncTogether on the App Store and Microsoft Store",
+  title: "Get SyncTogether for iPhone, iPad, Mac and Windows",
   description:
-    "Get SyncTogether from the Mac App Store or the Microsoft Store. Both keep it up to date for you.",
+    "Get SyncTogether from the App Store (iPhone, iPad and Mac) or the Microsoft Store (Windows). Both keep it up to date for you.",
 };
 
 export const revalidate = 3600; // ISR hourly
@@ -22,8 +22,8 @@ export default async function DownloadPage({
 }) {
   const { code } = await searchParams;
   // Carried over from /join/<code> when the invite found nothing installed.
-  // Desktop has no install-referrer, so the code cannot survive the installer -
-  // showing it here is what lets somebody write it down before they leave.
+  // No store hands an install-referrer back to the app, so the code cannot survive
+  // the install - showing it here is what lets somebody write it down before they leave.
   const inviteCode = normalizeRoomCode(code ?? "");
 
   return (
@@ -97,8 +97,8 @@ export default async function DownloadPage({
             body: "The store installs new versions in the background, never mid-film.",
           },
           {
-            label: "Desktop only",
-            body: "Mac and Windows today. Phones and tablets are not supported yet.",
+            label: "Every screen you own",
+            body: "iPhone, iPad, Mac and Windows, with one account across all of them.",
           },
         ].map(({ label, body }) => (
           <div key={label} className="border-t border-rail pt-[18px] space-y-2.5">

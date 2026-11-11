@@ -13,7 +13,6 @@ function AuthCard() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirect = searchParams.get("redirect") || "/account";
-  const [checkingAuth, setCheckingAuth] = useState(true);
   const [oauthLoading, setOauthLoading] = useState<"google" | "apple" | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [infoMsg, setInfoMsg] = useState<string | null>(null);
@@ -32,6 +31,10 @@ function AuthCard() {
   useEffect(() => {
     let ignore = false;
 
+    // Runs alongside the form rather than in front of it. It used to gate the
+    // card behind a "Checking your ticket..." placeholder for a network round
+    // trip, so every visitor's sign-in form arrived late and resized the card
+    // (LCP + layout shift). A signed-in visitor still gets redirected.
     async function checkExistingSession() {
       try {
         const {
@@ -44,10 +47,6 @@ function AuthCard() {
         }
       } catch (err) {
         console.error("Auth check failed:", err);
-      } finally {
-        if (!ignore) {
-          setCheckingAuth(false);
-        }
       }
     }
 
@@ -254,15 +253,6 @@ function AuthCard() {
       ? "btn-primary-gradient active:translate-y-px cursor-pointer"
       : "bg-transparent border border-rail text-gray-500 cursor-not-allowed";
   const emailValid = /\S+@\S+\.\S+/.test(email.trim());
-
-  if (checkingAuth) {
-    return (
-      <div className="w-full max-w-[460px] bg-seat ring-1 ring-inset ring-rail rounded-md p-8 sm:p-10 flex flex-col items-center gap-5 text-center">
-        <span className="sync-dot" aria-hidden="true" />
-        <p className={`${mono} text-xs tracking-[0.16em] uppercase text-gray-500`}>Checking your ticket…</p>
-      </div>
-    );
-  }
 
   return (
     <>
@@ -501,7 +491,7 @@ export default function AuthPage() {
       <div className="flex justify-center lg:justify-end">
         <Suspense
           fallback={
-            <div className="w-full max-w-[460px] bg-seat ring-1 ring-inset ring-rail rounded-md p-8 text-center">
+            <div className="w-full max-w-[460px] min-h-[478px] flex items-center justify-center bg-seat ring-1 ring-inset ring-rail rounded-md p-8 text-center">
               <p className={`${mono} text-xs tracking-[0.16em] uppercase text-gray-500`}>Opening the box office…</p>
             </div>
           }

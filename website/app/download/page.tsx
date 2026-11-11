@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import { normalizeRoomCode } from "@/lib/rewards";
 import { Ticket } from "@/components/Ticket";
 import { PageHead, display, mono } from "@/components/PageHead";
@@ -13,8 +14,6 @@ export const metadata: Metadata = {
     "Get SyncTogether from the App Store (iPhone, iPad and Mac) or the Microsoft Store (Windows). Both keep it up to date for you.",
 };
 
-export const revalidate = 3600; // ISR hourly
-
 export default async function DownloadPage({
   searchParams,
 }: {
@@ -25,6 +24,7 @@ export default async function DownloadPage({
   // No store hands an install-referrer back to the app, so the code cannot survive
   // the install - showing it here is what lets somebody write it down before they leave.
   const inviteCode = normalizeRoomCode(code ?? "");
+  const android = /android/i.test((await headers()).get("user-agent") ?? "");
 
   return (
     <div className="relative pt-8 md:pt-14 pb-12 px-4 sm:px-6 lg:px-8 max-w-7xl min-[2000px]:max-w-[1920px] mx-auto space-y-10">
@@ -79,7 +79,7 @@ export default async function DownloadPage({
 
       <div className="space-y-10 min-[2000px]:space-y-0 min-[2000px]:grid min-[2000px]:grid-cols-[1.6fr_1fr] min-[2000px]:grid-rows-[auto_1fr] min-[2000px]:gap-x-16 min-[2000px]:items-start">
       <div className="min-[2000px]:col-start-2 min-[2000px]:row-start-1">
-        <SendToComputer />
+        <SendToComputer android={android} />
       </div>
 
       <div className="min-[2000px]:col-start-1 min-[2000px]:row-start-1 min-[2000px]:row-span-2 min-w-0">

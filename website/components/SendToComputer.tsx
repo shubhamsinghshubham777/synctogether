@@ -2,21 +2,21 @@
 
 import { useState } from "react";
 import { Check, Mail } from "lucide-react";
-import { useDesktopOS } from "@/components/hero/useDesktopOS";
 
 /**
  * Shown to Android visitors only (the one phone with no app yet; iPhone and
  * iPad have the App Store door). The lit action is carrying this page to a
- * device that can install it. Server snapshot is "macos", as on /join. The page URL is
+ * device that can install it. The page decides from the request's user-agent (it is
+ * dynamic anyway), so the block is in the server HTML instead of popping in above
+ * the doors after hydration. The page URL is
  * shared as-is, so an invite code in `?code=` travels with it. The share sheet
  * (messages, mail, AirDrop) is the point; a browser without one falls back to
  * copying the link.
  */
-export function SendToComputer() {
-  const os = useDesktopOS();
+export function SendToComputer({ android }: { android: boolean }) {
   const [copied, setCopied] = useState(false);
 
-  if (os !== "android") return null;
+  if (!android) return null;
 
   const send = async () => {
     const url = window.location.href;

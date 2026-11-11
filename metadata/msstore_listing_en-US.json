@@ -23,7 +23,7 @@
     "Free accounts: 4-hour rooms with voice chat for up to 8 people",
     "Optional Patron: 24-hour sessions, video facecams and 16 people per room"
   ],
-  "ReleaseNotes": "• PAIR UP: Link two accounts for a free private room, date nights across time zones and a weekly streak.\n• OUR YEAR CARD: Share a summary of your year together.\n• CALMER LOOK: Times and counters now move only where the numbers change.\n• FIXES: Shared videos stream more reliably, and Esc goes back on desktop.",
+  "ReleaseNotes": "• STEADIER ROOMS: A hiccup in a room, chat or video now shows a friendly message, not a broken screen.\n• FIXES: Clearer messages when sign-in finds no browser or camera and mic access is blocked.",
   "Images": [
     {
       "FileName": "1_lobby.png",

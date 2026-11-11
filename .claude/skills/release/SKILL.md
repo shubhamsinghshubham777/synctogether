@@ -57,8 +57,9 @@ Microsoft Store listing in Partner Center for Windows.
 - **iOS App Store (`/release ios`, or `/release stores ios`)**:
   Dispatches `publish_ios_app_store.yaml` directly, or `publish_stores.yaml` with
   `-f publish_to_ios_app_store=true` when the desktop stores go too. It uploads a
-  signed IPA to App Store Connect, where it lands in **TestFlight only**. The
-  upload does not submit for review; that is a separate `asc` step (below).
+  signed IPA to App Store Connect, then - like the Mac workflow - waits for
+  processing, pushes the notes, attaches the build and submits it for App Review
+  (`submit_for_review`, default true; opt out with `-f submit_for_review=false`).
 - **Desktop only (`/release desktop`)**: `gh workflow run publish_stores.yaml --ref main -f publish_to_ios_app_store=false`.
 
 ## Steps
@@ -226,7 +227,7 @@ Microsoft Store listing in Partner Center for Windows.
    gh workflow run publish_ios_app_store.yaml --ref main
    ```
 
-   TestFlight *is* the iOS pre-release channel. Three things differ from the desktop stores:
+   Mobile is a first-class store: iOS is handled exactly like the Mac. Two things differ from the desktop stores:
    - **Build numbers come from `github.run_number`**, not pubspec (which stays a
      bare `X.Y.Z`). Never add a `+build` suffix to get a new iOS build; re-run
      the workflow instead.
@@ -235,10 +236,10 @@ Microsoft Store listing in Partner Center for Windows.
      previous number, create or rename it
      (`asc versions create --app 6809185202 --platform IOS --version X.Y.Z --copy-metadata-from <prev>`),
      or the uploaded build has nothing to attach to.
-   - **Submitting for review is manual and deliberate.** Once the build has
-     processed, use the `asc-release-flow` skill: attach the build, run
-     `asc validate --platform IOS`, then submit. Never submit without the
-     user's go-ahead: review cannot be undone cleanly.
+   - **Submission is automatic, like the Mac.** The workflow attaches the build and
+     submits it. If the submit step fails, fix the cause and finish by hand with the
+     `asc-release-flow` skill (attach the build, `asc validate --platform IOS`,
+     `asc review submit`).
 
    **Desktop Stores Review & Listing Lifecycle (`publish_stores.yaml`):**
 
@@ -290,5 +291,5 @@ Microsoft Store listing in Partner Center for Windows.
 
 7. **Report and stop** - print the new version and the run URL(s). Do **not**
    watch the build (it takes 15-30 min). Remind the user that each store has its
-   own review queue: Mac and iOS builds land in App Store Connect (Mac is
+   own review queue: Mac and iOS builds land in App Store Connect (both are
    auto-submitted), and the Microsoft submission goes to certification.

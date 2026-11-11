@@ -3,14 +3,24 @@ on:
   workflow_dispatch:
     inputs:
       publish_to_store:
-        description: "Upload to App Store Connect (TestFlight) after building IPA"
+        description: "Upload to App Store Connect after building IPA"
+        type: boolean
+        required: true
+        default: true
+      submit_for_review:
+        description: "After upload, wait for processing, attach the build and submit the version for App Review"
         type: boolean
         required: true
         default: true
   workflow_call:
     inputs:
       publish_to_store:
-        description: "Upload to App Store Connect (TestFlight) after building IPA"
+        description: "Upload to App Store Connect after building IPA"
+        type: boolean
+        required: false
+        default: true
+      submit_for_review:
+        description: "After upload, wait for processing, attach the build and submit the version for App Review"
         type: boolean
         required: false
         default: true
@@ -195,12 +205,103 @@ jobs:
         if: ${{ inputs.publish_to_store }}
         run: |
           set -euo pipefail
+          echo "UPLOAD_STARTED_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_ENV"
           xcrun altool --upload-app \
             --type ios \
             --file "SyncTogether-${{ steps.version.outputs.APP_VERSION }}-${BUILD_NUMBER}-iOS.ipa" \
             --apiKey "${{ secrets.APP_STORE_CONNECT_KEY_ID }}" \
             --apiIssuer "${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}"
           echo "Uploaded build ${{ steps.version.outputs.APP_VERSION }} (${BUILD_NUMBER}); it appears in TestFlight once processing finishes."
+
+      - name: Attach build and submit for App Review
+        # The upload only lands the build in App Store Connect (TestFlight); this
+        # attaches it to the iOS version and submits it, exactly as the Mac workflow does.
+        if: ${{ inputs.publish_to_store && inputs.submit_for_review }}
+        env:
+          APP_VERSION: ${{ steps.version.outputs.APP_VERSION }}
+          APP_ID: "6809185202"
+          ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          ASC_BYPASS_KEYCHAIN: "1"
+        run: |
+          set -euo pipefail
+          export ASC_PRIVATE_KEY_PATH="$ASC_AUTH_KEY_PATH"
+
+          brew install rudrankriyam/tap/asc
+          asc --version
+
+          echo "==> Waiting for Apple to finish processing the build..."
+          asc builds wait --app "$APP_ID" --latest --version "$APP_VERSION" --platform IOS \
+            --since "$UPLOAD_STARTED_AT" --timeout 45m --poll-interval 30s --fail-on-invalid
+          BUILD_ID=$(asc builds info --app "$APP_ID" --latest --version "$APP_VERSION" --platform IOS --exclude-expired \
+            | jq -r '(.data.id // .data[0].id // .id)')
+          if [ -z "$BUILD_ID" ] || [ "$BUILD_ID" = "null" ]; then
+            echo "::error::Could not resolve the processed build id for $APP_VERSION."
+            exit 1
+          fi
+          echo "Build id: $BUILD_ID"
+
+          VERSION_ID=$(asc versions list --app "$APP_ID" --platform IOS --version "$APP_VERSION" \
+            | jq -r '(.data[0].id // empty)')
+          if [ -z "$VERSION_ID" ]; then
+            # App Store Connect allows one unreleased iOS version at a time, so a
+            # build still waiting for review blocks `versions create` ("cannot create
+            # a new version in the current state"). The newer build supersedes it:
+            # withdraw that submission and rename its record to this version.
+            STALE=$(asc versions list --app "$APP_ID" --platform IOS               --state PREPARE_FOR_SUBMISSION,WAITING_FOR_REVIEW,IN_REVIEW,REJECTED,METADATA_REJECTED,DEVELOPER_REJECTED,INVALID_BINARY               | jq -c '(.data[0] // empty) | {id, v: .attributes.versionString, s: (.attributes.appVersionState // .attributes.appStoreState)}')
+            if [ -n "$STALE" ]; then
+              STALE_ID=$(echo "$STALE" | jq -r .id)
+              echo "==> Superseding iOS version $(echo "$STALE" | jq -r .v) ($(echo "$STALE" | jq -r .s)) with $APP_VERSION"
+              # Anything not already editable is withdrawn (a no-op error if the state
+              # name was unreadable and it was editable all along - the rename decides).
+              if [ "$(echo "$STALE" | jq -r .s)" != "PREPARE_FOR_SUBMISSION" ]; then
+                asc submit cancel --version-id "$STALE_ID" --confirm || echo "::warning::Cancel did not apply; trying the rename anyway."
+              fi
+              # Cancelling is asynchronous; the record is renamable once it is back
+              # in PREPARE_FOR_SUBMISSION.
+              for attempt in 1 2 3 4 5 6; do
+                if asc versions update --version-id "$STALE_ID" --version "$APP_VERSION"; then
+                  VERSION_ID="$STALE_ID"; break
+                fi
+                echo "==> Version not renamable yet (attempt $attempt/6) - waiting"
+                sleep 20
+              done
+              if [ -z "$VERSION_ID" ]; then
+                echo "::error::Could not rename the pending iOS version to $APP_VERSION. Check App Store Connect."
+                exit 1
+              fi
+            fi
+          fi
+          if [ -z "$VERSION_ID" ]; then
+            echo "==> No iOS $APP_VERSION version record yet - creating it"
+            PREV=$(asc versions list --app "$APP_ID" --platform IOS --state READY_FOR_SALE --latest \
+              | jq -r '(.data[0].attributes.versionString // empty)')
+            if [ -n "$PREV" ]; then
+              asc versions create --app "$APP_ID" --platform IOS --version "$APP_VERSION" --copy-metadata-from "$PREV"
+            else
+              asc versions create --app "$APP_ID" --platform IOS --version "$APP_VERSION"
+            fi
+            VERSION_ID=$(asc versions list --app "$APP_ID" --platform IOS --version "$APP_VERSION" | jq -r '.data[0].id')
+          fi
+
+          if [ -d "metadata/version/$APP_VERSION" ]; then
+            echo "==> Pushing canonical metadata (What's New) for $APP_VERSION"
+            asc metadata push --app "$APP_ID" --version "$APP_VERSION" --platform IOS --dir ./metadata
+          else
+            echo "::warning::metadata/version/$APP_VERSION is missing; the version keeps its copied What's New."
+          fi
+
+          # Attach before validating: validate reports "no build attached" as a
+          # blocking error, which is what failed the first run of this step.
+          echo "==> Attaching build $BUILD_ID to version $VERSION_ID"
+          asc versions attach-build --version-id "$VERSION_ID" --build-id "$BUILD_ID"
+
+          echo "==> Validating"
+          asc validate --app "$APP_ID" --version "$APP_VERSION" --platform IOS
+
+          echo "==> Submitting for review"
+          asc review submit --app "$APP_ID" --version-id "$VERSION_ID" --build-id "$BUILD_ID" --platform IOS --confirm
+          asc review status --app "$APP_ID" --platform IOS
 
       - name: Revoke development certificates this run created
         if: always()

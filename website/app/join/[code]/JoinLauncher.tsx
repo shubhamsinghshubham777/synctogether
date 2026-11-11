@@ -14,6 +14,7 @@ import { Ticket } from "@/components/Ticket";
 import { JoinStamp } from "@/components/JoinStamp";
 import { trackWebEvent } from "@/components/AnalyticsBeacon";
 import { useDesktopOS } from "@/components/hero/useDesktopOS";
+import { openAppLink } from "@/lib/openAppLink";
 
 /**
  * Hands the invite to an installed app, or sells the app to somebody who has
@@ -178,7 +179,7 @@ export function JoinLauncher({
     rememberVisit();
     // Assigning rather than opening a window: a popup blocker will not stop a
     // same-tab scheme navigation, and a blocked popup looks like a dead link.
-    window.location.href = `synctogether://${kind}/${code}`;
+    openAppLink(`synctogether://${kind}/${code}`);
     const timer = window.setTimeout(() => settle("fallback"), 1600);
 
     return () => {
@@ -239,10 +240,21 @@ export function JoinLauncher({
       </div>
 
       <div className="flex flex-col gap-6 min-w-0">
-        {status && (
-          <div className="relative overflow-hidden flex items-center gap-3 rounded-md border border-rail bg-seat px-4 sm:px-5 py-3.5" role="status">
-            <span className={`w-2.5 h-2.5 shrink-0 rounded-full ${status.dot}`} aria-hidden="true" />
-            <span className={`${mono} text-xs sm:text-[13px] tracking-[0.08em] uppercase text-white`}>{status.label}</span>
+        {/*
+          Every state renders into the same footprint. The server always paints
+          the first-timer pitch and a returning visitor's first client render
+          switches to the hand-off, so if the column changed height the whole
+          (vertically centred) page jumped - the layout shift Speed Insights
+          scored /join on. The status row keeps its space while hidden, and the
+          hand-off note and the pitch share one grid cell sized by the pitch.
+        */}
+        <div
+          className={`relative overflow-hidden flex items-center gap-3 rounded-md border border-rail bg-seat px-4 sm:px-5 py-3.5 ${status ? "" : "invisible"}`}
+          role="status"
+          aria-hidden={!status}
+        >
+            <span className={`w-2.5 h-2.5 shrink-0 rounded-full ${status?.dot ?? ""}`} aria-hidden="true" />
+            <span className={`${mono} text-xs sm:text-[13px] tracking-[0.08em] uppercase text-white`}>{status?.label ?? "\u00a0"}</span>
             <span className="flex-1" />
             <span className={`${mono} text-xs text-gray-500`}>1.6s</span>
             {state === "launching" && (
@@ -252,11 +264,10 @@ export function JoinLauncher({
                 className="join-handoff-bar absolute left-0 bottom-0 h-[2px] w-full origin-left bg-beam-500"
               />
             )}
-          </div>
-        )}
+        </div>
 
-        {state === "handed-off" && (
-          <div className="space-y-3">
+        <div className="grid [&>*]:col-start-1 [&>*]:row-start-1">
+          <div className={`space-y-3 ${state === "handed-off" ? "" : "invisible"}`} aria-hidden={state !== "handed-off"}>
             <p className="text-gray-300">
               Handed over to the app. You can close this tab.
             </p>
@@ -267,7 +278,6 @@ export function JoinLauncher({
               Nothing happened? Try again
             </button>
           </div>
-        )}
 
         {/*
           The two "you need the app" states share a pitch but differ in framing:
@@ -275,8 +285,10 @@ export function JoinLauncher({
           needs the download, while a first-timer needs to be told before being
           asked to install anything.
         */}
-        {(state === "first-time" || state === "fallback") && (
-          <div className="flex flex-col gap-6">
+          <div
+            className={`flex flex-col gap-6 ${state === "first-time" || state === "fallback" ? "" : "invisible"}`}
+            aria-hidden={state !== "first-time" && state !== "fallback"}
+          >
             <div className="flex flex-col gap-6">
               <p className={`${display} text-3xl sm:text-[40px] font-extrabold tracking-[-0.04em] leading-[0.92] text-white`}>
                 {state === "first-time"
@@ -326,7 +338,7 @@ export function JoinLauncher({
               <span className={`${mono} text-white`}>{code}</span> {copy.typeIt}
             </p>
           </div>
-        )}
+        </div>
       </div>
 
       <style>{`

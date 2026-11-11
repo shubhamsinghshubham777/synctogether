@@ -1,66 +1,23 @@
-"use client";
-
-import { Suspense, useEffect } from "react";
-import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Ticket } from "@/components/Ticket";
 import { Kicker, Headline, Stamp, display, mono } from "@/components/booth/Booth";
-import { PTButton } from "@/components/PTButton";
-import confetti from "canvas-confetti";
 import { ArrowUpRight, ArrowRight } from "lucide-react";
+import { AutoHandoff, OpenAppButton } from "./Handoff";
 
+type Params = Record<string, string | string[] | undefined>;
 
-function DesktopCallbackContent() {
-  const searchParams = useSearchParams();
-
-  const error = searchParams.get("error") || searchParams.get("error_code");
+function DesktopCallbackContent({ params }: { params: Params }) {
+  const get = (k: string) => {
+    const v = params[k];
+    return (Array.isArray(v) ? v[0] : v) || null;
+  };
+  const error = get("error") || get("error_code");
   const rawErrorDesc =
-    searchParams.get("error_description") ||
-    searchParams.get("error_message") ||
+    get("error_description") ||
+    get("error_message") ||
     (error ? "The authentication process was cancelled or failed." : null);
   const errorMessage = rawErrorDesc ? rawErrorDesc.replace(/\+/g, " ") : null;
   const isError = Boolean(error || errorMessage);
-
-  const getDeepLinkUrl = () => {
-    if (typeof window === "undefined") return "synctogether://auth-callback";
-    const search = window.location.search || "";
-    const hash = window.location.hash || "";
-    return `synctogether://auth-callback${search}${hash}`;
-  };
-
-  useEffect(() => {
-    if (isError) return;
-
-    const targetUri = getDeepLinkUrl();
-
-    // Gentle celebratory confetti
-    try {
-      confetti({
-        particleCount: 45,
-        spread: 60,
-        origin: { y: 0.65 },
-        colors: ["#FFB23F", "#FFB23F", "#6FD6C4", "#FFB23F"],
-        disableForReducedMotion: true,
-      });
-    } catch {
-      // Ignore if confetti fails in headless/SSR environments
-    }
-
-    // Automatically trigger deep-link launch
-    const timer = setTimeout(() => {
-      try {
-        window.location.href = targetUri;
-      } catch (err) {
-        console.error("Deep link navigation error:", err);
-      }
-    }, 250);
-
-    return () => clearTimeout(timer);
-  }, [isError]);
-
-  const handleManualOpen = () => {
-    window.location.href = getDeepLinkUrl();
-  };
 
   if (isError) {
     return (
@@ -77,14 +34,7 @@ function DesktopCallbackContent() {
         </div>
 
         <div className="flex flex-wrap items-center gap-x-6 gap-y-4">
-          <PTButton
-            variant="primary"
-            size="lg"
-            onClick={handleManualOpen}
-            rightIcon={<ArrowRight className="w-4 h-4" />}
-          >
-            Return to the app
-          </PTButton>
+          <OpenAppButton icon={<ArrowRight className="w-4 h-4" />}>Return to the app</OpenAppButton>
           <Link
             href="/auth"
             className="text-[15px] font-semibold text-white underline underline-offset-[6px] decoration-rail hover:decoration-beam-500 transition-colors"
@@ -98,6 +48,7 @@ function DesktopCallbackContent() {
 
   return (
     <div className="w-full max-w-5xl grid lg:grid-cols-[1fr_1.05fr] gap-12 lg:gap-16 items-center">
+      <AutoHandoff />
       <div className="space-y-6 order-2 lg:order-1">
         <Kicker tone="cue">Login successful</Kicker>
         <Headline className="text-[clamp(2.75rem,7vw,5rem)]">
@@ -109,14 +60,7 @@ function DesktopCallbackContent() {
           on its own, open it below, then this tab can go.
         </p>
         <div className="flex flex-wrap items-center gap-x-6 gap-y-4 pt-2">
-          <PTButton
-            variant="primary"
-            size="lg"
-            onClick={handleManualOpen}
-            rightIcon={<ArrowUpRight className="w-4 h-4" />}
-          >
-            Open SyncTogether
-          </PTButton>
+          <OpenAppButton icon={<ArrowUpRight className="w-4 h-4" />}>Open SyncTogether</OpenAppButton>
           <Link
             href="/account"
             className="text-[15px] font-semibold text-white underline underline-offset-[6px] decoration-rail hover:decoration-beam-500 transition-colors"
@@ -148,18 +92,14 @@ function DesktopCallbackContent() {
   );
 }
 
-export default function DesktopCallbackPage() {
+export default async function DesktopCallbackPage({
+  searchParams,
+}: {
+  searchParams: Promise<Params>;
+}) {
   return (
     <div className="min-h-[80vh] flex items-center justify-center px-4 sm:px-6 lg:px-8 py-12 md:py-12">
-      <Suspense
-        fallback={
-          <p className={`${mono} text-xs tracking-[0.16em] uppercase text-gray-500`}>
-            Completing authentication…
-          </p>
-        }
-      >
-        <DesktopCallbackContent />
-      </Suspense>
+      <DesktopCallbackContent params={await searchParams} />
     </div>
   );
 }

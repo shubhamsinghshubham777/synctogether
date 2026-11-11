@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Check, Copy } from "lucide-react";
+import { openAppLink } from "@/lib/openAppLink";
 
 /**
  * "Copy code" + "Open the room" under the carried-over invite ticket. The
@@ -37,6 +38,10 @@ export function DownloadInviteActions({ code }: { code: string }) {
         Already installed?{" "}
         <a
           href={`synctogether://join/${code}`}
+          onClick={(e) => {
+            e.preventDefault();
+            openAppLink(`synctogether://join/${code}`);
+          }}
           className="font-semibold text-white underline underline-offset-4 decoration-rail hover:decoration-beam-500"
         >
           Open the room

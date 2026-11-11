@@ -21,6 +21,14 @@ export function isWebEventName(value: unknown): value is WebEventName {
 }
 
 /**
+ * Pages that are not visits: OAuth returns (a signed-in app user bouncing back
+ * from Google, not a marketing visitor) and the operator's own tools.
+ */
+export function isUntrackedPath(pathname: string): boolean {
+  return /^\/(auth|internal|admin)(\/|$)/.test(pathname);
+}
+
+/**
  * The path an event is filed under. An invite code is a credential - for a live
  * room (`/join/ABC123`) or for pairing with someone (`/pair/ABC123`) - so both
  * are stored with the code replaced by `*`. Events never need it.

@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Bricolage_Grotesque, Hanken_Grotesk, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
-import { Analytics } from "@vercel/analytics/next";
+import { VercelAnalytics } from "@/components/VercelAnalytics";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
@@ -156,7 +156,7 @@ export default function RootLayout({
         <Header />
         <main className="flex-1 pt-[60px] md:pt-[76px]">{children}</main>
         <Footer />
-        <Analytics />
+        <VercelAnalytics />
         <SpeedInsights />
         <AnalyticsBeacon />
       </body>

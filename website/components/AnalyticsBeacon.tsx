@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
-import type { WebEventName } from "@/lib/web-events";
+import { isUntrackedPath, type WebEventName } from "@/lib/web-events";
 
 const COOKIE_NAME = "pt_vid";
 const ONE_YEAR_SECONDS = 31536000;
@@ -63,10 +63,7 @@ export function AnalyticsBeacon() {
     if (lastTrackedPath.current === pathname) return;
     lastTrackedPath.current = pathname;
 
-    // Skip internal/admin endpoints from visitor tracking
-    if (pathname.startsWith("/internal") || pathname.startsWith("/admin")) {
-      return;
-    }
+    if (isUntrackedPath(pathname)) return;
 
     const visitorId = getOrCreateVisitorId();
     if (!visitorId) return;

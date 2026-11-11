@@ -16,7 +16,7 @@ on:
         description: "Build and upload to iOS App Store Connect (IPA)"
         type: boolean
         required: true
-        default: false
+        default: true
       publish_to_google_play:
         description: "Build and upload to Google Play internal track (AAB)"
         type: boolean
@@ -38,7 +38,7 @@ on:
         description: "Build and upload to iOS App Store Connect (IPA)"
         type: boolean
         required: false
-        default: false
+        default: true
       publish_to_google_play:
         description: "Build and upload to Google Play internal track (AAB)"
         type: boolean

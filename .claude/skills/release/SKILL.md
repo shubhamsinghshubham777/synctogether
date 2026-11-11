@@ -1,7 +1,7 @@
 ---
 name: release
 description: >-
-  Cut a SyncTogether release across the app stores (Mac App Store, Microsoft Store and iOS App Store). Analyzes commits since the last release tag, bumps the pubspec version, pushes to main, writes user-facing release notes, and dispatches the store workflows. Use when the user says "cut a release", "ship a release", "publish everywhere", "release to stores", "bump the version and publish", or "/release". Targets: "/release" (Mac + Microsoft Store, default), "/release ios", "/release all" (all three stores). Optional version override (e.g. "/release 0.5.0", "/release all patch").
+  Cut a SyncTogether release across the app stores (Mac App Store, Microsoft Store and iOS App Store). Analyzes commits since the last release tag, bumps the pubspec version, pushes to main, writes user-facing release notes, and dispatches the store workflows. Use when the user says "cut a release", "ship a release", "publish everywhere", "release to stores", "bump the version and publish", or "/release". Targets: "/release" or "/release all" (all three stores, default), "/release desktop" (Mac + Microsoft only), "/release ios". Optional version override (e.g. "/release 0.5.0", "/release all patch").
 ---
 
 # Cut a release
@@ -49,18 +49,17 @@ Microsoft Store listing in Partner Center for Windows.
 
 ## Release Targets
 
-- **Desktop App Stores (`/release`, `/release stores`)**:
-  Dispatches `publish_stores.yaml`. Builds store artifacts with `--dart-define=STORE_BUILD=true`:
+- **All stores (`/release`, `/release all`, `/release stores`)** - the default: Mac, Microsoft and iOS.
+  Dispatches `publish_stores.yaml` (iOS defaults to on; Google Play stays opt-in). Builds store artifacts with `--dart-define=STORE_BUILD=true`:
   - Windows: MSIX package submitted to Microsoft Partner Center via `publish_microsoft_store.yaml`.
   - macOS: Sandboxed PKG installer submitted to Mac App Store Connect via `publish_mac_app_store.yaml`.
-  - iOS/iPadOS: **opt-in** (`publish_to_ios_app_store` defaults to false), see below.
+  - iOS/iPadOS: on by default; opt out with `-f publish_to_ios_app_store=false` for a desktop-only release, see below.
 - **iOS App Store (`/release ios`, or `/release stores ios`)**:
   Dispatches `publish_ios_app_store.yaml` directly, or `publish_stores.yaml` with
   `-f publish_to_ios_app_store=true` when the desktop stores go too. It uploads a
   signed IPA to App Store Connect, where it lands in **TestFlight only**. The
   upload does not submit for review; that is a separate `asc` step (below).
-- **All stores (`/release all`)**:
-  Dispatches `publish_stores.yaml -f publish_to_ios_app_store=true`.
+- **Desktop only (`/release desktop`)**: `gh workflow run publish_stores.yaml --ref main -f publish_to_ios_app_store=false`.
 
 ## Steps
 
@@ -221,7 +220,7 @@ Microsoft Store listing in Partner Center for Windows.
    gh workflow run publish_stores.yaml --ref main
    ```
 
-   For iOS, add `-f publish_to_ios_app_store=true` to that dispatch, or on its own:
+   iOS is included by default; for desktop only add `-f publish_to_ios_app_store=false`. iOS alone:
 
    ```bash
    gh workflow run publish_ios_app_store.yaml --ref main

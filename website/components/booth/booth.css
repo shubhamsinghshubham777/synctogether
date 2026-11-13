@@ -83,7 +83,8 @@
 
 /* Rows lay out side by side, so the stacking rhythm above must not push
    every item after the first down a line. */
-.legal-prose section .flex > * + * {
+.legal-prose section .flex > * + *,
+.legal-prose section .grid > * + * {
   margin-top: 0;
 }
 

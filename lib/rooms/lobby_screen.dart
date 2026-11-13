@@ -2,7 +2,6 @@ import 'dart:async';
 import '../ui/progress_bar.dart';
 import '../ui/booth_icons.g.dart';
 
-import 'package:flutter/foundation.dart' show defaultTargetPlatform, visibleForTesting;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:go_router/go_router.dart';
@@ -873,41 +872,28 @@ class _LobbyScreenState extends State<LobbyScreen> with WindowListener {
     // Anything reading the profile must do so *inside* this builder - the
     // enclosing build() doesn't re-run when the profile lands, so a value
     // captured out here stays stale until an unrelated setState.
-    return CallbackShortcuts(
-      // Cmd+, on macOS, Ctrl+, elsewhere - the platform convention for
-      // preferences. Dialogs and the room sit on their own routes, so this
-      // only fires while the lobby itself has focus.
-      bindings: {
-        SingleActivator(
-          .comma,
-          meta: defaultTargetPlatform == TargetPlatform.macOS,
-          control: defaultTargetPlatform != TargetPlatform.macOS,
-        ): () =>
-            openPage(context, '/lobby/profile'),
-      },
-      child: Focus(
-        autofocus: true,
-        child: Scaffold(
-          body: AmbientBackground(
-            child: ListenableBuilder(
-              listenable: Listenable.merge([
-                ProfileService.instance,
-                RoomService.instance,
-                EntitlementService.instance,
-                RewardsService.instance,
-              ]),
-              builder: (context, _) {
-                final fold = foldOf(context);
-                // A vertical fold (iPhone Duo book, a dual screen): what you
-                // can do on one half, what you have on the other (board 56).
-                if (!isDesktop && fold.axis == .vertical) return _book(fold);
-                return PTResponsive(
-                  desktop: (_) => _desktop(),
-                  portrait: (_) => _portrait(),
-                  landscape: (_) => _landscape(),
-                );
-              },
-            ),
+    return Focus(
+      autofocus: true,
+      child: Scaffold(
+        body: AmbientBackground(
+          child: ListenableBuilder(
+            listenable: Listenable.merge([
+              ProfileService.instance,
+              RoomService.instance,
+              EntitlementService.instance,
+              RewardsService.instance,
+            ]),
+            builder: (context, _) {
+              final fold = foldOf(context);
+              // A vertical fold (iPhone Duo book, a dual screen): what you
+              // can do on one half, what you have on the other (board 56).
+              if (!isDesktop && fold.axis == .vertical) return _book(fold);
+              return PTResponsive(
+                desktop: (_) => _desktop(),
+                portrait: (_) => _portrait(),
+                landscape: (_) => _landscape(),
+              );
+            },
           ),
         ),
       ),

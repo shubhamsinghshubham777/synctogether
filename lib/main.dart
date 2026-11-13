@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:synctogether/analytics.dart';
 import 'package:synctogether/analytics_consent.dart';
+import 'package:go_router/go_router.dart';
 import 'package:synctogether/app_router.dart';
 import 'package:synctogether/app_version.dart';
 import 'package:synctogether/feedback/bug_reports_api.dart';
@@ -44,6 +45,8 @@ import 'package:synctogether/ui/system_ui.dart';
 
 import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:synctogether/feedback/shortcuts.dart';
+import 'package:synctogether/nav.dart';
+import 'package:synctogether/profile/profile_shortcut.dart';
 import 'package:synctogether/ui/error_boundary.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:window_manager/window_manager.dart';
@@ -84,6 +87,16 @@ Future<void> main() async {
       return event;
     };
   }, appRunner: _bootstrap);
+}
+
+/// Cmd+, / Ctrl+, - the profile, except inside a room, whose own hotkeys and
+/// layout own the screen (and where a push would stack the profile on it).
+void _openProfile(GoRouter router) {
+  final ctx = router.routerDelegate.navigatorKey.currentContext;
+  if (ctx == null || !ctx.mounted) return;
+  final path = router.routerDelegate.currentConfiguration.uri.path;
+  if (roomIdOfPath(path) != null) return;
+  openPage(ctx, '/lobby/profile');
 }
 
 Future<void> _bootstrap() async {
@@ -385,11 +398,17 @@ class _MainAppState extends State<MainApp> with WidgetsBindingObserver {
               PTSplash(
                 child: BugReportShortcut(
                   navigatorContext: () => router.routerDelegate.navigatorKey.currentContext,
-                  child: UnlockToastHost(
-                    stream: _unlocks,
-                    onShown: _onBadgeShown,
-                    child: TapToDismissKeyboard(
-                      child: DiscoveryHost(router: router, child: child ?? const SizedBox.shrink()),
+                  child: ProfileShortcut(
+                    open: () => _openProfile(router),
+                    child: UnlockToastHost(
+                      stream: _unlocks,
+                      onShown: _onBadgeShown,
+                      child: TapToDismissKeyboard(
+                        child: DiscoveryHost(
+                          router: router,
+                          child: child ?? const SizedBox.shrink(),
+                        ),
+                      ),
                     ),
                   ),
                 ),

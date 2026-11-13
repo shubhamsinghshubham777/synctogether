@@ -68,6 +68,7 @@ class MainFlutterWindow: NSWindow {
     MicLevelChannel.register(with: flutterViewController.engine.binaryMessenger)
     PushChannel.register(with: flutterViewController.engine.binaryMessenger)
     BugReportMenuChannel.register(with: flutterViewController.engine.binaryMessenger)
+    ProfileMenuChannel.register(with: flutterViewController.engine.binaryMessenger)
 
     super.awakeFromNib()
     DispatchQueue.main.async { [weak self] in self?.placeTrafficLights() }
@@ -375,5 +376,38 @@ final class BugReportMenuChannel: NSObject {
 
   @objc private func reportBug(_ sender: Any?) {
     Self.channel?.invokeMethod("report", arguments: nil)
+  }
+}
+
+/// The app menu's "Preferences…" (Cmd+,) tells Dart to open the profile. The nib
+/// declares the item with its key equivalent but no action, so AppKit swallowed
+/// the key; this gives it one. One-way, like `BugReportMenuChannel`; the Dart
+/// side does not bind Cmd+, on macOS (see `ProfileShortcut`).
+final class ProfileMenuChannel: NSObject {
+  static let shared = ProfileMenuChannel()
+  private static var channel: FlutterMethodChannel?
+
+  static func register(with messenger: FlutterBinaryMessenger) {
+    channel = FlutterMethodChannel(name: "app.synctogether/profile_menu", binaryMessenger: messenger)
+    shared.attach(attemptsLeft: 20)
+  }
+
+  /// The main menu is not attached to `NSApp` yet while the nib is waking up.
+  private func attach(attemptsLeft: Int) {
+    guard let appMenu = NSApp.mainMenu?.items.first?.submenu else {
+      guard attemptsLeft > 0 else { return }
+      DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+        self.attach(attemptsLeft: attemptsLeft - 1)
+      }
+      return
+    }
+    guard let item = appMenu.items.first(where: { $0.keyEquivalent == "," }) else { return }
+    item.title = "Profile…"
+    item.target = self
+    item.action = #selector(openProfile(_:))
+  }
+
+  @objc private func openProfile(_ sender: Any?) {
+    Self.channel?.invokeMethod("open", arguments: nil)
   }
 }

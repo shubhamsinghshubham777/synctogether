@@ -12,6 +12,7 @@ import { InternalMetricsControls } from "./InternalMetricsControls";
 import {
   Activity,
   ArrowLeft,
+  Bug,
   Crown,
   Database,
   Download,
@@ -266,16 +267,16 @@ export default async function InternalMetricsPage() {
             <p className="text-xs text-gray-400 font-mono">
               Production Data &bull; Local-Only View &bull; Unreadable Figures Say So
             </p>
+            <span
+              className={`mt-2 inline-block px-2.5 py-1 rounded-lg border text-xs font-mono ${source.supabaseConnected ? "border-cue/40 text-cue" : "border-signal/40 text-signal"}`}
+            >
+              {source.host} ·{" "}
+              {source.supabaseConnected ? `RPC ${source.rpcLatencyMs}ms` : `RPC failed${source.rpcError ? `: ${source.rpcError}` : ""}`}
+            </span>
           </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <span
-            className={`px-3 py-1.5 rounded-lg border text-xs font-mono ${source.supabaseConnected ? "border-cue/40 text-cue" : "border-signal/40 text-signal"}`}
-          >
-            {source.host} ·{" "}
-            {source.supabaseConnected ? `RPC ${source.rpcLatencyMs}ms` : `RPC failed${source.rpcError ? `: ${source.rpcError}` : ""}`}
-          </span>
           <Link
             href="/internal/moderation"
             replace
@@ -283,6 +284,14 @@ export default async function InternalMetricsPage() {
           >
             <ShieldAlert className="w-3.5 h-3.5 text-beam-300" />
             Moderation
+          </Link>
+          <Link
+            href="/internal/bugs"
+            replace
+            className="px-3 py-1.5 rounded-lg bg-aisle hover:bg-aisle/80 text-xs font-mono text-gray-300 hover:text-white border border-rail flex items-center gap-1.5 transition-colors"
+          >
+            <Bug className="w-3.5 h-3.5 text-beam-300" />
+            Bug Board
           </Link>
           <Link
             href="/"

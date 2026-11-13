@@ -7,7 +7,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { evaluateReportHeuristics } from "@/lib/moderation-heuristics";
 import { GlassPanel } from "@/components/GlassPanel";
 import { ModerationTriageClient, type ModerationReportItem } from "./ModerationTriageClient";
-import { ShieldAlert, Activity, ArrowLeft, Shield } from "lucide-react";
+import { ShieldAlert, Activity, ArrowLeft, Bug, Shield } from "lucide-react";
 
 export const metadata: Metadata = {
   title: "Moderation Queue",
@@ -178,7 +178,15 @@ export default async function ModerationPage() {
             className="px-3 py-1.5 rounded-lg bg-aisle hover:bg-aisle/80 text-xs font-mono text-gray-300 hover:text-white border border-rail flex items-center gap-1.5 transition-colors"
           >
             <Activity className="w-3.5 h-3.5 text-beam-300" />
-            Internal Metrics
+            Metrics
+          </Link>
+          <Link
+            href="/internal/bugs"
+            replace
+            className="px-3 py-1.5 rounded-lg bg-aisle hover:bg-aisle/80 text-xs font-mono text-gray-300 hover:text-white border border-rail flex items-center gap-1.5 transition-colors"
+          >
+            <Bug className="w-3.5 h-3.5 text-beam-300" />
+            Bug Board
           </Link>
           <Link
             href="/"

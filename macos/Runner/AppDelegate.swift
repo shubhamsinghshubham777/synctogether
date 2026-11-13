@@ -15,8 +15,9 @@ class AppDelegate: FlutterAppDelegate, UNUserNotificationCenterDelegate {
   override func applicationDidFinishLaunching(_ notification: Notification) {
     // In place before launch finishes, or the tap that launched the app from a
     // notification is delivered to nobody.
+    // No super call: FlutterAppDelegate declares no such method, so it would
+    // reach NSObject and throw an unrecognized-selector crash at launch.
     UNUserNotificationCenter.current().delegate = self
-    super.applicationDidFinishLaunching(notification)
   }
 
   override func application(

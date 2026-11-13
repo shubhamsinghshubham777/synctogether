@@ -3084,22 +3084,33 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     if (_localFileName != null && _duration == Duration.zero) _surfaceLocalLoadFailure();
   }
 
-  void _armLocalLoadWatchdog(String name) {
+  void _armLocalLoadWatchdog(String name, {bool extended = false}) {
     _localLoadWatchdog?.cancel();
-    _localLoadWatchdog = Timer(const Duration(seconds: 15), () {
+    _localLoadWatchdog = Timer(Duration(seconds: extended ? 30 : 15), () {
       if (!mounted || _mode != .local || _localFileName != name) return;
       if (_duration != Duration.zero) return;
+      // A slow disk or network share is still working, not dead: give a
+      // buffering file one longer window before calling it a failure.
+      if (!extended && _player.state.buffering) {
+        trace('local load slow, extending watchdog', category: 'media', data: {'file': name});
+        _armLocalLoadWatchdog(name, extended: true);
+        return;
+      }
+      final dot = name.lastIndexOf('.');
       trace(
         'local load stalled',
         category: 'media',
         data: {
           'file': name,
+          'extension': dot >= 0 ? name.substring(dot + 1).toLowerCase() : '',
+          'buffering': _player.state.buffering,
+          'extended': extended,
           'platform': Platform.operatingSystem,
           'os_version': Platform.operatingSystemVersion,
         },
       );
       reportNonFatal(
-        StateError('local file never reported a duration within 15s'),
+        StateError('local file never reported a duration within ${extended ? 45 : 15}s'),
         StackTrace.current,
         during: 'opening a local video file',
       );

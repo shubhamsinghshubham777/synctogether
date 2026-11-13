@@ -28,6 +28,8 @@ class BrowserUnavailableException implements Exception {
   String toString() => 'The browser could not be opened for OAuth sign-in';
 }
 
+enum AuthStreamOutcome { ignore, duplicateCallback, staleCallback, failure }
+
 class AuthService {
   AuthService();
   AuthService._();
@@ -117,26 +119,52 @@ class AuthService {
     // trains people to stop reading both. The same error while someone is
     // standing in front of a half-finished sign-in is the whole story, so only
     // that window gets promoted past a breadcrumb.
-    if (!_awaitingOAuthCallback) {
-      trace('auth stream error outside a sign-in', category: 'auth', data: {'error': '$error'});
-      return;
+    final outcome = classifyAuthStreamError(
+      error,
+      awaitingCallback: _awaitingOAuthCallback,
+      hasSession: _client.auth.currentSession != null,
+    );
+    switch (outcome) {
+      case AuthStreamOutcome.ignore:
+        trace('auth stream error outside a sign-in', category: 'auth', data: {'error': '$error'});
+        return;
+      case AuthStreamOutcome.duplicateCallback:
+        _endOAuthWindow();
+        trace('duplicate OAuth callback after sign-in', category: 'auth');
+        return;
+      case AuthStreamOutcome.staleCallback:
+        _endOAuthWindow();
+        trace('stale OAuth callback, no verifier', category: 'auth');
+        _failures.add('That sign-in link has expired. Start again from here.');
+        return;
+      case AuthStreamOutcome.failure:
+        _endOAuthWindow();
+        reportNonFatal(error, stack, during: 'completing the OAuth callback');
+        _failures.add(_friendly(error));
     }
-    // The same callback can arrive twice (a cold-start link replayed beside
-    // the stream, a double click in the browser). The first exchange signs in
-    // and consumes the verifier, so the second can only fail - but we are
-    // signed in, and telling the person their sign-in broke would be a lie.
-    if (error is AuthException &&
-        (error.message.contains('Code verifier could not be found') ||
-            error.message.contains('code challenge does not match')) &&
-        _client.auth.currentSession != null) {
-      _endOAuthWindow();
-      trace('duplicate OAuth callback after sign-in', category: 'auth');
-      return;
-    }
-    _endOAuthWindow();
-    reportNonFatal(error, stack, during: 'completing the OAuth callback');
-    _failures.add(_friendly(error));
   }
+
+  /// Decides what an auth-stream error means. A missing verifier is the
+  /// callback of a sign-in this install no longer remembers (app quit
+  /// mid-flow, link replayed) or a second delivery of one that already signed
+  /// in - expected outcomes that are never reported.
+  @visibleForTesting
+  static AuthStreamOutcome classifyAuthStreamError(
+    Object error, {
+    required bool awaitingCallback,
+    required bool hasSession,
+  }) {
+    if (!awaitingCallback) return AuthStreamOutcome.ignore;
+    if (_isMissingVerifier(error)) {
+      return hasSession ? AuthStreamOutcome.duplicateCallback : AuthStreamOutcome.staleCallback;
+    }
+    return AuthStreamOutcome.failure;
+  }
+
+  static bool _isMissingVerifier(Object error) =>
+      error is AuthException &&
+      (error.message.contains('Code verifier could not be found') ||
+          error.message.contains('code challenge does not match'));
 
   /// Never the raw exception - this lands in a snack bar. The detail that
   /// actually identifies the cause has already gone to Sentry.

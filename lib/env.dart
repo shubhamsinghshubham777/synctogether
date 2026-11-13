@@ -168,9 +168,19 @@ class Env {
     // A debug run on the local stack always uses the local website, so its
     // invites and sign-in bridge never leave the machine even when SITE_URL is
     // also set for release builds.
-    if (usingLocalStack) return defaultLocalSiteUrl;
+    if (usingLocalStack) return _localSiteUrl();
     final explicit = (overrideSiteUrl ?? _envSiteUrl).trim();
     return explicit.isEmpty ? null : explicit.replaceFirst(RegExp(r'/+$'), '');
+  }
+
+  /// The local website. When the local backend is addressed by a LAN host (a
+  /// physical phone run via `scripts/run-ios.sh`), the site lives on that same
+  /// machine, so use its host: `localhost` on a phone is the phone itself, which
+  /// is what stranded the Google sign-in bridge on "localhost not found".
+  static String _localSiteUrl() {
+    final host = Uri.tryParse(supabaseUrl)?.host ?? '';
+    const loopback = {'', 'localhost', '127.0.0.1', '10.0.2.2'};
+    return loopback.contains(host) ? defaultLocalSiteUrl : 'http://$host:3000';
   }
 
   /// Host of [siteUrl], for recognising our own invite links on the clipboard.

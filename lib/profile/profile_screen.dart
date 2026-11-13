@@ -2124,6 +2124,7 @@ class _SetPasswordDialogState extends State<_SetPasswordDialog> {
         PTTextField(
           controller: _confirm,
           label: 'Confirm password',
+          hint: 'Type it once more',
           obscureText: _obscure,
           errorText: _error,
           onChanged: (_) => setState(() => _error = null),

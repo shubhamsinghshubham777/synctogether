@@ -13,7 +13,7 @@ class PTTextField extends StatefulWidget {
   const PTTextField({
     super.key,
     this.controller,
-    this.hint,
+    required this.hint,
     this.label,
     this.errorText,
     this.prefixIcon,
@@ -27,7 +27,9 @@ class PTTextField extends StatefulWidget {
   });
 
   final TextEditingController? controller;
-  final String? hint;
+
+  /// Required on purpose: an empty field with no placeholder reads as broken.
+  final String hint;
   final String? label;
   final String? errorText;
   final IconData? prefixIcon;
@@ -155,6 +157,9 @@ class PTCodeInput extends StatefulWidget {
   final double boxHeight;
 
   static const length = 6;
+
+  /// Faint glyph in each empty box, the code input's placeholder.
+  static const placeholder = '·';
   static const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
   @override
@@ -275,7 +280,10 @@ class PTCodeInputState extends State<PTCodeInput> with SingleTickerProviderState
                 )
               : isCursor && _focusNode.hasFocus
               ? const _BlinkingCaret()
-              : null,
+              : Text(
+                  PTCodeInput.placeholder,
+                  style: PTText.code.copyWith(letterSpacing: 0, color: PTColors.fgMute),
+                ),
         );
       },
     );

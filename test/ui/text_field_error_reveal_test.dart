@@ -6,7 +6,7 @@ Widget _app(String? error) => MaterialApp(
   home: Scaffold(
     body: Column(
       children: [
-        PTTextField(errorText: error),
+        PTTextField(hint: 'Hint', errorText: error),
         const SizedBox(key: Key('below'), height: 10),
       ],
     ),

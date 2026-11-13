@@ -600,7 +600,7 @@ class PTToggleRow extends StatelessWidget {
                 ],
               ),
             ),
-            _PTSwitch(value: value, onChanged: onChanged),
+            PTSwitch(value: value, onChanged: onChanged),
           ],
         ),
       ),
@@ -608,8 +608,10 @@ class PTToggleRow extends StatelessWidget {
   }
 }
 
-class _PTSwitch extends StatelessWidget {
-  const _PTSwitch({required this.value, required this.onChanged});
+/// The on/off switch used by [PTToggleRow] and the Help rows: Cue when on (a
+/// setting is a state, not the live thing), a quiet Rail track when off.
+class PTSwitch extends StatelessWidget {
+  const PTSwitch({super.key, required this.value, required this.onChanged});
 
   final bool value;
   final ValueChanged<bool> onChanged;

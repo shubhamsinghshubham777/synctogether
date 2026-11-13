@@ -8,6 +8,8 @@ import 'package:synctogether/av/av_failover.dart';
 import 'package:synctogether/av/macos_audio_devices.dart';
 import 'package:synctogether/diagnostics.dart';
 import 'package:synctogether/env.dart';
+import 'package:synctogether/feedback/discovery/discovery_logic.dart' show NudgeReason;
+import 'package:synctogether/feedback/discovery/discovery_triggers.dart';
 import 'package:synctogether/rooms/room_models.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -507,6 +509,7 @@ class LiveKitService extends ChangeNotifier {
         during: '$during (still unreachable after $_reconnectAttempts tries)',
         persistent: true,
       );
+      DiscoveryTriggers.instance.notify(NudgeReason.persistentReconnect);
     }
   }
 

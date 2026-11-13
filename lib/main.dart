@@ -9,6 +9,10 @@ import 'package:synctogether/analytics.dart';
 import 'package:synctogether/analytics_consent.dart';
 import 'package:synctogether/app_router.dart';
 import 'package:synctogether/app_version.dart';
+import 'package:synctogether/feedback/bug_reports_api.dart';
+import 'package:synctogether/feedback/discovery/discovery_host.dart';
+import 'package:synctogether/feedback/feedback_service.dart';
+import 'package:synctogether/feedback/feedback_services.dart';
 import 'package:synctogether/auth/auth_service.dart';
 import 'package:synctogether/auth/webview_runtime.dart';
 import 'package:synctogether/diagnostics.dart';
@@ -39,6 +43,7 @@ import 'package:synctogether/ui/splash_screen.dart';
 import 'package:synctogether/ui/system_ui.dart';
 
 import 'package:sentry_flutter/sentry_flutter.dart';
+import 'package:synctogether/feedback/shortcuts.dart';
 import 'package:synctogether/ui/error_boundary.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:window_manager/window_manager.dart';
@@ -117,6 +122,9 @@ Future<void> _bootstrap() async {
     installMockDependencies();
   }
   await AppVersion.load();
+  if (!kDemoMode) {
+    FeedbackServices.instance = RealFeedbackService(api: SupabaseBugReportsApi())..start();
+  }
   final optedOut = await AnalyticsConsent.instance.load();
   Analytics.instance.init(
     apiKey: Env.posthogApiKey,
@@ -375,10 +383,15 @@ class _MainAppState extends State<MainApp> with WidgetsBindingObserver {
             child: buildResponsiveWrapper(
               context,
               PTSplash(
-                child: UnlockToastHost(
-                  stream: _unlocks,
-                  onShown: _onBadgeShown,
-                  child: TapToDismissKeyboard(child: child ?? const SizedBox.shrink()),
+                child: BugReportShortcut(
+                  navigatorContext: () => router.routerDelegate.navigatorKey.currentContext,
+                  child: UnlockToastHost(
+                    stream: _unlocks,
+                    onShown: _onBadgeShown,
+                    child: TapToDismissKeyboard(
+                      child: DiscoveryHost(router: router, child: child ?? const SizedBox.shrink()),
+                    ),
+                  ),
                 ),
               ),
             ),

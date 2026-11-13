@@ -42,6 +42,9 @@ import 'package:synctogether/rooms/widgets/my_rooms_section.dart';
 import 'package:synctogether/ui/panel_switcher.dart';
 import 'package:synctogether/ui/banners.dart';
 import 'package:synctogether/ui/booth.dart';
+import 'package:synctogether/feedback/bug_report.dart';
+import 'package:synctogether/feedback/ui/bug_report_button.dart';
+import 'package:synctogether/ui/bar_item.dart';
 import 'package:synctogether/ui/cinema_marquee_bar.dart';
 import 'package:synctogether/ui/loader.dart';
 import 'package:synctogether/ui/buttons.dart';
@@ -942,11 +945,7 @@ class _LobbyScreenState extends State<LobbyScreen> with WindowListener {
             child: FirstFit(
               children: [
                 for (final level in levels)
-                  Row(
-                    mainAxisSize: .min,
-                    mainAxisAlignment: .end,
-                    children: [_actions(level, avatarSize: _glyph(compact ? 36 : 42))],
-                  ),
+                  Row(mainAxisSize: .min, mainAxisAlignment: .end, children: [_actions(level)]),
               ],
             ),
           ),
@@ -959,28 +958,43 @@ class _LobbyScreenState extends State<LobbyScreen> with WindowListener {
   /// 0 full pills + profile pill + logout; 1 compact chips + avatar + logout;
   /// 2 compact chips + crown-only premium + account menu (logout moves in);
   /// 3 streak + account menu (quota, premium move in); 4 account menu alone.
-  Widget _actions(int level, {required double avatarSize}) {
+  ///
+  /// Every item is a `PTBarItem`: one shared height (see `PTBar`), so chips, the
+  /// account chip, icon buttons and the avatar line up on one baseline.
+  Widget _actions(int level) {
     final compact = level >= 1;
+    final h = PTBar.height(context);
     return Row(
       mainAxisSize: .min,
       spacing: compact ? 8 : 12,
       children: [
-        if (_showStreakChip && level <= 3) _streakChip(compact: compact),
-        if (_showQuotaChip && level <= 2) _mediaQuotaChip(compact: compact),
-        if (_showPremiumChip && level <= 2) _premiumChip(iconOnly: level == 2),
+        if (_showStreakChip && level <= 3) PTBarItem(child: _streakChip(compact: compact)),
+        if (_showQuotaChip && level <= 2) PTBarItem(child: _mediaQuotaChip(compact: compact)),
+        if (_showPremiumChip && level <= 2)
+          PTBarItem(
+            square: level == 2,
+            child: _premiumChip(iconOnly: level == 2),
+          ),
+        // Desktop carries the button in the marquee bar instead; at the
+        // narrowest level it folds into the account menu with everything else.
+        if (!isDesktop && level <= 3) const BugReportButton(),
         if (level == 0)
-          _profilePill()
-        else if (level == 1)
-          _avatarButton(size: avatarSize)
+          PTBarItem(child: _profilePill(height: h))
         else
-          _avatarButton(size: avatarSize, menuLevel: level),
+          PTBarItem(
+            square: true,
+            child: _avatarButton(size: h, menuLevel: level == 1 ? null : level),
+          ),
         if (level <= 1)
-          PTIconButton(
-            icon: BoothIcons.logout,
-            iconSize: _glyph(20),
-            size: avatarSize,
-            tooltip: 'Log out',
-            onPressed: AuthService.instance.signOut,
+          PTBarItem(
+            square: true,
+            child: PTIconButton(
+              icon: BoothIcons.logout,
+              iconSize: _glyph(20),
+              size: h,
+              tooltip: 'Log out',
+              onPressed: AuthService.instance.signOut,
+            ),
           ),
       ],
     );
@@ -1066,6 +1080,12 @@ class _LobbyScreenState extends State<LobbyScreen> with WindowListener {
             label: 'Get a Patron seat',
             color: PTColors.textAccent,
             onTap: () => openPage(context, '/lobby/subscribe?source=lobby_chip'),
+          ),
+        if (!isDesktop && level >= 4)
+          LobbyMenuItem(
+            icon: BoothIcons.bug,
+            label: 'Report a bug',
+            onTap: () => unawaited(BugReport.open(context, source: 'more')),
           ),
       ],
       footer: [
@@ -1629,14 +1649,14 @@ class _LobbyScreenState extends State<LobbyScreen> with WindowListener {
         message: 'Get a Patron seat',
         child: GlassPill(
           onTap: () => openPage(context, '/lobby/subscribe?source=lobby_chip'),
-          padding: const EdgeInsets.all(8),
-          child: crown,
+          padding: EdgeInsets.zero,
+          child: Center(child: crown),
         ),
       );
     }
     return GlassPill(
       onTap: () => openPage(context, '/lobby/subscribe?source=lobby_chip'),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+      padding: const EdgeInsets.symmetric(horizontal: 12),
       child: Row(
         mainAxisSize: .min,
         spacing: 6,
@@ -1685,7 +1705,7 @@ class _LobbyScreenState extends State<LobbyScreen> with WindowListener {
 
     final chip = GlassPill(
       onTap: () => showMediaQuotaDialog(context),
-      padding: EdgeInsets.symmetric(horizontal: compact ? 10 : 12, vertical: 7),
+      padding: EdgeInsets.symmetric(horizontal: compact ? 10 : 12),
       child: Row(
         mainAxisSize: .min,
         spacing: 6,
@@ -1711,11 +1731,13 @@ class _LobbyScreenState extends State<LobbyScreen> with WindowListener {
     return compact ? Tooltip(message: 'Weekly upload quota', child: chip) : chip;
   }
 
-  Widget _profilePill() {
+  /// The avatar fills the pill's height less its hairline and a 3 px inset, so the
+  /// pill is exactly [height] tall whatever the avatar is.
+  Widget _profilePill({required double height}) {
     final profile = ProfileService.instance.profile;
     return GlassPill(
       onTap: () => openPage(context, '/lobby/profile'),
-      padding: const EdgeInsets.fromLTRB(6, 5, 16, 5),
+      padding: const EdgeInsets.fromLTRB(3, 0, 16, 0),
       child: Row(
         mainAxisSize: .min,
         spacing: 10,
@@ -1724,7 +1746,7 @@ class _LobbyScreenState extends State<LobbyScreen> with WindowListener {
             userId: profile?.id ?? '',
             displayName: profile?.displayName ?? '?',
             avatarUrl: profile?.avatarUrl,
-            size: _glyph(30),
+            size: height - 8,
             premium: EntitlementService.instance.isPremium,
           ),
           // Capped rather than Flexible: the header measures candidates at

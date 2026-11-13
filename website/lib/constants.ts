@@ -252,6 +252,10 @@ export const FAQ_ITEMS = [
         a: "No! You can use SyncTogether as a Guest without creating an account. Guests can create 60-minute rooms with up to 4 members. To get 4-hour rooms, voice chat, and cloud media sharing, simply sign in with a free account (Google, Apple, or Email)."
       },
       {
+        q: "Something broke. How do I report a bug?",
+        a: "Tap the bug icon at the top of any screen (or press Cmd+Shift+B on Mac, Ctrl+Shift+B on Windows). SyncTogether attaches a screenshot and the technical details we need, you can add a note, and it goes straight to us. Chat messages and file paths are never included. You get a report number, and Your reports in your profile tells you when it is fixed."
+      },
+      {
         q: "Is SyncTogether free?",
         a: "Yes! Both Guest and Free tiers are 100% free with no ads, and product analytics you can switch off. We offer a paid Premium tier for extended sessions, 16-member rooms, and video facecams."
       }

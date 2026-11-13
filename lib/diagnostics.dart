@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' show ClientException;
 import 'package:sentry_flutter/sentry_flutter.dart';
+import 'package:synctogether/feedback/capture/breadcrumb_log.dart';
 import 'package:supabase_flutter/supabase_flutter.dart'
     show
         AuthApiException,
@@ -128,6 +129,7 @@ void reportNonFatal(
     trace('network unavailable: $during', category: 'network', data: {'error': '$error'});
     return;
   }
+  BreadcrumbLog.record('error: $during', category: 'error', data: {'type': '${error.runtimeType}'});
   FlutterError.reportError(
     FlutterErrorDetails(
       exception: persistent ? PersistentOutage(error) : error,
@@ -147,6 +149,7 @@ void reportNonFatal(
 /// reason to prefer these over [reportNonFatal] for routine steps: they are
 /// free until something goes wrong. No-ops when reporting is not configured.
 void trace(String message, {String? category, Map<String, dynamic>? data}) {
+  BreadcrumbLog.record(message, category: category, data: data);
   if (kDebugMode) debugPrint('[$category] $message ${data ?? ''}');
   Sentry.addBreadcrumb(Breadcrumb(message: message, category: category, data: data));
 }

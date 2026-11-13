@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:window_manager/window_manager.dart';
 
+import '../feedback/ui/bug_report_button.dart';
 import '../platform.dart';
 import 'pt_theme.dart';
 
@@ -29,7 +30,11 @@ class CinemaMarqueeBar extends StatelessWidget {
     this.border = true,
     this.backgroundColor,
     this.fullscreen = false,
+    this.showBugReport = true,
   });
+
+  /// Whether the bar carries the "Report a bug" button (every screen's bar does).
+  final bool showBugReport;
 
   /// Widget placed after the macOS traffic light inset (or at the start on Windows/Linux).
   final Widget? leading;
@@ -99,6 +104,15 @@ class CinemaMarqueeBar extends StatelessWidget {
                 Expanded(child: center != null ? Center(child: center!) : const SizedBox.expand()),
                 if (trailing != null) Center(child: trailing!),
               ],
+              // Last item before the window controls, so it sits in the same
+              // place on macOS and Windows and on every screen's bar.
+              if (showBugReport)
+                Center(
+                  child: Padding(
+                    padding: EdgeInsets.only(left: 8, right: showWindowsButtons ? 6 : 14),
+                    child: const BugReportButton(compact: true),
+                  ),
+                ),
               if (showWindowsButtons) WindowsCaptionButtons(height: height),
             ],
           ),

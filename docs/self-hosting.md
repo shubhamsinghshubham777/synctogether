@@ -95,6 +95,8 @@ Before starting, ensure you have the following installed on your machine:
    supabase db push
    ```
 
+   This includes the `bug_reports` table and its `submit_bug_report` / `my_bug_reports` functions, which back the in-app bug button. Nothing else is needed for it to work: reports are always stored in your database. Setting `SENTRY_DSN` (optional, see the environment table) additionally sends each report's screenshot and activity log to your Sentry project; without it the report still arrives, just without those attachments.
+
 #### Option 2: Self-Hosted Supabase Docker Stack
 If self-hosting the full Supabase container stack on your own server:
 1. Follow the official [Supabase Self-Hosting Guide with Docker](https://supabase.com/docs/guides/self-hosting/docker).

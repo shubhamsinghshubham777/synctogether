@@ -12,6 +12,8 @@ import 'dart:async';
 
 import 'package:synctogether/diagnostics.dart';
 import 'package:synctogether/env.dart';
+import 'package:synctogether/feedback/discovery/discovery_logic.dart' show NudgeReason;
+import 'package:synctogether/feedback/discovery/discovery_triggers.dart';
 import 'package:synctogether/player/stream/link_probe.dart';
 import 'package:synctogether/player/stream/stream_health.dart';
 import 'package:synctogether/player/stream/stream_notice.dart';
@@ -242,6 +244,7 @@ class SharedStreamSession {
     proxy?.boost();
     unawaited(_applyOptions());
     trace('stream escalated silently', category: 'media', data: {'proxy': proxy != null});
+    DiscoveryTriggers.instance.notify(NudgeReason.streamStall);
   }
 
   /// Reads the lavf option boxes back and records whether our reconnect options

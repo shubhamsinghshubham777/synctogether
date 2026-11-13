@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:synctogether/feedback/ui/bug_report_button.dart';
 import 'package:flutter/material.dart';
 import 'package:synctogether/ui/escape_back.dart';
 import 'package:flutter/services.dart' show MissingPluginException;
@@ -130,6 +131,7 @@ class _PairPageState extends State<PairPage> with WindowListener {
                       children: [
                         Expanded(child: _back()),
                         ?widget.trailing,
+                        const BugReportButton(),
                       ],
                     ),
                   ),

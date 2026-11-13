@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:synctogether/feedback/ui/bug_report_button.dart';
 import '../ui/reveal.dart';
 import '../ui/panel_switcher.dart';
 import '../ui/optical.dart';
@@ -270,6 +271,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> with WindowListen
                     ),
                     child: Text(compact ? 'Settings' : 'Leaderboard settings'),
                   ),
+                  const BugReportButton(),
                 ],
               ),
             ),

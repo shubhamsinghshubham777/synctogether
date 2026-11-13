@@ -9,6 +9,8 @@ import '../rewards_logic.dart';
 import '../rewards_models.dart';
 
 /// The lobby's streak affordance, sitting beside the premium and quota chips.
+/// It has no vertical padding of its own: the header wraps it in a `PTBarItem`,
+/// whose height every item in the row shares.
 ///
 /// It renders a *state*, never a nag: the ring fills as today's qualifying
 /// minutes accrue, the flame lights once the day counts, and nothing here ever
@@ -54,7 +56,7 @@ class StreakChip extends StatelessWidget {
 
     return GlassPill(
       onTap: onTap,
-      padding: EdgeInsets.symmetric(horizontal: compact ? 9 : 12, vertical: 7),
+      padding: EdgeInsets.symmetric(horizontal: compact ? 9 : 12),
       child: Row(
         mainAxisSize: .min,
         spacing: 7,
@@ -131,7 +133,7 @@ class StreakChip extends StatelessWidget {
     return GlassPill(
       onTap: onTap,
       opacity: 0.35,
-      padding: EdgeInsets.symmetric(horizontal: compact ? 9 : 12, vertical: 7),
+      padding: EdgeInsets.symmetric(horizontal: compact ? 9 : 12),
       child: Row(
         mainAxisSize: .min,
         spacing: 7,

@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'package:synctogether/feedback/discovery/help_rows.dart';
+import 'package:synctogether/feedback/ui/bug_report_button.dart';
 import '../ui/reveal.dart';
 import '../ui/progress_bar.dart';
 import '../ui/booth_icons.g.dart';
@@ -401,7 +403,14 @@ class _ProfileScreenState extends State<ProfileScreen> with WindowListener {
                     // without a full-width left-aligned box it floats in the middle.
                     SizedBox(
                       width: double.infinity,
-                      child: Align(alignment: .centerLeft, child: _backHeader(size: 42)),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Align(alignment: .centerLeft, child: _backHeader(size: 42)),
+                          ),
+                          const BugReportButton(),
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -450,7 +459,17 @@ class _ProfileScreenState extends State<ProfileScreen> with WindowListener {
                 : null,
           )
         else
-          Padding(padding: const EdgeInsets.fromLTRB(40, 20, 40, 20), child: _backHeader()),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(40, 20, 40, 20),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Align(alignment: .centerLeft, child: _backHeader()),
+                ),
+                const BugReportButton(),
+              ],
+            ),
+          ),
         Expanded(
           child: Row(
             crossAxisAlignment: .stretch,
@@ -491,7 +510,11 @@ class _ProfileScreenState extends State<ProfileScreen> with WindowListener {
                         _mediaQuotaSection(),
                         _audioVideoSection(),
                       ];
-                      final right = <Widget>[if (!guest) _boardsSection(), _privacySection()];
+                      final right = <Widget>[
+                        if (!guest) _boardsSection(),
+                        _privacySection(),
+                        _helpSection(),
+                      ];
                       final twoUp = box.maxWidth >= 760;
                       final cards = Column(
                         crossAxisAlignment: .stretch,
@@ -545,7 +568,14 @@ class _ProfileScreenState extends State<ProfileScreen> with WindowListener {
           Padding(
             padding: const EdgeInsets.fromLTRB(22, 10, 22, 12),
             // A Column centres its children, and the header row is min-sized: pin it left.
-            child: Align(alignment: .centerLeft, child: _backHeader(titleSize: 18)),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Align(alignment: .centerLeft, child: _backHeader(titleSize: 18)),
+                ),
+                const BugReportButton(),
+              ],
+            ),
           ),
           Expanded(
             child: ScrollFadeEdge(
@@ -571,9 +601,16 @@ class _ProfileScreenState extends State<ProfileScreen> with WindowListener {
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
-            child: Align(
-              alignment: .centerLeft,
-              child: _backHeader(iconSize: 19, size: 38, titleSize: 17),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Align(
+                    alignment: .centerLeft,
+                    child: _backHeader(iconSize: 19, size: 38, titleSize: 17),
+                  ),
+                ),
+                const BugReportButton(),
+              ],
             ),
           ),
           Expanded(
@@ -1200,6 +1237,7 @@ class _ProfileScreenState extends State<ProfileScreen> with WindowListener {
       _audioVideoSection(),
       _blockedSection(),
       _privacySection(),
+      _helpSection(),
       _exitSection(guest),
     ];
     return Column(
@@ -1669,6 +1707,9 @@ class _ProfileScreenState extends State<ProfileScreen> with WindowListener {
       ],
     );
   }
+
+  Widget _helpSection() =>
+      _Section(card: _cards, kicker: 'Help', children: const [FeedbackHelpRows()]);
 
   Widget _exitSection(bool guest) {
     if (guest) {

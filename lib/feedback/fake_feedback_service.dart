@@ -13,6 +13,10 @@ class FakeFeedbackService implements FeedbackService {
   /// Reports passed to [submit], newest last.
   final List<BugCapture> submitted = [];
 
+  /// The "tell me when it's fixed" choice per code, and the details added.
+  final Map<String, bool> notifyChoices = {};
+  final Map<String, List<String>> appended = {};
+
   @override
   Future<BugCapture> captureScreen(BuildContext ctx) async =>
       const BugCapture(screenRoute: '/lobby');
@@ -28,7 +32,8 @@ class FakeFeedbackService implements FeedbackService {
     String? note,
     required bool includeScreenshot,
   }) async {
-    submitted.add(includeScreenshot ? c : c.copyWith(clearScreenshot: true));
+    final sent = c.includeFileName ? c : c.copyWith(clearFileName: true);
+    submitted.add(includeScreenshot ? sent : sent.copyWith(clearScreenshot: true));
     final code = 'BUG-${(++_n).toString().padLeft(4, '0')}';
     _rows.insert(
       0,
@@ -38,12 +43,24 @@ class FakeFeedbackService implements FeedbackService {
         title: (note == null || note.isEmpty) ? 'Bug report' : note,
         status: .received,
         createdAt: DateTime.now(),
+        notifyWhenFixed: true,
       ),
     );
+    notifyChoices[code] = true;
     for (final f in List.of(_changes)) {
       f();
     }
     return Sent(code);
+  }
+
+  @override
+  Future<void> setNotifyWhenFixed(String ref, bool on) async {
+    notifyChoices[ref] = on;
+  }
+
+  @override
+  Future<void> appendNote(String ref, String text) async {
+    appended.putIfAbsent(ref, () => []).add(text);
   }
 
   @override
@@ -58,6 +75,17 @@ class FakeFeedbackService implements FeedbackService {
       onCancel: () => _changes.remove(push),
     );
     return ctrl.stream;
+  }
+
+  /// Replaces the rows wholesale, for tests that need a given set of states.
+  @visibleForTesting
+  void debugSetRows(List<BugReportRow> rows) {
+    _rows
+      ..clear()
+      ..addAll(rows);
+    for (final f in List.of(_changes)) {
+      f();
+    }
   }
 
   @override

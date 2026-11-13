@@ -16,6 +16,9 @@ import EventKitUI
     // The delegate has to be in place before launch finishes, or the tap that
     // launched the app from a notification is delivered to nobody.
     UNUserNotificationCenter.current().delegate = self
+    // Shake is ours (bug report), not the system's "Shake to Undo Typing": with
+    // this off iOS never raises that alert and never keeps a shake for a text field.
+    application.applicationSupportsShakeToEdit = false
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
 
@@ -79,6 +82,74 @@ import EventKitUI
     if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "CalendarChannel") {
       CalendarChannel.register(with: registrar.messenger())
     }
+    if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "ShakeChannel") {
+      ShakeChannel.register(with: registrar.messenger())
+    }
+  }
+
+  // The end of the responder chain: a shake nothing above handled lands here.
+  override func motionEnded(_ motion: UIEvent.EventSubtype, with event: UIEvent?) {
+    if motion == .motionShake { ShakeChannel.shaken() } else { super.motionEnded(motion, with: event) }
+  }
+}
+
+/// Apple's shake gesture, forwarded to Dart as a bare `shake` call. Dart installs
+/// its handler only while it wants shakes, so otherwise the call goes nowhere.
+enum ShakeChannel {
+  private static var channel: FlutterMethodChannel?
+
+  static func register(with messenger: FlutterBinaryMessenger) {
+    channel = FlutterMethodChannel(name: "app.synctogether/shake", binaryMessenger: messenger)
+  }
+
+  static func shaken() { channel?.invokeMethod("shake", arguments: nil) }
+}
+
+/// The app's one view controller, plus the shake gesture. UIKit hands a shake to
+/// the first responder and then up its chain, and a focused text field is first
+/// responder inside this controller's view, so the shake reaches us either way.
+/// With no text field focused nothing is first responder, so we claim it, and
+/// take it back whenever it can have been lost: the controller appearing again
+/// (a full-screen picker closed), the keyboard hiding, the app coming forward.
+final class ShakeFlutterViewController: FlutterViewController {
+  override var canBecomeFirstResponder: Bool { true }
+
+  /// True from the keyboard appearing to it going away: a text field is focused
+  /// then, and the shake already reaches us through it.
+  private var keyboardIsUp = false
+
+  override func viewDidLoad() {
+    super.viewDidLoad()
+    let center = NotificationCenter.default
+    center.addObserver(self, selector: #selector(keyboardShown),
+                       name: UIResponder.keyboardWillShowNotification, object: nil)
+    center.addObserver(self, selector: #selector(keyboardHidden),
+                       name: UIResponder.keyboardDidHideNotification, object: nil)
+    center.addObserver(self, selector: #selector(claimShake),
+                       name: UIApplication.didBecomeActiveNotification, object: nil)
+  }
+
+  override func viewDidAppear(_ animated: Bool) {
+    super.viewDidAppear(animated)
+    claimShake()
+  }
+
+  @objc private func keyboardShown() { keyboardIsUp = true }
+
+  @objc private func keyboardHidden() {
+    keyboardIsUp = false
+    claimShake()
+  }
+
+  /// Never steals from a focused text field: only takes the slot while the
+  /// keyboard is down (a hardware keyboard with a focused field is the one case
+  /// this cannot see, and the shake still reaches us through that field).
+  @objc private func claimShake() {
+    if view.window != nil && !isFirstResponder && !keyboardIsUp { becomeFirstResponder() }
+  }
+
+  override func motionEnded(_ motion: UIEvent.EventSubtype, with event: UIEvent?) {
+    if motion == .motionShake { ShakeChannel.shaken() } else { super.motionEnded(motion, with: event) }
   }
 }
 

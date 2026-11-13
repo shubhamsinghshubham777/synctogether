@@ -21,6 +21,8 @@ import 'pairing/push_service.dart';
 import 'pairing/year_recap_screen.dart';
 import 'profile/banned_screen.dart';
 import 'profile/entitlement_service.dart';
+import 'feedback/report_detail_screen.dart';
+import 'feedback/reports_screen.dart';
 import 'profile/profile_screen.dart';
 import 'profile/profile_service.dart';
 import 'profile/subscription_screen.dart';
@@ -117,6 +119,19 @@ GoRouter buildRouter([Player? player]) {
           GoRoute(
             path: 'profile',
             pageBuilder: (context, state) => _detail(state, const ProfileScreen()),
+            routes: [
+              GoRoute(
+                path: 'reports',
+                pageBuilder: (context, state) => _detail(state, const ReportsScreen()),
+                routes: [
+                  GoRoute(
+                    path: ':code',
+                    pageBuilder: (context, state) =>
+                        _detail(state, ReportDetailScreen(code: state.pathParameters['code']!)),
+                  ),
+                ],
+              ),
+            ],
           ),
           GoRoute(
             path: 'pair',

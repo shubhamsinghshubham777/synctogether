@@ -15,6 +15,13 @@ import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'package:livekit_client/livekit_client.dart' as lk;
 import 'package:synctogether/env.dart';
+import 'package:synctogether/feedback/capture/media_details.dart';
+import 'package:synctogether/feedback/capture/media_probe.dart';
+import 'package:synctogether/feedback/capture/probes.dart';
+import 'package:synctogether/feedback/shake_to_report.dart';
+import 'package:synctogether/feedback/discovery/discovery_logic.dart' show NudgeReason;
+import 'package:synctogether/feedback/discovery/discovery_triggers.dart';
+import 'package:synctogether/feedback/discovery/review_prompt.dart';
 import 'package:synctogether/analytics.dart';
 import 'package:synctogether/auth/auth_service.dart';
 
@@ -96,6 +103,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:synctogether/ui/banners.dart';
 import 'package:synctogether/ui/booth.dart';
 import 'package:synctogether/ui/buttons.dart';
+import 'package:synctogether/feedback/bug_report.dart';
+import 'package:synctogether/feedback/ui/bug_report_button.dart';
 import 'package:synctogether/ui/cinema_marquee_bar.dart';
 import 'package:synctogether/ui/error_boundary.dart';
 import 'package:synctogether/ui/popover.dart';
@@ -188,6 +197,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
 
   Room? _room;
   SyncService? _sync;
+  void Function()? _unregisterFeedbackProbes;
   LiveKitService? _av;
   final _backgroundCall = BackgroundCall();
 
@@ -699,6 +709,61 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     context.push('/lobby/subscribe?source=video_trial');
   }
 
+  void _registerFeedbackProbes(SyncService sync) {
+    final mediaProbe = MediaProbe(
+      player: _player,
+      facts: () {
+        final tracks = _player.state.tracks;
+        bool real(String id) => id != 'auto' && id != 'no';
+        final subs = tracks.subtitle.where((t) => real(t.id)).toList();
+        return MediaFacts(
+          mode: _mode.name,
+          source: _mode == .youtube
+              ? 'youtube'
+              : (_isStreamingRemoteSharedMedia ? 'uploaded' : 'local'),
+          nameOrUri: _mode == .youtube ? null : (_localFileName ?? _room?.mediaName),
+          position: _position,
+          duration: _duration,
+          playing: _playing,
+          buffering: _buffering,
+          subtitleFormats: [for (final t in subs) t.codec ?? 'unknown'],
+          externalSubtitles: subs.where((t) => t.uri || t.data).length,
+          audioTrackCount: tracks.audio.where((t) => real(t.id)).length,
+          uploadState: sync.mediaUploadState,
+        );
+      },
+    )..start();
+    final undo = [
+      FeedbackProbes.register(
+        'sync',
+        () => {
+          'role': sync.isHost ? 'host' : 'member',
+          'authority': '${sync.isAuthority}',
+          'room_playing': '${sync.roomPlaying}',
+          'gate': _gateState.name,
+          'seats': '${_present.length}',
+          'connected': '$_connected',
+          'drift_ms': sync.measuredDrift.value?.inMilliseconds.toString() ?? 'n/a',
+        },
+      ),
+      // The film's technical facts, never its name (see MediaProbe).
+      mediaProbe.register(),
+      FeedbackProbes.register(
+        'av',
+        () => {'mic': '${_av?.micEnabled ?? false}', 'cam': '${_av?.camEnabled ?? false}'},
+      ),
+      // A phone moves while someone watches fullscreen; a shake then must not
+      // cover the film with the report sheet.
+      ShakeToReport.instance.registerBlocker(() => _immersive && _playing),
+    ];
+    _unregisterFeedbackProbes = () {
+      for (final u in undo) {
+        u();
+      }
+      mediaProbe.dispose();
+    };
+  }
+
   void _trackPlaybackStarted() {
     if (_playbackTracked) return;
     _playbackTracked = true;
@@ -1208,7 +1273,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
           trace(
             'local duration ${duration == Duration.zero ? 'cleared' : 'resolved'}',
             category: 'media',
-            data: {'ms': duration.inMilliseconds, 'file': _localFileName},
+            data: {'ms': duration.inMilliseconds, 'ext': mediaExtension(_localFileName)},
           );
         }
         if (duration != Duration.zero) {
@@ -1243,6 +1308,9 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
       _player.stream.track.listen((_) {
         if (_mode == .local) setState(() {});
       }),
+      _player.stream.completed.listen((done) {
+        if (done && _mode == .local && mounted) unawaited(maybeAskForReview(context));
+      }),
     ]);
 
     setState(() {
@@ -1254,6 +1322,8 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     });
     _sessionStart = DateTime.now();
     _peakMembers = _members.length;
+    _registerFeedbackProbes(sync);
+    unawaited(DiscoveryTriggers.instance.noteRoomVisited());
 
     unawaited(_reactionAssets.preload());
 
@@ -1430,6 +1500,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
 
   @override
   void dispose() {
+    _unregisterFeedbackProbes?.call();
     _subtitleStyle?.dispose();
     _chatDraft.dispose();
     _rosterFold.dispose();
@@ -2397,6 +2468,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
         return;
       }
       reportNonFatal(e, s, during: 'uploading shared media for room ${widget.roomId}');
+      DiscoveryTriggers.instance.notify(NudgeReason.uploadFailed);
       if (!mounted) return;
       _isUploadingSharedMedia = false;
       _uploadState = 'failed';
@@ -4631,6 +4703,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
       onEndRoom: _endRoomForEveryone,
       onExtendRoom: _extendRoom,
       onReportConcern: _showReportDialog,
+      onReportBug: () => BugReport.open(context, source: 'more'),
       onTransportLockChanged: _setTransportLock,
       onKick: (member) {
         final present = _present.where((p) => p.userId == member.userId).firstOrNull;
@@ -6413,6 +6486,8 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
           _chatToggleButton(size: compact ? 44 : 40),
         ],
         SizedBox(width: compact ? 10 : 10),
+        // Desktop carries the button in the marquee bar instead.
+        if (!isDesktop) ...[const BugReportButton(), const SizedBox(width: 6)],
         PTIconButton(
           icon: BoothIcons.moreVert,
           size: compact ? 44 : 40,
@@ -6629,6 +6704,8 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
                 spacing: 12,
                 children: [
                   _chatToggleButton(size: 36, glass: false),
+                  // Desktop carries the button in the marquee bar instead.
+                  if (!isDesktop) const BugReportButton(),
                   PTIconButton(
                     icon: BoothIcons.moreHoriz,
                     glass: false,
@@ -6912,6 +6989,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
               ],
             ),
           ),
+          const BugReportButton(),
           PTIconButton(
             icon: BoothIcons.moreHoriz,
             glass: false,

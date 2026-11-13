@@ -1,7 +1,7 @@
 ---
 name: release
 description: >-
-  Cut a SyncTogether release across the app stores (Mac App Store, Microsoft Store and iOS App Store). Analyzes commits since the last release tag, bumps the pubspec version, pushes to main, writes user-facing release notes, and dispatches the store workflows. Use when the user says "cut a release", "ship a release", "publish everywhere", "release to stores", "bump the version and publish", or "/release". Targets: "/release" or "/release all" (all three stores, default), "/release desktop" (Mac + Microsoft only), "/release ios". Optional version override (e.g. "/release 0.5.0", "/release all patch").
+  Cut a SyncTogether release across the app stores (Mac App Store, Microsoft Store and iOS App Store). Analyzes commits since the last release tag, bumps the pubspec version, pushes to main, writes user-facing release notes, and dispatches the store workflows. Use when the user says "cut a release", "ship a release", "publish everywhere", "release to stores", "bump the version and publish", or "/release". Targets: "/release" or "/release all" (all three stores, default), "/release desktop" (Mac + Microsoft only), "/release ios". Optional version override (e.g. "/release 0.5.0", "/release all patch"). After the dispatch it waits for every store to accept the build and then marks the bug-board tickets the release fixed; "/release close-bugs X.Y.Z" runs only that last part for an already-dispatched release.
 ---
 
 # Cut a release
@@ -289,7 +289,91 @@ Microsoft Store listing in Partner Center for Windows.
    embeds a stale, slim `Avcodec`, which the "full-codec" assertion then (rightly) fails.
    Keep `third_party/**` in the key and do not add a `restore-keys` fallback.
 
-7. **Report and stop** - print the new version and the run URL(s). Do **not**
-   watch the build (it takes 15-30 min). Remind the user that each store has its
-   own review queue: Mac and iOS builds land in App Store Connect (both are
-   auto-submitted), and the Microsoft submission goes to certification.
+7. **Report the dispatch** - print the new version and the run URL(s), and
+   remind the user that each store has its own review queue: Mac and iOS builds
+   land in App Store Connect (both are auto-submitted), and the Microsoft
+   submission goes to certification. Then carry on to step 8 and wait for the
+   run; it takes 15-30 minutes. (A target-limited release still runs step 8, but
+   it will only report and never close bugs.)
+
+8. **Confirm every store, then close bugs** - the bug board tells users
+   "fixed from X.Y.Z onward", so a ticket may only turn FIXED once every store
+   has taken the build. Run `/release close-bugs X.Y.Z` mode below for the
+   mechanics; this step is the same thing straight after the dispatch.
+
+   **a. Wait for the run.** Poll with the Monitor tool (an until-loop with a
+   sleep, never a busy loop and never a foreground `sleep`):
+
+   ```bash
+   until [ "$(gh run view <run-id> --json status --jq .status)" = completed ]; do sleep 60; done
+   gh run view <run-id> --json jobs --jq '.jobs[] | .name + " => " + (.conclusion // .status)'
+   ```
+
+   Give up waiting after about 60 minutes and report the run as still going; do
+   not close anything then.
+
+   **b. Confirm each store the release targeted**, all of these must pass:
+   - **Mac**: the Mac job concluded `success`, and
+     `asc review status --app 6809185202 --platform MAC_OS` shows the version
+     submitted (waiting for review, in review, or approved).
+   - **iOS**: the iOS job concluded `success`, and the same command with
+     `--platform IOS` shows the version submitted the same way.
+   - **Microsoft Store**: the Microsoft job concluded `success`. That job runs
+     `msstore publish`, which commits the submission, so a green job means it is
+     in certification. If `msstore` is installed and configured locally, also
+     check `msstore submission status 9P1BZTSXHDFS` (see the `msstore-cli`
+     skill): `CommitStarted`, `PreProcessing`, `Certification` or `Published` are
+     fine; `CommitFailed` or `Failed` are not.
+
+   A job that is red, a review status of rejected or "developer rejected", a
+   missing version, or a Microsoft submission that failed counts as **not
+   accepted**.
+
+   **c. Decide.**
+   - Release targeted **all three stores** and **all pass** -> close the bugs:
+
+     ```bash
+     node scripts/bugs.ts close-from-commits --version X.Y.Z            # the plan: read it
+     node scripts/bugs.ts close-from-commits --version X.Y.Z --confirm  # apply
+     ```
+
+     It marks every ticket named by a `Fixes-Bug: BUG-XXXX` trailer in the
+     release's commits as **fixed from X.Y.Z onward**, skipping tickets already
+     fixed, won't-fixed (a person decided) and followers (they follow their
+     original). Report the codes it closed.
+   - **Any store failed or was rejected** -> mark **nothing**. Say which store
+     and why, and that the tickets stay LOOKING INTO IT. Do not bump the version
+     to work around it. The next release that every store accepts picks the same
+     tickets up on its own: the scan starts at the tag of the highest version
+     already closed on the board, not at the last tag (the `tag` job tags a build
+     as soon as one store succeeded, so the last tag can be a half-accepted
+     release), and "fixed from X.Y.Z" means every later version has the fix too.
+   - **Partial target** (`/release desktop`, `/release ios`, or any release that
+     skipped a store) -> mark **nothing** and say so: bugs close only when all
+     three store builds are in. Those tickets are picked up by the next
+     full release.
+
+   Bugs are shown to users, so never "fix" a ticket by hand to make a release
+   look complete, and never run `fix` or `close-from-commits` against anything
+   but the production board once a release really is all-accepted (the CLI
+   prints `Target: PRODUCTION` before it writes; check it). Add `--local` only
+   when practising.
+
+## `/release close-bugs X.Y.Z`
+
+Runs only step 8 for a release that was already dispatched (for example the run
+finished after the session ended, or a rejected store was fixed and its leg
+re-dispatched, see "Re-running after a failure"). No bump, no commit, no
+dispatch.
+
+1. Find the run: `gh run list --workflow publish_stores.yaml --limit 5 --json databaseId,displayTitle,conclusion,status,headSha,createdAt`
+   and pick the one for `X.Y.Z` (its commit is the `Bump app version to X.Y.Z`
+   commit). If the run is still going, wait as in step 8a.
+2. Confirm every store as in step 8b. For a leg that was re-dispatched alone,
+   look at that leg's own run, not only the fan-out run.
+3. Close as in step 8c. If the version you are closing is *newer* than one that
+   was skipped (1.4.2 rejected, 1.4.3 accepted), pass the newer version: tickets
+   from both releases are fixed "from 1.4.3 onward", which stays true on every
+   later build.
+4. If the board already shows the tickets fixed from an equal or earlier
+   version, the CLI skips them and says so; that is fine.

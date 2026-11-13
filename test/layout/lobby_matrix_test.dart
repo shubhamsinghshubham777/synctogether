@@ -1,3 +1,4 @@
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:synctogether/ui/buttons.dart';
@@ -7,6 +8,7 @@ import 'package:synctogether/rewards/rewards_service.dart';
 import 'package:synctogether/rooms/lobby_screen.dart';
 import 'package:synctogether/rooms/room_models.dart';
 import 'package:synctogether/rooms/room_service.dart';
+import 'package:synctogether/ui/bar_item.dart';
 
 import '../support/screen_matrix.dart';
 import 'layout_support.dart';
@@ -53,6 +55,26 @@ class _FullRoomService extends MockRoomService {
   Future<List<MyRoom>> loadMyRooms() async => _all;
 }
 
+/// Every item in the lobby's header row - streak, quota and Patron chips, the
+/// account chip or avatar, log out, the bug button - is a [PTBarItem] and so
+/// exactly one height. A chip that took its height from its own content is what
+/// made the row a ragged skyline.
+void expectHeaderItemsEqualHeight(WidgetTester tester) {
+  final heights = <double>[];
+  for (final e in find.byType(PTBarItem).evaluate()) {
+    final box = e.renderObject;
+    // A FirstFit candidate that lost was never laid out.
+    if (box is! RenderBox || !box.attached || !box.hasSize || box.debugNeedsLayout) continue;
+    heights.add(double.parse(box.size.height.toStringAsFixed(2)));
+  }
+  expect(
+    heights.length,
+    greaterThanOrEqualTo(3),
+    reason: 'header items were not laid out: $heights',
+  );
+  expect(heights.toSet().length, 1, reason: 'header items differ in height: $heights');
+}
+
 void main() {
   setUp(() {
     SharedPreferences.setMockInitialValues({});
@@ -73,6 +95,7 @@ void main() {
       twoPaneBook: true,
     );
     await tester.pump(const Duration(milliseconds: 1500)); // entrance choreography
+    expectHeaderItemsEqualHeight(tester);
     // The primary actions never truncate: they stack when side by side won't fit.
     // (Wide layouts show a form instead of these two buttons.)
     for (final label in ['Open a room', 'Enter a code']) {

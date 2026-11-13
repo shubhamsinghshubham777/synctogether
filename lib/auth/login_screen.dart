@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:synctogether/feedback/ui/bug_report_button.dart';
 import '../ui/rolling_text.dart';
 import '../ui/booth_icons.g.dart';
 import 'dart:math' as math;
@@ -296,109 +297,115 @@ class _LoginScreenState extends State<LoginScreen> with WindowListener {
       body: AmbientBackground(
         child: PTResponsive(
           // Tablets fall back here too, hence the SafeArea.
-          desktop: (context) => Column(
-            children: [
-              if (isDesktop) CinemaMarqueeBar(height: 52, border: false, fullscreen: _fullscreen),
-              Expanded(
-                child: SafeArea(
-                  top: !isDesktop,
-                  child: LayoutBuilder(
-                    builder: (context, box) {
-                      final short = box.maxHeight < 720;
-                      // Two columns while the marquee has room to be a marquee;
-                      // below that one centred column (portrait tablets, narrow
-                      // desktop windows).
-                      if (box.maxWidth < 900) return _stacked(short: short);
-                      final officeWidth = box.maxWidth >= 1280 ? 520.0 : 440.0;
-                      final marqueeWidth = box.maxWidth - officeWidth;
-                      final wide = marqueeWidth >= 760;
-                      final gutter = wide ? 72.0 : 52.0;
-                      // "Take your" sets at roughly 4.4 em, so the headline is sized
-                      // from the column it has to fit, up to the board's 132.
-                      final headline = ((marqueeWidth - gutter - 48) / 4.6)
-                          .clamp(56.0, short ? 84.0 : 132.0)
-                          .toDouble();
-                      return Row(
-                        crossAxisAlignment: .stretch,
-                        children: [
-                          Expanded(
-                            child: SingleChildScrollView(
-                              keyboardDismissBehavior: .onDrag,
-                              padding: EdgeInsets.fromLTRB(
-                                gutter,
-                                short ? 32 : 56,
-                                48,
-                                short ? 32 : 64,
-                              ),
-                              child: ConstrainedBox(
-                                constraints: BoxConstraints(
-                                  minHeight: box.maxHeight - (short ? 64 : 120),
-                                ),
-                                child: Column(
-                                  crossAxisAlignment: .start,
-                                  mainAxisAlignment: .spaceBetween,
-                                  children: [
-                                    const _WordmarkRow(),
-                                    SizedBox(height: short ? 28 : 48),
-                                    _Marquee(headlineSize: headline),
-                                    SizedBox(height: short ? 28 : 48),
-                                    if (!short)
-                                      Row(
-                                        crossAxisAlignment: .center,
-                                        children: [
-                                          const Flexible(
-                                            child: SizedBox(width: 520, child: _AdmitOne()),
-                                          ),
-                                          if (marqueeWidth >= 880) ...[
-                                            const SizedBox(width: 32),
-                                            const SizedBox(width: 220, child: _FirstNightChecks()),
-                                          ],
-                                        ],
-                                      ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-                          // The box office: a Seat column down the right edge, not
-                          // a floating card.
-                          Container(
-                            width: officeWidth,
-                            decoration: const BoxDecoration(
-                              color: PTColors.glassBase,
-                              border: Border(left: BorderSide(color: PTColors.aisle)),
-                            ),
-                            child: Center(
+          desktop: (context) => _withBug(
+            context,
+            Column(
+              children: [
+                if (isDesktop) CinemaMarqueeBar(height: 52, border: false, fullscreen: _fullscreen),
+                Expanded(
+                  child: SafeArea(
+                    top: !isDesktop,
+                    child: LayoutBuilder(
+                      builder: (context, box) {
+                        final short = box.maxHeight < 720;
+                        // Two columns while the marquee has room to be a marquee;
+                        // below that one centred column (portrait tablets, narrow
+                        // desktop windows).
+                        if (box.maxWidth < 900) return _stacked(short: short);
+                        final officeWidth = box.maxWidth >= 1280 ? 520.0 : 440.0;
+                        final marqueeWidth = box.maxWidth - officeWidth;
+                        final wide = marqueeWidth >= 760;
+                        final gutter = wide ? 72.0 : 52.0;
+                        // "Take your" sets at roughly 4.4 em, so the headline is sized
+                        // from the column it has to fit, up to the board's 132.
+                        final headline = ((marqueeWidth - gutter - 48) / 4.6)
+                            .clamp(56.0, short ? 84.0 : 132.0)
+                            .toDouble();
+                        return Row(
+                          crossAxisAlignment: .stretch,
+                          children: [
+                            Expanded(
                               child: SingleChildScrollView(
                                 keyboardDismissBehavior: .onDrag,
-                                padding: EdgeInsets.symmetric(
-                                  horizontal: officeWidth >= 520 ? 64 : 48,
-                                  vertical: 32,
+                                padding: EdgeInsets.fromLTRB(
+                                  gutter,
+                                  short ? 32 : 56,
+                                  48,
+                                  short ? 32 : 64,
                                 ),
-                                child: Column(
-                                  mainAxisSize: .min,
-                                  crossAxisAlignment: .stretch,
-                                  children: [
-                                    _boxOfficeLabel(),
-                                    const SizedBox(height: 10),
-                                    _actions(heading: true),
-                                    const SizedBox(height: 32),
-                                    const PTEntrance(
-                                      delay: Duration(milliseconds: 240),
-                                      child: _TermsNote(align: .start),
-                                    ),
-                                  ],
+                                child: ConstrainedBox(
+                                  constraints: BoxConstraints(
+                                    minHeight: box.maxHeight - (short ? 64 : 120),
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment: .start,
+                                    mainAxisAlignment: .spaceBetween,
+                                    children: [
+                                      const _WordmarkRow(),
+                                      SizedBox(height: short ? 28 : 48),
+                                      _Marquee(headlineSize: headline),
+                                      SizedBox(height: short ? 28 : 48),
+                                      if (!short)
+                                        Row(
+                                          crossAxisAlignment: .center,
+                                          children: [
+                                            const Flexible(
+                                              child: SizedBox(width: 520, child: _AdmitOne()),
+                                            ),
+                                            if (marqueeWidth >= 880) ...[
+                                              const SizedBox(width: 32),
+                                              const SizedBox(
+                                                width: 220,
+                                                child: _FirstNightChecks(),
+                                              ),
+                                            ],
+                                          ],
+                                        ),
+                                    ],
+                                  ),
                                 ),
                               ),
                             ),
-                          ),
-                        ],
-                      );
-                    },
+                            // The box office: a Seat column down the right edge, not
+                            // a floating card.
+                            Container(
+                              width: officeWidth,
+                              decoration: const BoxDecoration(
+                                color: PTColors.glassBase,
+                                border: Border(left: BorderSide(color: PTColors.aisle)),
+                              ),
+                              child: Center(
+                                child: SingleChildScrollView(
+                                  keyboardDismissBehavior: .onDrag,
+                                  padding: EdgeInsets.symmetric(
+                                    horizontal: officeWidth >= 520 ? 64 : 48,
+                                    vertical: 32,
+                                  ),
+                                  child: Column(
+                                    mainAxisSize: .min,
+                                    crossAxisAlignment: .stretch,
+                                    children: [
+                                      _boxOfficeLabel(),
+                                      const SizedBox(height: 10),
+                                      _actions(heading: true),
+                                      const SizedBox(height: 32),
+                                      const PTEntrance(
+                                        delay: Duration(milliseconds: 240),
+                                        child: _TermsNote(align: .start),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        );
+                      },
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
           landscape: (_) => SafeArea(
             child: Row(
@@ -421,19 +428,28 @@ class _LoginScreenState extends State<LoginScreen> with WindowListener {
                   ),
                 ),
                 Expanded(
-                  child: Center(
-                    child: SingleChildScrollView(
-                      keyboardDismissBehavior: .onDrag,
-                      padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-                      child: Column(
-                        mainAxisSize: .min,
-                        children: [
-                          _actions(compactGuest: true),
-                          const SizedBox(height: 14),
-                          const PTEntrance(delay: Duration(milliseconds: 240), child: _TermsNote()),
-                        ],
+                  // The bug button lives in this pane, so it clears the hinge.
+                  child: Stack(
+                    children: [
+                      Center(
+                        child: SingleChildScrollView(
+                          keyboardDismissBehavior: .onDrag,
+                          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                          child: Column(
+                            mainAxisSize: .min,
+                            children: [
+                              _actions(compactGuest: true),
+                              const SizedBox(height: 14),
+                              const PTEntrance(
+                                delay: Duration(milliseconds: 240),
+                                child: _TermsNote(),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
-                    ),
+                      const Positioned(top: 4, right: 8, child: BugReportButton()),
+                    ],
                   ),
                 ),
               ],
@@ -444,6 +460,28 @@ class _LoginScreenState extends State<LoginScreen> with WindowListener {
       ),
     );
   }
+
+  /// Tablets take the desktop layout without a marquee bar, so the bug button
+  /// floats top-right there; the desktop bar carries its own.
+  Widget _withBug(BuildContext context, Widget body) => isDesktop
+      ? body
+      : Stack(
+          children: [
+            body,
+            // SafeArea so the button also clears a hinge or cutout.
+            const Positioned.fill(
+              child: SafeArea(
+                child: Align(
+                  alignment: .topRight,
+                  child: Padding(
+                    padding: EdgeInsets.only(top: 4, right: 8),
+                    child: BugReportButton(),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
 
   /// One column: wordmark, marquee, the first-night ticket, then the sign-in
   /// stack. Scrolls once the content outgrows the screen (320x568, the OTP
@@ -474,7 +512,23 @@ class _LoginScreenState extends State<LoginScreen> with WindowListener {
                   crossAxisAlignment: .stretch,
                   children: [
                     SizedBox(height: phone ? 20 : 40),
-                    const _WordmarkRow(spread: true, size: 20),
+                    Row(
+                      children: [
+                        Expanded(
+                          // At large text the wordmark itself scales down rather
+                          // than push the bug button out of the row.
+                          child: MediaQuery.textScalerOf(context).scale(1) > 1.4
+                              ? const FittedBox(
+                                  fit: .scaleDown,
+                                  alignment: .centerLeft,
+                                  child: _WordmarkRow(size: 20, dropVersionWhenLarge: true),
+                                )
+                              : const _WordmarkRow(spread: true, size: 20),
+                        ),
+                        const SizedBox(width: 12),
+                        const BugReportButton(),
+                      ],
+                    ),
                     SizedBox(height: math.max(short ? 24.0 : 28.0, slack)),
                     _Marquee(headlineSize: phone ? 52 : 60, brief: true),
                     if (showTicket && _mode == .providers) ...[
@@ -1114,14 +1168,18 @@ class _AdmitOne extends StatelessWidget {
 /// The wordmark with the running version beside it (or at the far edge on a
 /// phone). The version is quiet on purpose - it is for bug reports.
 class _WordmarkRow extends StatelessWidget {
-  const _WordmarkRow({this.spread = false, this.size = 22});
+  const _WordmarkRow({this.spread = false, this.size = 22, this.dropVersionWhenLarge = false});
 
   final bool spread;
   final double size;
 
+  /// Beside the bug button the version is what yields at large text sizes.
+  final bool dropVersionWhenLarge;
+
   @override
   Widget build(BuildContext context) {
-    final version = AppVersion.current;
+    final large = MediaQuery.textScalerOf(context).scale(1) > 1.4;
+    final version = dropVersionWhenLarge && large ? null : AppVersion.current;
     return Row(
       mainAxisAlignment: spread ? .spaceBetween : .start,
       spacing: 16,

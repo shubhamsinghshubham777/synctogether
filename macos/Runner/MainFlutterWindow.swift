@@ -67,6 +67,7 @@ class MainFlutterWindow: NSWindow {
     SystemFontsChannel.register(with: flutterViewController.engine.binaryMessenger)
     MicLevelChannel.register(with: flutterViewController.engine.binaryMessenger)
     PushChannel.register(with: flutterViewController.engine.binaryMessenger)
+    BugReportMenuChannel.register(with: flutterViewController.engine.binaryMessenger)
 
     super.awakeFromNib()
     DispatchQueue.main.async { [weak self] in self?.placeTrafficLights() }
@@ -335,5 +336,44 @@ enum PushChannel {
     } else {
       pendingRoute = route
     }
+  }
+}
+
+/// The Help menu's "Report a Bug…" tells Dart to open the bug report sheet.
+/// One-way: there is nothing for Dart to answer. AppKit owns the Shift+Cmd+B
+/// key equivalent on macOS, so the Dart side does not bind it there (see
+/// `BugReportShortcut`).
+final class BugReportMenuChannel: NSObject {
+  static let shared = BugReportMenuChannel()
+  private static var channel: FlutterMethodChannel?
+
+  static func register(with messenger: FlutterBinaryMessenger) {
+    channel = FlutterMethodChannel(name: "app.synctogether/bug_report_menu", binaryMessenger: messenger)
+    shared.installMenuItem(attemptsLeft: 20)
+  }
+
+  /// The main menu is not attached to `NSApp` yet while the window's nib is
+  /// still waking up, so look again a moment later (the insert is idempotent).
+  private func installMenuItem(attemptsLeft: Int) {
+    // `helpMenu` is not always assigned from the nib, and the title is
+    // localised, so fall back to the last top-level menu, which is Help.
+    guard let help = NSApp.helpMenu ?? NSApp.mainMenu?.items.last?.submenu else {
+      guard attemptsLeft > 0 else { return }
+      DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+        self.installMenuItem(attemptsLeft: attemptsLeft - 1)
+      }
+      return
+    }
+    if help.items.contains(where: { $0.action == #selector(reportBug(_:)) }) { return }
+    let item = NSMenuItem(
+      title: "Report a Bug…", action: #selector(reportBug(_:)), keyEquivalent: "b")
+    item.keyEquivalentModifierMask = [.command, .shift]
+    item.target = self
+    help.insertItem(item, at: 0)
+    help.insertItem(.separator(), at: 1)
+  }
+
+  @objc private func reportBug(_ sender: Any?) {
+    Self.channel?.invokeMethod("report", arguments: nil)
   }
 }

@@ -17,6 +17,7 @@ enum AnalyticsGroup {
   rewards('Streaks and badges'),
   pair('Your person'),
   safety('Safety and moderation'),
+  feedback('Reporting a problem'),
   premium('Premium');
 
   const AnalyticsGroup(this.title);
@@ -433,6 +434,50 @@ const kAnalyticsEvents = <AnalyticsEventDoc>[
     what: 'You allowed notifications.',
     why: 'Whether people say yes when we ask at the moment it makes sense, and on which device.',
     properties: ['your platform'],
+  ),
+
+  // --- Reporting a problem -------------------------------------------------
+  AnalyticsEventDoc(
+    event: 'bug_report_opened',
+    group: .feedback,
+    what: 'You opened the bug report sheet.',
+    why:
+        'Shows whether people find the button, and which door they used (button, shortcut, shake, a prompt or Profile).',
+    properties: ['where you opened it from'],
+  ),
+  AnalyticsEventDoc(
+    event: 'bug_report_sent',
+    group: .feedback,
+    what: 'You sent a bug report.',
+    why:
+        'Tells us how many problems reach us instead of a store review, and which areas break most.',
+    properties: [
+      'the category you picked (video, sound, sync, chat, camera or other)',
+      'whether a screenshot went with it',
+      'whether it was saved to send later',
+    ],
+  ),
+  AnalyticsEventDoc(
+    event: 'bug_intro_dismissed',
+    group: .feedback,
+    what: 'You tapped Got it on the one-time tip about the bug button.',
+    why: 'Whether the introduction was seen, so we can stop showing it.',
+  ),
+  AnalyticsEventDoc(
+    event: 'bug_nudge_tapped',
+    group: .feedback,
+    what: 'You tapped Send a report on a prompt that appeared after something went wrong.',
+    why:
+        'Whether asking at the moment of trouble works better than waiting for you to look for the button.',
+    properties: ['what triggered the prompt (stall, reconnect, upload, error or crash)'],
+  ),
+  AnalyticsEventDoc(
+    event: 'review_prompt_answered',
+    group: .feedback,
+    what: 'You answered "How\'s the show going?" after a film.',
+    why:
+        'Lets people who are unhappy reach us directly, and tells us how often the answer is good.',
+    properties: ['your answer (great or not quite)'],
   ),
 ];
 

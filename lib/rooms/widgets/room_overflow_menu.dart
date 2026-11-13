@@ -107,6 +107,7 @@ PTPopoverHandle showRoomOverflowMenu({
   required VoidCallback onEndRoom,
   VoidCallback? onExtendRoom,
   VoidCallback? onReportConcern,
+  VoidCallback? onReportBug,
   required ValueChanged<bool> onTransportLockChanged,
   required void Function(RoomMember member) onKick,
   void Function(RoomMember member)? onAssignHost,
@@ -147,6 +148,7 @@ PTPopoverHandle showRoomOverflowMenu({
                       onEndRoom: onEndRoom,
                       onExtendRoom: onExtendRoom,
                       onReportConcern: onReportConcern,
+                      onReportBug: onReportBug,
                       onTransportLockChanged: onTransportLockChanged,
                       onKick: onKick,
                       onAssignHost: onAssignHost,
@@ -175,6 +177,7 @@ class _OverflowMenuPanel extends StatefulWidget {
     required this.onEndRoom,
     this.onExtendRoom,
     this.onReportConcern,
+    this.onReportBug,
     this.onReportMember,
     this.onUnblockMember,
     required this.onTransportLockChanged,
@@ -191,6 +194,9 @@ class _OverflowMenuPanel extends StatefulWidget {
   final VoidCallback onEndRoom;
   final VoidCallback? onExtendRoom;
   final VoidCallback? onReportConcern;
+
+  /// "Report a bug" - the way in when fullscreen has hidden the header button.
+  final VoidCallback? onReportBug;
   final void Function(RoomMember member)? onReportMember;
   final void Function(RoomMember member)? onUnblockMember;
   final ValueChanged<bool> onTransportLockChanged;
@@ -333,6 +339,13 @@ class _OverflowMenuPanelState extends State<_OverflowMenuPanel> {
                       label: data.transportLock ? 'You have the remote' : 'Take the remote',
                       onTap: () =>
                           _dismiss(() => widget.onTransportLockChanged(!data.transportLock)),
+                    ),
+                  if (widget.onReportBug != null)
+                    _ActionRow(
+                      icon: BoothIcons.bug,
+                      iconColor: PTColors.white(0.7),
+                      label: 'Report a bug',
+                      onTap: () => _dismiss(widget.onReportBug!),
                     ),
                   if (widget.onReportConcern != null)
                     _ActionRow(

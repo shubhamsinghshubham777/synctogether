@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:synctogether/feedback/ui/bug_report_button.dart';
 import '../ui/booth_icons.g.dart';
 
 import 'package:flutter/foundation.dart' show kDebugMode;
@@ -282,7 +283,17 @@ class _SubscriptionScreenState extends State<SubscriptionScreen>
           else
             Padding(
               padding: EdgeInsets.fromLTRB(gutter, compact ? 10 : 24, gutter, compact ? 12 : 16),
-              child: _backHeader(compact: compact),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Align(
+                      alignment: .centerLeft,
+                      child: _backHeader(compact: compact),
+                    ),
+                  ),
+                  const BugReportButton(),
+                ],
+              ),
             ),
           Expanded(
             child: LayoutBuilder(
@@ -363,11 +374,13 @@ class _SubscriptionScreenState extends State<SubscriptionScreen>
             onPressed: () => goBack(context),
           ),
         ),
-        Text(
-          'Patron seats',
-          maxLines: 1,
-          overflow: .ellipsis,
-          style: PTText.panelHeading.copyWith(fontSize: compact ? 15 : 16),
+        Flexible(
+          child: Text(
+            'Patron seats',
+            maxLines: 1,
+            overflow: .ellipsis,
+            style: PTText.panelHeading.copyWith(fontSize: compact ? 15 : 16),
+          ),
         ),
       ],
     );

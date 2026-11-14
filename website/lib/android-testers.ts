@@ -57,3 +57,8 @@ export function seatLabel(seat: number): string {
 export type AndroidSignupResult =
   | { ok: true; state: "saved" | "already"; seat: number; taken: number; target: number }
   | { ok: false; error: "email" | "consent" | "captcha" | "server" };
+
+/** The answer to "is this address on the list?": found plus the place in line and whether it is on Play yet. */
+export type AndroidCheckResult =
+  | { ok: true; found: false }
+  | { ok: true; found: true; seat: number; added: boolean };

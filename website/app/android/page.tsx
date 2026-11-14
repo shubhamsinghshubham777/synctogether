@@ -19,7 +19,7 @@ const OPEN_STEPS = [
   {
     k: "03 · For 14 days",
     t: "Keep it installed",
-    b: "Watch something with someone, tell us what breaks. Then Google lets it out for everyone.",
+    b: "Watch something with someone, tell us what breaks. Finish the 14 days and you get 14 days of Patron free (sign in to SyncTogether with the same Google account). Then Google lets it out for everyone.",
   },
 ];
 
@@ -29,7 +29,7 @@ const STEPS = [
   {
     k: "03 · For 14 days",
     t: "Keep it installed",
-    b: "Watch something with someone, tell us what breaks. Then Google lets it out for everyone.",
+    b: "Watch something with someone, tell us what breaks. Finish the 14 days and you get 14 days of Patron free (sign in to SyncTogether with the same Google account). Then Google lets it out for everyone.",
   },
 ];
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
-import { Check, ExternalLink, Share2, Smartphone } from "lucide-react";
+import { Check, ExternalLink, Gift, Share2, Smartphone } from "lucide-react";
 import { Turnstile, type TurnstileHandle } from "@/components/Turnstile";
 import { display, mono } from "@/components/PageHead";
 import {
@@ -10,12 +10,13 @@ import {
   seatLabel,
   normalizeEmail,
   seatsLeft,
+  type AndroidCheckResult,
   type AndroidSignupResult,
   type AndroidSource,
 } from "@/lib/android-testers";
 
 type Counts = { taken: number; target: number };
-type Saved = { email: string; seat: number; state: "saved" | "already" };
+type Saved = { email: string; seat: number; state: "saved" | "already"; added?: boolean };
 
 const STORAGE_KEY = "st_android_seat";
 
@@ -43,6 +44,21 @@ function forgetSaved() {
     window.localStorage.removeItem(STORAGE_KEY);
   } catch {
     // Nothing stored, nothing to forget.
+  }
+}
+
+/** Ask the server where an address stands. Null when it could not be reached or asked too often. */
+async function checkSeat(email: string): Promise<AndroidCheckResult | null> {
+  try {
+    const res = await fetch("/api/android/check", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
+    });
+    const out = (await res.json().catch(() => null)) as AndroidCheckResult | { ok: false } | null;
+    return out && out.ok ? out : null;
+  } catch {
+    return null;
   }
 }
 
@@ -125,12 +141,28 @@ export function AndroidSeat({
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [shared, setShared] = useState(false);
+  const [checking, setChecking] = useState(false);
+  const [showCheck, setShowCheck] = useState(false);
+  const [checkNote, setCheckNote] = useState<string | null>(null);
   const turnstile = useRef<TurnstileHandle | null>(null);
 
   useEffect(() => {
     // Reading localStorage is a post-hydration step: the server HTML is the form.
+    const held = readSaved();
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setSaved(readSaved());
+    setSaved(held);
+    if (!held) return;
+    // The browser's note can be stale (added to Play since): ask the server quietly.
+    let live = true;
+    checkSeat(held.email).then((r) => {
+      if (!live || !r || !r.found) return;
+      const next: Saved = { ...held, seat: r.seat, added: r.added };
+      writeSaved(next);
+      setSaved(next);
+    });
+    return () => {
+      live = false;
+    };
   }, []);
 
   useEffect(() => {
@@ -197,6 +229,27 @@ export function AndroidSeat({
     }
   };
 
+  const runCheck = async () => {
+    if (checking) return;
+    setCheckNote(null);
+    if (!emailOk) {
+      setCheckNote("Type the address you signed up with first.");
+      return;
+    }
+    setChecking(true);
+    const r = await checkSeat(email);
+    setChecking(false);
+    if (!r) {
+      setCheckNote("Hmm, couldn't check just now. Try again in a minute.");
+    } else if (!r.found) {
+      setCheckNote("That address isn't on the list yet. Fill in the form to take a seat.");
+    } else {
+      const next: Saved = { email: email.trim().toLowerCase(), seat: r.seat, state: "already", added: r.added };
+      writeSaved(next);
+      setSaved(next);
+    }
+  };
+
   const share = async () => {
     const url = `${window.location.origin}/android`;
     try {
@@ -215,10 +268,9 @@ export function AndroidSeat({
   const pad = compact ? "p-5" : "p-6 sm:p-8";
   const shell = `flex flex-col gap-5 rounded-md border border-rail bg-seat ${pad}`;
 
-  // The test exists and this browser holds a seat: opt in on Google Play. Someone who
-  // never signed up is not on the tester list, so for them the button would go nowhere:
-  // they get the form below, worded for an open test.
-  if (playUrl && saved) {
+  // The test exists and the server says this address is on the Play list: opt in. Anyone
+  // not added yet would hit a dead button, so they see their ticket or the form instead.
+  if (playUrl && saved?.added) {
     return (
       <div className={shell}>
         <p className={`${kicker} flex items-center gap-2.5 text-beam-500`}>
@@ -234,7 +286,7 @@ export function AndroidSeat({
           </p>
         </div>
         <ol className="border-t border-aisle">
-          {["Tap Become a tester", "Install from Google Play", "Keep it for 14 days, then it's public"].map((t, i) => (
+          {["Tap Become a tester", "Install from Google Play", "Keep it 14 days: 14 days of Patron free"].map((t, i) => (
             <li key={t} className="flex gap-4 border-b border-aisle py-3 text-[15px] text-white">
               <span className={`${mono} text-gray-500`}>0{i + 1}</span>
               <span>{t}</span>
@@ -270,7 +322,9 @@ export function AndroidSeat({
           sub={already ? `Already holds seat ${seatLabel(saved.seat)}.` : `Link goes to ${saved.email}.`}
         />
         <p className="text-[15px] leading-[1.55] text-gray-400">
-          {already
+          {playUrl
+            ? "The test is open. We add people in batches; when yours comes up this card turns into your opt-in button. Check back soon."
+            : already
             ? "No need to sign up twice. Your seat stays yours until the test opens."
             : "When the last seat fills we open the test and send you the link. It usually takes a few weeks. Until then, nothing to do."}
         </p>
@@ -366,6 +420,10 @@ export function AndroidSeat({
         </span>
         <span>I&apos;ll keep it installed for the 14-day test.</span>
       </label>
+      <p className="flex items-center gap-2 text-[13px] leading-normal text-beam-400">
+        <Gift className="h-4 w-4 shrink-0" strokeWidth={1.8} aria-hidden="true" />
+        Keep it installed for 14 days and get 14 days of Patron free.
+      </p>
       <button
         type="submit"
         disabled={busy || !emailOk}
@@ -376,6 +434,36 @@ export function AndroidSeat({
       <p className="text-xs leading-normal text-gray-500">
         Only used to invite you on Google Play. No newsletter, and you can drop out any time.
       </p>
+      <div className="flex flex-col gap-2 border-t border-aisle pt-4">
+        {showCheck ? (
+          <>
+            <p className="text-[13px] leading-normal text-gray-400">
+              Type your address above, then check where your seat stands. No login needed.
+            </p>
+            <button
+              type="button"
+              onClick={runCheck}
+              disabled={checking}
+              className="self-start text-sm font-medium text-beam-400 hover:text-beam-300 cursor-pointer disabled:opacity-60"
+            >
+              {checking ? "Checking…" : "Check my seat"}
+            </button>
+            {checkNote && (
+              <p role="status" className="text-[13px] text-[#FF8A70]">
+                {checkNote}
+              </p>
+            )}
+          </>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setShowCheck(true)}
+            className="self-start text-sm font-medium text-beam-400 hover:text-beam-300 cursor-pointer"
+          >
+            Already signed up? Check your seat
+          </button>
+        )}
+      </div>
       <Turnstile ref={turnstile} />
     </form>
   );

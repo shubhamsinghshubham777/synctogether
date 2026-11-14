@@ -17,7 +17,7 @@ Do the phases in order. Never push the website before the store link exists and 
 ## Phase 1 - closed test is open (small, reversible)
 
 1. In Vercel set `ANDROID_TEST_URL` to the Play opt-in link (https only; `androidTestUrl()` in `website/lib/android-testers-server.ts` ignores anything else). The card in `website/components/AndroidSeat.tsx` then switches from the sign-up form to the opt-in steps. No code change.
-2. Paste the emails from `/internal/android` (the "Paste into Play Console" box, run `npm run dev` in `website/` and open `/admin`) into the closed track's tester list in Play Console.
+2. Paste the emails from `/internal/android` (the "Paste into Play Console" box lists only people not added yet; run `npm run dev` in `website/` and open `/admin`) into the closed track's tester list in Play Console, then press **Mark all as added** there. That stamps `added_at`, which is what flips a person's card to "Opt in on Google Play" (the card asks the server through `/api/android/check`, so it works on any device). Repeat for later sign-ups.
 3. Optionally raise or lower `ANDROID_SEAT_TARGET`.
 
 ## Phase 2 - production is live: make Android a real platform
@@ -32,11 +32,12 @@ Get the real store URL first. Ask the user for it if it is not in the conversati
 
 ### 2b. Remove the waitlist surfaces
 Delete, then follow the compiler and `grep -rn "android" website` until nothing stale is left:
-- `website/app/android/` (the page). Replace it with a redirect to `/download` in `website/next.config.*` (`redirects()`, permanent) so shared links and the app's old `/android?from=app` keep working. Remove it from `website/app/sitemap.ts`.
+- `website/app/android/` (the page), `website/app/api/android/check/` (the "Check my seat" lookup). Replace it with a redirect to `/download` in `website/next.config.*` (`redirects()`, permanent) so shared links and the app's old `/android?from=app` keep working. Remove it from `website/app/sitemap.ts`.
 - `website/components/AndroidSeat.tsx`, `website/components/SendToComputer.tsx` (it exists only for Android visitors with no app), `website/lib/android-testers.ts`, `website/lib/android-testers-server.ts`, `website/app/api/android/`, `website/tests/android_testers.test.ts`.
 - `website/app/download/page.tsx`: the `android` user-agent branch, `getSeatCounts`, the `AndroidSeat` card, `SendToComputer`, and the "Door D - Android / Save a seat" row (now a real door from 2a).
 - `website/app/join/[code]/JoinLauncher.tsx`: the `phone` (Android) branch and the "Friend on Android? Save them a test seat" line. Android phones now take the same install path as iPhone: the Play door, with the invite code written down for after the install (no store hands an install-referrer back to the app - read the comment on `/download`).
-- `website/app/internal/android/` and the "Android Testers" card in `website/app/admin/page.tsx` (restore the grid so the remaining four cards still balance).
+- `website/app/internal/android/` (page, `actions.ts`, `AddedButtons.tsx`) and the "Android Testers" card in `website/app/admin/page.tsx` (restore the grid so the remaining four cards still balance).
+- Anything added later around the test (for example a reward or incentive line in the card, the page or the FAQ): `grep -rni "tester\|early access\|test seat\|android" website/app website/components website/lib` until nothing about the test is left.
 - `website/.env.example`: drop `ANDROID_SEAT_TARGET` and `ANDROID_TEST_URL`. Keep `TURNSTILE_SECRET_KEY` only if another route still uses it (`grep -rn TURNSTILE_SECRET_KEY website`).
 
 ### 2c. The Flutter app
@@ -61,12 +62,16 @@ FAQ (`FAQ_ITEMS` in `website/lib/constants.ts`): delete "Is there an Android ver
 - Design canvas (https://claude.ai/artifact/AicTPz8b5eSnMFiJ9KiTgq), follow `.claude/skills/design/SKILL.md`: boards 89 `AndroidSeatWeb` and 90 `AndroidSeatPhone` are obsolete. Remove them from `project/canvas.json`, and update any board that shows a download surface, so the canvas keeps mirroring the code. Render and look at every changed board.
 - Analytics: check `website/lib/web-events.ts` for any Android-seat event names and remove them in the same change (the allow-list test must still pass).
 
+## Phase 2.5 - the reward (before anything is deleted)
+
+Testers are promised 14 days of Patron for keeping it installed 14 days. At day 14, check Play Console's tester list for who stayed opted in, then press **Grant 14 days** in `/internal/android` (per person, or "to all added"). It calls `grant_android_tester_reward`, matches the tester to a SyncTogether account by email and writes a 14-day manual Premium row. Anyone with no account yet is skipped, not lost: tell them to sign in with the same Google account and press again later. Do not drop the table until every tester who earned it has it. Remove the reward copy in the same cleanup (the gift line in `AndroidSeat.tsx`, step 3 on `/android`, the opt-in card's step 3).
+
 ## Phase 3 - the people who signed up
 
 They gave an address for one purpose ("only used to invite you on Google Play"). Honour that and then let it go:
 
 1. Draft one short thank-you message for the user to send (Gmail or their mail tool): Android is live, link, thanks for testing. **Do not send it yourself**: it goes to real people, so get the user's explicit go-ahead on the text and the recipient list first. Send it as BCC, never a visible list.
-2. After it has gone out, add a migration that drops the table: `drop table if exists public.android_testers;` (timestamped in the `YYYYMMDDHHMMSS` style of `supabase/migrations/`), and delete `supabase/tests/android_testers_test.sql`. Run `supabase test db`, then run `supabase db push` only with the user's go-ahead. The addresses are personal data we no longer have a purpose for.
+2. After it has gone out (and after any promised reward has been granted), add a migration that drops the table, which takes `added_at`, `reward_granted_at` with it, and also drop the function: `drop function if exists public.grant_android_tester_reward(bigint);` plus `drop table if exists public.android_testers;` (timestamped in the `YYYYMMDDHHMMSS` style of `supabase/migrations/`), and delete `supabase/tests/android_testers_test.sql`. Run `supabase test db`, then run `supabase db push` only with the user's go-ahead. The addresses are personal data we no longer have a purpose for.
 3. Run `python3 scripts/selfhost-verify.py` as the root `CLAUDE.md` asks after a change to the deployment surface (migrations).
 
 ## Order of operations

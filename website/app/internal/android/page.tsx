@@ -6,6 +6,7 @@ import { ArrowLeft, Smartphone } from "lucide-react";
 import { isAuthorizedLocalAccess } from "@/lib/admin-guard";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { seatTarget } from "@/lib/android-testers";
+import { AddedButton, RewardButton } from "./AddedButtons";
 
 export const metadata: Metadata = {
   title: "Android Testers",
@@ -15,7 +16,7 @@ export const metadata: Metadata = {
 
 export const dynamic = "force-dynamic";
 
-type Row = { id: number; email: string; source: string; created_at: string };
+type Row = { id: number; email: string; source: string; created_at: string; added_at: string | null; reward_granted_at: string | null };
 
 export default async function AndroidTestersPage() {
   const reqHeaders = await headers();
@@ -25,15 +26,17 @@ export default async function AndroidTestersPage() {
 
   const { data, error } = await createAdminClient()
     .from("android_testers")
-    .select("id, email, source, created_at")
+    .select("id, email, source, created_at, added_at, reward_granted_at")
     .order("id", { ascending: true })
     .limit(2000);
   const rows = (data ?? []) as Row[];
   const target = seatTarget(process.env.ANDROID_SEAT_TARGET);
   const bySource = new Map<string, number>();
   for (const r of rows) bySource.set(r.source, (bySource.get(r.source) ?? 0) + 1);
-  // One line, comma separated: what the Play Console's tester list takes on paste.
-  const paste = rows.map((r) => r.email).join(", ");
+  // One line, comma separated: what the Play Console's tester list takes on paste. Only people not added yet.
+  const pending = rows.filter((r) => r.added_at === null);
+  const owed = rows.filter((r) => r.added_at !== null && r.reward_granted_at === null);
+  const paste = pending.map((r) => r.email).join(", ");
 
   return (
     <div className="min-h-screen bg-booth text-screen p-4 sm:p-8 space-y-6 max-w-[1100px] mx-auto">
@@ -45,7 +48,7 @@ export default async function AndroidTestersPage() {
           <div>
             <h1 className="text-xl font-bold tracking-tight text-screen">Android Testers</h1>
             <p className="text-xs text-gray-400 font-mono">
-              {rows.length} of {target} seats &bull; Google needs 12 opted in for 14 days
+              {rows.length} of {target} seats &bull; {pending.length} not added yet &bull; Google needs 12 opted in for 14 days
             </p>
           </div>
         </div>
@@ -70,7 +73,7 @@ export default async function AndroidTestersPage() {
 
           <section className="space-y-2">
             <h2 className="text-xs font-mono tracking-[0.14em] uppercase text-gray-500">
-              Paste into Play Console
+              Paste into Play Console (not added yet)
             </h2>
             <textarea
               readOnly
@@ -78,6 +81,18 @@ export default async function AndroidTestersPage() {
               rows={3}
               className="w-full rounded-md bg-seat border border-rail p-3 text-xs font-mono text-gray-300"
             />
+            {pending.length > 0 && <AddedButton all />}
+          </section>
+
+          <section className="space-y-2">
+            <h2 className="text-xs font-mono tracking-[0.14em] uppercase text-gray-500">
+              Thank-you: 14 days of Patron (press after their 14 days)
+            </h2>
+            <p className="text-xs text-gray-400">
+              Matches testers to a SyncTogether account by email. {owed.length} added and not rewarded yet.
+              Anyone without an account is skipped and can be granted later.
+            </p>
+            {owed.length > 0 && <RewardButton all />}
           </section>
 
           <div className="overflow-x-auto rounded-md border border-rail">
@@ -88,6 +103,8 @@ export default async function AndroidTestersPage() {
                   <th className="px-3 py-2">Email</th>
                   <th className="px-3 py-2">From</th>
                   <th className="px-3 py-2">Signed up</th>
+                  <th className="px-3 py-2">On Play</th>
+                  <th className="px-3 py-2">Reward</th>
                 </tr>
               </thead>
               <tbody>
@@ -98,6 +115,12 @@ export default async function AndroidTestersPage() {
                     <td className="px-3 py-2 font-mono text-gray-400">{r.source}</td>
                     <td className="px-3 py-2 font-mono text-gray-400">
                       {new Date(r.created_at).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })}
+                    </td>
+                    <td className="px-3 py-2 font-mono text-gray-400">
+                      {r.added_at ? "added" : <AddedButton id={r.id} />}
+                    </td>
+                    <td className="px-3 py-2 font-mono text-gray-400">
+                      {r.reward_granted_at ? "granted" : r.added_at ? <RewardButton id={r.id} /> : "-"}
                     </td>
                   </tr>
                 ))}

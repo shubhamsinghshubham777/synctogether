@@ -27,12 +27,12 @@ export default async function AdminHubPage() {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Link href="/internal/moderation" className="group">
-            <GlassPanel className="p-6 h-full space-y-4 hover:border-purple-500/60 transition-all">
-              <div className="p-3 rounded-xl bg-purple-600/20 border border-purple-500/30 text-purple-400 w-fit">
+            <GlassPanel className="p-6 h-full space-y-4 hover:border-beam-500/60 transition-all">
+              <div className="p-3 rounded-xl bg-beam-600/20 border border-beam-500/30 text-beam-300 w-fit">
                 <ShieldAlert className="w-6 h-6" />
               </div>
               <div className="space-y-1">
-                <div className="text-base font-bold text-gray-100 group-hover:text-purple-300 transition-colors flex items-center justify-between">
+                <div className="text-base font-bold text-gray-100 group-hover:text-beam-300 transition-colors flex items-center justify-between">
                   Moderation
                   <ArrowRight className="w-4 h-4 opacity-0 group-hover:opacity-100 -translate-x-1 group-hover:translate-x-0 transition-all" />
                 </div>
@@ -44,12 +44,12 @@ export default async function AdminHubPage() {
           </Link>
 
           <Link href="/internal/metrics" className="group">
-            <GlassPanel className="p-6 h-full space-y-4 hover:border-blue-500/60 transition-all">
-              <div className="p-3 rounded-xl bg-blue-600/20 border border-blue-500/30 text-blue-400 w-fit">
+            <GlassPanel className="p-6 h-full space-y-4 hover:border-beam-500/60 transition-all">
+              <div className="p-3 rounded-xl bg-beam-600/20 border border-beam-500/30 text-beam-300 w-fit">
                 <Activity className="w-6 h-6" />
               </div>
               <div className="space-y-1">
-                <div className="text-base font-bold text-gray-100 group-hover:text-blue-300 transition-colors flex items-center justify-between">
+                <div className="text-base font-bold text-gray-100 group-hover:text-beam-300 transition-colors flex items-center justify-between">
                   Metrics
                   <ArrowRight className="w-4 h-4 opacity-0 group-hover:opacity-100 -translate-x-1 group-hover:translate-x-0 transition-all" />
                 </div>

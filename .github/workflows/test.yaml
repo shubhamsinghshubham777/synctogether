@@ -111,7 +111,8 @@ jobs:
     name: Analyze and test
     needs: changes
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # window_manager's native core compiles on a cold runner before the tests run.
+    timeout-minutes: 30
     if: >-
       (github.event_name == 'workflow_call' || github.event_name == 'workflow_dispatch' || needs.changes.outputs.dart == 'true') &&
       (github.event_name != 'push' || !startsWith(github.event.head_commit.message, 'Bump app version to '))

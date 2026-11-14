@@ -93,3 +93,6 @@ third_party/*/pubspec.lock
 # Extracted at build time from third_party/flutter_webrtc/third_party/downloads/*.zip
 third_party/flutter_webrtc/third_party/libwebrtc/
 third_party/flutter_webrtc/third_party/.libwebrtc_extract/
+
+# Linux is not a supported platform; Flutter regenerates this folder if it is ever re-added.
+/linux/

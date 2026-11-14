@@ -74,7 +74,6 @@ jobs:
               - 'macos/**'
               - 'ios/**'
               - 'android/**'
-              - 'linux/**'
             database:
               - 'supabase/**'
             store_copy:

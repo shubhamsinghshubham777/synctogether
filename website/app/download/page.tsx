@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { headers } from "next/headers";
 import { normalizeRoomCode } from "@/lib/rewards";
 import { Ticket } from "@/components/Ticket";
@@ -89,6 +90,18 @@ export default async function DownloadPage({
 
       <div className="min-[2000px]:col-start-1 min-[2000px]:row-start-1 min-[2000px]:row-span-2 min-w-0">
         <DownloadDoors code={inviteCode ?? undefined} />
+        {!android && (
+          <Link
+            href="/android"
+            className="mt-4 flex items-center justify-between gap-4 rounded-[6px] border border-rail bg-seat px-5 py-4 hover:border-beam-500 transition-colors"
+          >
+            <span>
+              <span className={`${mono} block text-[11px] tracking-[0.14em] uppercase text-beam-500`}>Door D · Android</span>
+              <span className="mt-1 block text-[15px] text-gray-400">Not in the store yet. Save a seat in the early test.</span>
+            </span>
+            <span className="text-screen font-semibold shrink-0">Save a seat →</span>
+          </Link>
+        )}
       </div>
 
       <section className="grid md:grid-cols-3 min-[2000px]:grid-cols-1! gap-8 md:gap-10 min-[2000px]:col-start-2 min-[2000px]:row-start-2 min-[2000px]:pt-10">

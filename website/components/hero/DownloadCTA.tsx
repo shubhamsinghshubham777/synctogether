@@ -92,6 +92,13 @@ export function DownloadCTA({ align = "center" }: { align?: "center" | "start" }
           {secondaryLabel}
         </Link>
       </div>
+
+      <Link
+        href="/android"
+        className="font-[family-name:var(--font-jetbrains-mono)] text-[12px] tracking-[0.08em] uppercase text-gray-400 hover:text-beam-500 transition-colors"
+      >
+        On Android? Save a test seat →
+      </Link>
     </div>
   );
 }

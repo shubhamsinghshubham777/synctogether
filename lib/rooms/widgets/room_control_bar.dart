@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import '../../ui/booth_icons.g.dart';
+import '../../ui/coach_target.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:synctogether/ui/adaptive_action_bar.dart';
@@ -609,13 +610,16 @@ class _RoomControlBarState extends State<RoomControlBar> with SingleTickerProvid
         fontSize: fontSize,
         onPressed: enabled ? () => actions.onSkip(const Duration(seconds: -10)) : null,
       ),
-      PTPlayButton(
-        playing: widget.playing,
-        size: 44,
-        height: playHeight,
-        iconSize: iconSize,
-        glow: false,
-        onPressed: enabled ? actions.onPlayPause : null,
+      CoachTarget(
+        id: .play,
+        child: PTPlayButton(
+          playing: widget.playing,
+          size: 44,
+          height: playHeight,
+          iconSize: iconSize,
+          glow: false,
+          onPressed: enabled ? actions.onPlayPause : null,
+        ),
       ),
       _TextKey(
         label: '+10',
@@ -1134,10 +1138,13 @@ class _RoomControlBarState extends State<RoomControlBar> with SingleTickerProvid
         Row(mainAxisSize: .min, spacing: gap, children: keys.toList());
 
     final labelWidth = timeLabelWidth(scaler, hours: caps.hourLabels);
-    final play = PTPlayButton(
-      playing: widget.playing,
-      size: 52,
-      onPressed: widget.transportEnabled ? widget.actions.onPlayPause : null,
+    final play = CoachTarget(
+      id: .play,
+      child: PTPlayButton(
+        playing: widget.playing,
+        size: 52,
+        onPressed: widget.transportEnabled ? widget.actions.onPlayPause : null,
+      ),
     );
     // Two rows draw mic, camera, react; one row draws react first so the
     // camera and then the mic are the last of the group to fold (board 46).

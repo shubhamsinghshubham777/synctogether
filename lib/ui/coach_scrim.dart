@@ -1,6 +1,6 @@
 import 'package:flutter/widgets.dart';
 
-import '../../ui/pt_theme.dart';
+import 'pt_theme.dart';
 
 /// The dim behind the coach mark, with a hole where the lit button is.
 ///

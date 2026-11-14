@@ -20,6 +20,10 @@ import 'package:synctogether/pairing/pair_lobby.dart';
 import 'package:synctogether/pairing/pair_models.dart';
 import 'package:synctogether/pairing/pair_service.dart';
 import 'package:synctogether/diagnostics.dart';
+import 'package:synctogether/onboarding/onboarding_coach.dart';
+import 'package:synctogether/onboarding/onboarding_flow.dart';
+import 'package:synctogether/onboarding/onboarding_logic.dart';
+import 'package:synctogether/ui/coach_target.dart';
 import 'package:synctogether/env.dart';
 import 'package:synctogether/profile/entitlement_service.dart';
 import 'package:synctogether/profile/media_quota_dialog.dart';
@@ -185,15 +189,9 @@ class _LobbyScreenState extends State<LobbyScreen> with WindowListener {
             reportNonFatal(e, s, during: 'loading the profile for the lobby');
             return null;
           })
-          .whenComplete(() {
-            _checkModerationWarning();
-            _consumePendingJoin();
-          });
+          .whenComplete(_afterProfile);
     } else {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _checkModerationWarning();
-        _consumePendingJoin();
-      });
+      WidgetsBinding.instance.addPostFrameCallback((_) => _afterProfile());
     }
   }
 
@@ -250,6 +248,73 @@ class _LobbyScreenState extends State<LobbyScreen> with WindowListener {
 
   @override
   void onWindowLeaveFullScreen() => setState(() => _fullscreen = false);
+
+  /// Once the profile is known: a pending moderation warning, then the
+  /// first-night flow (which needs to know about a parked invite), then the
+  /// parked invite itself.
+  Future<void> _afterProfile() async {
+    _checkModerationWarning();
+    await _maybeOnboard();
+    await _consumePendingJoin();
+  }
+
+  bool _onboarding = false;
+
+  /// The first-night flow (boards 87, 88), once per account. A parked room
+  /// invite shortens it to the name step; a parked pair invite defers it, since
+  /// that flow has its own screen and the lobby comes back to this afterwards.
+  Future<void> _maybeOnboard() async {
+    final profile = ProfileService.instance.profile;
+    if (_onboarding || !mounted || profile == null || !profile.needsOnboarding) return;
+    if (PairService.instance.pendingPairCode != null) return;
+    _onboarding = true;
+    final invite = RoomService.instance.pendingJoinCode;
+    final invited = invite != null;
+    trace('onboarding shown', category: 'ui', data: {'invited': invited, 'guest': profile.isGuest});
+    try {
+      final r = await showOnboarding(context, profile: profile, inviteCode: invite);
+      final skippedAt = r.skippedAt;
+      if (skippedAt != null) {
+        Analytics.instance.track('onboarding_skipped', {'step': skippedAt.name});
+      } else {
+        Analytics.instance.track('onboarding_finished', {
+          'path': finishedAnalyticsPath(r.path, invited: invited),
+        });
+      }
+      trace(
+        'onboarding ended',
+        category: 'ui',
+        data: {'path': r.path?.name, 'skipped_at': skippedAt?.name},
+      );
+      final name = r.name;
+      try {
+        await ProfileService.instance.completeOnboarding(
+          displayName: name == profile.displayName ? null : name,
+        );
+      } catch (e, s) {
+        // The flag already flipped locally, so the flow will not reopen this
+        // session; the server just asks again on the next launch.
+        reportNonFatal(e, s, during: 'finishing onboarding');
+      }
+      if (r.skipped) return;
+      if (r.path == .friends || invited) {
+        await OnboardingCoach.instance.arm(lobbyMark: r.path == .friends, invited: invited);
+      }
+      if (!mounted) return;
+      switch (r.path) {
+        case .partner:
+          context.go('/lobby/pair');
+        case .friends:
+          // The mark points at the open form's button; on a phone that form
+          // is the "Open a room" panel.
+          if (_phonePanel != _PhonePanel.open) setState(() => _phonePanel = .open);
+        case .browsing || null:
+          break;
+      }
+    } finally {
+      _onboarding = false;
+    }
+  }
 
   /// Invite deep link received before sign-in lands here after login.
   Future<void> _consumePendingJoin() async {
@@ -1459,11 +1524,17 @@ class _LobbyScreenState extends State<LobbyScreen> with WindowListener {
         ),
         _stagedMediaSection(compact),
         const SizedBox(height: 2),
-        PTButton(
-          label: 'Open a room',
-          height: compact ? 50 : 56,
-          loading: _creating,
-          onPressed: (_creating || _stagingUpload) ? null : _create,
+        CoachTarget(
+          id: .openRoom,
+          onActivate: () {
+            if (!_creating && !_stagingUpload) _create();
+          },
+          child: PTButton(
+            label: 'Open a room',
+            height: compact ? 50 : 56,
+            loading: _creating,
+            onPressed: (_creating || _stagingUpload) ? null : _create,
+          ),
         ),
       ],
     );

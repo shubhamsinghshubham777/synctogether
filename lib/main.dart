@@ -12,6 +12,7 @@ import 'package:synctogether/app_router.dart';
 import 'package:synctogether/app_version.dart';
 import 'package:synctogether/feedback/bug_reports_api.dart';
 import 'package:synctogether/feedback/discovery/discovery_host.dart';
+import 'package:synctogether/onboarding/onboarding_coach.dart';
 import 'package:synctogether/feedback/feedback_service.dart';
 import 'package:synctogether/feedback/feedback_services.dart';
 import 'package:synctogether/auth/auth_service.dart';
@@ -406,7 +407,10 @@ class _MainAppState extends State<MainApp> with WidgetsBindingObserver {
                       child: TapToDismissKeyboard(
                         child: DiscoveryHost(
                           router: router,
-                          child: child ?? const SizedBox.shrink(),
+                          child: OnboardingCoachHost(
+                            router: router,
+                            child: child ?? const SizedBox.shrink(),
+                          ),
                         ),
                       ),
                     ),

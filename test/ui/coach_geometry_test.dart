@@ -1,6 +1,6 @@
 import 'package:flutter/painting.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:synctogether/feedback/discovery/coach_geometry.dart';
+import 'package:synctogether/ui/coach_geometry.dart';
 
 void main() {
   const m = CoachGeometry.edgeMargin;

@@ -6,7 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:synctogether/feedback/discovery/coach_scrim.dart';
+import 'package:synctogether/ui/coach_scrim.dart';
 import 'package:synctogether/feedback/discovery/discovery_anchor.dart';
 import 'package:synctogether/feedback/discovery/discovery_host.dart';
 import 'package:synctogether/feedback/discovery/discovery_prefs.dart';

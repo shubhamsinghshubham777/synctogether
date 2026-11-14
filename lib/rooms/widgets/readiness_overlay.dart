@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import '../../ui/booth_icons.g.dart';
+import '../../ui/coach_target.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:synctogether/rooms/room_models.dart';
 import 'package:synctogether/sync/sync_service.dart';
@@ -208,11 +209,14 @@ class ReadinessOverlay extends StatelessWidget {
     final pairRow = emptyRoom && !threeWays && onSwitchSource != null && !tight && sideBySide;
     final actions = [
       if (onPickSource != null)
-        PTButton(
-          label: pickSourceLabel,
-          icon: pickSourceLabel.contains('YouTube') ? BoothIcons.youtube : BoothIcons.file,
-          expand: true,
-          onPressed: onPickSource,
+        CoachTarget(
+          id: .pickSource,
+          child: PTButton(
+            label: pickSourceLabel,
+            icon: pickSourceLabel.contains('YouTube') ? BoothIcons.youtube : BoothIcons.file,
+            expand: true,
+            onPressed: onPickSource,
+          ),
         ),
       if (threeWays)
         Row(

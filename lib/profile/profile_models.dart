@@ -18,6 +18,7 @@ class Profile {
     this.lastWarnedAt,
     this.bannedAt,
     this.banReason,
+    this.needsOnboarding = false,
   });
 
   final String id;
@@ -49,6 +50,11 @@ class Profile {
   final DateTime? lastWarnedAt;
   final DateTime? bannedAt;
   final String? banReason;
+
+  /// True only when the server says this account has never finished or skipped
+  /// the first-night flow (`onboarded_at` present and null). A row without the
+  /// column (an older backend) counts as onboarded, so nobody is shown it by accident.
+  final bool needsOnboarding;
 
   bool get isBanned => moderationStatus == 'banned';
   bool get isWarned => moderationStatus == 'warned';
@@ -112,6 +118,7 @@ class Profile {
           : null,
       bannedAt: json['banned_at'] != null ? DateTime.tryParse(json['banned_at'] as String) : null,
       banReason: json['ban_reason'] as String?,
+      needsOnboarding: json.containsKey('onboarded_at') && json['onboarded_at'] == null,
     );
   }
 
@@ -129,6 +136,7 @@ class Profile {
     DateTime? lastWarnedAt,
     DateTime? bannedAt,
     String? banReason,
+    bool? needsOnboarding,
   }) {
     return Profile(
       id: id,
@@ -149,6 +157,7 @@ class Profile {
       lastWarnedAt: lastWarnedAt ?? this.lastWarnedAt,
       bannedAt: bannedAt ?? this.bannedAt,
       banReason: banReason ?? this.banReason,
+      needsOnboarding: needsOnboarding ?? this.needsOnboarding,
     );
   }
 }

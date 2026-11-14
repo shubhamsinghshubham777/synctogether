@@ -114,6 +114,19 @@ class ProfileService extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Marks the first-night flow done for this account (every device), saving
+  /// [displayName] in the same call when given. The flag flips locally first so
+  /// the flow can never reopen while the call is in flight.
+  Future<void> completeOnboarding({String? displayName}) async {
+    final name = displayName?.trim();
+    _profile = _profile?.copyWith(
+      needsOnboarding: false,
+      displayName: (name == null || name.isEmpty) ? null : name,
+    );
+    notifyListeners();
+    await _client.rpc('complete_onboarding', params: {'p_display_name': name});
+  }
+
   /// Downscales/crops to a centered 512×512 JPEG and uploads to
   /// `avatars/<uid>.jpg`; stores a cache-busted public URL on the profile.
   Future<void> uploadAvatar(Uint8List bytes) async {

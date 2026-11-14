@@ -102,6 +102,7 @@ import 'package:synctogether/sync/sync_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:synctogether/ui/banners.dart';
 import 'package:synctogether/ui/booth.dart';
+import 'package:synctogether/ui/coach_target.dart';
 import 'package:synctogether/ui/buttons.dart';
 import 'package:synctogether/feedback/bug_report.dart';
 import 'package:synctogether/feedback/ui/bug_report_button.dart';
@@ -6637,7 +6638,15 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
                       ),
                     ),
                     if (!room.isOurRoom)
-                      RoomCodeChip(code: room.code, onCopy: _copyCode, fontSize: 12, plain: true),
+                      CoachTarget(
+                        id: .roomCode,
+                        child: RoomCodeChip(
+                          code: room.code,
+                          onCopy: _copyCode,
+                          fontSize: 12,
+                          plain: true,
+                        ),
+                      ),
                     Tooltip(
                       message: _syncDotTooltip,
                       child: Row(

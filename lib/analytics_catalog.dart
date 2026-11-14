@@ -79,6 +79,21 @@ const kAnalyticsEvents = <AnalyticsEventDoc>[
     ],
   ),
   AnalyticsEventDoc(
+    event: 'onboarding_finished',
+    group: .install,
+    what: 'You finished the two first-run questions.',
+    why:
+        'Shows whether people come for friends or for a partner, so we know which first steps to make easier.',
+    properties: ['path (friends, partner, just looking, or an invite)'],
+  ),
+  AnalyticsEventDoc(
+    event: 'onboarding_skipped',
+    group: .install,
+    what: 'You skipped the first-run questions.',
+    why: 'If many people skip at the same step, that step is in the way and should go.',
+    properties: ['which step you skipped on (name or path)'],
+  ),
+  AnalyticsEventDoc(
     event: 'guest_upgraded',
     group: .install,
     what: 'You turned a guest session into a real account.',

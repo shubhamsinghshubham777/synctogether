@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:synctogether/rooms/room_models.dart';
 import 'package:synctogether/ui/booth.dart';
+import 'package:synctogether/ui/coach_target.dart';
 import 'package:synctogether/ui/booth_icons.g.dart';
 import 'package:synctogether/ui/buttons.dart';
 import 'package:synctogether/ui/glass.dart';
@@ -129,7 +130,10 @@ class RoomPillBody extends StatelessWidget {
           ),
         ),
         if (showCode)
-          RoomCodeChip(code: room.code, onCopy: onCopyCode, fontSize: 11, plain: !compact),
+          CoachTarget(
+            id: .roomCode,
+            child: RoomCodeChip(code: room.code, onCopy: onCopyCode, fontSize: 11, plain: !compact),
+          ),
         Tooltip(
           message: switch (syncDotState) {
             .locked => 'In sync with the room',

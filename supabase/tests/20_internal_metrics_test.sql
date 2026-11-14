@@ -114,7 +114,10 @@ select is((select (e->>'visitors')::int from jsonb_array_elements(public.interna
   where e->>'source' = 'reddit.com' and (e->>'age')::int = 5),
   1, 'weekly trend reaches back 8 buckets (40 days ago is bucket 5)');
 
-select is((pg_temp.m() #>> '{storage,db_bytes}')::bigint >= (select sum(pg_database_size(datname)) from pg_database), true,
+-- The two reads are not atomic and a live cluster grows between them, so allow
+-- 1 MiB of slack. The other databases (template0/1, postgres...) are several MB
+-- each, so a figure that only counted the current database still fails this.
+select is((pg_temp.m() #>> '{storage,db_bytes}')::bigint >= (select sum(pg_database_size(datname)) from pg_database) - 1048576, true,
   'db_bytes covers every database in the cluster, as Supabase counts it');
 
 select * from finish();

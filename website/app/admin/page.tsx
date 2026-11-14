@@ -60,7 +60,7 @@ export default async function AdminHubPage() {
             </GlassPanel>
           </Link>
 
-          <Link href="/internal/bugs" className="group sm:col-span-2">
+          <Link href="/internal/bugs" className="group">
             <GlassPanel className="p-6 h-full space-y-4 hover:border-beam-500/60 transition-all">
               <div className="p-3 rounded-xl bg-beam-600/20 border border-beam-500/30 text-beam-300 w-fit">
                 <Bug className="w-6 h-6" />
@@ -76,7 +76,7 @@ export default async function AdminHubPage() {
               </div>
             </GlassPanel>
           </Link>
-          <Link href="/internal/android" className="group sm:col-span-2">
+          <Link href="/internal/android" className="group">
             <GlassPanel className="p-6 h-full space-y-4 hover:border-beam-500/60 transition-all">
               <div className="p-3 rounded-xl bg-beam-600/20 border border-beam-500/30 text-beam-300 w-fit">
                 <Smartphone className="w-6 h-6" />

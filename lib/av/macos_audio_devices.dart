@@ -14,54 +14,53 @@ final class _AudioObjectPropertyAddress extends Struct {
   external int mElement;
 }
 
-typedef _AudioObjectGetPropertyDataSizeNative =
-    Int32 Function(
-      Uint32 inObjectID,
-      Pointer<_AudioObjectPropertyAddress> inAddress,
-      Uint32 inQualifierDataSize,
-      Pointer<Void> inQualifierData,
-      Pointer<Uint32> outDataSize,
-    );
-typedef _AudioObjectGetPropertyDataSizeDart =
-    int Function(
-      int inObjectID,
-      Pointer<_AudioObjectPropertyAddress> inAddress,
-      int inQualifierDataSize,
-      Pointer<Void> inQualifierData,
-      Pointer<Uint32> outDataSize,
-    );
+typedef _AudioObjectGetPropertyDataSizeNative = Int32 Function(
+  Uint32 inObjectID,
+  Pointer<_AudioObjectPropertyAddress> inAddress,
+  Uint32 inQualifierDataSize,
+  Pointer<Void> inQualifierData,
+  Pointer<Uint32> outDataSize,
+);
+typedef _AudioObjectGetPropertyDataSizeDart = int Function(
+  int inObjectID,
+  Pointer<_AudioObjectPropertyAddress> inAddress,
+  int inQualifierDataSize,
+  Pointer<Void> inQualifierData,
+  Pointer<Uint32> outDataSize,
+);
 
-typedef _AudioObjectGetPropertyDataNative =
-    Int32 Function(
-      Uint32 inObjectID,
-      Pointer<_AudioObjectPropertyAddress> inAddress,
-      Uint32 inQualifierDataSize,
-      Pointer<Void> inQualifierData,
-      Pointer<Uint32> ioDataSize,
-      Pointer<Void> outData,
-    );
-typedef _AudioObjectGetPropertyDataDart =
-    int Function(
-      int inObjectID,
-      Pointer<_AudioObjectPropertyAddress> inAddress,
-      int inQualifierDataSize,
-      Pointer<Void> inQualifierData,
-      Pointer<Uint32> ioDataSize,
-      Pointer<Void> outData,
-    );
+typedef _AudioObjectGetPropertyDataNative = Int32 Function(
+  Uint32 inObjectID,
+  Pointer<_AudioObjectPropertyAddress> inAddress,
+  Uint32 inQualifierDataSize,
+  Pointer<Void> inQualifierData,
+  Pointer<Uint32> ioDataSize,
+  Pointer<Void> outData,
+);
+typedef _AudioObjectGetPropertyDataDart = int Function(
+  int inObjectID,
+  Pointer<_AudioObjectPropertyAddress> inAddress,
+  int inQualifierDataSize,
+  Pointer<Void> inQualifierData,
+  Pointer<Uint32> ioDataSize,
+  Pointer<Void> outData,
+);
 
 typedef _CFStringGetLengthNative = IntPtr Function(Pointer<Void> theString);
 typedef _CFStringGetLengthDart = int Function(Pointer<Void> theString);
 
-typedef _CFStringGetCStringNative =
-    Uint8 Function(
-      Pointer<Void> theString,
-      Pointer<Uint8> buffer,
-      IntPtr bufferSize,
-      Uint32 encoding,
-    );
-typedef _CFStringGetCStringDart =
-    int Function(Pointer<Void> theString, Pointer<Uint8> buffer, int bufferSize, int encoding);
+typedef _CFStringGetCStringNative = Uint8 Function(
+  Pointer<Void> theString,
+  Pointer<Uint8> buffer,
+  IntPtr bufferSize,
+  Uint32 encoding,
+);
+typedef _CFStringGetCStringDart = int Function(
+  Pointer<Void> theString,
+  Pointer<Uint8> buffer,
+  int bufferSize,
+  int encoding,
+);
 
 typedef _CFReleaseNative = Void Function(Pointer<Void> cf);
 typedef _CFReleaseDart = void Function(Pointer<Void> cf);
@@ -129,9 +128,8 @@ abstract final class MacOSAudioDevices {
         'CFRelease',
       );
 
-      final addr = malloc(
-        sizeOf<_AudioObjectPropertyAddress>(),
-      ).cast<_AudioObjectPropertyAddress>();
+      final addr = malloc(sizeOf<_AudioObjectPropertyAddress>())
+          .cast<_AudioObjectPropertyAddress>();
       final sizePtr = malloc(sizeOf<Uint32>()).cast<Uint32>();
       final u32Ptr = malloc(sizeOf<Uint32>()).cast<Uint32>();
 

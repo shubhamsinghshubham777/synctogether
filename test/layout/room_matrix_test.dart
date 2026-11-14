@@ -6,7 +6,7 @@
 // strip; the whole screen for the readiness overlay and the facecam layouts;
 // and the chat panel both as a docked side panel and as the phone's embedded
 // full-screen chat (the keyboard cases are the "chat keyboard mode").
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:synctogether/ui/booth_icons.g.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_symbols_icons/symbols.dart';

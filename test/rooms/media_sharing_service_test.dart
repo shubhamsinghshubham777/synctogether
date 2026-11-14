@@ -6,7 +6,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:synctogether/rooms/local_media_store.dart';
 import 'package:synctogether/rooms/media_sharing_service.dart';
 import 'package:synctogether/rooms/upload_source.dart';
+
 import '../player/fake_media_access.dart';
+
 import 'package:shared_preferences/shared_preferences.dart';
 
 class _MockHttpClient implements HttpClient {

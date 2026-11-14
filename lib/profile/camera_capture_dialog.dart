@@ -1,8 +1,10 @@
 import 'dart:async';
+
 import '../ui/reveal.dart';
 import '../ui/booth_icons.g.dart';
+
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart' as rtc;
 import 'package:synctogether/av/camera_facing.dart';
 import 'package:synctogether/diagnostics.dart';
@@ -144,8 +146,7 @@ class _CameraCaptureDialogState extends State<CameraCaptureDialog> {
       if (mounted) {
         setState(() {
           _initializing = false;
-          _error =
-              'Could not access camera. Please ensure camera permissions are granted in System Settings.';
+          _error = 'Could not access camera. Please ensure camera permissions are granted in System Settings.';
         });
       }
     }

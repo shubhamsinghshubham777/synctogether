@@ -1,15 +1,17 @@
 import 'dart:async';
+
 import 'package:synctogether/feedback/ui/bug_report_button.dart';
+
 import '../ui/booth_icons.g.dart';
 
 import 'package:flutter/foundation.dart' show kDebugMode;
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:go_router/go_router.dart';
 import 'package:synctogether/env.dart';
 import 'package:synctogether/nav.dart';
 import 'package:synctogether/ui/escape_back.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
-import 'package:window_manager/window_manager.dart';
+import 'package:synctogether/window/app_window.dart';
 import 'package:synctogether/analytics.dart';
 import 'package:synctogether/diagnostics.dart';
 import 'package:synctogether/platform.dart';
@@ -60,7 +62,7 @@ class SubscriptionScreen extends StatefulWidget {
 }
 
 class _SubscriptionScreenState extends State<SubscriptionScreen>
-    with WidgetsBindingObserver, WindowListener {
+    with WidgetsBindingObserver, AppWindowListener {
   bool _verifying = false;
   bool _celebrating = false;
   bool _fullscreen = false;
@@ -78,8 +80,8 @@ class _SubscriptionScreenState extends State<SubscriptionScreen>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     if (isDesktop) {
-      windowManager.addListener(this);
-      windowManager.isFullScreen().then((value) {
+      AppWindow.instance.addListener(this);
+      AppWindow.instance.isFullScreen().then((value) {
         if (mounted && value != _fullscreen) setState(() => _fullscreen = value);
       });
     }
@@ -101,7 +103,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen>
     _iapNotices?.cancel();
     _msNotices?.cancel();
     WidgetsBinding.instance.removeObserver(this);
-    if (isDesktop) windowManager.removeListener(this);
+    if (isDesktop) AppWindow.instance.removeListener(this);
     super.dispose();
   }
 

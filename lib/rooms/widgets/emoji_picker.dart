@@ -1,8 +1,10 @@
 import 'dart:io' show Platform;
+
 import '../../ui/booth_icons.g.dart';
+
 import 'dart:math' as math;
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:synctogether/rooms/emoji/emoji_logic.dart';
 import 'package:synctogether/rooms/emoji/emoji_prefs.dart';

@@ -1,6 +1,6 @@
 import 'dart:math' as math;
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:synctogether/diagnostics.dart';
 import 'package:synctogether/ui/adaptive_action_bar.dart';
 import 'package:synctogether/ui/booth_icons.g.dart';

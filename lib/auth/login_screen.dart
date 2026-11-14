@@ -1,11 +1,14 @@
 import 'dart:async';
+
 import 'package:synctogether/feedback/ui/bug_report_button.dart';
+
 import '../ui/rolling_text.dart';
 import '../ui/booth_icons.g.dart';
+
 import 'dart:math' as math;
 
 import 'package:flutter/gestures.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -26,7 +29,7 @@ import 'package:synctogether/ui/pt_motion.dart';
 import 'package:synctogether/ui/pt_theme.dart';
 import 'package:synctogether/ui/responsive.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:window_manager/window_manager.dart';
+import 'package:synctogether/window/app_window.dart';
 
 enum _LoginMode { providers, enterEmail, enterOtp }
 
@@ -37,7 +40,7 @@ class LoginScreen extends StatefulWidget {
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> with WindowListener {
+class _LoginScreenState extends State<LoginScreen> with AppWindowListener {
   bool _fullscreen = false;
   _LoginMode _mode = .providers;
   bool _appleLoading = false;
@@ -66,8 +69,8 @@ class _LoginScreenState extends State<LoginScreen> with WindowListener {
   void initState() {
     super.initState();
     if (isDesktop) {
-      windowManager.addListener(this);
-      windowManager.isFullScreen().then((value) {
+      AppWindow.instance.addListener(this);
+      AppWindow.instance.isFullScreen().then((value) {
         if (mounted && value != _fullscreen) setState(() => _fullscreen = value);
       });
     }
@@ -81,7 +84,7 @@ class _LoginScreenState extends State<LoginScreen> with WindowListener {
 
   @override
   void dispose() {
-    if (isDesktop) windowManager.removeListener(this);
+    if (isDesktop) AppWindow.instance.removeListener(this);
     _resendTimer?.cancel();
     _emailController.dispose();
     _passwordController.dispose();

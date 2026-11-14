@@ -1,8 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
-import 'package:window_manager/window_manager.dart';
+import 'package:material_ui/material_ui.dart';
+import 'package:synctogether/window/app_window.dart';
 
 import '../feedback/ui/bug_report_button.dart';
 import '../platform.dart';
@@ -131,21 +131,21 @@ class WindowsCaptionButtons extends StatefulWidget {
   State<WindowsCaptionButtons> createState() => _WindowsCaptionButtonsState();
 }
 
-class _WindowsCaptionButtonsState extends State<WindowsCaptionButtons> with WindowListener {
+class _WindowsCaptionButtonsState extends State<WindowsCaptionButtons> with AppWindowListener {
   bool _isMaximized = false;
 
   @override
   void initState() {
     super.initState();
     try {
-      windowManager.addListener(this);
+      AppWindow.instance.addListener(this);
     } catch (_) {}
     unawaited(_checkMaximized());
   }
 
   Future<void> _checkMaximized() async {
     try {
-      final maximized = await windowManager.isMaximized();
+      final maximized = await AppWindow.instance.isMaximized();
       if (mounted && maximized != _isMaximized) {
         setState(() => _isMaximized = maximized);
       }
@@ -157,7 +157,7 @@ class _WindowsCaptionButtonsState extends State<WindowsCaptionButtons> with Wind
   @override
   void dispose() {
     try {
-      windowManager.removeListener(this);
+      AppWindow.instance.removeListener(this);
     } catch (_) {}
     super.dispose();
   }
@@ -187,7 +187,7 @@ class _WindowsCaptionButtonsState extends State<WindowsCaptionButtons> with Wind
           tooltip: 'Minimize',
           onPressed: () async {
             try {
-              await windowManager.minimize();
+              await AppWindow.instance.minimize();
             } catch (_) {}
           },
           icon: const _CaptionGlyph(''),
@@ -197,9 +197,9 @@ class _WindowsCaptionButtonsState extends State<WindowsCaptionButtons> with Wind
           onPressed: () async {
             try {
               if (_isMaximized) {
-                await windowManager.unmaximize();
+                await AppWindow.instance.unmaximize();
               } else {
-                await windowManager.maximize();
+                await AppWindow.instance.maximize();
               }
             } catch (_) {}
           },
@@ -210,7 +210,7 @@ class _WindowsCaptionButtonsState extends State<WindowsCaptionButtons> with Wind
           isClose: true,
           onPressed: () async {
             try {
-              await windowManager.close();
+              await AppWindow.instance.close();
             } catch (_) {}
           },
           icon: const _CaptionGlyph(''),

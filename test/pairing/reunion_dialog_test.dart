@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:synctogether/pairing/pair_lobby.dart';
@@ -9,6 +9,7 @@ import 'package:synctogether/pairing/pair_service.dart';
 import 'package:synctogether/ui/pt_theme.dart';
 
 import '../support/fake_pair_service.dart';
+
 import 'package:synctogether/mock/mock_dependencies.dart';
 
 PairInfo _pair({String? setBy, bool shared = true, bool show = true}) => PairInfo(

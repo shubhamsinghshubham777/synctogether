@@ -1,4 +1,5 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
+
 import '../../ui/pt_theme.dart';
 import '../rewards_models.dart';
 import 'badge_art.dart';

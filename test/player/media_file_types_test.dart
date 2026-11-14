@@ -119,9 +119,10 @@ void main() {
   group('iOS UTIs stay in step with Info.plist', () {
     final plist = File('ios/Runner/Info.plist').readAsStringSync();
     final imported = plist.substring(plist.indexOf('<key>UTImportedTypeDeclarations</key>'));
-    final declaredIds = RegExp(
-      r'<key>UTTypeIdentifier</key>\s*<string>([^<]+)</string>',
-    ).allMatches(imported).map((m) => m.group(1)!).toSet();
+    final declaredIds = RegExp(r'<key>UTTypeIdentifier</key>\s*<string>([^<]+)</string>')
+        .allMatches(imported)
+        .map((m) => m.group(1)!)
+        .toSet();
 
     test('every identifier we ask for that is not a system type is declared', () {
       final custom = kVideoUtis.where(

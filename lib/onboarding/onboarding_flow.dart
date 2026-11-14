@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 
 import '../platform.dart';
@@ -147,9 +147,8 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
       _keys.requestFocus();
       return;
     }
-    Navigator.of(
-      context,
-    ).pop(OnboardingResult(name: _name.text.trim(), path: _invited ? null : _path));
+    Navigator.of(context)
+        .pop(OnboardingResult(name: _name.text.trim(), path: _invited ? null : _path));
   }
 
   void _back() => setState(() {

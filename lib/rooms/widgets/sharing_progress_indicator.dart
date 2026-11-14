@@ -1,7 +1,9 @@
 import '../../ui/rolling_text.dart';
 import '../../ui/progress_bar.dart';
 import '../../ui/booth_icons.g.dart';
-import 'package:flutter/material.dart';
+
+import 'package:material_ui/material_ui.dart';
+
 import '../../ui/pt_theme.dart';
 
 class SharingProgressIndicator extends StatelessWidget {

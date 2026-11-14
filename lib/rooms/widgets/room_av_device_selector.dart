@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:livekit_client/livekit_client.dart' as lk;
 import 'package:synctogether/av/device_preference_service.dart';
 import 'package:synctogether/av/device_selector_popup.dart';

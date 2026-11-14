@@ -198,8 +198,7 @@ void main() {
 
   test('corrupt stored entries are skipped, not fatal', () async {
     SharedPreferences.setMockInitialValues({
-      'pt.recent_videos':
-          '[{"id":"x"},{"id":"ok","name":"a.mp4","last_opened":5,"source":"files","ref":{"kind":"path","path":"/a.mp4"}}, 7]',
+      'pt.recent_videos': '[{"id":"x"},{"id":"ok","name":"a.mp4","last_opened":5,"source":"files","ref":{"kind":"path","path":"/a.mp4"}}, 7]',
     });
     final p = await SharedPreferences.getInstance();
     expect((await make(p: p).list()).single.id, 'ok');

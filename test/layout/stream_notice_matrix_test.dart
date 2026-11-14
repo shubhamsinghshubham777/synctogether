@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:synctogether/player/stream/stream_health.dart';
 import 'package:synctogether/ui/banners.dart';
@@ -61,8 +61,7 @@ void main() {
                   kind: .info,
                   icon: BoothIcons.clock,
                   title: 'Buffering ahead',
-                  subtitle:
-                      'About 12 s of 30 s is ready. You will show as loading to the room until then.',
+                  subtitle: 'About 12 s of 30 s is ready. You will show as loading to the room until then.',
                   showActivity: true,
                   trailing: PTButton(
                     label: 'Start anyway',

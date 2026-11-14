@@ -35,9 +35,8 @@ void main() {
       expect(entry.path, 'content://x/document/video%3A1');
       expect(entry.fileStillExists, isTrue);
       // survives a restart (fresh store over the same prefs)
-      final again = (await LocalMediaStore(
-        prefs: await SharedPreferences.getInstance(),
-      ).lookup('room-1'))!;
+      final again = (await LocalMediaStore(prefs: await SharedPreferences.getInstance())
+          .lookup('room-1'))!;
       expect(again.reference, isA<ContentUriReference>());
     });
 

@@ -3,17 +3,16 @@
 #
 
 list(APPEND FLUTTER_PLUGIN_LIST
+  app_links_linux
   file_selector_linux
+  flutter_inappwebview_linux
   flutter_timezone
   flutter_webrtc
-  gtk
   livekit_client
   media_kit_libs_linux
-  media_kit_video
-  screen_retriever_linux
   sentry_flutter
   url_launcher_linux
-  window_manager
+  media_kit_video
 )
 
 list(APPEND FLUTTER_FFI_PLUGIN_LIST

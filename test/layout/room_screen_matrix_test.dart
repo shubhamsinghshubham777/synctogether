@@ -11,12 +11,15 @@ import 'dart:io';
 import 'dart:math';
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+import '../support/fake_app_window.dart';
+
 import 'package:synctogether/av/livekit_service.dart';
 import 'package:synctogether/mock/mock_dependencies.dart';
 import 'package:synctogether/profile/entitlement_service.dart';
@@ -272,11 +275,8 @@ Future<_Harness> _pumpRoom(
       (call) async => call.method == 'getSources' ? <String, Object?>{'sources': []} : null,
     );
   }
-  // Desktop cases reach window_manager, which has no plugin under test.
-  tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
-    const MethodChannel('window_manager'),
-    (call) async => call.method == 'isFullScreen' ? false : null,
-  );
+  // Desktop cases reach the OS window, which does not exist under test.
+  FakeAppWindow().install();
   addTearDown(() {
     SyncService.defaultBackendOverride = null;
     LiveKitService.isConfiguredOverride = null;
@@ -517,14 +517,10 @@ void main() {
     await _finish(tester);
   }, cases: kScreenMatrix.where((c) => c.keyboard > 0).toList());
 
-  screenMatrix(
-    'room facecams, six in the room',
-    (tester, c, s) async {
-      await _pumpRoom(tester, c, s, av: true, members: 6);
-      await _finish(tester);
-    },
-    cases: kScreenMatrix.where((c) => c.name.startsWith('phone')).toList(),
-  );
+  screenMatrix('room facecams, six in the room', (tester, c, s) async {
+    await _pumpRoom(tester, c, s, av: true, members: 6);
+    await _finish(tester);
+  }, cases: kScreenMatrix.where((c) => c.name.startsWith('phone')).toList());
 
   screenMatrix('room readiness overlay', (tester, c, s) async {
     await _pumpRoom(tester, c, s, members: 7, allReady: false);
@@ -1252,32 +1248,32 @@ void main() {
     await _finish(tester);
   });
 
-  screenMatrix(
-    'room transport reachable with facecams and the reaction strip open',
-    (tester, c, s) async {
-      await _pumpRoom(tester, c, s, av: true, members: 6);
-      await _tapReact(tester);
-      expectTransportReachable(tester, c);
-      // Portrait: the facecam strip and the reaction strip are separate surfaces with air
-      // between them, not two borders touching.
-      final strip = find.byType(ReactionStrip);
-      if (c.size.height > c.size.width &&
-          strip.evaluate().isNotEmpty &&
-          tiles().evaluate().isNotEmpty) {
-        final stripTop = tester.getRect(strip).top;
-        var tilesBottom = double.negativeInfinity;
-        for (var i = 0; i < tiles().evaluate().length; i++) {
-          final r = tester.getRect(tiles().at(i));
-          if (r.bottom <= stripTop + 0.5 && r.bottom > tilesBottom) tilesBottom = r.bottom;
-        }
-        if (tilesBottom.isFinite) {
-          expect(stripTop - tilesBottom, greaterThanOrEqualTo(6), reason: 'cams crammed on strip');
-        }
+  screenMatrix('room transport reachable with facecams and the reaction strip open', (
+    tester,
+    c,
+    s,
+  ) async {
+    await _pumpRoom(tester, c, s, av: true, members: 6);
+    await _tapReact(tester);
+    expectTransportReachable(tester, c);
+    // Portrait: the facecam strip and the reaction strip are separate surfaces with air
+    // between them, not two borders touching.
+    final strip = find.byType(ReactionStrip);
+    if (c.size.height > c.size.width &&
+        strip.evaluate().isNotEmpty &&
+        tiles().evaluate().isNotEmpty) {
+      final stripTop = tester.getRect(strip).top;
+      var tilesBottom = double.negativeInfinity;
+      for (var i = 0; i < tiles().evaluate().length; i++) {
+        final r = tester.getRect(tiles().at(i));
+        if (r.bottom <= stripTop + 0.5 && r.bottom > tilesBottom) tilesBottom = r.bottom;
       }
-      await _finish(tester);
-    },
-    cases: kScreenMatrix.where((c) => c.name.startsWith('phone') && c.keyboard == 0).toList(),
-  );
+      if (tilesBottom.isFinite) {
+        expect(stripTop - tilesBottom, greaterThanOrEqualTo(6), reason: 'cams crammed on strip');
+      }
+    }
+    await _finish(tester);
+  }, cases: kScreenMatrix.where((c) => c.name.startsWith('phone') && c.keyboard == 0).toList());
 
   // Board 46, frames A-E, drawn in the real room: the form the landscape bar
   // takes beside the chat, and the facecam rail beside both. The boards have no

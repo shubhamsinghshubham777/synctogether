@@ -1,180 +1,27 @@
 PODS:
-  - accessing_security_scoped_resource (0.0.1):
-    - Flutter
-    - FlutterMacOS
-  - app_links (7.0.0):
-    - Flutter
-  - connectivity_plus (0.0.1):
-    - Flutter
-  - device_info_plus (0.0.1):
-    - Flutter
-  - file_selector_ios (0.0.1):
-    - Flutter
   - Flutter (1.0.0)
-  - flutter_inappwebview_ios (0.0.1):
-    - Flutter
-    - flutter_inappwebview_ios/Core (= 0.0.1)
-    - OrderedSet (~> 6.0.3)
-  - flutter_inappwebview_ios/Core (0.0.1):
-    - Flutter
-    - OrderedSet (~> 6.0.3)
-  - flutter_timezone (0.0.1):
-    - Flutter
-  - flutter_webrtc (1.6.2):
-    - Flutter
-    - WebRTC-SDK (= 150.7871.01)
-  - in_app_purchase_storekit (0.0.1):
-    - Flutter
-    - FlutterMacOS
-  - ios_document_picker (0.0.1):
-    - Flutter
-  - livekit_client (2.13.0):
-    - Flutter
-    - flutter_webrtc
-    - WebRTC-SDK (= 150.7871.01)
   - media_kit_libs_ios_video (1.0.4):
     - Flutter
   - media_kit_video (0.0.1):
     - Flutter
-  - OrderedSet (6.0.3)
-  - package_info_plus (0.4.5):
-    - Flutter
-  - path_provider_foundation (0.0.1):
-    - Flutter
-    - FlutterMacOS
-  - sensors_plus (0.0.1):
-    - Flutter
-  - Sentry/HybridSDK (8.58.4)
-  - sentry_flutter (9.30.0):
-    - Flutter
-    - FlutterMacOS
-    - Sentry/HybridSDK (= 8.58.4)
-  - share_plus (0.0.1):
-    - Flutter
-  - shared_preferences_foundation (0.0.1):
-    - Flutter
-    - FlutterMacOS
-  - sign_in_with_apple (0.0.1):
-    - Flutter
-    - FlutterMacOS
-  - storage_space (0.0.1):
-    - Flutter
-  - url_launcher_ios (0.0.1):
-    - Flutter
-  - wakelock_plus (0.0.1):
-    - Flutter
-  - WebRTC-SDK (150.7871.01)
 
 DEPENDENCIES:
-  - accessing_security_scoped_resource (from `.symlinks/plugins/accessing_security_scoped_resource/darwin`)
-  - app_links (from `.symlinks/plugins/app_links/ios`)
-  - connectivity_plus (from `.symlinks/plugins/connectivity_plus/ios`)
-  - device_info_plus (from `.symlinks/plugins/device_info_plus/ios`)
-  - file_selector_ios (from `.symlinks/plugins/file_selector_ios/ios`)
   - Flutter (from `Flutter`)
-  - flutter_inappwebview_ios (from `.symlinks/plugins/flutter_inappwebview_ios/ios`)
-  - flutter_timezone (from `.symlinks/plugins/flutter_timezone/ios`)
-  - flutter_webrtc (from `.symlinks/plugins/flutter_webrtc/ios`)
-  - in_app_purchase_storekit (from `.symlinks/plugins/in_app_purchase_storekit/darwin`)
-  - ios_document_picker (from `.symlinks/plugins/ios_document_picker/ios`)
-  - livekit_client (from `.symlinks/plugins/livekit_client/ios`)
   - media_kit_libs_ios_video (from `.symlinks/plugins/media_kit_libs_ios_video/ios`)
   - media_kit_video (from `.symlinks/plugins/media_kit_video/ios`)
-  - package_info_plus (from `.symlinks/plugins/package_info_plus/ios`)
-  - path_provider_foundation (from `.symlinks/plugins/path_provider_foundation/darwin`)
-  - sensors_plus (from `.symlinks/plugins/sensors_plus/ios`)
-  - sentry_flutter (from `.symlinks/plugins/sentry_flutter/ios`)
-  - share_plus (from `.symlinks/plugins/share_plus/ios`)
-  - shared_preferences_foundation (from `.symlinks/plugins/shared_preferences_foundation/darwin`)
-  - sign_in_with_apple (from `.symlinks/plugins/sign_in_with_apple/darwin`)
-  - storage_space (from `.symlinks/plugins/storage_space/ios`)
-  - url_launcher_ios (from `.symlinks/plugins/url_launcher_ios/ios`)
-  - wakelock_plus (from `.symlinks/plugins/wakelock_plus/ios`)
-
-SPEC REPOS:
-  trunk:
-    - OrderedSet
-    - Sentry
-    - WebRTC-SDK
 
 EXTERNAL SOURCES:
-  accessing_security_scoped_resource:
-    :path: ".symlinks/plugins/accessing_security_scoped_resource/darwin"
-  app_links:
-    :path: ".symlinks/plugins/app_links/ios"
-  connectivity_plus:
-    :path: ".symlinks/plugins/connectivity_plus/ios"
-  device_info_plus:
-    :path: ".symlinks/plugins/device_info_plus/ios"
-  file_selector_ios:
-    :path: ".symlinks/plugins/file_selector_ios/ios"
   Flutter:
     :path: Flutter
-  flutter_inappwebview_ios:
-    :path: ".symlinks/plugins/flutter_inappwebview_ios/ios"
-  flutter_timezone:
-    :path: ".symlinks/plugins/flutter_timezone/ios"
-  flutter_webrtc:
-    :path: ".symlinks/plugins/flutter_webrtc/ios"
-  in_app_purchase_storekit:
-    :path: ".symlinks/plugins/in_app_purchase_storekit/darwin"
-  ios_document_picker:
-    :path: ".symlinks/plugins/ios_document_picker/ios"
-  livekit_client:
-    :path: ".symlinks/plugins/livekit_client/ios"
   media_kit_libs_ios_video:
     :path: ".symlinks/plugins/media_kit_libs_ios_video/ios"
   media_kit_video:
     :path: ".symlinks/plugins/media_kit_video/ios"
-  package_info_plus:
-    :path: ".symlinks/plugins/package_info_plus/ios"
-  path_provider_foundation:
-    :path: ".symlinks/plugins/path_provider_foundation/darwin"
-  sensors_plus:
-    :path: ".symlinks/plugins/sensors_plus/ios"
-  sentry_flutter:
-    :path: ".symlinks/plugins/sentry_flutter/ios"
-  share_plus:
-    :path: ".symlinks/plugins/share_plus/ios"
-  shared_preferences_foundation:
-    :path: ".symlinks/plugins/shared_preferences_foundation/darwin"
-  sign_in_with_apple:
-    :path: ".symlinks/plugins/sign_in_with_apple/darwin"
-  storage_space:
-    :path: ".symlinks/plugins/storage_space/ios"
-  url_launcher_ios:
-    :path: ".symlinks/plugins/url_launcher_ios/ios"
-  wakelock_plus:
-    :path: ".symlinks/plugins/wakelock_plus/ios"
 
 SPEC CHECKSUMS:
-  accessing_security_scoped_resource: 4a87897646efbc3a4578e28ea4c08083d7bf3e67
-  app_links: a754cbec3c255bd4bbb4d236ecc06f28cd9a7ce8
-  connectivity_plus: cb623214f4e1f6ef8fe7403d580fdad517d2f7dd
-  device_info_plus: 21fcca2080fbcd348be798aa36c3e5ed849eefbe
-  file_selector_ios: ec57ec07954363dd730b642e765e58f199bb621a
-  Flutter: cabc95a1d2626b1b06e7179b784ebcf0c0cde467
-  flutter_inappwebview_ios: b89ba3482b96fb25e00c967aae065701b66e9b99
-  flutter_timezone: 7c838e17ffd4645d261e87037e5bebf6d38fe544
-  flutter_webrtc: 99283145164f482a16bf7122ef407b5d59d43158
-  in_app_purchase_storekit: 22cca7d08eebca9babdf4d07d0baccb73325d3c8
-  ios_document_picker: c346f87936f15bc75252e888cd975cd9709b7fb3
-  livekit_client: 55f2f6afa597719985fa4913f6e889eb2b7eacd8
+  Flutter: 71a624a5bc0c04062bf19101d501e466baf2fb47
   media_kit_libs_ios_video: 5a18affdb97d1f5d466dc79988b13eff6c5e2854
   media_kit_video: 1746e198cb697d1ffb734b1d05ec429d1fcd1474
-  OrderedSet: e539b66b644ff081c73a262d24ad552a69be3a94
-  package_info_plus: af8e2ca6888548050f16fa2f1938db7b5a5df499
-  path_provider_foundation: bb55f6dbba17d0dccd6737fe6f7f34fbd0376880
-  sensors_plus: b70a93b69dafdabd26ce4ac3f4d0529ab9acc4ca
-  Sentry: 5321d74bdd28d6f6f8beaa1ca06f1fdc746bff49
-  sentry_flutter: 52a33f5c4c91b05015a6d8c0b26c155776a07d7f
-  share_plus: eccd7beb7cea61271aeed1800e8ccb2b952c0c7f
-  shared_preferences_foundation: 7036424c3d8ec98dfe75ff1667cb0cd531ec82bb
-  sign_in_with_apple: 5e34677a4e74c5f42760f41b3bbe05343e84d171
-  storage_space: cb6dcfec9288e8adaa229233ed0585759a340280
-  url_launcher_ios: 7a95fa5b60cc718a708b8f2966718e93db0cef1b
-  wakelock_plus: d4ca1e4e4bc9de42cb55d57b5bdc158af318e3c6
-  WebRTC-SDK: 7dc931c64c00c735a614382f1a59cf65019c3c17
 
 PODFILE CHECKSUM: f9908673261c4b7f4e155145152052dc38e052f5
 

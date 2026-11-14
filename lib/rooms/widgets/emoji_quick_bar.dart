@@ -1,7 +1,8 @@
 import 'dart:math' as math;
+
 import '../../ui/booth_icons.g.dart';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:synctogether/rooms/emoji/emoji_logic.dart';
 import 'package:synctogether/rooms/emoji/emoji_prefs.dart';
@@ -249,9 +250,7 @@ class _QuickBarEditorState extends State<_QuickBarEditor> {
                 onClose: () => Navigator.of(context).pop(),
                 eyebrow: compact ? null : 'Chat',
                 title: 'Quick emoji',
-                subtitle: compact
-                    ? null
-                    : 'Pick a slot, then an emoji to pin there. Unpinned slots fill with your most used.',
+                subtitle: compact ? null : 'Pick a slot, then an emoji to pin there. Unpinned slots fill with your most used.',
               ),
             if (!bare) SizedBox(height: compact ? 8 : 14),
             if (inline)

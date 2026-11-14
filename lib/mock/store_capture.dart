@@ -9,7 +9,7 @@ import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:synctogether/pairing/pair_service.dart';
 import 'package:synctogether/platform.dart';
 import 'package:synctogether/profile/apple_iap_service.dart';
-import 'package:window_manager/window_manager.dart';
+import 'package:synctogether/window/app_window.dart';
 
 final GlobalKey storeCaptureBoundaryKey = GlobalKey();
 
@@ -46,16 +46,15 @@ const _kCaptureRatio = 1.5;
 Future<void> _sizeContentTo(Size logical) async {
   if (!isDesktop) return;
   try {
-    await windowManager.ensureInitialized();
-    await windowManager.setSize(logical);
+    await AppWindow.instance.setSize(logical);
     await Future.delayed(const Duration(milliseconds: 300));
     final box = storeCaptureBoundaryKey.currentContext?.size;
     if (box != null && box != logical) {
-      await windowManager.setSize(
+      await AppWindow.instance.setSize(
         Size(logical.width * 2 - box.width, logical.height * 2 - box.height),
       );
     }
-    await windowManager.center();
+    await AppWindow.instance.center();
   } catch (_) {}
 }
 

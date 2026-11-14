@@ -1,8 +1,9 @@
 import 'dart:async';
+
 import '../../ui/rolling_text.dart';
 import '../../ui/booth_icons.g.dart';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:synctogether/auth/auth_service.dart';
 import 'package:synctogether/ui/buttons.dart';
 import 'package:synctogether/ui/pt_motion.dart';

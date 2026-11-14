@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:synctogether/auth/webview_runtime.dart';
 import 'package:synctogether/diagnostics.dart';
@@ -359,7 +359,8 @@ function onloadTurnstile() {
         _webViewCreated = true;
         controller.addJavaScriptHandler(
           handlerName: 'turnstileToken',
-          callback: (args) {
+          callback: (JavaScriptHandlerFunctionData call) {
+            final args = call.args;
             final token = args.isNotEmpty ? args.first as String : null;
             if (mounted && token != null) {
               _timeout?.cancel();
@@ -369,7 +370,8 @@ function onloadTurnstile() {
         );
         controller.addJavaScriptHandler(
           handlerName: 'turnstileError',
-          callback: (args) {
+          callback: (JavaScriptHandlerFunctionData call) {
+            final args = call.args;
             // Cloudflare's code is the single most diagnostic
             // thing available here - 110200 is an unlisted
             // hostname, 300xxx/600xxx are render-side failures -

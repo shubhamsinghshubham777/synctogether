@@ -4,11 +4,14 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+import '../support/fake_app_window.dart';
+
 import 'package:synctogether/av/livekit_service.dart';
 import 'package:synctogether/mock/mock_dependencies.dart';
 import 'package:synctogether/profile/entitlement_service.dart';
@@ -105,6 +108,9 @@ Room _room() => Room(
   avLevel: .video,
 );
 
+/// The window the current room test runs against; set by [_pumpRoom].
+late FakeAppWindow _window;
+
 Future<_Harness> _pumpRoom(
   WidgetTester tester, {
   bool playing = true,
@@ -151,10 +157,7 @@ Future<_Harness> _pumpRoom(
   LiveKitService.isConfiguredOverride = false;
   LiveKitService.isMockMode = false;
 
-  tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
-    const MethodChannel('window_manager'),
-    (call) async => call.method == 'isFullScreen' ? fullscreen : null,
-  );
+  _window = FakeAppWindow(fullScreen: fullscreen).install();
   addTearDown(() {
     SyncService.defaultBackendOverride = null;
     LiveKitService.isConfiguredOverride = null;
@@ -445,12 +448,7 @@ void main() {
 
   group('layout transitions with chat open', () {
     Future<void> windowEvent(WidgetTester tester, String name) async {
-      const codec = StandardMethodCodec();
-      await tester.binding.defaultBinaryMessenger.handlePlatformMessage(
-        'window_manager',
-        codec.encodeMethodCall(MethodCall('onEvent', {'eventName': name})),
-        (_) {},
-      );
+      name == 'enter-full-screen' ? _window.enterFullScreen() : _window.leaveFullScreen();
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 400));
     }

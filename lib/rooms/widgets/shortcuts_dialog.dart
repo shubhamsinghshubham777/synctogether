@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
+
 import '../../ui/booth_icons.g.dart';
-import 'package:flutter/material.dart';
+
+import 'package:material_ui/material_ui.dart';
 import 'package:synctogether/platform.dart';
 import 'package:synctogether/ui/buttons.dart';
 import 'package:synctogether/ui/glass.dart';

@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:synctogether/ui/banners.dart';
 import 'package:synctogether/ui/buttons.dart';
@@ -17,8 +17,7 @@ class StreamingFallbackBanner extends StatelessWidget {
     kind: .info,
     icon: Symbols.cloud_rounded,
     title: 'Streaming the shared copy',
-    subtitle:
-        "Your own copy isn't on this device any more. Pick it again to watch from your own storage.",
+    subtitle: "Your own copy isn't on this device any more. Pick it again to watch from your own storage.",
     trailing: PTButton(
       label: 'Use my copy',
       variant: .secondary,

@@ -141,11 +141,9 @@ void main() {
     final live = up.forNight(night.id)!;
     expect(live.fraction, 0.75, reason: 'the planner sees every step');
     expect(live.etaSeconds, 9);
-    expect(
-      pair.calls.where((c) => c.startsWith('reportUploadProgress')),
-      ['reportUploadProgress:${night.id}:250:false'],
-      reason: 'the first report goes out, the rest wait for the interval',
-    );
+    expect(pair.calls.where((c) => c.startsWith('reportUploadProgress')), [
+      'reportUploadProgress:${night.id}:250:false',
+    ], reason: 'the first report goes out, the rest wait for the interval');
   });
 
   test('with a short interval the next report follows', () async {

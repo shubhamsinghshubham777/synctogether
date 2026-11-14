@@ -1,12 +1,14 @@
 import 'dart:async';
+
 import '../ui/booth_icons.g.dart';
+
 import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:fast_file_picker/fast_file_picker.dart';
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_symbols_icons/symbols.dart';
@@ -118,7 +120,7 @@ import 'package:synctogether/ui/pt_motion.dart';
 import 'package:synctogether/ui/pt_theme.dart';
 import 'package:synctogether/ui/responsive.dart';
 import 'package:synctogether/ui/system_ui.dart';
-import 'package:window_manager/window_manager.dart';
+import 'package:synctogether/window/app_window.dart';
 
 const bool kDemoMode = bool.fromEnvironment('DEMO_MODE', defaultValue: false);
 
@@ -158,7 +160,7 @@ String _orEmailSupport() {
   return email == null ? '' : ', or email $email';
 }
 
-class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProviderStateMixin {
+class _RoomScreenState extends State<RoomScreen> with AppWindowListener, TickerProviderStateMixin {
   Player? _ownedPlayer;
   Player get _player => widget.player ?? _ownedPlayer!;
 
@@ -970,11 +972,11 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
       unawaited(applyVideoQualityOptions(_player));
     }
     if (isDesktop) {
-      windowManager.addListener(this);
+      AppWindow.instance.addListener(this);
       // Seed the fullscreen state in case the window was put into fullscreen
       // (e.g. via keyboard shortcut or OS controls), as WindowListener only
       // reports subsequent transitions.
-      windowManager.isFullScreen().then((value) {
+      AppWindow.instance.isFullScreen().then((value) {
         if (mounted && value != _fullscreen) setState(() => _fullscreen = value);
       });
     }
@@ -1507,7 +1509,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     _rosterFold.dispose();
     ModerationService.instance.removeListener(_onBlocksChanged);
     if (_immersive) unawaited(_applySystemUi(immersive: false));
-    if (isDesktop) windowManager.removeListener(this);
+    if (isDesktop) AppWindow.instance.removeListener(this);
     for (final s in _subscriptions) {
       s.cancel();
     }
@@ -3853,8 +3855,8 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     if (!isDesktop || _togglingFullscreen) return;
     _togglingFullscreen = true;
     try {
-      final isFull = await windowManager.isFullScreen();
-      await windowManager.setFullScreen(!isFull);
+      final isFull = await AppWindow.instance.isFullScreen();
+      await AppWindow.instance.setFullScreen(!isFull);
     } catch (e, s) {
       reportNonFatal(e, s, during: 'toggling fullscreen');
     } finally {
@@ -3889,7 +3891,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     if (!isDesktop || _togglingFullscreen) return;
     _togglingFullscreen = true;
     try {
-      await windowManager.setFullScreen(false);
+      await AppWindow.instance.setFullScreen(false);
     } catch (e, s) {
       reportNonFatal(e, s, during: 'exiting fullscreen');
     } finally {
@@ -4435,8 +4437,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
     if (room.persistent) {
       return (
         title: 'Room saved',
-        body:
-            'Your persistent room is saved in your lobby. You can start another watch party anytime.',
+        body: 'Your persistent room is saved in your lobby. You can start another watch party anytime.',
         icon: Symbols.bookmark_rounded,
       );
     }
@@ -5974,8 +5975,7 @@ class _RoomScreenState extends State<RoomScreen> with WindowListener, TickerProv
             kind: .info,
             icon: Symbols.check_circle_rounded,
             title: 'Everyone has a local copy!',
-            subtitle:
-                'Playback is ready. Cancel upload to save quota, or keep uploading for late joiners.',
+            subtitle: 'Playback is ready. Cancel upload to save quota, or keep uploading for late joiners.',
             trailing: Row(
               mainAxisSize: MainAxisSize.min,
               spacing: 8,

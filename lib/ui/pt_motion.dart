@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// Motion tokens - the app's whole timing/easing vocabulary. Mirrors
 /// [PTColors]/[PTText]: screens pick a token, never an inline `Duration`.

@@ -1,10 +1,10 @@
 import 'dart:async';
 
 import 'package:synctogether/feedback/ui/bug_report_button.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:synctogether/ui/escape_back.dart';
 import 'package:flutter/services.dart' show MissingPluginException;
-import 'package:window_manager/window_manager.dart';
+import 'package:synctogether/window/app_window.dart';
 
 import '../nav.dart';
 import '../platform.dart';
@@ -47,14 +47,14 @@ class PairPage extends StatefulWidget {
   State<PairPage> createState() => _PairPageState();
 }
 
-class _PairPageState extends State<PairPage> with WindowListener {
+class _PairPageState extends State<PairPage> with AppWindowListener {
   bool _fullscreen = false;
 
   @override
   void initState() {
     super.initState();
     if (isDesktop) {
-      windowManager.addListener(this);
+      AppWindow.instance.addListener(this);
       unawaited(_syncFullscreen());
     }
   }
@@ -63,7 +63,7 @@ class _PairPageState extends State<PairPage> with WindowListener {
   /// page opens. A window with no native side (a test harness) just means "no".
   Future<void> _syncFullscreen() async {
     try {
-      final v = await windowManager.isFullScreen();
+      final v = await AppWindow.instance.isFullScreen();
       if (mounted && v != _fullscreen) setState(() => _fullscreen = v);
     } on MissingPluginException {
       // Nothing to read.
@@ -72,7 +72,7 @@ class _PairPageState extends State<PairPage> with WindowListener {
 
   @override
   void dispose() {
-    if (isDesktop) windowManager.removeListener(this);
+    if (isDesktop) AppWindow.instance.removeListener(this);
     super.dispose();
   }
 

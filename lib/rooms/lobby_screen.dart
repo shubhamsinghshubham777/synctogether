@@ -1,13 +1,14 @@
 import 'dart:async';
+
 import '../ui/progress_bar.dart';
 import '../ui/booth_icons.g.dart';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:go_router/go_router.dart';
 import 'package:synctogether/nav.dart';
 import 'package:material_symbols_icons/symbols.dart';
-import 'package:window_manager/window_manager.dart';
+import 'package:synctogether/window/app_window.dart';
 import 'package:synctogether/player/local_video.dart';
 import 'package:synctogether/player/local_video_chooser.dart';
 import 'package:synctogether/player/recent_videos.dart';
@@ -122,7 +123,7 @@ class LobbyScreen extends StatefulWidget {
 /// client from `expires_at`, so this only catches state another device changed.
 const kMyRoomsPollInterval = Duration(seconds: 60);
 
-class _LobbyScreenState extends State<LobbyScreen> with WindowListener {
+class _LobbyScreenState extends State<LobbyScreen> with AppWindowListener {
   final _nameController = TextEditingController();
   final _codeKey = GlobalKey<PTCodeInputState>();
   int _durationMinutes = 150;
@@ -157,8 +158,8 @@ class _LobbyScreenState extends State<LobbyScreen> with WindowListener {
   void initState() {
     super.initState();
     if (isDesktop) {
-      windowManager.addListener(this);
-      windowManager.isFullScreen().then((value) {
+      AppWindow.instance.addListener(this);
+      AppWindow.instance.isFullScreen().then((value) {
         if (mounted && value != _fullscreen) setState(() => _fullscreen = value);
       });
     }
@@ -239,7 +240,7 @@ class _LobbyScreenState extends State<LobbyScreen> with WindowListener {
     ProfileService.instance.removeListener(_onProfileChanged);
     _nameController.dispose();
     unawaited(_stagedVideo?.release());
-    if (isDesktop) windowManager.removeListener(this);
+    if (isDesktop) AppWindow.instance.removeListener(this);
     super.dispose();
   }
 

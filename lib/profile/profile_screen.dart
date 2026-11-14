@@ -1,19 +1,22 @@
 import 'dart:async';
+
 import 'package:synctogether/feedback/discovery/help_rows.dart';
 import 'package:synctogether/feedback/ui/bug_report_button.dart';
+
 import '../ui/reveal.dart';
 import '../ui/progress_bar.dart';
 import '../ui/booth_icons.g.dart';
+
 import 'dart:io';
 
 import 'package:fast_file_picker/fast_file_picker.dart';
 import 'package:file_selector/file_selector.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:synctogether/env.dart';
 import 'package:synctogether/nav.dart';
 import 'package:synctogether/ui/escape_back.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:window_manager/window_manager.dart';
+import 'package:synctogether/window/app_window.dart';
 import 'package:synctogether/app_version.dart';
 import 'package:synctogether/analytics.dart';
 import 'package:synctogether/analytics_consent.dart';
@@ -56,7 +59,7 @@ class ProfileScreen extends StatefulWidget {
   State<ProfileScreen> createState() => _ProfileScreenState();
 }
 
-class _ProfileScreenState extends State<ProfileScreen> with WindowListener {
+class _ProfileScreenState extends State<ProfileScreen> with AppWindowListener {
   bool _uploadingAvatar = false;
   bool? _mediaSharingRememberedChoice;
   bool _fullscreen = false;
@@ -65,8 +68,8 @@ class _ProfileScreenState extends State<ProfileScreen> with WindowListener {
   void initState() {
     super.initState();
     if (isDesktop) {
-      windowManager.addListener(this);
-      windowManager.isFullScreen().then((value) {
+      AppWindow.instance.addListener(this);
+      AppWindow.instance.isFullScreen().then((value) {
         if (mounted && value != _fullscreen) setState(() => _fullscreen = value);
       });
     }
@@ -83,7 +86,7 @@ class _ProfileScreenState extends State<ProfileScreen> with WindowListener {
 
   @override
   void dispose() {
-    if (isDesktop) windowManager.removeListener(this);
+    if (isDesktop) AppWindow.instance.removeListener(this);
     super.dispose();
   }
 

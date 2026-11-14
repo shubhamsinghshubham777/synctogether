@@ -72,8 +72,11 @@ typedef AvToken = ({
 /// could not use so the server re-pins the room elsewhere.
 /// [forceEndpoint] is the debug switch; the server ignores it unless the
 /// deployment sets `AV_DEBUG_SWITCHING`.
-typedef AvTokenFetcher =
-    Future<AvToken> Function(String roomId, {String? failedEndpoint, String? forceEndpoint});
+typedef AvTokenFetcher = Future<AvToken> Function(
+  String roomId, {
+  String? failedEndpoint,
+  String? forceEndpoint,
+});
 
 Future<AvToken> _fetchTokenFromSupabase(
   String roomId, {

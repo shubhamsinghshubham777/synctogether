@@ -101,13 +101,11 @@ void main() {
     });
 
     test('chat-like keys are dropped from data trees', () {
-      final out =
-          redactValue({
-                'message': 'hello',
-                'room': 'K7Q2ZP',
-                'nested': {'text': 'x', 'ms': 3},
-              })
-              as Map;
+      final out = redactValue({
+        'message': 'hello',
+        'room': 'K7Q2ZP',
+        'nested': {'text': 'x', 'ms': 3},
+      }) as Map;
       expect(out['message'], '<omitted>');
       expect(out['room'], 'K7Q2ZP');
       expect((out['nested'] as Map)['text'], '<omitted>');
@@ -284,9 +282,12 @@ void main() {
     test('a code goes straight to the server; a queued id is kept on the device', () async {
       final api = _Api()..failWith = const SocketException('offline');
       final svc = _service(api, dir);
-      final queued =
-          await svc.submit(capture, category: null, note: 'later', includeScreenshot: false)
-              as Queued;
+      final queued = await svc.submit(
+        capture,
+        category: null,
+        note: 'later',
+        includeScreenshot: false,
+      ) as Queued;
       // The success screen toggles and adds details before the report has a code.
       await svc.setNotifyWhenFixed(queued.localId, false);
       await svc.appendNote(queued.localId, '  it was the second film  ');

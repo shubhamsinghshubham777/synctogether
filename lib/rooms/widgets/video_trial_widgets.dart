@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:synctogether/av/video_trial.dart';
 import 'package:synctogether/ui/booth_icons.g.dart';
 import 'package:synctogether/ui/glass.dart';

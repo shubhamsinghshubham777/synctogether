@@ -1,8 +1,9 @@
 import 'dart:async';
+
 import '../../ui/reveal.dart';
 import '../../ui/booth_icons.g.dart';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:synctogether/diagnostics.dart';
 import 'package:synctogether/player/subtitles/subtitle_prefs.dart';

@@ -1,6 +1,6 @@
 import 'dart:math' as math;
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:synctogether/rewards/rewards_models.dart';
 import 'package:synctogether/sync/sync_logic.dart';
 import 'package:synctogether/ui/identity.dart';

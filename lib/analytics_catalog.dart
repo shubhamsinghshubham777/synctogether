@@ -82,8 +82,7 @@ const kAnalyticsEvents = <AnalyticsEventDoc>[
     event: 'onboarding_finished',
     group: .install,
     what: 'You finished the two first-run questions.',
-    why:
-        'Shows whether people come for friends or for a partner, so we know which first steps to make easier.',
+    why: 'Shows whether people come for friends or for a partner, so we know which first steps to make easier.',
     properties: ['path (friends, partner, just looking, or an invite)'],
   ),
   AnalyticsEventDoc(
@@ -161,17 +160,14 @@ const kAnalyticsEvents = <AnalyticsEventDoc>[
     event: 'local_video_chosen',
     group: .rooms,
     what: 'You picked a video on your device: from Photos, from Files, or from your Recent list.',
-    why:
-        'Whether the Photos and Recent shortcuts are used, or whether the plain file picker is enough.',
+    why: 'Whether the Photos and Recent shortcuts are used, or whether the plain file picker is enough.',
     properties: ['where it came from (Photos, Files or Recent), never the file or its name'],
   ),
   AnalyticsEventDoc(
     event: 'stream_notice_answered',
     group: .engagement,
-    what:
-        'You answered the note about a high-quality video and your connection: Buffer ahead or Keep going.',
-    why:
-        'Whether the note helps or only gets in the way, so we can stop showing it if it is the latter.',
+    what: 'You answered the note about a high-quality video and your connection: Buffer ahead or Keep going.',
+    why: 'Whether the note helps or only gets in the way, so we can stop showing it if it is the latter.',
     properties: ['which button (Buffer ahead or Keep going), never the video'],
   ),
   AnalyticsEventDoc(
@@ -395,8 +391,7 @@ const kAnalyticsEvents = <AnalyticsEventDoc>[
     event: 'pair_invite_emailed',
     group: .pair,
     what: 'You invited your person by email.',
-    why:
-        'Whether people prefer typing an address to sending a link. The address itself is never sent to us as analytics.',
+    why: 'Whether people prefer typing an address to sending a link. The address itself is never sent to us as analytics.',
   ),
   AnalyticsEventDoc(
     event: 'pair_accepted',
@@ -440,8 +435,7 @@ const kAnalyticsEvents = <AnalyticsEventDoc>[
     event: 'pair_year_shared',
     group: .pair,
     what: 'You shared your year-together card.',
-    why:
-        'Whether the card is something people want to post - the one thing here that might bring someone new.',
+    why: 'Whether the card is something people want to post - the one thing here that might bring someone new.',
   ),
   AnalyticsEventDoc(
     event: 'push_enabled',
@@ -456,16 +450,14 @@ const kAnalyticsEvents = <AnalyticsEventDoc>[
     event: 'bug_report_opened',
     group: .feedback,
     what: 'You opened the bug report sheet.',
-    why:
-        'Shows whether people find the button, and which door they used (button, shortcut, shake, a prompt or Profile).',
+    why: 'Shows whether people find the button, and which door they used (button, shortcut, shake, a prompt or Profile).',
     properties: ['where you opened it from'],
   ),
   AnalyticsEventDoc(
     event: 'bug_report_sent',
     group: .feedback,
     what: 'You sent a bug report.',
-    why:
-        'Tells us how many problems reach us instead of a store review, and which areas break most.',
+    why: 'Tells us how many problems reach us instead of a store review, and which areas break most.',
     properties: [
       'the category you picked (video, sound, sync, chat, camera or other)',
       'whether a screenshot went with it',
@@ -482,8 +474,7 @@ const kAnalyticsEvents = <AnalyticsEventDoc>[
     event: 'bug_nudge_tapped',
     group: .feedback,
     what: 'You tapped Send a report on a prompt that appeared after something went wrong.',
-    why:
-        'Whether asking at the moment of trouble works better than waiting for you to look for the button.',
+    why: 'Whether asking at the moment of trouble works better than waiting for you to look for the button.',
     properties: ['what triggered the prompt (stall, reconnect, upload, error or crash)'],
   ),
   AnalyticsEventDoc(

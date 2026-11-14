@@ -481,8 +481,7 @@ enum RoomErrorCode {
   uploadQuotaExceeded(
     'upload_quota_exceeded',
     "You've reached your weekly sharing quota (2.5 GB). It refills as older uploads age out.",
-    upsell:
-        "You've reached your weekly sharing quota (2.5 GB). Upgrade to Premium for unlimited sharing.",
+    upsell: "You've reached your weekly sharing quota (2.5 GB). Upgrade to Premium for unlimited sharing.",
   ),
   uploadCooldownActive(
     'upload_cooldown_active',

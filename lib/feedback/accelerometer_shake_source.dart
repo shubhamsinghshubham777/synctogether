@@ -28,9 +28,9 @@ class AccelerometerShakeSource implements ShakeSource {
     return _sensor().where((s) => _detector.add(s.x, s.y, s.z, _clock())).map<void>((_) {});
   }
 
-  static Stream<AccelerationSample> _realSensor() => userAccelerometerEventStream(
-    samplingPeriod: SensorInterval.gameInterval,
-  ).map((e) => (x: e.x, y: e.y, z: e.z));
+  static Stream<AccelerationSample> _realSensor() =>
+      userAccelerometerEventStream(samplingPeriod: SensorInterval.gameInterval)
+          .map((e) => (x: e.x, y: e.y, z: e.z));
 
   static Duration Function() _stopwatchClock() {
     final sw = Stopwatch()..start();

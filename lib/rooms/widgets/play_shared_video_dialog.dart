@@ -1,5 +1,7 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
+
 import '../../ui/booth_icons.g.dart';
+
 import 'package:synctogether/player/youtube/youtube_links.dart';
 import 'package:synctogether/ui/buttons.dart';
 import 'package:synctogether/ui/loader.dart';

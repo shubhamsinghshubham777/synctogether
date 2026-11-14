@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:synctogether/rooms/room_models.dart';
 import 'package:synctogether/rooms/widgets/ended_room_dialog.dart';

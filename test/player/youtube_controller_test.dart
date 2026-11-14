@@ -3,14 +3,21 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:synctogether/player/youtube/pt_youtube_controller.dart';
 
 class FakeInAppWebViewController extends Fake implements InAppWebViewController {
-  final Map<String, JavaScriptHandlerCallback> handlers = {};
+  final Map<String, Function> handlers = {};
   final List<String> executedJs = [];
 
+  /// Calls a registered handler the way the plugin does: with the call's data.
+  dynamic fire(String handlerName, List<dynamic> args) => handlers[handlerName]!(
+    JavaScriptHandlerFunctionData(
+      args: args,
+      isMainFrame: true,
+      origin: WebUri('https://www.youtube.com'),
+      requestUrl: WebUri('https://www.youtube.com/'),
+    ),
+  );
+
   @override
-  void addJavaScriptHandler({
-    required String handlerName,
-    required JavaScriptHandlerCallback callback,
-  }) {
+  void addJavaScriptHandler({required String handlerName, required Function callback}) {
     handlers[handlerName] = callback;
   }
 
@@ -49,7 +56,7 @@ void main() {
       final fakeWeb = FakeInAppWebViewController();
       controller.attach(fakeWeb);
 
-      fakeWeb.handlers['ytReady']!([
+      fakeWeb.fire('ytReady', [
         {'duration': 120, 'position': 0},
       ]);
 
@@ -66,19 +73,19 @@ void main() {
       controller.attach(fakeWeb);
 
       // Normal video ready
-      fakeWeb.handlers['ytReady']!([
+      fakeWeb.fire('ytReady', [
         {'duration': 1800, 'position': 0, 'state': -1},
       ]);
       expect(controller.duration, equals(const Duration(seconds: 1800)));
 
       // Ad starts playing (e.g. 15 second bumper ad)
-      fakeWeb.handlers['ytAdState']!([
+      fakeWeb.fire('ytAdState', [
         {'isAd': true},
       ]);
       expect(controller.isAdPlaying, isTrue);
 
       // Snapshot ticks with ad duration and position
-      fakeWeb.handlers['ytTick']!([
+      fakeWeb.fire('ytTick', [
         {'duration': 15, 'position': 3, 'isAd': true},
       ]);
 
@@ -92,7 +99,7 @@ void main() {
       expect(fakeWeb.executedJs.any((js) => js.contains('ptSeek')), isFalse);
 
       // Ad finishes
-      fakeWeb.handlers['ytAdState']!([
+      fakeWeb.fire('ytAdState', [
         {'isAd': false},
       ]);
       expect(controller.isAdPlaying, isFalse);
@@ -118,7 +125,7 @@ void main() {
       expect(fakeWeb.executedJs.contains('ptPause()'), isTrue);
 
       // 2. Incoming ticker snapshot with isAd: false must not clobber simulated ad
-      fakeWeb.handlers['ytTick']!([
+      fakeWeb.fire('ytTick', [
         {'position': 10.0, 'duration': 100.0, 'state': 1, 'isAd': false},
       ]);
       expect(controller.isAdPlaying, isTrue);
@@ -140,7 +147,7 @@ void main() {
       expect(controller.captionTracks.length, equals(1));
       expect(controller.captionTracks.first.isOff, isTrue);
 
-      fakeWeb.handlers['ytCaptions']!([
+      fakeWeb.fire('ytCaptions', [
         {
           'tracks': [
             {'languageCode': 'en', 'displayName': 'English', 'kind': 'standard'},
@@ -180,7 +187,7 @@ void main() {
         controller.attach(fakeWeb);
 
         // Initial tracks received, default English
-        fakeWeb.handlers['ytCaptions']!([
+        fakeWeb.fire('ytCaptions', [
           {
             'tracks': [
               {'languageCode': 'en', 'displayName': 'English', 'kind': 'standard'},
@@ -196,7 +203,7 @@ void main() {
         expect(controller.selectedCaptionTrack?.languageCode, equals('ja'));
 
         // Stale event arrives from YouTube with active: en (e.g. onApiChange / getOption quirk)
-        fakeWeb.handlers['ytCaptions']!([
+        fakeWeb.fire('ytCaptions', [
           {
             'tracks': [
               {'languageCode': 'en', 'displayName': 'English', 'kind': 'standard'},

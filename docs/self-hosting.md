@@ -56,7 +56,7 @@ flowchart TD
 
 Before starting, ensure you have the following installed on your machine:
 
-1. **[FVM](https://fvm.app)** (Flutter Version Management) or **Flutter SDK 3.44.8** (pinned in `.fvmrc`):
+1. **[FVM](https://fvm.app)** (Flutter Version Management) or **Flutter SDK 3.50.0** (pinned in `.fvmrc`):
    ```bash
    dart pub global activate fvm
    fvm install

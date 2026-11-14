@@ -189,20 +189,17 @@ void main() {
     bool rail(double boxHeight, RoomBarForm f) =>
         railPlanFor(railSlotHeight(boxHeight, f)).holdsTwo;
 
-    test(
-      '667x375, chat closed: slot 555 would fit F1 but for the wider av gap, and F1 leaves one tile -> F2 (board C)',
-      () {
-        expect(
-          pickBarForm(
-            slot: 555,
-            caps: _phone,
-            scaler: TextScaler.noScaling,
-            accepts: (f) => rail(375, f),
-          ),
-          RoomBarForm.f2,
-        );
-      },
-    );
+    test('667x375, chat closed: slot 555 would fit F1 but for the wider av gap, and F1 leaves one tile -> F2 (board C)', () {
+      expect(
+        pickBarForm(
+          slot: 555,
+          caps: _phone,
+          scaler: TextScaler.noScaling,
+          accepts: (f) => rail(375, f),
+        ),
+        RoomBarForm.f2,
+      );
+    });
 
     test('844x390, chat closed: F1 leaves a 172 slot, two tiles -> F1 (board A)', () {
       expect(

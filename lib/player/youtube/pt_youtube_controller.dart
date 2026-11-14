@@ -230,7 +230,8 @@ class PTYouTubeController extends ChangeNotifier {
     return first is Map ? first.cast<String, dynamic>() : const {};
   }
 
-  void _onReady(List<dynamic> args) {
+  void _onReady(JavaScriptHandlerFunctionData call) {
+    final args = call.args;
     if (_disposed) return;
     _readyDeadline?.cancel();
     _isReady = true;
@@ -254,7 +255,8 @@ class PTYouTubeController extends ChangeNotifier {
     notifyListeners();
   }
 
-  void _onStateChange(List<dynamic> args) {
+  void _onStateChange(JavaScriptHandlerFunctionData call) {
+    final args = call.args;
     if (_disposed) return;
     final data = _payload(args);
     _playerState = _stateFromCode(data['state'] as num?);
@@ -262,7 +264,8 @@ class PTYouTubeController extends ChangeNotifier {
     notifyListeners();
   }
 
-  void _onTick(List<dynamic> args) {
+  void _onTick(JavaScriptHandlerFunctionData call) {
+    final args = call.args;
     if (_disposed) return;
     final before = (_position, _duration);
     _applySnapshot(_payload(args));
@@ -272,9 +275,10 @@ class PTYouTubeController extends ChangeNotifier {
   bool _debugSimulatedAd = false;
   bool get debugSimulatedAd => _debugSimulatedAd;
 
-  void _onAdState(List<dynamic> args) {
+  void _onAdState(JavaScriptHandlerFunctionData call) => _applyAdState(_payload(call.args));
+
+  void _applyAdState(Map<String, dynamic> data) {
     if (_disposed) return;
-    final data = _payload(args);
     // When debug simulated ad is active, prevent real iframe tick from cancelling it.
     if (_debugSimulatedAd && data['isAd'] == false) {
       return;
@@ -303,18 +307,18 @@ class PTYouTubeController extends ChangeNotifier {
     } else {
       play();
     }
-    _onAdState([
-      {'isAd': _debugSimulatedAd},
-    ]);
+    _applyAdState({'isAd': _debugSimulatedAd});
   }
 
-  void _onError(List<dynamic> args) {
+  void _onError(JavaScriptHandlerFunctionData call) {
+    final args = call.args;
     if (_disposed) return;
     _errorCode = (_payload(args)['code'] as num?)?.toInt() ?? -1;
     notifyListeners();
   }
 
-  void _onCaptions(List<dynamic> args) {
+  void _onCaptions(JavaScriptHandlerFunctionData call) {
+    final args = call.args;
     if (_disposed) return;
     final data = _payload(args);
     final rawTracks = data['tracks'] as List<dynamic>? ?? const [];

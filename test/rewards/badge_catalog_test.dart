@@ -1,10 +1,13 @@
 import 'package:flutter/gestures.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:synctogether/rewards/rewards_models.dart';
 import 'package:synctogether/rewards/widgets/badge_catalog_dialog.dart';
 import 'package:synctogether/rewards/widgets/badge_shelf.dart';
+
+import '../support/finders.dart';
+
 import 'package:synctogether/ui/pt_theme.dart';
 
 Widget wrap(Widget child) => MaterialApp(
@@ -162,7 +165,7 @@ void main() {
       await tester.pumpWidget(wrap(BadgeShelf(state: state, showLabels: false)));
       await settle(tester);
       // Tiles carry their title in the tooltip, not as text.
-      await tester.tap(find.byTooltip('First One · first rule'));
+      await tester.tap(byUiTooltip('First One · first rule'));
       await settle(tester);
       expect(find.text('Every badge'), findsOneWidget);
       expect(find.text('EARNED 12 AUG 2026'), findsOneWidget);

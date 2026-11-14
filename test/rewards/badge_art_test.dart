@@ -1,7 +1,8 @@
 import 'dart:io';
+
 import 'package:synctogether/ui/booth_icons.g.dart';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:synctogether/rewards/rewards_models.dart';

@@ -88,8 +88,7 @@ List<CoachTargetId> visibleRoomMarks(List<CoachTargetId> marks, bool Function(Co
     .roomCode => (
       kicker: '$n · BRING FRIENDS IN',
       title: "This is your room's code",
-      body:
-          'Tap it to copy an invite link. Friends open it, or type the six letters under Enter a code.',
+      body: 'Tap it to copy an invite link. Friends open it, or type the six letters under Enter a code.',
     ),
     .play => (
       kicker: '$n · ONE REMOTE',

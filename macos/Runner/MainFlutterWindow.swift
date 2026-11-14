@@ -27,7 +27,7 @@ class MainFlutterWindow: NSWindow {
     self.isMovableByWindowBackground = false
 
     // AppKit re-lays the title bar out on resize, focus and fullscreen exit,
-    // and window_manager restyles it after launch: re-place the lights each time.
+    // and the hidden title bar style is applied from Dart after launch: re-place the lights each time.
     for name in [
       NSWindow.didResizeNotification, NSWindow.didEndLiveResizeNotification,
       NSWindow.didBecomeKeyNotification, NSWindow.didBecomeMainNotification,
@@ -72,7 +72,7 @@ class MainFlutterWindow: NSWindow {
 
     super.awakeFromNib()
     DispatchQueue.main.async { [weak self] in self?.placeTrafficLights() }
-    // window_manager applies its hidden title bar style from Dart a moment later.
+    // the hidden title bar style is applied from Dart (AppWindow.configure) a moment later.
     DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { [weak self] in self?.placeTrafficLights() }
   }
 

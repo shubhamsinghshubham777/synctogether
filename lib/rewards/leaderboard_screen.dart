@@ -1,17 +1,19 @@
 import 'dart:async';
+
 import 'package:synctogether/feedback/ui/bug_report_button.dart';
+
 import '../ui/reveal.dart';
 import '../ui/panel_switcher.dart';
 import '../ui/optical.dart';
 import '../ui/booth_icons.g.dart';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:synctogether/nav.dart';
 import 'package:synctogether/ui/escape_back.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:window_manager/window_manager.dart';
+import 'package:synctogether/window/app_window.dart';
 
 import '../analytics.dart';
 import '../analytics_consent.dart';
@@ -73,7 +75,7 @@ class LeaderboardScreen extends StatefulWidget {
   State<LeaderboardScreen> createState() => _LeaderboardScreenState();
 }
 
-class _LeaderboardScreenState extends State<LeaderboardScreen> with WindowListener {
+class _LeaderboardScreenState extends State<LeaderboardScreen> with AppWindowListener {
   LeaderboardScope _scope = .circle;
   LeaderboardPeriod _period = .week;
 
@@ -85,8 +87,8 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> with WindowListen
   void initState() {
     super.initState();
     if (isDesktop) {
-      windowManager.addListener(this);
-      windowManager.isFullScreen().then((value) {
+      AppWindow.instance.addListener(this);
+      AppWindow.instance.isFullScreen().then((value) {
         if (mounted && value != _fullscreen) setState(() => _fullscreen = value);
       });
     }
@@ -97,7 +99,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> with WindowListen
 
   @override
   void dispose() {
-    if (isDesktop) windowManager.removeListener(this);
+    if (isDesktop) AppWindow.instance.removeListener(this);
     super.dispose();
   }
 

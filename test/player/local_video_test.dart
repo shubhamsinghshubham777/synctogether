@@ -62,9 +62,8 @@ void main() {
 
   group('desktop', () {
     test('adopts a path, keeping the real file name', () async {
-      final r = await access(
-        desktop: true,
-      ).adoptPick(pickerName: 'Movie (2005).mkv', path: movie.path);
+      final r = await access(desktop: true)
+          .adoptPick(pickerName: 'Movie (2005).mkv', path: movie.path);
       expect(r.isReady, isTrue);
       final v = r.video!;
       expect(v.name, 'Movie (2005).mkv');
@@ -90,9 +89,8 @@ void main() {
     test('reopen of a path', () async {
       final ok = await access(desktop: true).reopen(PathReference(movie.path), name: 'Movie.mkv');
       expect(ok.isReady, isTrue);
-      final gone = await access(
-        desktop: true,
-      ).reopen(PathReference('${tmp.path}/x.mkv'), name: 'x');
+      final gone = await access(desktop: true)
+          .reopen(PathReference('${tmp.path}/x.mkv'), name: 'x');
       expect(gone.reason, UnavailableReason.missing);
     });
   });
@@ -163,9 +161,8 @@ void main() {
 
   group('ios', () {
     test('starts scope, bookmarks and holds access until release', () async {
-      final r = await access(
-        ios: true,
-      ).adoptPick(pickerName: 'Movie (2005).mkv', path: movie.path, uri: 'file://${movie.path}');
+      final r = await access(ios: true)
+          .adoptPick(pickerName: 'Movie (2005).mkv', path: movie.path, uri: 'file://${movie.path}');
       final v = r.video!;
       expect(fake.log, ['start', 'ensureLocal', 'bookmark']);
       expect(v.reference, isA<BookmarkReference>());
@@ -193,9 +190,8 @@ void main() {
     test('an iCloud-evicted file reports downloading, then ready', () async {
       fake.availability.addAll([LocalAvailability.downloading, LocalAvailability.downloading]);
       fake.defaultAvailability = LocalAvailability.local;
-      final pending = await access(
-        ios: true,
-      ).adoptPick(path: movie.path, uri: 'file://${movie.path}');
+      final pending = await access(ios: true)
+          .adoptPick(path: movie.path, uri: 'file://${movie.path}');
       expect(pending.status, ResolveStatus.downloading);
       final done = await access(ios: true).waitForDownload(pending);
       expect(done.isReady, isTrue);

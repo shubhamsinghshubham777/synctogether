@@ -303,9 +303,8 @@ void main() {
       expect(off.contexts.single.toString(), isNot(contains('Secret')));
 
       final on = _Api();
-      await svc(
-        on,
-      ).submit(base.copyWith(includeFileName: true), category: null, includeScreenshot: false);
+      await svc(on)
+          .submit(base.copyWith(includeFileName: true), category: null, includeScreenshot: false);
       expect(on.contexts.single['media_file_name'], 'Secret Film.mkv');
       expect((on.contexts.single['summary'] as Map)['file'], 'Secret Film.mkv');
     });

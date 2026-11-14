@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../platform.dart';
 
@@ -24,9 +24,9 @@ abstract final class PTBar {
   /// The height of one bar item. [touch] defaults to "this is not a desktop".
   static double height(BuildContext context, {bool? touch}) {
     final isTouch = touch ?? !isDesktop;
-    final scaled = MediaQuery.textScalerOf(
-      context,
-    ).clamp(maxScaleFactor: maxTextScale).scale(isTouch ? itemHeightTouch : itemHeight);
+    final scaled = MediaQuery.textScalerOf(context)
+        .clamp(maxScaleFactor: maxTextScale)
+        .scale(isTouch ? itemHeightTouch : itemHeight);
     return isTouch ? scaled : scaled.clamp(itemHeight, itemHeightDesktopMax);
   }
 }

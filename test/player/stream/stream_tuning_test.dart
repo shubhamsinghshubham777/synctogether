@@ -64,9 +64,9 @@ void main() {
       expect(localFileStreamOptions['stream-lavf-o'], '');
       expect(localFileStreamOptions.containsKey('demuxer-lavf-o'), isFalse);
       expect(
-        remoteStreamOptions(
-          device: .desktop,
-        ).keys.toSet().containsAll(localFileStreamOptions.keys.toSet()),
+        remoteStreamOptions(device: .desktop).keys
+            .toSet()
+            .containsAll(localFileStreamOptions.keys.toSet()),
         isTrue,
         reason: 'every remote option must have a reset',
       );

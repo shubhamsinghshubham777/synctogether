@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:app_links/app_links.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:synctogether/analytics.dart';
@@ -50,7 +50,7 @@ import 'package:synctogether/nav.dart';
 import 'package:synctogether/profile/profile_shortcut.dart';
 import 'package:synctogether/ui/error_boundary.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:window_manager/window_manager.dart';
+import 'package:synctogether/window/app_window.dart';
 
 const bool kCaptureStore = bool.fromEnvironment('CAPTURE_STORE', defaultValue: false);
 const bool kCaptureWebsite = bool.fromEnvironment('CAPTURE_WEBSITE', defaultValue: false);
@@ -75,15 +75,21 @@ Future<void> main() async {
     // flutter_webrtc raise some from un-awaited futures inside the SDK, which
     // arrive here as unhandled. Whatever the classifiers call transient is
     // dropped to a breadcrumb at the one place everything funnels through.
+    // Sentry 10 drops the event if this throws, so a classifier failing must
+    // keep the event rather than lose the report.
     options.beforeSend = (event, hint) {
-      final error = event.throwable;
-      if (error != null && (isTransientNetworkError(error) || isTransientAvError(error))) {
-        trace('dropped transient error', category: 'network', data: {'error': '$error'});
-        return null;
-      }
-      if (error != null && isMalformedAuthCallback(error)) {
-        trace('dropped malformed auth callback', category: 'auth', data: {'error': '$error'});
-        return null;
+      try {
+        final error = event.throwable;
+        if (error != null && (isTransientNetworkError(error) || isTransientAvError(error))) {
+          trace('dropped transient error', category: 'network', data: {'error': '$error'});
+          return null;
+        }
+        if (error != null && isMalformedAuthCallback(error)) {
+          trace('dropped malformed auth callback', category: 'auth', data: {'error': '$error'});
+          return null;
+        }
+      } catch (_) {
+        // Fall through: report it.
       }
       return event;
     };
@@ -108,9 +114,7 @@ Future<void> _bootstrap() async {
   MediaKit.ensureInitialized();
   // OS-window fullscreen (F key in a room) and window sizing needs the manager ready up front.
   if (isDesktop) {
-    await windowManager.ensureInitialized();
-    await windowManager.setMinimumSize(kDesktopMinWindowSize);
-    await windowManager.setTitleBarStyle(TitleBarStyle.hidden, windowButtonVisibility: true);
+    await AppWindow.instance.configure(minimumSize: kDesktopMinWindowSize);
   } else if (!kIsWeb) {
     // Draw behind the status and navigation bars on every Android version, not
     // only where targetSdk 35 forces it on Android 15: one layout contract,

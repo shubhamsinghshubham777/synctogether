@@ -1,5 +1,7 @@
 import 'package:flutter/widgets.dart';
+
 import '../ui/booth_icons.g.dart';
+
 import 'package:material_symbols_icons/symbols.dart';
 
 import 'rewards_logic.dart';

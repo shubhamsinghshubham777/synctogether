@@ -158,9 +158,8 @@ Future<void> main() async {
       .where((r) => r['pass'] != true && !(r['file']! as String).startsWith('known_gap_'))
       .map((r) => r['file'])
       .toList();
-  File(
-    '$_out/codec_probe.json',
-  ).writeAsStringSync(const JsonEncoder.withIndent(' ').convert(report));
+  File('$_out/codec_probe.json')
+      .writeAsStringSync(const JsonEncoder.withIndent(' ').convert(report));
   final passed = rows.where((r) => r['pass'] == true).length;
   final gaps = rows
       .where((r) => r['pass'] != true && (r['file']! as String).startsWith('known_gap_'))

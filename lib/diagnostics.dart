@@ -67,9 +67,8 @@ bool isMalformedAuthCallback(Object error) =>
     error is AuthException &&
     error.statusCode == null &&
     error.code == null &&
-    RegExp(
-      r'^No (access_token|expires_in|refresh_token|token_type) detected\.$',
-    ).hasMatch(error.message);
+    RegExp(r'^No (access_token|expires_in|refresh_token|token_type) detected\.$')
+        .hasMatch(error.message);
 
 /// The HTTP status behind a [PostgrestException] that came from a gateway
 /// rather than from Postgres, or null for a real database answer.

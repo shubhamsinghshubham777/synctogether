@@ -12,7 +12,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'package:path_provider/path_provider.dart';
@@ -120,9 +120,8 @@ Future<void> main() async {
       'tone-mapping': await prop('tone-mapping'),
     };
     label.value = s.entries.map((e) => '${e.key}=${e.value}').join('  ');
-    File(
-      '${docs.path}/status.json',
-    ).writeAsStringSync(const JsonEncoder.withIndent(' ').convert(s));
+    File('${docs.path}/status.json')
+        .writeAsStringSync(const JsonEncoder.withIndent(' ').convert(s));
     debugPrint('STATUS ${jsonEncode(s)}');
   });
 }

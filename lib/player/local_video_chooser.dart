@@ -5,7 +5,7 @@ import 'dart:math' as math;
 
 import 'package:fast_file_picker/fast_file_picker.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:synctogether/analytics.dart';
 import 'package:synctogether/diagnostics.dart';
 import 'package:synctogether/platform.dart';

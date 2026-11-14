@@ -1,4 +1,5 @@
 import 'package:flutter/widgets.dart';
+
 import 'pt_theme.dart';
 
 class ScrollFadeEdge extends StatefulWidget {

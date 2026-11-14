@@ -1,7 +1,9 @@
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import '../support/fake_app_window.dart';
+
 import 'package:synctogether/profile/entitlement_service.dart';
 import 'package:synctogether/profile/profile_models.dart';
 import 'package:synctogether/profile/profile_screen.dart';
@@ -24,10 +26,7 @@ void main() {
       );
       EntitlementService.instance.setLimitsForTesting(TierLimits.fallback);
 
-      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
-        const MethodChannel('window_manager'),
-        (call) async => call.method == 'isFullScreen' ? false : null,
-      );
+      FakeAppWindow(fullScreen: false).install();
 
       tester.view.physicalSize = const Size(1280, 800);
       tester.view.devicePixelRatio = 1.0;
@@ -53,10 +52,7 @@ void main() {
       );
       EntitlementService.instance.setLimitsForTesting(TierLimits.fallback);
 
-      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
-        const MethodChannel('window_manager'),
-        (call) async => call.method == 'isFullScreen' ? true : null,
-      );
+      FakeAppWindow(fullScreen: true).install();
 
       tester.view.physicalSize = const Size(1280, 800);
       tester.view.devicePixelRatio = 1.0;

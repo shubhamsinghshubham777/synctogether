@@ -28,7 +28,7 @@ depend on GitHub being reachable.
 - ANGLE (BSD-3-Clause, from Google ANGLE; the repackaging repo has no licence file): https://github.com/alexmercerind/flutter-windows-ANGLE-OpenGL-ES,
   `v1.0.1`, used by media_kit's Windows renderer
 - libwebrtc (MIT): https://github.com/webrtc-sdk/libwebrtc, release
-  `libwebrtc.m150.7871.02`, used by flutter_webrtc. Committed zip MD5: f1e3b552ffbdcfbd54e63e4d15953374
+  `libwebrtc.m150.7871.02`, used by flutter_webrtc, which downloads it itself at build time (nothing of it is committed here)
 
 ## media_kit
 

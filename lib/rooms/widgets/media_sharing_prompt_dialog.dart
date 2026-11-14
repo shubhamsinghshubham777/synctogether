@@ -1,6 +1,8 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
+
 import '../../ui/optical.dart';
 import '../../ui/booth_icons.g.dart';
+
 import 'package:synctogether/ui/buttons.dart';
 import 'package:synctogether/ui/glass.dart';
 import 'package:synctogether/ui/inputs.dart';
@@ -53,9 +55,9 @@ class _MediaSharingPromptDialogState extends State<_MediaSharingPromptDialog> {
     return '${(bytes / (1024 * 1024)).toStringAsFixed(0)} MB';
   }
 
-  void _pop(bool share) => Navigator.of(
-    context,
-  ).pop(MediaSharingPromptResult(shouldShare: share, rememberChoice: _rememberChoice));
+  void _pop(bool share) =>
+      Navigator.of(context)
+          .pop(MediaSharingPromptResult(shouldShare: share, rememberChoice: _rememberChoice));
 
   @override
   Widget build(BuildContext context) {

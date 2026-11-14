@@ -1,5 +1,7 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
+
 import '../../ui/booth_icons.g.dart';
+
 import 'package:lottie/lottie.dart';
 import 'package:synctogether/rooms/reactions.dart';
 import 'package:synctogether/rooms/widgets/reaction_overlay.dart';

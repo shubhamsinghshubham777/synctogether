@@ -85,8 +85,7 @@ class MediaSharingException implements Exception {
     if (code.contains('concurrent_upload_active')) {
       return const MediaSharingException(
         code: 'concurrent_upload_active',
-        message:
-            'Another upload is already in progress on your account. Please wait for it to finish or cancel it.',
+        message: 'Another upload is already in progress on your account. Please wait for it to finish or cancel it.',
       );
     }
 
@@ -228,8 +227,10 @@ class CancellationToken {
   }
 }
 
-typedef EdgeFunctionCaller =
-    Future<Map<String, dynamic>> Function(String action, Map<String, dynamic> body);
+typedef EdgeFunctionCaller = Future<Map<String, dynamic>> Function(
+  String action,
+  Map<String, dynamic> body,
+);
 typedef HttpClientFactory = HttpClient Function();
 
 class MediaSharingService {

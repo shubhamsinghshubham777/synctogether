@@ -117,12 +117,7 @@ class _PairPageState extends State<PairPage> with WindowListener {
                       padding: const EdgeInsets.only(left: 12),
                       child: _back(size: 36, iconSize: 18),
                     ),
-                    trailing: widget.trailing == null
-                        ? null
-                        : Padding(
-                            padding: const EdgeInsets.only(right: 16),
-                            child: widget.trailing,
-                          ),
+                    trailing: widget.trailing,
                   )
                 else
                   Padding(

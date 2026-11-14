@@ -234,7 +234,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> with WindowListen
                 ),
               ),
               trailing: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20.0),
+                padding: const EdgeInsets.only(left: 20.0),
                 child: TextButton(
                   onPressed: () => openPage(context, '/lobby/profile'),
                   style: TextButton.styleFrom(

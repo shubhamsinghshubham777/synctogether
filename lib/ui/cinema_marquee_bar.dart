@@ -109,7 +109,7 @@ class CinemaMarqueeBar extends StatelessWidget {
               if (showBugReport)
                 Center(
                   child: Padding(
-                    padding: EdgeInsets.only(left: 8, right: showWindowsButtons ? 6 : 14),
+                    padding: EdgeInsets.only(left: 12, right: showWindowsButtons ? 6 : 14),
                     child: const BugReportButton(compact: true),
                   ),
                 ),

@@ -386,7 +386,7 @@ class _ProfileScreenState extends State<ProfileScreen> with WindowListener {
                   ),
                   trailing: version != null
                       ? Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                          padding: const EdgeInsets.only(left: 24.0),
                           child: Text(
                             version,
                             style: PTText.mono.copyWith(fontSize: 11, color: PTColors.away),
@@ -450,7 +450,7 @@ class _ProfileScreenState extends State<ProfileScreen> with WindowListener {
             ),
             trailing: version != null
                 ? Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                    padding: const EdgeInsets.only(left: 24.0),
                     child: Text(
                       version,
                       style: PTText.mono.copyWith(fontSize: 11, color: PTColors.away),

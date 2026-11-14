@@ -1178,7 +1178,7 @@ class _LobbyScreenState extends State<LobbyScreen> with WindowListener {
               height: 52,
               fullscreen: _fullscreen,
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20.0),
+                padding: const EdgeInsets.only(left: 20.0),
                 child: _header(compact: false),
               ),
             )
@@ -1232,7 +1232,7 @@ class _LobbyScreenState extends State<LobbyScreen> with WindowListener {
               height: 52,
               fullscreen: _fullscreen,
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                padding: const EdgeInsets.only(left: 16.0),
                 child: _header(compact: false),
               ),
             )

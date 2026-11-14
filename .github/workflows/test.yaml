@@ -135,6 +135,11 @@ jobs:
           restore-keys: |
             pub-${{ runner.os }}-
 
+      # window_manager 0.7 compiles its native core (cnativeapi) through a build
+      # hook for the host OS, and on Linux that needs GTK 3, X11 and Xi headers.
+      - name: Install native build dependencies
+        run: sudo apt-get update && sudo apt-get install -y libgtk-3-dev libx11-dev libxi-dev pkg-config clang
+
       - name: Install dependencies
         run: flutter pub get
 

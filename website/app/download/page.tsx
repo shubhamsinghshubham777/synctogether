@@ -7,6 +7,8 @@ import { JoinStamp } from "@/components/JoinStamp";
 import { DownloadDoors } from "@/components/DownloadDoors";
 import { DownloadInviteActions } from "@/components/DownloadInviteActions";
 import { SendToComputer } from "@/components/SendToComputer";
+import { AndroidSeat } from "@/components/AndroidSeat";
+import { androidTestUrl, getSeatCounts } from "@/lib/android-testers-server";
 
 export const metadata: Metadata = {
   title: "Get SyncTogether for iPhone, iPad, Mac and Windows",
@@ -25,6 +27,8 @@ export default async function DownloadPage({
   // the install - showing it here is what lets somebody write it down before they leave.
   const inviteCode = normalizeRoomCode(code ?? "");
   const android = /android/i.test((await headers()).get("user-agent") ?? "");
+  // Android has no app yet: the card below replaces the dead end with a seat in the test.
+  const androidCounts = android ? await getSeatCounts() : null;
 
   return (
     <div className="relative pt-8 md:pt-14 pb-12 px-4 sm:px-6 lg:px-8 max-w-7xl min-[2000px]:max-w-[1920px] mx-auto space-y-10">
@@ -78,7 +82,8 @@ export default async function DownloadPage({
       />
 
       <div className="space-y-10 min-[2000px]:space-y-0 min-[2000px]:grid min-[2000px]:grid-cols-[1.6fr_1fr] min-[2000px]:grid-rows-[auto_1fr] min-[2000px]:gap-x-16 min-[2000px]:items-start">
-      <div className="min-[2000px]:col-start-2 min-[2000px]:row-start-1">
+      <div className="min-[2000px]:col-start-2 min-[2000px]:row-start-1 space-y-2 empty:hidden">
+        {androidCounts && <AndroidSeat compact source="download" counts={androidCounts} playUrl={androidTestUrl()} />}
         <SendToComputer android={android} />
       </div>
 

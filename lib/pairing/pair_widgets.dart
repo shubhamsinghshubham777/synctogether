@@ -1,8 +1,13 @@
+import 'package:flutter/foundation.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:url_launcher/url_launcher.dart';
 
+import '../diagnostics.dart';
+import '../env.dart';
 import '../ui/booth_icons.g.dart';
 import '../ui/glass.dart';
 import '../ui/identity.dart';
+import '../ui/optical.dart';
 import '../ui/pt_motion.dart';
 import '../ui/pt_theme.dart';
 import 'pair_logic.dart';
@@ -292,6 +297,70 @@ class PairNote extends StatelessWidget {
     textAlign: center ? TextAlign.center : TextAlign.start,
     style: PTText.finePrint.copyWith(color: color ?? PTColors.fgMute, height: 1.5),
   );
+}
+
+/// The Android early-access page for a partner who is on Android, the one phone
+/// with no app yet. Whoever is about to send a pair invite is exactly who knows
+/// whether their person is on Android, and one Android partner blocks the whole
+/// pair. Opens the website's /android card in the browser (`?from=app` files the
+/// sign-up under "app"); there is no screen of its own to review or maintain.
+///
+/// Hidden when this build has no website to open (a fork with no SITE_URL) and
+/// on Android itself, where the reader is already on the platform.
+bool get showsAndroidNudge =>
+    !kIsWeb && defaultTargetPlatform != TargetPlatform.android && Env.sitePage('android') != null;
+
+class PairAndroidNudge extends StatelessWidget {
+  const PairAndroidNudge({super.key});
+
+  Future<void> _open() async {
+    final page = Env.sitePage('android?from=app');
+    if (page == null) return;
+    try {
+      await launchUrl(page, mode: LaunchMode.externalApplication);
+    } catch (error, stack) {
+      // Nothing to open the browser with; the nudge is optional, so stay quiet.
+      reportNonFatal(error, stack, during: 'opening the Android early-access page');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final style = PTText.body.copyWith(fontSize: 14, color: PTColors.fgSoft);
+    return Semantics(
+      button: true,
+      label: 'Partner on Android? Save them a test seat',
+      excludeSemantics: true,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: _open,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 44),
+          child: Row(
+            spacing: 10,
+            children: [
+              PTOpticalIcon(BoothIcons.phone, beside: style, size: 16, color: PTColors.fgMute),
+              Expanded(
+                child: Text.rich(
+                  TextSpan(
+                    text: 'Partner on Android? ',
+                    children: [
+                      TextSpan(
+                        text: 'Save them a test seat',
+                        style: TextStyle(color: PTColors.link, fontWeight: .w500),
+                      ),
+                    ],
+                  ),
+                  style: style,
+                ),
+              ),
+              PTOpticalIcon(BoothIcons.arrowForward, beside: style, size: 14, color: PTColors.link),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 /// A mono "tag" chip: LOCAL FILE, YOUTUBE.

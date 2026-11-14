@@ -5,7 +5,8 @@ import { Check, Mail } from "lucide-react";
 
 /**
  * Shown to Android visitors only (the one phone with no app yet; iPhone and
- * iPad have the App Store door). The lit action is carrying this page to a
+ * iPad have the App Store door). The lit action there is a seat in the Android
+ * test (AndroidSeat); this is the quiet fallback, carrying the page to a
  * device that can install it. The page decides from the request's user-agent (it is
  * dynamic anyway), so the block is in the server HTML instead of popping in above
  * the doors after hydration. The page URL is
@@ -35,18 +36,14 @@ export function SendToComputer({ android }: { android: boolean }) {
   };
 
   return (
-    <div className="rounded-md border border-rail bg-seat p-5 flex flex-col gap-3">
-      <p className="text-[15px] text-gray-300 leading-[1.55]">
-        SyncTogether runs on iPhone, iPad, Mac and Windows. Send this page to one of those and install it
-        there.
-      </p>
+    <div className="flex flex-col items-start gap-1.5">
       <button
         type="button"
         onClick={send}
-        className="btn-primary-gradient inline-flex items-center justify-center gap-2.5 h-[52px] px-6 rounded-[4px] text-base font-semibold cursor-pointer"
+        className="inline-flex items-center gap-2 h-11 text-sm font-medium text-beam-400 hover:text-beam-300 cursor-pointer"
       >
         {copied ? <Check className="w-4 h-4" /> : <Mail className="w-4 h-4" />}
-        <span aria-live="polite">{copied ? "Link copied. Send it to your computer or iPhone" : "Send this to another device"}</span>
+        <span aria-live="polite">{copied ? "Link copied. Send it to your computer or iPhone" : "Or send this page to a computer"}</span>
       </button>
     </div>
   );

@@ -388,6 +388,7 @@ class _InviteFlow extends StatelessWidget {
                         ),
                       ],
                     ),
+                    if (showsAndroidNudge) const PairAndroidNudge(),
                     const _EmailInvite(),
                     const PairPushPrompt(text: 'Get a ping the moment they accept.'),
                     Row(

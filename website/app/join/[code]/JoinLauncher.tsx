@@ -12,6 +12,7 @@ import Link from "next/link";
 import { Check, Download, Mail } from "lucide-react";
 import { Ticket } from "@/components/Ticket";
 import { JoinStamp } from "@/components/JoinStamp";
+import { AndroidSeat } from "@/components/AndroidSeat";
 import { trackWebEvent } from "@/components/AnalyticsBeacon";
 import { useDesktopOS } from "@/components/hero/useDesktopOS";
 import { openAppLink } from "@/lib/openAppLink";
@@ -312,13 +313,16 @@ export function JoinLauncher({
             </ol>
 
             {phone ? (
+              // Android has no app yet: the lit action is a seat in the test, and
+              // carrying the invite to a device that can install it is the quiet one.
               <div className="flex flex-col gap-3">
-                <button onClick={copyDownloadLink} className={lit}>
+                <AndroidSeat compact source={kind} />
+                <button
+                  onClick={copyDownloadLink}
+                  className="inline-flex items-center justify-center gap-2 h-11 text-sm font-medium text-beam-400 hover:text-beam-300 cursor-pointer"
+                >
                   {copied ? <Check className="w-4 h-4" /> : <Mail className="w-4 h-4" />}
-                  <span aria-live="polite">{copied ? "Link copied. Send it to your computer or iPhone" : "Copy the download link"}</span>
-                </button>
-                <button onClick={attemptHandoff} className={outline}>
-                  Open in the app
+                  <span aria-live="polite">{copied ? "Link copied. Send it to your computer or iPhone" : "Or send the invite to a computer"}</span>
                 </button>
               </div>
             ) : (

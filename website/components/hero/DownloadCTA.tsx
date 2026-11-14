@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { SITE_CONFIG } from "@/lib/constants";
-import { Mail, Check } from "lucide-react";
+import { Mail, Check, Gift } from "lucide-react";
 import { PTButton } from "@/components/PTButton";
 import { useDesktopOS } from "./useDesktopOS";
 
@@ -95,9 +95,10 @@ export function DownloadCTA({ align = "center" }: { align?: "center" | "start" }
 
       <Link
         href="/android"
-        className="font-[family-name:var(--font-jetbrains-mono)] text-[12px] tracking-[0.08em] uppercase text-gray-400 hover:text-beam-500 transition-colors"
+        className="inline-flex items-center gap-2 font-[family-name:var(--font-jetbrains-mono)] text-[12px] tracking-[0.08em] uppercase text-beam-500 hover:text-beam-300 transition-colors"
       >
-        On Android? Save a test seat →
+        <Gift className="h-4 w-4 shrink-0" strokeWidth={1.8} aria-hidden="true" />
+        On Android? Join the test, get 14 days of Patron free →
       </Link>
     </div>
   );

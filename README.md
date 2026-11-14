@@ -124,7 +124,7 @@ Every release ships through a store, built via GitHub Actions (`.github/workflow
 - **macOS**: Mac App Store (`publish_mac_app_store.yaml`).
 - **iOS / iPadOS** (including iPhone Duo): App Store (`publish_ios_app_store.yaml`).
 - **Windows**: MSIX for the Microsoft Store (`publish_microsoft_store.yaml`).
-- **Android**: not released and not planned for now; no workflow publishes it.
+- **Android**: Google Play AAB (`publish_play_store.yaml`, internal track), run on request; not yet listed in the store.
 
 ---
 
@@ -135,10 +135,15 @@ Every release ships through a store, built via GitHub Actions (`.github/workflow
 | `lib/ui/` | Projection Booth design system: tokens (`PTColors`, `PTText`), buttons, inputs, loaders (`PTLoader`), dialogs |
 | `lib/auth/`, `lib/profile/` | Authentication flows, Turnstile captcha bridge, user profiles, entitlement management |
 | `lib/rooms/` | Lobby, room screen, participant grid, room lifecycle & service |
+| `lib/player/` | Media chooser, local video (media_kit), YouTube bridge, shared-media streaming, subtitles |
+| `lib/pairing/` | Pairs, Our Room, date nights, streaks and push |
+| `lib/rewards/` | Streaks, badges, leaderboards and recaps |
+| `lib/onboarding/`, `lib/feedback/` | First-night onboarding and coach marks; the bug button and bug reports |
+| `lib/mock/` | Demo data and the store/website/review screenshot capture flows |
 | `lib/sync/` | Lockstep synchronization engine (`SyncService`, `SyncBackend`, `SyncLogic`) |
 | `lib/av/` | LiveKit SFU audio/video connection & facecam tiles |
 | `docs/` | In-depth technical documentation & [Self-Hosting Guide](docs/self-hosting.md) |
-| `docker/` | Docker Compose and server configuration templates for self-hosting |
+| `docker/`, `deploy/`, `docker-compose.selfhost.yml` | Self-hosting LiveKit config and Compose stacks; the optional media-edge Cloudflare Worker |
 | `supabase/` | Database migrations (schema, RLS, RPCs, pg_cron), edge functions, auth config |
 | `website/` | Next.js 16 marketing site, store links, changelog, FAQ, and read-only account page |
 | `scripts/` | Developer environment orchestrator (`dev.sh`), clean slate reset, secrets tool, macOS signing, Instance B launcher |

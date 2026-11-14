@@ -31,11 +31,17 @@ Required and optional environment variables:
 - `SUPABASE_SERVICE_ROLE_KEY`: Supabase service role secret (server-only admin and metrics reads)
 - `NEXT_PUBLIC_SITE_URL`: Web portal origin URL (e.g. `http://localhost:3000` or `https://synctogether.app`) for OAuth redirects and invite bridges
 - `NEXT_PUBLIC_TURNSTILE_SITE_KEY`: Cloudflare Turnstile site key for captcha verification
-- `NEXT_PUBLIC_POSTHOG_KEY`: PostHog public project key for web telemetry (optional)
-- `NEXT_PUBLIC_POSTHOG_HOST`: PostHog host endpoint (defaults to `https://us.i.posthog.com`)
-- `NEXT_PUBLIC_SHOW_USAGE_STATS`: show the public usage-stats strip (optional)
-- `PROD_SUPABASE_URL` / `PROD_SUPABASE_SERVICE_ROLE_KEY`: production project for the `/admin` and `/internal/metrics` dashboards (optional)
-- `POSTHOG_PROJECT_URL`, `METRICS_INR_PER_USD`, `SUPABASE_DB_CAP_BYTES`: metrics-dashboard tuning (optional); see `.env.example`
+- `NEXT_PUBLIC_SUPPORT_EMAIL` / `NEXT_PUBLIC_COPYRIGHT_EMAIL`: contact addresses shown on the site and legal pages (required for a production build)
+- `NEXT_PUBLIC_OPERATOR_NAME`, `NEXT_PUBLIC_OPERATOR_ADDRESS`, `NEXT_PUBLIC_GOVERNING_LAW`: who runs the site, named on the legal pages (required for a production build)
+- `NEXT_PUBLIC_OPERATOR_URL`, `NEXT_PUBLIC_OPERATOR_TWITTER`, `NEXT_PUBLIC_DMCA_REGISTRATION`: footer credit link, link-preview handle, DMCA agent registration (optional)
+- `NEXT_PUBLIC_APP_STORE_URL` / `NEXT_PUBLIC_MICROSOFT_STORE_URL`: store links; unset, the buttons lead to `/download` (optional)
+- `NEXT_PUBLIC_SHOW_USAGE_STATS`: show the numeric usage-stats strip (optional)
+- `PROD_SUPABASE_URL` / `PROD_SUPABASE_SERVICE_ROLE_KEY`: production project for the `/admin` and `/internal/*` dashboards (optional)
+- `POSTHOG_PROJECT_URL`, `METRICS_INR_PER_USD`, `SUPABASE_DB_CAP_BYTES`, `CLOUDFLARE_ACCOUNT_ID` / `CLOUDFLARE_API_TOKEN`: metrics-dashboard tuning (optional); see `.env.example`
+- `ASC_KEY_ID`, `ASC_ISSUER_ID`, `ASC_PRIVATE_KEY`, `APPLE_APP_APPLE_ID`: live App Store prices on `/pricing` (optional; unset falls back to the built-in USD price)
+- `GITHUB_TOKEN`: raises the GitHub API rate limit for `/changelog` (optional)
+
+Web analytics are first-party (`/api/analytics/collect` writes to Supabase), so the site needs no PostHog key.
 
 ### 3. Run Development Server
 
@@ -51,7 +57,7 @@ Visit [http://localhost:3000](http://localhost:3000).
 npm test
 ```
 
-Runs the test suite in `tests/` (metrics, moderation heuristics, rewards and tier resolution).
+Runs the test suite in `tests/` (admin metrics, bug board, hero scrub, public stats, release-note sanitization, rewards, site config, store prices, tier resolution and web events).
 
 ## Key Routes & Architecture
 
@@ -60,18 +66,25 @@ Runs the test suite in `tests/` (metrics, moderation heuristics, rewards and tie
 - `/pricing` - Plan comparison; subscribing happens in the store apps (`/premium` redirects here)
 - `/account` - Authenticated, read-only account overview and subscription status
 - `/auth`, `/auth/callback`, `/auth/desktop-callback` - Supabase Google OAuth, Apple Sign-In, and Turnstile-protected email OTP authentication flows and desktop PKCE bridge
-- `/download` - Store hub: Mac App Store and Microsoft Store badges, with `?code=` invite carry-through
+- `/download` - Store hub: iPhone & iPad (App Store), Mac App Store and Microsoft Store, with `?code=` invite carry-through
 - `/changelog` - Release history fetched directly from GitHub releases
 - `/join/<code>` - Invite landing: tries the `synctogether://` scheme, falls back to `/download?code=`
 - `/r/<id>` (shared session recaps), `/u/<handle>` (Premium profile pages), `/leaderboard`, `/wrapped/<handle>` - Gamification pages
+- `/pair/<code>` - Pair-invite landing, same scheme-then-download fallback as `/join`
 - `/vs/discord`, `/vs/syncplay`, `/vs/teleparty` - Comparison pages
+- `/guides`, `/guides/<slug>` - Long-form guides; `/facts` and `/llms.txt` - plain facts for search and AI crawlers
 - `/faq`, `/privacy`, `/terms`, `/refund`, `/dmca` - Help center and compliance documentation
-- `/admin` - Protected administration console for inspecting subscriber entitlements
-- `/internal/metrics` - Real-time system performance and sync health telemetry dashboard
+- `/admin` - Operator hub linking the internal dashboards
+- `/internal/metrics` - Metrics dashboard (users, rooms, revenue, storage, sync health)
+- `/internal/moderation` - Content-report and copyright-complaint queue
+- `/internal/bugs` - Bug board for in-app bug reports
+
+`/admin` and `/internal/*` only open from a local `next dev` on a loopback host; a production build returns 404 (`lib/admin-guard.ts`).
 
 ### API Route Handlers
 - `GET /api/internal/metrics` - Aggregated system and room metrics endpoint.
-- `POST /api/analytics/collect` - Proxied privacy-preserving web analytics event collector.
+- `POST /api/analytics/collect` - First-party, privacy-preserving pageview and conversion-event collector.
+- `GET /api/public/stats` - Public usage figures for the homepage strip (suppressed below their floors).
 
 ## Deploying
 

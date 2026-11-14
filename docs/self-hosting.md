@@ -13,13 +13,13 @@ SyncTogether consists of four modular layers designed for low latency, secure ro
 
 ```mermaid
 flowchart TD
-    Client["SyncTogether Client<br/>(Desktop macOS/Windows)"]
+    Client["SyncTogether Client<br/>(macOS, Windows, iOS/iPadOS, Android)"]
     
     subgraph Backend ["Backend Infrastructure"]
         DB[("PostgreSQL Database<br/>(Rooms, Members, Chat, RLS)")]
         Realtime["Supabase Realtime<br/>(Low-Latency Room Lockstep Sync)"]
-        Auth["Supabase Auth<br/>(Guest Anonymous & Google OAuth)"]
-        Functions["Supabase Edge Functions<br/>(livekit-token, media-share, cleanup-r2, apple-iap, ms-iap)"]
+        Auth["Supabase Auth<br/>(Guest, Google, Apple, Email OTP)"]
+        Functions["Supabase Edge Functions<br/>(livekit-token, av-cleanup, media-share, cleanup-r2,<br/>push-dispatch, apple-iap, ms-iap)"]
     end
 
     subgraph AV ["Audio / Video Mesh"]
@@ -329,7 +329,7 @@ The web portal (`website/`) provides the Terms and Privacy pages, shareable invi
    cp .env.example .env.local
    npm install
    ```
-2. Set `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `NEXT_PUBLIC_SITE_URL`, `NEXT_PUBLIC_SUPPORT_EMAIL` and `NEXT_PUBLIC_COPYRIGHT_EMAIL` in `website/.env.local`. **A production build refuses to start without the site URL and the two addresses** - there are no built-in values, so a build can never serve someone else's contacts. Set `NEXT_PUBLIC_OPERATOR_NAME`, `NEXT_PUBLIC_OPERATOR_ADDRESS` (lines separated by `|`) and `NEXT_PUBLIC_GOVERNING_LAW` too: the Terms, Privacy and DMCA pages name the operator, and a production build refuses to start without them. Optional: `NEXT_PUBLIC_OPERATOR_URL`, `NEXT_PUBLIC_OPERATOR_TWITTER`, `NEXT_PUBLIC_APP_STORE_URL`, `NEXT_PUBLIC_MICROSOFT_STORE_URL`, and `NEXT_PUBLIC_DMCA_REGISTRATION` (leave it empty unless you registered an agent with the U.S. Copyright Office - the DMCA page only claims a registered agent when it is set). **The wizard fills in your details, not the legal text around them:** the Terms and Privacy pages are written for the project's own deployment. Have a lawyer review them, in particular the list of service providers in `website/app/privacy/page.tsx` (yours will differ) and the India (DPDP Act) section. PostHog and the `PROD_*` variables are optional: `PROD_SUPABASE_*` only feed the internal `/internal/metrics` page, which you can ignore; see `website/.env.example` for the full list.
+2. Set `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `NEXT_PUBLIC_SITE_URL`, `NEXT_PUBLIC_SUPPORT_EMAIL` and `NEXT_PUBLIC_COPYRIGHT_EMAIL` in `website/.env.local`. **A production build refuses to start without the site URL and the two addresses** - there are no built-in values, so a build can never serve someone else's contacts. Set `NEXT_PUBLIC_OPERATOR_NAME`, `NEXT_PUBLIC_OPERATOR_ADDRESS` (lines separated by `|`) and `NEXT_PUBLIC_GOVERNING_LAW` too: the Terms, Privacy and DMCA pages name the operator, and a production build refuses to start without them. Optional: `NEXT_PUBLIC_OPERATOR_URL`, `NEXT_PUBLIC_OPERATOR_TWITTER`, `NEXT_PUBLIC_APP_STORE_URL`, `NEXT_PUBLIC_MICROSOFT_STORE_URL`, and `NEXT_PUBLIC_DMCA_REGISTRATION` (leave it empty unless you registered an agent with the U.S. Copyright Office - the DMCA page only claims a registered agent when it is set). **The wizard fills in your details, not the legal text around them:** the Terms and Privacy pages are written for the project's own deployment. Have a lawyer review them, in particular the list of service providers in `website/app/privacy/page.tsx` (yours will differ) and the India (DPDP Act) section. The `PROD_*` variables are optional: they only feed the internal `/admin` and `/internal/*` dashboards, which open only from a local `next dev`, which you can ignore; see `website/.env.example` for the full list.
 3. Run or deploy:
    ```bash
    # Development
@@ -395,6 +395,7 @@ Pass these variables at compile-time via `--dart-define=KEY=VALUE` or `--dart-de
 | `SENTRY_DSN` | *No* | Sentry project DSN for client-side crash telemetry |
 | `POSTHOG_API_KEY` | *No* | PostHog public project key for product analytics |
 | `POSTHOG_HOST` | *No* | PostHog ingest host (defaults to `https://us.i.posthog.com`) |
+| `FIREBASE_API_KEY` / `FIREBASE_APP_ID` / `FIREBASE_PROJECT_ID` / `FIREBASE_SENDER_ID` | *No* | Android push (FCM) only. Unset, the Android build never offers push |
 | `SUPABASE_URL_LOCAL` / `SUPABASE_PUBLISHABLE_KEY_LOCAL` | *No* | Debug builds only: preferred over `SUPABASE_URL` so a debug run never touches production. Ignored in release |
 
 In debug builds with no local values set, the client falls back to `http://127.0.0.1:54321` and Turnstile's always-pass test key. **A release build with no `SUPABASE_URL` has no backend at all** - always pass it.

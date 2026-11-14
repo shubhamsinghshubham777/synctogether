@@ -268,9 +268,7 @@ class Wizard(unittest.TestCase):
                 continue
             used |= set(re.findall(r"process\.env\.(NEXT_PUBLIC_[A-Z0-9_]+)", f.read_text()))
         # NEXT_PUBLIC_SUPABASE_ANON_KEY is only the older name the code falls back to for the publishable key.
-        optional_for_this_product = {"NEXT_PUBLIC_SUPABASE_ANON_KEY", "NEXT_PUBLIC_POSTHOG_KEY", "NEXT_PUBLIC_POSTHOG_HOST", "NEXT_PUBLIC_SHOW_USAGE_STATS",
-                                     "NEXT_PUBLIC_PADDLE_ENVIRONMENT", "NEXT_PUBLIC_PADDLE_CLIENT_TOKEN",
-                                     "NEXT_PUBLIC_PADDLE_MONTHLY_PRICE_ID", "NEXT_PUBLIC_PADDLE_ANNUAL_PRICE_ID"}
+        optional_for_this_product = {"NEXT_PUBLIC_SUPABASE_ANON_KEY", "NEXT_PUBLIC_SHOW_USAGE_STATS"}
         self.assertEqual(sorted((used - optional_for_this_product) - set(self.env("website/.env.local"))), [])
         example = set(W.parse_env_file(REPO / "website" / ".env.example"))
         self.assertEqual(sorted(k for k in (used - optional_for_this_product) if k not in example), [],

@@ -26,5 +26,5 @@ This Next.js 16 application serves as the marketing site, downloads portal, lega
 `/` and `/pricing` are ISR, so the visitor's currency cannot be known at render time. `middleware.ts` sets a `pt_cur` cookie from the country header, the inline script in `app/layout.tsx` tags `<html data-cur>` before first paint, and `components/ByCurrency.tsx` renders every currency so `globals.css` shows only the matching one. Never fetch a currency on the client or show a placeholder for it, and keep the middleware matcher to the pages that show prices plus `/account` and `/auth` (the only routes that read the Supabase session server-side).
 
 ### Testing & Verification
-- Unit test suite in `tests/` covers metrics, moderation heuristics, rewards and tier resolution.
+- Unit test suite in `tests/` covers admin metrics, the bug board, the hero scrub machine, public stats, release-note sanitization, rewards, site config, store prices, tier resolution and web events.
 - Run tests with `npm test`.

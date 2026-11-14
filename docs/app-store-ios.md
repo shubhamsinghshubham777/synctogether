@@ -57,15 +57,15 @@ Pods and plugins that ship their own `PrivacyInfo.xcprivacy`: Sentry, OrderedSet
 
 ## Screenshots needed
 
-ASC currently holds **zero iOS screenshots** (the iOS version record is a stale `1.9.0` in PREPARE_FOR_SUBMISSION with no screenshot sets and no build; a `1.14.0` iOS version must be created). `store/*.jpg` (1920x1080) and `store/mac/*.jpg` (2880x1800) are desktop sizes and are rejected for iOS.
+The iOS sets live in `store/ios/screenshots/` (`iphone/`, `ipad/`, `iphone-duo/`). `store/*.jpg` (1920x1080) and `store/mac/*.jpg` (2880x1800) are desktop sizes and are rejected for iOS.
 
 | Set | Size | Required |
 |---|---|---|
 | iPhone 6.9" | 1320x2868, 1290x2796 or 1260x2736 portrait (landscape swapped) | Yes, 1-10 |
 | iPhone 6.5" | 1284x2778 or 1242x2688 | Only if no 6.9" set |
-| iPad 13" | 2064x2752 or 2048x2732 | Yes **only if** `TARGETED_DEVICE_FAMILY` stays `1,2` (currently does) |
+| iPad 13" | 2064x2752 or 2048x2732 | Yes, while `TARGETED_DEVICE_FAMILY` is `1,2` (it is) |
 
-Shoot with `--dart-define=DEMO_MODE=true` (as for the Mac set). If iPad is not going to be tested on hardware, the lowest-risk option is to ship iPhone-only for this release (`TARGETED_DEVICE_FAMILY = 1` in all three `Runner` configurations): reviewers test iPad builds on an iPad and a layout crash there is a rejection. Info.plist already lists all four iPad orientations, so multitasking is not blocked.
+Shoot with `--dart-define=DEMO_MODE=true` (as for the Mac set); `scripts/capture-ios-shots.sh <udid> <out-dir>` shoots a set on one simulator. Info.plist lists all four iPad orientations, so multitasking is not blocked.
 
 ## iPhone Duo screenshots
 
@@ -76,7 +76,7 @@ App Store Connect has its own **iPhone Duo** slot (`APP_IPHONE_DUO`) that takes 
 - A version **in review** cannot get a new screenshot set ("Can't Create Screenshot Set while In Review"): withdraw with `asc submit cancel --id <submission> --confirm`, upload, resubmit (the queue position resets).
 - The inner display only renders while Device Hub is running; the posture buttons at the bottom of its window pick folded / half-folded / unfolded (a reboot of the simulator resets it to folded).
 
-## Pre-submit checklist (state as audited 2026-11-05)
+## Pre-submit checklist (as audited 2026-11-05, before the first iOS submission - kept for re-checking a new app record)
 
 Done in repo: camera/local-network usage strings, Runner privacy manifest, ATS comment, Sign in with Apple entitlement and capability, IAP capability, Apple distribution cert and ASC key secrets.
 

@@ -1,6 +1,6 @@
 # Desktop regression checklist (macOS and Windows)
 
-Run this before releasing desktop builds (Mac App Store, Microsoft Store) that include the mobile-readiness work (commits after `066bc0a`). The unit and layout suites cover desktop window sizes, but nobody has *used* the desktop apps with these changes. One column per platform: mark each item PASS / FAIL / N/A and note what you saw.
+Run this before releasing desktop builds (Mac App Store, Microsoft Store) that change shared layouts, navigation or playback - it was written for the mobile-readiness work (commits after `066bc0a`) and still covers what the unit and layout suites cannot: actually *using* the desktop apps. One column per platform: mark each item PASS / FAIL / N/A and note what you saw.
 
 **Setup (macOS):** `./scripts/dev.sh` (Docker first), `fvm flutter run -d macos` (instance A) and `./scripts/run-instance-b.sh` (instance B, a second identity). Debug builds point at the *local* Supabase; guest sign-in needs the real `TURNSTILE_SITE_KEY` dart-define (the local GoTrue holds the real Turnstile secret). Edge/production items are marked **[PROD]**: they need a release-style build against production and a signed-in host, so they are done by the owner or with the owner's explicit say-so.
 

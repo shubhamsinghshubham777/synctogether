@@ -89,15 +89,17 @@ update public.tier_limits set max_members = 10 where tier = 'free';
 | `max_total_session_minutes` | 60 | 240 | 1440 |
 | `av_level` | none | voice | video |
 | `persistent_room_cap` | 0 | 0 | 20 |
+| `dormant_hours` | 0 | 24 | 24 |
 | `media_sharing` | none | limited | full |
 | `media_sharing_weekly_bytes` | 0 | 2.5 GB | unlimited |
 | `video_trial_minutes` | 0 | 10 | 0 |
 | `video_trials_per_day` | 0 | 2 | 0 |
 
-Three of these are read as *behaviour*, not just numbers:
+Four of these are read as *behaviour*, not just numbers:
 
 - `av_level = 'none'` hides the facecam UI entirely, exactly as if LiveKit were unconfigured.
 - `max_total_session_minutes > max_session_minutes` is what makes a tier able to choose its own extension length.
+- `dormant_hours > 0` keeps an ended non-persistent room resumable (`rooms.resumable_until`) for that many hours past its expiry; `0` means it cannot be resumed. Persistent rooms ignore it.
 - `video_trial_minutes > 0` gives a `voice` room one video trial in its life: the first camera press calls `start_video_trial`, which stamps `rooms.video_trial_ends_at` and lets everyone in the room publish video until then. It counts against the room **creator's** `video_trials_per_day` (rolling 24 hours, `video_trial_grants`), and ending and resuming a room never resets it. Set either to 0 to switch trials off. The camera key's "10M" tag is a client constant (`kVideoTrialOfferMinutes`), so change it alongside the minutes. When a trial runs out, `close_video_trials` (pg_cron, every minute) queues a `revoke_camera` job on `pending_av_cleanups`; see SFU cleanup below.
 
 ---
@@ -176,6 +178,31 @@ select count(*), max(attempts) from public.pending_r2_deletions;
 
 ---
 
+## 3c. `app_settings` — Our Room film retention
+
+```sql
+select value from public.app_settings where key = 'our_room_media';
+```
+
+| Field | Ships as | What it does |
+|---|---|---|
+| `free_hours` | `36` | How long Our Room keeps its finished shared film after a session ends, so the pair can carry on tomorrow without re-uploading. |
+| `patron_hours` | `168` | Same, when either partner has Premium (one seat covers both). |
+
+Restarting Our Room before the time is up takes the clock off the file; `sweep_rooms` releases it afterwards. Other rooms are unaffected: their shared file is deleted when the session ends.
+
+---
+
+## 3d. `app_settings` — push and SFU cleanup
+
+```sql
+select key, value from public.app_settings where key in ('push', 'av_cleanup');
+```
+
+Both have the same shape as `r2_cleanup` above - `enabled` (`true`), `endpoint_url` and `service_role_key` (**both `null`**) - and both ship inert until an operator fills them in. `push` points at the `push-dispatch` function (set the provider secrets first; see [self-hosting.md](self-hosting.md)); until then pushes queue in `push_outbox` and are pruned after two days. `av_cleanup` points at the `av-cleanup` function; see *SFU cleanup* below.
+
+---
+
 ## 4. Dart defines — whole subsystems
 
 These are compile-time. **Omitting one disables its subsystem cleanly** - no
@@ -191,13 +218,15 @@ them set. Changing any of these needs a rebuild and a release.
 | `TURNSTILE_SITE_KEY` | The client skips the captcha dialog, **but the server still demands a token**, so guest sign-in fails. Set it or disable captcha server-side too. |
 | `STREAM_PROXY` | Defaults to **on**. `--dart-define=STREAM_PROXY=false` makes shared-media streams open the direct URL (no loopback range proxy, no disk cache); mpv tuning, health monitoring and the notice still apply. |
 | `SUPABASE_URL` / `SUPABASE_PUBLISHABLE_KEY` | Required. Debug builds fall back to the local stack. |
+| `FIREBASE_API_KEY` / `FIREBASE_APP_ID` / `FIREBASE_PROJECT_ID` / `FIREBASE_SENDER_ID` | No Android push: the Android build never offers to turn it on. Other platforms are unaffected. |
+| `MPV_HWDEC` | Empty in store builds. Set to an mpv `hwdec` mode (`auto`, `videotoolbox`, `videotoolbox-copy`, `no`) to force the iOS decode path for diagnostics; it turns the automatic choice off. |
 | `STORE_BUILD` | Store distribution. On macOS it is the Mac App Store build (StoreKit); on Windows it is the Microsoft Store build (Windows.Services.Store); on **Android it is the Google Play build**, which is consumption-only - Premium bought elsewhere unlocks, but no upsell, price or link is shown (`canSellPremium`, which is true on Apple builds and the Microsoft Store build). Every Play release must set it. iOS is always the App Store build regardless. |
 | `STORE_TARGET` | With `CAPTURE_STORE`: `mac` selects the Mac App Store screenshot set. Off in real builds. |
 | `DEMO_MODE` / `DEMO_ROOM` | Mock data for screenshots, including a demo pair (Alex and Maya: Our Room, a booked date night, a 12-week streak, history and the year card; `MockPairService` in `lib/mock/mock_dependencies.dart`). Off in real builds. |
 | `DEMO_TIER` | With `DEMO_MODE`: `free` (default) or `premium`, so Patron-side states can be shot. |
 | `CAPTURE_STORE` | Store-screenshot capture flow: 1920x1080 into `store/` (Microsoft Store and README). Includes the pairing set (Our Room, pair hub, date nights, streak, year card) after the room shots. Add `STORE_TARGET=mac` and `STORE_BUILD=true` for the Mac App Store set, 2880x1800 into `store/mac/`. Off in real builds. |
 | `CAPTURE_WEBSITE` | Writes the homepage product shot. Off in real builds. |
-| `CAPTURE_REVIEW` | With `DEMO_MODE`: renders every screen and state that has a design board to `build/review/<tier>/` at 1280x720 @ 1.5x, for comparing the build against the canvas. Run the built binary from the repo root. Off in real builds. |
+| `CAPTURE_REVIEW` | With `DEMO_MODE`: renders every screen and state that has a design board to `build/review/<tier>/` at 1280x720 @ 1.5x (`REVIEW_WIDTH`/`REVIEW_HEIGHT` override the size, e.g. 1440x900 for the desktop boards), for comparing the build against the canvas. Run the built binary from the repo root. Off in real builds. |
 
 ### AV endpoint failover (`LIVEKIT_ENDPOINTS`, function secret)
 

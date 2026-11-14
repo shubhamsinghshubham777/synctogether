@@ -8,6 +8,7 @@ import {
   counterVisible,
   parseSource,
   seatLabel,
+  normalizeEmail,
   seatsLeft,
   type AndroidSignupResult,
   type AndroidSource,
@@ -146,11 +147,13 @@ export function AndroidSeat({
     };
   }, [initial]);
 
+  const emailOk = normalizeEmail(email) !== null;
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (busy) return;
     setError(null);
-    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim())) {
+    if (!emailOk) {
       setError("Hmm, that doesn't look like a full email address.");
       return;
     }
@@ -361,7 +364,7 @@ export function AndroidSeat({
       </label>
       <button
         type="submit"
-        disabled={busy}
+        disabled={busy || !emailOk}
         className="btn-primary-gradient inline-flex h-[52px] items-center justify-center rounded-[4px] px-6 text-base font-semibold cursor-pointer disabled:opacity-60"
       >
         <span aria-live="polite">{busy ? "Saving your seat…" : "Save my seat"}</span>

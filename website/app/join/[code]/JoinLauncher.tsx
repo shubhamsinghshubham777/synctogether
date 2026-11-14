@@ -337,6 +337,16 @@ export function JoinLauncher({
               </div>
             )}
 
+            {!phone && (
+              <p className="text-[13px] text-gray-500 leading-[1.55]">
+                Friend on Android?{" "}
+                <Link href="/android" className="text-gray-300 underline underline-offset-4 hover:text-white">
+                  Save them a test seat
+                </Link>
+                .
+              </p>
+            )}
+
             <p className="text-[13px] text-gray-500 leading-[1.55]">
               {phone ? "On another device? " : "Nothing happened? "}Install, open the app and type{" "}
               <span className={`${mono} text-white`}>{code}</span> {copy.typeIt}

@@ -248,6 +248,10 @@ export const FAQ_ITEMS = [
         a: "SyncTogether runs on iPhone and iPad (iOS 15.6+), macOS (12.0+) and Windows (10 and 11). Install it from the App Store (iPhone, iPad and Mac) or the Microsoft Store (Windows); both stores keep it up to date for you."
       },
       {
+        q: "Is there an Android version?",
+        a: "Not yet. Google asks new apps to be tested by real people for 14 days before the Play Store opens, so we're collecting testers first. Save a free seat at /android and we'll email you the Google Play link when the test opens."
+      },
+      {
         q: "Do I need an account?",
         a: "No! You can use SyncTogether as a Guest without creating an account. Guests can create 60-minute rooms with up to 4 members. To get 4-hour rooms, voice chat, and cloud media sharing, simply sign in with a free account (Google, Apple, or Email)."
       },

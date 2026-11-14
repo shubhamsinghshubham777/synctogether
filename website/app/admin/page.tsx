@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { isAuthorizedLocalAccess } from "@/lib/admin-guard";
 import { GlassPanel } from "@/components/GlassPanel";
-import { Activity, ArrowRight, Bug, ShieldAlert } from "lucide-react";
+import { Activity, ArrowRight, Bug, ShieldAlert, Smartphone } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -72,6 +72,22 @@ export default async function AdminHubPage() {
                 </div>
                 <p className="text-xs text-gray-400 leading-snug">
                   Triage user-reported bugs, move cards to tell reporters, and close with a reason or original.
+                </p>
+              </div>
+            </GlassPanel>
+          </Link>
+          <Link href="/internal/android" className="group sm:col-span-2">
+            <GlassPanel className="p-6 h-full space-y-4 hover:border-beam-500/60 transition-all">
+              <div className="p-3 rounded-xl bg-beam-600/20 border border-beam-500/30 text-beam-300 w-fit">
+                <Smartphone className="w-6 h-6" />
+              </div>
+              <div className="space-y-1">
+                <div className="text-base font-bold text-gray-100 group-hover:text-beam-300 transition-colors flex items-center justify-between">
+                  Android Testers
+                  <ArrowRight className="w-4 h-4 opacity-0 group-hover:opacity-100 -translate-x-1 group-hover:translate-x-0 transition-all" />
+                </div>
+                <p className="text-xs text-gray-400 leading-snug">
+                  Early-access sign-ups for the Play Store closed test, with a paste-ready email list.
                 </p>
               </div>
             </GlassPanel>

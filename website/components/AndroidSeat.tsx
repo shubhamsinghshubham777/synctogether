@@ -215,8 +215,10 @@ export function AndroidSeat({
   const pad = compact ? "p-5" : "p-6 sm:p-8";
   const shell = `flex flex-col gap-5 rounded-md border border-rail bg-seat ${pad}`;
 
-  // The test exists: opt in on Google Play.
-  if (playUrl) {
+  // The test exists and this browser holds a seat: opt in on Google Play. Someone who
+  // never signed up is not on the tester list, so for them the button would go nowhere:
+  // they get the form below, worded for an open test.
+  if (playUrl && saved) {
     return (
       <div className={shell}>
         <p className={`${kicker} flex items-center gap-2.5 text-beam-500`}>
@@ -247,7 +249,7 @@ export function AndroidSeat({
           Opt in on Google Play
         </a>
         <p className="text-xs leading-normal text-gray-500">
-          Seats are full for this round. New sign-ups wait for the public launch.
+          Use the Google account you signed up with, or Google Play won&apos;t see you on the list.
         </p>
       </div>
     );
@@ -311,10 +313,12 @@ export function AndroidSeat({
             compact ? "text-2xl" : "text-[32px]"
           }`}
         >
-          {compact ? "Android is in testing" : "Save your seat"}
+          {playUrl ? "Join the Android test" : compact ? "Android is in testing" : "Save your seat"}
         </h2>
         <p className={`leading-[1.55] text-gray-400 ${compact ? "text-sm" : "text-[15px]"}`}>
-          {compact
+          {playUrl
+            ? "The test is open. Put your name down and we'll add you in the next batch; the Google Play link follows by email."
+            : compact
             ? "Save a seat and we'll email you the Google Play link when the test opens."
             : "Google opens the Play Store to a new app only after real people test it for 14 days. Put your name down and you're one of them, free."}
         </p>

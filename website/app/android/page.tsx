@@ -13,6 +13,16 @@ export const metadata: Metadata = {
     "SyncTogether is on iPhone, iPad, Mac and Windows. Android is in testing: put your name down and you'll get the Google Play link when it opens.",
 };
 
+const OPEN_STEPS = [
+  { k: "01 · Now", t: "Put your name down", b: "The Gmail address on your Android phone. If you already did, the card shows your opt-in button." },
+  { k: "02 · Once you're added", t: "Opt in on Google Play", b: "Tap Become a tester with that same Google account, then install the app." },
+  {
+    k: "03 · For 14 days",
+    t: "Keep it installed",
+    b: "Watch something with someone, tell us what breaks. Then Google lets it out for everyone.",
+  },
+];
+
 const STEPS = [
   { k: "01 · Now", t: "Put your name down", b: "The Gmail address on your Android phone. That's the whole form." },
   { k: "02 · When the seats fill", t: "We open the test", b: "You get one email with a Google Play link. Expect a few weeks." },
@@ -26,6 +36,7 @@ const STEPS = [
 export default async function AndroidPage() {
   const counts = await getSeatCounts();
   const playUrl = androidTestUrl();
+  const open = playUrl !== null;
 
   return (
     <div className="relative pt-8 md:pt-14 pb-12 px-4 sm:px-6 lg:px-8 max-w-7xl min-[2000px]:max-w-[1920px] mx-auto space-y-10">
@@ -35,12 +46,16 @@ export default async function AndroidPage() {
         eyebrow="Android · Early access"
         title={
           <>
-            Android is next.
+            {open ? "The Android test" : "Android is next."}
             <br />
-            <span className="text-[#5A4F44]">Save a seat.</span>
+            <span className="text-[#5A4F44]">{open ? "is open." : "Save a seat."}</span>
           </>
         }
-        lede="SyncTogether is live on iPhone, iPad, Mac and Windows. Before Google Play lists a new app, a small group has to test it for two weeks. Be in that group and you're watching first."
+        lede={
+          open
+            ? "SyncTogether is live on iPhone, iPad, Mac and Windows. Android is in its two-week Google Play test, and there's still room. Join it and you're watching first."
+            : "SyncTogether is live on iPhone, iPad, Mac and Windows. Before Google Play lists a new app, a small group has to test it for two weeks. Be in that group and you're watching first."
+        }
         aside={<AndroidSeat counts={counts} playUrl={playUrl} />}
       />
       <p className="text-sm text-gray-500">
@@ -50,7 +65,7 @@ export default async function AndroidPage() {
         </Link>
       </p>
       <section className="grid md:grid-cols-3 gap-8 md:gap-10">
-        {STEPS.map(({ k, t, b }) => (
+        {(open ? OPEN_STEPS : STEPS).map(({ k, t, b }) => (
           <div key={k} className="border-t border-rail pt-[18px] space-y-2.5">
             <p className={`${mono} text-[11px] tracking-[0.14em] uppercase text-gray-500`}>{k}</p>
             <p className={`${display} text-2xl font-extrabold tracking-[-0.03em] leading-[1.05] text-white`}>{t}</p>

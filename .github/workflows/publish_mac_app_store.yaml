@@ -256,6 +256,7 @@ jobs:
             AUTH_KEY_PATH="$AUTH_KEY_DIR/AuthKey_${ASC_KEY_ID}.p8"
             echo "$ASC_API_KEY_P8" > "$AUTH_KEY_PATH"
             chmod 600 "$AUTH_KEY_PATH"
+            chmod 600 "$AUTH_KEY_PATH"
             echo "ASC_API_KEY_AVAILABLE=true" >> "$GITHUB_ENV"
 
             echo "==> Uploading $PKG_NAME to App Store Connect..."

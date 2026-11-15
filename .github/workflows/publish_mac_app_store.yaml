@@ -40,7 +40,9 @@ concurrency:
 
 jobs:
   build-and-publish:
-    runs-on: macos-latest
+    # Xcode 27 image: flutter_inappwebview_macos 1.2.0-beta.3 does not compile under the
+    # macos-latest image (Xcode 26.6), where presentationAnchor(for:) is rejected.
+    runs-on: xcode-27
     timeout-minutes: 60
     outputs:
       app_version: ${{ steps.version.outputs.APP_VERSION }}

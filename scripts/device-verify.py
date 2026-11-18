@@ -25,6 +25,7 @@ actually driven and observed, never "tested" alone.
 import argparse
 import hashlib
 import json
+import re
 import subprocess
 import sys
 import time
@@ -40,9 +41,32 @@ def git(*args: str) -> str:
     return subprocess.run(["git", *args], check=True, capture_output=True, text=True).stdout
 
 
+def is_version_bump_only(diff: str) -> bool:
+    """A release bump: the only change in scope is pubspec.yaml's `version:` line.
+
+    It changes no behaviour a device run could check, and the release skill makes
+    one every release, so it needs no record.
+    """
+    changed = [
+        line
+        for line in diff.splitlines()
+        if line[:1] in "+-" and not line.startswith(("+++", "---"))
+    ]
+    files = {
+        line[len("diff --git a/") :].split(" ")[0]
+        for line in diff.splitlines()
+        if line.startswith("diff --git a/")
+    }
+    return (
+        files == {"pubspec.yaml"}
+        and len(changed) == 2
+        and all(re.fullmatch(r"[+-]version: \d+\.\d+\.\d+", line) for line in changed)
+    )
+
+
 def staged_hash() -> str | None:
     diff = git("diff", "--cached", "--", *SCOPE)
-    if not diff.strip():
+    if not diff.strip() or is_version_bump_only(diff):
         return None
     return hashlib.sha256(diff.encode()).hexdigest()
 

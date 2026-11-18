@@ -1,7 +1,5 @@
 import 'dart:async';
 
-import 'package:synctogether/feedback/ui/bug_report_button.dart';
-
 import '../ui/reveal.dart';
 import '../ui/panel_switcher.dart';
 import '../ui/optical.dart';
@@ -28,6 +26,7 @@ import '../ui/identity.dart';
 import '../ui/loader.dart';
 import '../ui/pt_motion.dart';
 import '../ui/pt_theme.dart';
+import '../ui/screen_title_bar.dart';
 import '../ui/responsive.dart';
 import '../ui/scroll_fade.dart';
 import 'rewards_logic.dart';
@@ -42,32 +41,6 @@ import 'widgets/season_trophies.dart';
 /// unreachable and the middle is invisible. Circle is people you have actually
 /// shared a room with, which is the board that is winnable, and therefore the
 /// one worth telling somebody about.
-/// A header label that shows whole or not at all: the page's title is also
-/// the back button's neighbour, so when text scale or width leaves it less
-/// than its natural width it steps aside rather than ellipsizing.
-class _HeaderLabel extends StatelessWidget {
-  const _HeaderLabel(this.text);
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final painter = TextPainter(
-          text: TextSpan(text: text, style: PTText.label),
-          textScaler: MediaQuery.textScalerOf(context),
-          textDirection: TextDirection.ltr,
-          maxLines: 1,
-        )..layout();
-        final fits = painter.width <= constraints.maxWidth;
-        painter.dispose();
-        return fits ? Text(text, maxLines: 1, style: PTText.label) : const SizedBox.shrink();
-      },
-    );
-  }
-}
-
 class LeaderboardScreen extends StatefulWidget {
   const LeaderboardScreen({super.key});
 
@@ -204,7 +177,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> with AppWindowLis
   }
 
   Widget _layout(RewardState state, {required bool compact}) {
-    final gutter = compact ? 20.0 : 48.0;
+    final gutter = PTScreenTitleBar.gutterFor(MediaQuery.sizeOf(context).width);
     // Edge-to-edge: the page scrolls under the home indicator / nav bar, and
     // the bottom inset pads the content so its last item still clears it.
     return SafeArea(
@@ -248,33 +221,17 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> with AppWindowLis
               ),
             )
           else
-            Padding(
-              padding: compact
-                  // The bottom padding is the gap the scroll area starts below, so
-                  // content running under the header never meets the back button.
-                  ? const EdgeInsets.fromLTRB(20, 10, 20, 12)
-                  : const EdgeInsets.fromLTRB(48, 28, 48, 14),
-              child: Row(
-                spacing: 14,
-                children: [
-                  PTIconButton(
-                    icon: BoothIcons.arrowBack,
-                    iconSize: 20,
-                    size: compact ? 44 : 42,
-                    onPressed: () => goBack(context),
-                  ),
-                  const Expanded(child: _HeaderLabel('LEADERBOARD')),
-                  // Consent, handle and frame all live in the profile.
-                  TextButton(
-                    onPressed: () => openPage(context, '/lobby/profile'),
-                    style: TextButton.styleFrom(
-                      foregroundColor: PTColors.white(0.7),
-                      textStyle: PTText.caption.copyWith(decoration: TextDecoration.underline),
-                    ),
-                    child: Text(compact ? 'Settings' : 'Leaderboard settings'),
-                  ),
-                  const BugReportButton(),
-                ],
+            PTScreenTitleBar(
+              title: 'Leaderboard',
+              trailing: TextButton(
+                onPressed: () => openPage(context, '/lobby/profile'),
+                style: TextButton.styleFrom(
+                  minimumSize: const Size(0, 36),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  foregroundColor: PTColors.white(0.7),
+                  textStyle: PTText.caption.copyWith(decoration: TextDecoration.underline),
+                ),
+                child: Text(compact ? 'Settings' : 'Leaderboard settings'),
               ),
             ),
           Expanded(

@@ -5,6 +5,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:synctogether/feedback/ui/bug_report_button.dart';
 import 'package:synctogether/player/local_video.dart';
 import 'package:synctogether/player/local_video_chooser.dart';
 import 'package:synctogether/player/recent_videos.dart';
@@ -98,8 +99,34 @@ void expectNoWordsBrokenMidWord(WidgetTester tester) {
   );
 }
 
+/// Two bug buttons on one screen happened when a layout that floats one
+/// (tablets, the desktop bar) fell back to a layout carrying its own. Every
+/// screen gets exactly one way to report a bug, never two.
+///
+/// Only buttons a user can reach count: [FirstFit] builds every candidate row
+/// and lays out and hit-tests just one, so the others have no size (which is
+/// also why `hitTestable()` cannot be used - it asserts on them).
+void expectAtMostOneBugButton(WidgetTester tester) {
+  final reachable = find.byType(BugReportButton).evaluate().where((e) {
+    final box = e.renderObject;
+    if (box is! RenderBox || !box.attached || !box.hasSize) return false;
+    final center = box.localToGlobal(box.size.center(Offset.zero));
+    final result = HitTestResult();
+    tester.binding.hitTestInView(result, center, tester.view.viewId);
+    return result.path.any((entry) => entry.target == box);
+  }).toList();
+  expect(
+    reachable.length,
+    lessThanOrEqualTo(1),
+    reason:
+        'the bug button is shown more than once, at '
+        '${reachable.map((e) => (e.renderObject! as RenderBox).localToGlobal(Offset.zero)).join(', ')}',
+  );
+}
+
 Future<void> finishCase(WidgetTester tester) async {
   expectNoWordsBrokenMidWord(tester);
+  expectAtMostOneBugButton(tester);
   await captureScreenshot(tester);
   expectNoOverflow(tester);
   expectSinglePaneClearOfHinge(tester);

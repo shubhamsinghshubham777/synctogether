@@ -1,7 +1,5 @@
 import 'dart:async';
 
-import 'package:synctogether/feedback/ui/bug_report_button.dart';
-
 import '../ui/booth_icons.g.dart';
 
 import 'package:flutter/foundation.dart' show kDebugMode;
@@ -29,6 +27,9 @@ import 'package:synctogether/ui/loader.dart';
 import 'package:synctogether/ui/panel_switcher.dart';
 import 'package:synctogether/ui/pt_motion.dart';
 import 'package:synctogether/ui/pt_theme.dart';
+
+import '../ui/screen_title_bar.dart';
+
 import 'package:synctogether/ui/responsive.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -263,7 +264,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen>
       !_verifying;
 
   Widget _layout({required bool compact}) {
-    final gutter = compact ? 16.0 : 48.0;
+    final gutter = PTScreenTitleBar.gutterFor(MediaQuery.sizeOf(context).width);
     final sticky = _stickyCta(compact);
     // Edge-to-edge: the page scrolls under the home indicator / nav bar, and
     // the bottom inset pads the content so its last item still clears it.
@@ -283,20 +284,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen>
               ),
             )
           else
-            Padding(
-              padding: EdgeInsets.fromLTRB(gutter, compact ? 10 : 24, gutter, compact ? 12 : 16),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Align(
-                      alignment: .centerLeft,
-                      child: _backHeader(compact: compact),
-                    ),
-                  ),
-                  const BugReportButton(),
-                ],
-              ),
-            ),
+            const PTScreenTitleBar(title: 'Patron seats'),
           Expanded(
             child: LayoutBuilder(
               builder: (context, constraints) {
@@ -377,12 +365,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen>
           ),
         ),
         Flexible(
-          child: Text(
-            'Patron seats',
-            maxLines: 1,
-            overflow: .ellipsis,
-            style: PTText.panelHeading.copyWith(fontSize: compact ? 15 : 16),
-          ),
+          child: Text('Patron seats', maxLines: 1, overflow: .ellipsis, style: PTText.cardHeading),
         ),
       ],
     );

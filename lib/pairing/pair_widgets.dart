@@ -11,6 +11,7 @@ import '../ui/optical.dart';
 import '../ui/pt_motion.dart';
 import '../ui/pt_theme.dart';
 import 'pair_logic.dart';
+import '../ui/marquee.dart';
 import 'pair_models.dart';
 
 /// `// LABEL` kicker over a section.
@@ -20,17 +21,18 @@ class PairKicker extends StatelessWidget {
   final String text;
   final Color? color;
 
-  /// Keep it to a single line and end with an ellipsis, for a kicker that shares
-  /// its row with other things and carries a title that can be long.
+  /// Keep it to a single line that scrolls when too long (`PTMarquee`), for a
+  /// kicker that shares its row with other things and carries a title that can
+  /// be long.
   final bool oneLine;
 
   @override
-  Widget build(BuildContext context) => Text(
-    text.toUpperCase(),
-    maxLines: oneLine ? 1 : null,
-    overflow: oneLine ? TextOverflow.ellipsis : null,
-    style: PTText.label.copyWith(color: color ?? PTColors.fgMute),
-  );
+  Widget build(BuildContext context) {
+    final style = PTText.label.copyWith(color: color ?? PTColors.fgMute);
+    // A title that does not fit scrolls past instead of ending in an ellipsis.
+    if (oneLine) return PTMarquee(text.toUpperCase(), style: style);
+    return Text(text.toUpperCase(), style: style);
+  }
 }
 
 /// A Seat panel with the pair screens' standard padding.

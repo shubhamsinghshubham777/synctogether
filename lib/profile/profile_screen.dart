@@ -49,6 +49,9 @@ import 'package:synctogether/ui/inputs.dart';
 import 'package:synctogether/ui/loader.dart';
 import 'package:synctogether/ui/pt_motion.dart';
 import 'package:synctogether/ui/pt_theme.dart';
+
+import '../ui/screen_title_bar.dart';
+
 import 'package:synctogether/ui/responsive.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -398,25 +401,7 @@ class _ProfileScreenState extends State<ProfileScreen> with AppWindowListener {
                       : null,
                 )
               else
-                Padding(
-                  padding: EdgeInsets.fromLTRB(gutter, 24, gutter, 14),
-                  child: _centred(
-                    640,
-                    // The header row is min-sized, and `_centred` shrink-wraps its child, so
-                    // without a full-width left-aligned box it floats in the middle.
-                    SizedBox(
-                      width: double.infinity,
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Align(alignment: .centerLeft, child: _backHeader(size: 42)),
-                          ),
-                          const BugReportButton(),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
+                const PTScreenTitleBar(title: 'Profile'),
               Expanded(
                 // Content fades in under the header as it scrolls, like the lobby and leaderboard.
                 child: ScrollFadeEdge(
@@ -568,18 +553,7 @@ class _ProfileScreenState extends State<ProfileScreen> with AppWindowListener {
       bottom: false,
       child: Column(
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(22, 10, 22, 12),
-            // A Column centres its children, and the header row is min-sized: pin it left.
-            child: Row(
-              children: [
-                Expanded(
-                  child: Align(alignment: .centerLeft, child: _backHeader(titleSize: 18)),
-                ),
-                const BugReportButton(),
-              ],
-            ),
-          ),
+          const PTScreenTitleBar(title: 'Profile'),
           Expanded(
             child: ScrollFadeEdge(
               height: 40,

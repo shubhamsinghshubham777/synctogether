@@ -1,5 +1,7 @@
 # Bug reports (`lib/feedback/`)
 
+**Where the button lives:** in every pushed page's title bar (`PTScreenTitleBar`), the lobby and the desktop marquee bar, but **not in a phone or tablet room's header**: there the room menu's "Report a bug" row is the way in (a boxed bug square beside a bare menu glyph made the bar lopsided, and it is one more thing over the film). The coach mark therefore only ever points at the lobby or a pushed page.
+
 Read before touching the bug button, the report sheet, Your reports, the discovery prompts or the `bug_reports` table. Design: canvas boards 82 (phone) and 83 (desktop and discovery).
 
 **Why it exists.** A user who hits a bug and has nowhere to say so leaves a one-star review. The button turns that moment into a report the team can act on, and the follow-up ("fixed in 1.4.2") closes the loop. Everything below serves that: one tap, nothing to fill in, a promise that is kept.

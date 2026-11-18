@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:synctogether/feedback/ui/bug_report_button.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:synctogether/ui/escape_back.dart';
 import 'package:flutter/services.dart' show MissingPluginException;
@@ -13,6 +12,7 @@ import '../ui/buttons.dart';
 import '../ui/cinema_marquee_bar.dart';
 import '../ui/glass.dart';
 import '../ui/pt_theme.dart';
+import '../ui/screen_title_bar.dart';
 import '../ui/scroll_fade.dart';
 
 /// The frame every pair screen shares: the desktop marquee bar or a plain header
@@ -101,7 +101,7 @@ class _PairPageState extends State<PairPage> with AppWindowListener {
 
   @override
   Widget build(BuildContext context) {
-    final gutter = MediaQuery.sizeOf(context).width >= 720 ? 48.0 : 20.0;
+    final gutter = PTScreenTitleBar.gutterFor(MediaQuery.sizeOf(context).width);
     return PTEscapeBack(
       child: Scaffold(
         body: AmbientBackground(
@@ -120,16 +120,7 @@ class _PairPageState extends State<PairPage> with AppWindowListener {
                     trailing: widget.trailing,
                   )
                 else
-                  Padding(
-                    padding: EdgeInsets.fromLTRB(gutter - 8, 10, gutter, 6),
-                    child: Row(
-                      children: [
-                        Expanded(child: _back()),
-                        ?widget.trailing,
-                        const BugReportButton(),
-                      ],
-                    ),
-                  ),
+                  PTScreenTitleBar(title: widget.title, trailing: widget.trailing),
                 Expanded(
                   child: ScrollFadeEdge(
                     height: 36,

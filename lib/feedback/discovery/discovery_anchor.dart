@@ -1,5 +1,6 @@
 import 'package:flutter/widgets.dart';
 
+import '../../rooms/widgets/lobby_header.dart' show isPaintedInFirstFit;
 import 'discovery_triggers.dart';
 
 /// Wraps a bug button so the coach mark can point at it. Several can be
@@ -18,10 +19,22 @@ class DiscoveryAnchor extends StatefulWidget {
   /// The topmost anchor's rectangle in window coordinates, or null before it
   /// has been laid out. The coach mark clamps its ring and card against it.
   static Rect? activeRect() {
-    final key = _keys[active.value];
-    final box = key?.currentContext?.findRenderObject();
-    if (box is! RenderBox || !box.attached || !box.hasSize) return null;
-    return box.localToGlobal(Offset.zero) & box.size;
+    // Newest first, skipping copies a FirstFit measured but did not choose:
+    // they are mounted (so they register) yet never painted, and their
+    // rectangle points at empty space.
+    for (final link in _mounted.reversed) {
+      final ctx = _keys[link]?.currentContext;
+      // A page covered by an opaque route (the first-night onboarding over
+      // the lobby) keeps its button mounted and laid out, so the ring lit an
+      // empty patch of the onboarding. The Overlay turns tickers off for
+      // exactly those entries; a dialog over the page leaves them on.
+      if (ctx == null || !TickerMode.valuesOf(ctx).enabled) continue;
+      final box = ctx.findRenderObject();
+      if (box is! RenderBox || !box.attached || !box.hasSize) continue;
+      if (!isPaintedInFirstFit(box)) continue;
+      return box.localToGlobal(Offset.zero) & box.size;
+    }
+    return null;
   }
 
   @override

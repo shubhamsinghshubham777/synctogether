@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:synctogether/auth/auth_errors.dart';
 import 'package:synctogether/feedback/ui/bug_report_button.dart';
 
 import '../ui/rolling_text.dart';
@@ -150,7 +151,7 @@ class _LoginScreenState extends State<LoginScreen> with AppWindowListener {
       reportNonFatal(e, s, during: during);
       if (mounted) {
         final message = e is AuthException
-            ? e.message
+            ? friendlyAuthMessage(e)
             : "Couldn't sign you in. Give it another try.";
         showPTSnack(context, message, kind: .error);
       }
@@ -242,7 +243,7 @@ class _LoginScreenState extends State<LoginScreen> with AppWindowListener {
           context,
           wrongCredentials
               ? "That password doesn't match. Try again, or email yourself a code instead."
-              : e.message,
+              : friendlyAuthMessage(e),
           kind: .error,
         );
       }
@@ -314,7 +315,9 @@ class _LoginScreenState extends State<LoginScreen> with AppWindowListener {
                         // Two columns while the marquee has room to be a marquee;
                         // below that one centred column (portrait tablets, narrow
                         // desktop windows).
-                        if (box.maxWidth < 900) return _stacked(short: short);
+                        // The floating button (tablets) or the marquee bar (desktop)
+                        // already carries the bug button here.
+                        if (box.maxWidth < 900) return _stacked(short: short, headerBug: false);
                         final officeWidth = box.maxWidth >= 1280 ? 520.0 : 440.0;
                         final marqueeWidth = box.maxWidth - officeWidth;
                         final wide = marqueeWidth >= 760;
@@ -490,7 +493,10 @@ class _LoginScreenState extends State<LoginScreen> with AppWindowListener {
   /// stack. Scrolls once the content outgrows the screen (320x568, the OTP
   /// view with the keyboard up, 2.0x text); the spacer still pushes the
   /// buttons down whenever it fits, where a thumb reaches them.
-  Widget _stacked({required bool short, bool phone = false}) {
+  ///
+  /// [headerBug] is false where the surrounding layout already shows the bug
+  /// button (the tablet overlay, the desktop marquee bar), so it never appears twice.
+  Widget _stacked({required bool short, bool phone = false, bool headerBug = true}) {
     return SafeArea(
       child: LayoutBuilder(
         builder: (context, box) {
@@ -528,8 +534,7 @@ class _LoginScreenState extends State<LoginScreen> with AppWindowListener {
                                 )
                               : const _WordmarkRow(spread: true, size: 20),
                         ),
-                        const SizedBox(width: 12),
-                        const BugReportButton(),
+                        if (headerBug) ...[const SizedBox(width: 12), const BugReportButton()],
                       ],
                     ),
                     SizedBox(height: math.max(short ? 24.0 : 28.0, slack)),

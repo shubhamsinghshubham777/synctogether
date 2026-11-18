@@ -112,9 +112,13 @@ class MediaSharingException implements Exception {
     final serverCode = RegExp(r'^[a-z][a-z0-9_]{2,40}$').hasMatch(code) ? code : null;
     return MediaSharingException(
       code: serverCode ?? 'unknown',
-      message: error is FunctionException && error.reasonPhrase != null
-          ? 'Upload failed: ${error.reasonPhrase}'
-          : (error is HttpException ? error.message : 'Upload failed. Please try again.'),
+      // Friendly copy only: the server's reason phrase or a socket message
+      // ("Internal Server Error", "Connection closed") used to reach the
+      // snack verbatim. The cause still travels in [code] and the caller's
+      // reportNonFatal.
+      message: error is HttpException || error is SocketException
+          ? 'The upload lost its connection. Check your network and try again.'
+          : "The upload didn't go through. Give it another try.",
     );
   }
 

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 
@@ -105,6 +107,7 @@ class _CoachMarkState extends State<CoachMark> with SingleTickerProviderStateMix
   void dispose() {
     HardwareKeyboard.instance.removeHandler(_onKey);
     _fade.dispose();
+    _retry?.cancel();
     super.dispose();
   }
 
@@ -138,10 +141,17 @@ class _CoachMarkState extends State<CoachMark> with SingleTickerProviderStateMix
   /// The target is laid out before this widget builds, but its rectangle is only
   /// readable once the frame is done; read it again then so a move (a resize, a
   /// different header) is followed.
+  /// While the target is hidden (a page covering it, such as the first-night
+  /// onboarding over the lobby) nothing rebuilds this widget when it comes
+  /// back, so look again a few times a second until it does - never per frame.
+  Timer? _retry;
+
   void _measure() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       final now = widget.anchor();
+      _retry?.cancel();
+      if (now == null) _retry = Timer(const Duration(milliseconds: 400), _measure);
       final h = (_cardKey.currentContext?.findRenderObject() as RenderBox?)?.size.height ?? 0;
       if (now != _anchor || (h - _cardHeight).abs() > 0.5) {
         setState(() {
@@ -149,6 +159,10 @@ class _CoachMarkState extends State<CoachMark> with SingleTickerProviderStateMix
           _cardHeight = h;
         });
       }
+      // The card stays invisible until it has a height, and it is only laid
+      // out once the anchor exists - so an anchor that arrived late (the
+      // retry above) needs one more look, next frame, to size the card.
+      if (now != null && h == 0) _measure();
     });
   }
 

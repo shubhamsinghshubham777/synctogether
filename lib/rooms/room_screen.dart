@@ -107,7 +107,6 @@ import 'package:synctogether/ui/booth.dart';
 import 'package:synctogether/ui/coach_target.dart';
 import 'package:synctogether/ui/buttons.dart';
 import 'package:synctogether/feedback/bug_report.dart';
-import 'package:synctogether/feedback/ui/bug_report_button.dart';
 import 'package:synctogether/ui/cinema_marquee_bar.dart';
 import 'package:synctogether/ui/error_boundary.dart';
 import 'package:synctogether/ui/popover.dart';
@@ -6497,9 +6496,9 @@ class _RoomScreenState extends State<RoomScreen> with AppWindowListener, TickerP
           SizedBox(width: compact ? 12 : 10),
           _chatToggleButton(size: compact ? 44 : 40),
         ],
-        SizedBox(width: compact ? 10 : 10),
-        // Desktop carries the button in the marquee bar instead.
-        if (!isDesktop) ...[const BugReportButton(), const SizedBox(width: 6)],
+        const SizedBox(width: 10),
+        // The bug report lives in the room menu: a lone boxed button beside a bare
+        // one made the bar lopsided. (Desktop has it in the marquee bar.)
         PTIconButton(
           icon: BoothIcons.moreVert,
           size: compact ? 44 : 40,
@@ -6724,8 +6723,6 @@ class _RoomScreenState extends State<RoomScreen> with AppWindowListener, TickerP
                 spacing: 12,
                 children: [
                   _chatToggleButton(size: 36, glass: false),
-                  // Desktop carries the button in the marquee bar instead.
-                  if (!isDesktop) const BugReportButton(),
                   PTIconButton(
                     icon: BoothIcons.moreHoriz,
                     glass: false,
@@ -7009,7 +7006,6 @@ class _RoomScreenState extends State<RoomScreen> with AppWindowListener, TickerP
               ],
             ),
           ),
-          const BugReportButton(),
           PTIconButton(
             icon: BoothIcons.moreHoriz,
             glass: false,

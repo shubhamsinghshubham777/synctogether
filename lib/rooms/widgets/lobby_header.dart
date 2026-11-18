@@ -27,6 +27,18 @@ class FirstFit extends MultiChildRenderObjectWidget {
   RenderObject createRenderObject(BuildContext context) => _RenderFirstFit();
 }
 
+/// Whether [object] is painted: false for a [FirstFit] candidate that lost (it
+/// is laid out to be measured but never painted or hit-tested). Lets a widget
+/// that registers itself on mount, like the coach anchor, ignore those copies.
+bool isPaintedInFirstFit(RenderObject object) {
+  RenderObject child = object;
+  for (var p = object.parent; p != null; p = p.parent) {
+    if (p is _RenderFirstFit && p._chosen != child) return false;
+    child = p;
+  }
+  return true;
+}
+
 class _FirstFitParentData extends ContainerBoxParentData<RenderBox> {}
 
 class _RenderFirstFit extends RenderBox

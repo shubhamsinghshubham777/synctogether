@@ -302,9 +302,17 @@ jobs:
             VERSION_ID=$(asc versions list --app "$APP_ID" --platform IOS --version "$APP_VERSION" | jq -r '.data[0].id')
           fi
 
+          # The app info is app-wide, not per platform. While another platform's
+          # version is in flight there are two (the live one and an editable one),
+          # and asc refuses to guess: 1.18.0's iOS leg failed here after the Mac
+          # leg submitted. Use the editable one, else the only one.
+          APP_INFO_ID=$(asc apps info list --app "$APP_ID" | jq -r '
+            ([.data[] | select(.attributes.state != "READY_FOR_DISTRIBUTION")] + .data)[0].id')
+          APP_INFO_COUNT=$(asc apps info list --app "$APP_ID" | jq '.data | length')
+
           if [ -d "metadata/version/$APP_VERSION" ]; then
             echo "==> Pushing canonical metadata (What's New) for $APP_VERSION"
-            asc metadata push --app "$APP_ID" --version "$APP_VERSION" --platform IOS --dir ./metadata
+            asc metadata push --app "$APP_ID" --version "$APP_VERSION" --platform IOS --dir ./metadata --app-info "$APP_INFO_ID"
           else
             echo "::warning::metadata/version/$APP_VERSION is missing; the version keeps its copied What's New."
           fi
@@ -314,8 +322,14 @@ jobs:
           echo "==> Attaching build $BUILD_ID to version $VERSION_ID"
           asc versions attach-build --version-id "$VERSION_ID" --build-id "$BUILD_ID"
 
-          echo "==> Validating"
-          asc validate --app "$APP_ID" --version "$APP_VERSION" --platform IOS
+          # validate has no --app-info flag and fails on the same ambiguity, so
+          # skip it then; App Store Connect still checks the submission itself.
+          if [ "$APP_INFO_COUNT" -gt 1 ]; then
+            echo "::warning::Two app infos exist (another platform's version is in flight); skipping asc validate."
+          else
+            echo "==> Validating"
+            asc validate --app "$APP_ID" --version "$APP_VERSION" --platform IOS
+          fi
 
           echo "==> Submitting for review"
           asc review submit --app "$APP_ID" --version-id "$VERSION_ID" --build-id "$BUILD_ID" --platform IOS --confirm

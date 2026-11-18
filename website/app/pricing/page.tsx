@@ -6,9 +6,9 @@ import { PageHead, display, mono } from "@/components/PageHead";
 import { getPatronPrices } from "@/lib/store-prices";
 
 export const metadata: Metadata = {
-  title: "Pricing & Plans · SyncTogether Premium",
+  title: "Pricing & Plans · SyncTogether Patron",
   description:
-    "Upgrade to SyncTogether Premium for 20 persistent rooms, 16 members, 24-hour sessions, video facecams, and extended emoji reactions. Pairing and Our Room for two are free.",
+    "Get a SyncTogether Patron seat for 20 persistent rooms, 16 members, 24-hour sessions, video facecams, and extended emoji reactions. Pairing and Our Room for two are free.",
 };
 
 export default async function PricingPage() {
@@ -26,7 +26,7 @@ export default async function PricingPage() {
             <span className="text-brass">Patron seats</span> for the big ones.
           </span>
         }
-        lede="Free rooms hold 8 people for 4 hours. Patron, our Premium plan, is for the whole group, the all-day marathon, and the room you can keep and reopen. Two of you? Pairing and Our Room are free."
+        lede="Free rooms hold 8 people for 4 hours. Patron, our paid plan, is for the whole group, the all-day marathon, and the room you can keep and reopen. Two of you? Pairing and Our Room are free."
         aside={
           <dl className={`${mono} grid grid-cols-3 border border-rail rounded-md divide-x divide-rail text-center`}>
             {[

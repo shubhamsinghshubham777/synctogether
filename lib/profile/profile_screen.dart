@@ -1485,7 +1485,7 @@ class _ProfileScreenState extends State<ProfileScreen> with AppWindowListener {
         ),
         if (isPrem)
           Text(
-            'Unlimited weekly uploads active with your Premium subscription.',
+            'Unlimited weekly uploads, with your Patron seat.',
             style: PTText.finePrint.copyWith(color: PTColors.white(0.6)),
           )
         else if (!isGuest) ...[

@@ -521,7 +521,7 @@ function AccountDashboard() {
             <div className="bg-seat border border-rail rounded-[6px] p-6 sm:p-7">
               <p className={`${kicker} mb-3`}>Become a Patron</p>
               <p className="text-[15px] text-gray-300 leading-relaxed">
-                Premium is bought inside the SyncTogether app from the App Store or the Microsoft Store, and it unlocks on every device you sign in on.
+                A Patron seat is bought inside the SyncTogether app from the App Store or the Microsoft Store, and it unlocks on every device you sign in on.
               </p>
               <Link
                 href="/download"

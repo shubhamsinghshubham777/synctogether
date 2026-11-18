@@ -324,12 +324,12 @@ export default async function InternalMetricsPage() {
       <Section icon={<Crown className="w-5 h-5 text-brass" />} title="Accounts & revenue">
         <Grid>
           <Stat label="Registered accounts" value={num(db?.accounts.registered)} def="Non-guest profiles, all sources (site, stores, direct)." />
-          <Stat label="Premium" value={num(db?.accounts.premium)} tone="text-brass" def="Accounts whose effective_tier is premium, either rail, including manual grants." />
+          <Stat label="Patron" value={num(db?.accounts.premium)} tone="text-brass" def="Accounts whose effective_tier is premium, either rail, including manual grants." />
           <Stat label="Free" value={num(db?.accounts.free)} def="Registered minus premium." />
           <Stat label="Guests" value={num(db?.accounts.guests)} def="Anonymous profiles (purged after 3 days)." />
           <Stat label="Signups 24h / 7d / 30d" value={db ? `${num(db.signups.last_24h)} / ${num(db.signups.last_7d)} / ${num(db.signups.last_30d)}` : UNAVAILABLE}
             def="Profiles created in each window, guests included." />
-          <Stat label="Paying, of active users" value={pct(derived.payingOfActivePercent)} def="Premium accounts / MAU." />
+          <Stat label="Paying, of active users" value={pct(derived.payingOfActivePercent)} def="Patron accounts / MAU." />
           <Stat label="Web MRR (USD equiv.)" value={mrr?.usdEquivalent != null ? money(mrr.usdEquivalent, "USD") : UNAVAILABLE} tone="text-brass"
             def={`Active web-provider rows, not past_due, charge normalised per month (annual / 12). INR at a fixed ${derived.inrPerUsd}/USD.`} />
           <Stat label="App Store subscribers" value={num(subs?.apple_production)}

@@ -196,7 +196,7 @@ export const PRICING_TIERS = {
     ],
   },
   premium: {
-    name: "Premium",
+    name: "Patron",
     badge: "Ultimate Experience",
     price: {
       usdMonthly: formatPatronPrice("USD", PATRON_PRICES.USD.monthly),

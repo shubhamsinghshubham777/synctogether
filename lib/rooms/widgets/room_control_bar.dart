@@ -81,10 +81,10 @@ class RoomControlBarActions {
 /// For a signed-in viewer; RoomScreen passes guest-specific copy.
 const kVoiceLockedTooltip =
     'This is a guest room, so voice chat is off. Rooms hosted from a free '
-    'account get voice, and Premium hosts add video.';
+    'account get voice, and Patron hosts add video.';
 
 const kCamLockedTooltip =
-    'Video facecams are a Premium perk. Host with Premium and everyone in '
+    'Video facecams come with a Patron seat. Host as a Patron and everyone in '
     'your room can turn their camera on.';
 
 class RoomControlBar extends StatefulWidget {
@@ -866,7 +866,7 @@ class _RoomControlBarState extends State<RoomControlBar> with SingleTickerProvid
           .camera,
           label: 'Camera',
           icon: BoothIcons.videocamOff,
-          value: 'Premium',
+          value: 'Patron',
           onTap: a.onCamLocked,
           inline: locked(BoothIcons.videocamOff, kCamLockedTooltip, a.onCamLocked),
         );

@@ -562,7 +562,7 @@ class _RoomScreenState extends State<RoomScreen> with AppWindowListener, TickerP
         return;
       }
       if (_startingVideoTrial) return;
-      _snack('Cameras are a premium thing. This room is voice only.', kind: .info);
+      _snack('Cameras come with a Patron seat. This room is voice only.', kind: .info);
       return;
     }
     if (on && av.state == .unavailable) {

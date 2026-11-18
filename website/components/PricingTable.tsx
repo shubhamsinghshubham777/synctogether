@@ -146,7 +146,7 @@ export function PricingTable({ prices = PATRON_PRICES }: { prices?: PatronPriceT
         {/* Wording follows app/refund/page.tsx: cancel any time, perks run to
             the end of the paid period; refunds are handled by the store you bought from. */}
         <p className="text-sm text-gray-500 leading-relaxed">
-          You subscribe inside the app (App Store or Microsoft Store), and the store handles billing, tax and cancellation. Cancel any time and you keep Premium until the end of the period you paid for. Refunds follow the{" "}
+          You subscribe inside the app (App Store or Microsoft Store), and the store handles billing, tax and cancellation. Cancel any time and you keep Patron until the end of the period you paid for. Refunds follow the{" "}
           <Link href="/refund" className="underline underline-offset-2 hover:text-white">store&apos;s refund process</Link>.
         </p>
       </div>

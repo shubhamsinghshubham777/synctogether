@@ -6,7 +6,7 @@ const TOC = [
   { id: "s-1", n: "01", label: "Nature of the Service" },
   { id: "s-2", n: "02", label: "User Accounts & Identities" },
   { id: "s-3", n: "03", label: "Acceptable Use" },
-  { id: "s-4", n: "04", label: "Premium Subscriptions & Billing" },
+  { id: "s-4", n: "04", label: "Patron Subscriptions & Billing" },
   { id: "s-5", n: "05", label: "User Content & Privacy" },
   { id: "s-6", n: "06", label: "Copyright, Moderation & Termination" },
   { id: "s-7", n: "07", label: "Service Availability & Disclaimer" },
@@ -76,10 +76,10 @@ export default function TermsPage() {
         <section id="s-4" className="space-y-3">
           <h2>
             <LegalNum n="4" />
-            Premium Subscriptions &amp; Billing
+            Patron Subscriptions &amp; Billing
           </h2>
           <p>
-            Paid subscriptions provide enhanced features including persistent rooms, 16-member limits, and video facecams. Subscriptions are bought inside the app through the App Store or the Microsoft Store, which takes payment, handles tax and issues refunds under its own rules. Premium bought on one device unlocks on every device you sign in on.
+            Paid subscriptions provide enhanced features including persistent rooms, 16-member limits, and video facecams. Subscriptions are bought inside the app through the App Store or the Microsoft Store, which takes payment, handles tax and issues refunds under its own rules. A Patron seat bought on one device unlocks on every device you sign in on.
           </p>
           <p>
             Subscriptions renew monthly or annually until you cancel them in your store&apos;s subscription settings. We reserve the right to modify subscription pricing with at least 30 days prior notice, subject to the store&apos;s price-change rules.

@@ -446,7 +446,7 @@ function FacecamTile({
       {person.premium && (
         <Crown
           className="w-3 h-3 text-amber-400 fill-amber-400 absolute top-1 left-1 drop-shadow"
-          aria-label="Premium Host"
+          aria-label="Patron host"
         />
       )}
       {showName && (

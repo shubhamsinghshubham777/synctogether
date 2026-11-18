@@ -18,7 +18,7 @@ enum AnalyticsGroup {
   pair('Your person'),
   safety('Safety and moderation'),
   feedback('Reporting a problem'),
-  premium('Premium');
+  premium('Patron');
 
   const AnalyticsGroup(this.title);
 
@@ -75,7 +75,7 @@ const kAnalyticsEvents = <AnalyticsEventDoc>[
     why: 'Shows which sign-in methods are worth keeping and which are broken.',
     properties: [
       'method (Google, Apple, email or guest)',
-      'your plan (guest, free or premium), kept on your analytics profile with your platform and app version',
+      'your plan (guest, free or Patron), kept on your analytics profile with your platform and app version',
     ],
   ),
   AnalyticsEventDoc(
@@ -299,7 +299,7 @@ const kAnalyticsEvents = <AnalyticsEventDoc>[
     group: .rewards,
     what: 'You claimed your public handle.',
     why:
-        'Whether the one thing Premium adds here is worth having. The handle '
+        'Whether the one thing Patron adds here is worth having. The handle '
         'itself is not sent.',
   ),
 
@@ -332,42 +332,42 @@ const kAnalyticsEvents = <AnalyticsEventDoc>[
   AnalyticsEventDoc(
     event: 'upgrade_cta_shown',
     group: .premium,
-    what: 'You were shown a Premium prompt.',
+    what: 'You were shown a Patron prompt.',
     why: 'So we can tell a useful prompt from a nag, and remove the nags.',
     properties: ['where it appeared'],
   ),
   AnalyticsEventDoc(
     event: 'upgrade_cta_clicked',
     group: .premium,
-    what: 'You tapped a Premium prompt.',
+    what: 'You tapped a Patron prompt.',
     why: 'Same reason, from the other side.',
     properties: ['where it appeared', 'what it offered (sign in, or keep me posted)'],
   ),
   AnalyticsEventDoc(
     event: 'subscription_screen_viewed',
     group: .premium,
-    what: 'You opened the Premium screen.',
+    what: 'You opened the Patron screen.',
     why: 'Where people come to it from.',
     properties: ['where you came from'],
   ),
   AnalyticsEventDoc(
     event: 'store_purchase_started',
     group: .premium,
-    what: 'You started a Microsoft Store purchase of Premium.',
+    what: 'You started a Microsoft Store purchase of Patron.',
     why: 'Whether the Microsoft Store sheet loses people.',
     properties: ['where you came from', 'which store', 'monthly or annual'],
   ),
   AnalyticsEventDoc(
     event: 'app_store_purchase_started',
     group: .premium,
-    what: 'You started an App Store purchase of Premium.',
+    what: 'You started an App Store purchase of Patron.',
     why: 'Whether the App Store sheet loses people.',
     properties: ['where you came from', 'monthly or annual'],
   ),
   AnalyticsEventDoc(
     event: 'purchase_confirmed',
     group: .premium,
-    what: 'A Premium subscription became active on your account.',
+    what: 'A Patron subscription became active on your account.',
     why:
         'Confirms the purchase reached the app. No payment details are ever involved -'
         ' card details never touch SyncTogether at all.',

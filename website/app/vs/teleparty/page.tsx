@@ -55,7 +55,7 @@ export default function VsTelepartyPage() {
           heading: "What happens when only one of you has the file",
           body: [
             "The usual failure of local-file sync is that one person has the video and the other does not, and the evening turns into a file transfer. SyncTogether lets the host upload the file to the room so everyone else streams it directly, without hunting down their own copy first. Nobody counts down from three.",
-            "Signed-in free accounts can share files up to 2 GB within a weekly allowance; Premium raises the limit to 10 GB per file with no weekly cap. Guests can join a shared room but cannot upload.",
+            "Signed-in free accounts can share files up to 2 GB within a weekly allowance; Patron raises the limit to 10 GB per file with no weekly cap. Guests can join a shared room but cannot upload.",
           ],
         },
         {

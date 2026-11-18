@@ -187,7 +187,7 @@ export function ReactionPlayground() {
             onClick={() => (panelOpen ? closePanel(true) : openPanel())}
             onPointerEnter={hoverOpen}
             onPointerLeave={hoverClose}
-            title="16 more with Premium"
+            title="16 more with Patron"
             aria-expanded={panelOpen}
             aria-controls={panelId}
             className="w-11 h-11 shrink-0 rounded-[4px] border border-rail flex flex-col items-center justify-center gap-0.5 text-gray-300 cursor-pointer"
@@ -231,7 +231,7 @@ export function ReactionPlayground() {
             href="/pricing"
             className="block text-center text-xs text-[color:var(--pt-premium)] underline underline-offset-2"
           >
-            16 more with Premium
+            16 more with Patron
           </Link>
         </div>
       </div>

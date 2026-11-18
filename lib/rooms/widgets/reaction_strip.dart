@@ -301,7 +301,7 @@ class _LockedMoreCell extends StatefulWidget {
 
 /// Says what the `+` unlocks, not just that it is locked.
 final kReactionsLockedTooltip =
-    'Premium unlocks ${kExtendedReactions.length} more animated reactions, '
+    'Patron unlocks ${kExtendedReactions.length} more animated reactions, '
     'and everyone in the room sees them.';
 
 class _LockedMoreCellState extends State<_LockedMoreCell> {

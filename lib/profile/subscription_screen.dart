@@ -726,7 +726,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen>
               style: PTText.display.copyWith(fontSize: 38, color: ink, letterSpacing: -1.2),
             ),
             Text(
-              'SyncTogether Premium',
+              'SyncTogether Patron',
               style: PTText.caption.copyWith(color: soft, fontWeight: .w600),
             ),
             const SizedBox(height: 4),
@@ -894,7 +894,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen>
     if (_isMicrosoftStore) return _microsoftPurchase(compact: compact);
     return _panel(
       Text(
-        "Patron seats are sold in the App Store apps for now. Premium bought there unlocks here too.",
+        "Patron seats are sold in the App Store apps for now. A seat bought there unlocks here too.",
         style: PTText.body.copyWith(fontSize: 14, color: PTColors.white(0.85)),
       ),
     );
@@ -924,7 +924,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen>
     final iap = AppleIapService.instance;
     if (EntitlementService.instance.limitsOrFallback.isGuest) {
       return _infoCard(
-        'Sign in with Apple, Google or email to subscribe. Premium belongs to your account, '
+        'Sign in with Apple, Google or email to subscribe. A Patron seat belongs to your account, '
         'so it follows you to every device.',
       );
     }
@@ -1054,7 +1054,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen>
     final iap = MicrosoftIapService.instance;
     if (EntitlementService.instance.limitsOrFallback.isGuest) {
       return _infoCard(
-        'Sign in with Apple, Google or email to subscribe. Premium belongs to your account, '
+        'Sign in with Apple, Google or email to subscribe. A Patron seat belongs to your account, '
         'so it follows you to every device.',
       );
     }
@@ -1138,7 +1138,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen>
             onPressed: () => _openUrl(kMicrosoftManageSubscriptionsUrl),
           )
         else
-          _infoCard('Premium is active on your account across all your devices.'),
+          _infoCard('Your Patron seat is active on this account, on all your devices.'),
         PTButton(
           label: 'Refresh status',
           icon: BoothIcons.restore,
@@ -1164,7 +1164,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen>
             onPressed: () => _openUrl(kAppleManageSubscriptionsUrl),
           )
         else
-          _infoCard('Premium is active on your account across all your devices.'),
+          _infoCard('Your Patron seat is active on this account, on all your devices.'),
         PTButton(
           label: 'Refresh status',
           icon: BoothIcons.restore,

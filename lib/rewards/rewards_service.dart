@@ -440,7 +440,10 @@ class RewardsService extends ChangeNotifier {
 
 enum RewardErrorCode {
   guestNotEligible('guest_not_eligible', 'Sign in to unlock streaks and leaderboards.'),
-  premiumRequired('premium_required', 'Handles are a Premium thing. Your rank works either way.'),
+  premiumRequired(
+    'premium_required',
+    'Handles come with a Patron seat. Your rank works either way.',
+  ),
   invalidHandle('invalid_handle', 'Handles are 3-20 letters, numbers or underscores.'),
   handleTaken('handle_taken', 'Someone already has that one. Try another?'),
   handleReserved('handle_reserved', "That one's spoken for. Try another?"),

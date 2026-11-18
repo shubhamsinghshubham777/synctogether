@@ -84,13 +84,13 @@ export default function PrivacyPage() {
     },
     {
       name: "Apple Inc.",
-      purpose: "Sign in with Apple single sign-on authentication, and App Store purchase verification (signed transactions) for Premium.",
+      purpose: "Sign in with Apple single sign-on authentication, and App Store purchase verification (signed transactions) for Patron seats.",
       location: "United States / Global",
       privacyUrl: "https://www.apple.com/legal/privacy/",
     },
     {
       name: "Microsoft Corporation",
-      purpose: "Microsoft Store purchase verification for Premium on Windows (a Store ID key bound to your account id).",
+      purpose: "Microsoft Store purchase verification for Patron seats on Windows (a Store ID key bound to your account id).",
       location: "United States / Global",
       privacyUrl: "https://privacy.microsoft.com/privacystatement",
     },
@@ -200,7 +200,7 @@ export default function PrivacyPage() {
             <div className="p-5 rounded-xl bg-white/[0.02] border border-white/5 space-y-2.5">
               <strong className="text-white text-base block">D. Payment &amp; Subscription Information</strong>
               <p className="text-gray-400">
-                Premium subscription payments are processed by the store you buy from (Apple&apos;s App Store, or the Microsoft Store). The store handles all card and wallet transactions.
+                Patron subscription payments are processed by the store you buy from (Apple&apos;s App Store, or the Microsoft Store). The store handles all card and wallet transactions.
               </p>
               <p className="text-gray-400">
                 <strong>SyncTogether never sees, processes, or stores your credit card numbers, CVVs, or bank account details.</strong> We receive only purchase confirmations, subscription tier flags, transaction IDs, and renewal timestamps from the store.
@@ -423,7 +423,7 @@ export default function PrivacyPage() {
                 <strong className="text-gray-200">Consent (Art. 6(1)(a) GDPR):</strong> For optional product analytics via PostHog (which can be toggled off at any time).
               </li>
               <li>
-                <strong className="text-gray-200">Legal Obligation (Art. 6(1)(c) GDPR):</strong> To comply with applicable tax, financial, and regulatory requirements via the stores that sell Premium.
+                <strong className="text-gray-200">Legal Obligation (Art. 6(1)(c) GDPR):</strong> To comply with applicable tax, financial, and regulatory requirements via the stores that sell Patron seats.
               </li>
             </ul>
           </div>

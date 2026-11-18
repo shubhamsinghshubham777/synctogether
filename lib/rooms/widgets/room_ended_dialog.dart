@@ -106,7 +106,7 @@ void showRoomEndedDialog({
                   ),
                   if (canShowPremiumUpsell)
                     PTButton(
-                      label: premiumUpsellLabel ?? 'Unlock 24h rooms with Premium',
+                      label: premiumUpsellLabel ?? 'Unlock 24h rooms with Patron',
                       icon: BoothIcons.crown,
                       variant: .secondary,
                       onPressed: () {

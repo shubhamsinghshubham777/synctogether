@@ -800,7 +800,7 @@ class _LobbyScreenState extends State<LobbyScreen> with AppWindowListener {
         headline: "That's all your rooms",
         body:
             "You're holding as many rooms as your account allows. Delete one you're done "
-            'with, or upgrade to Premium for more.',
+            'with, or get a Patron seat for more.',
         perks: const [
           'Room for a lot more of them at once',
           'Rooms that stay put until you delete them',
@@ -1978,7 +1978,7 @@ class _LobbyScreenState extends State<LobbyScreen> with AppWindowListener {
     final isLow = remainingBytes < 1024 * 1024 * 1024 && !isGuest && !isPrem;
 
     final quotaSubtitle = isPrem
-        ? 'Unlimited uploads with Premium • Up to 10 GB'
+        ? 'Unlimited uploads with Patron • Up to 10 GB'
         : isGuest
         ? 'Sign in for free 2.5 GB streaming'
         : '${Profile.formatBytes(remainingBytes)} weekly quota available • Up to 2 GB';

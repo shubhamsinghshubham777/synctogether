@@ -68,9 +68,9 @@ class MediaSharingException implements Exception {
         final usedStr = Profile.formatBytes(used.toInt());
         final limitStr = Profile.formatBytes(limit.toInt());
         msg =
-            'Weekly upload quota reached ($usedStr of $limitStr used). Upgrade to Premium for unlimited bandwidth.';
+            'Weekly upload quota reached ($usedStr of $limitStr used). Get a Patron seat for unlimited uploads.';
       } else {
-        msg = 'Weekly upload quota reached. Upgrade to Premium for unlimited uploads.';
+        msg = 'Weekly upload quota reached. Get a Patron seat for unlimited uploads.';
       }
 
       return MediaSharingException(

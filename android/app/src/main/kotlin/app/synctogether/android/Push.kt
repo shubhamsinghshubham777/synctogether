@@ -11,6 +11,8 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.provider.Settings
 import com.google.firebase.FirebaseApp
 import com.google.firebase.FirebaseOptions
@@ -33,6 +35,7 @@ object Push {
   private const val REQUEST = 4725
   const val CHANNEL_CALLS = "calls"
   const val CHANNEL_DEFAULT = "default"
+  const val CHANNEL_ROOMS = "rooms"
   const val EXTRA_ROUTE = "route"
 
   private var channel: MethodChannel? = null
@@ -82,6 +85,11 @@ object Push {
       },
     )
     manager.createNotificationChannel(
+      NotificationChannel(CHANNEL_ROOMS, "Rooms", NotificationManager.IMPORTANCE_DEFAULT).apply {
+        description = "When someone sits down in a room you host while you are away"
+      },
+    )
+    manager.createNotificationChannel(
       NotificationChannel(CHANNEL_DEFAULT, "Date nights and updates", NotificationManager.IMPORTANCE_DEFAULT)
         .apply { description = "Date night reminders, your watchlist and your reunion countdown" },
     )
@@ -123,6 +131,21 @@ object Push {
           pendingRoute = null
           result.success(route)
         }
+        "roomsChannelSilenced" -> result.success(roomsChannelSilenced(activity))
+        "openRoomsChannelSettings" -> {
+          activity.startActivity(
+            Intent(
+              if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS
+              } else {
+                Settings.ACTION_APP_NOTIFICATION_SETTINGS
+              },
+            )
+              .putExtra(Settings.EXTRA_APP_PACKAGE, activity.packageName)
+              .putExtra(Settings.EXTRA_CHANNEL_ID, CHANNEL_ROOMS),
+          )
+          result.success(null)
+        }
         "openSettings" -> {
           activity.startActivity(
             Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
@@ -133,6 +156,19 @@ object Push {
         else -> result.notImplemented()
       }
     }
+  }
+
+  /**
+   * The "Rooms" channel is silent or blocked (Android 8+). The app can read a
+   * channel's importance but never change it, so the settings screen only offers
+   * a shortcut to the channel's own page.
+   */
+  private fun roomsChannelSilenced(context: Context): Boolean {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return false
+    ensureChannels(context)
+    val manager = context.getSystemService(NotificationManager::class.java) ?: return false
+    val channel = manager.getNotificationChannel(CHANNEL_ROOMS) ?: return false
+    return channel.importance <= NotificationManager.IMPORTANCE_LOW
   }
 
   // ------------------------------------------------------------ permission
@@ -192,6 +228,12 @@ object Push {
     channel?.invokeMethod("token", mapOf("token" to token, "environment" to "production"))
   }
 
+  fun canForward() = dartReady && channel != null
+
+  fun deliverForeground(payload: Map<String, String?>) {
+    channel?.invokeMethod("foreground", payload)
+  }
+
   // ------------------------------------------------------------------ taps
 
   /** Reads the route a tapped notification carried, from the launching intent. */
@@ -212,6 +254,9 @@ object Push {
   /** FCM shows nothing itself while the app is open, so we do - like Apple does. */
   fun showForeground(context: Context, message: RemoteMessage) {
     val data = message.data
+    // Someone taking a seat is shown by the app itself as a banner with Join, so
+    // the system notification would be a second copy of the same news.
+    if (data["kind"] == "seat_taken" && forwardToDart(message)) return
     val title = message.notification?.title ?: data["title"] ?: return
     val body = message.notification?.body ?: data["body"] ?: ""
     val route = data[EXTRA_ROUTE]
@@ -225,7 +270,14 @@ object Push {
       PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
     )
     val builder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-      Notification.Builder(context, if (urgent) CHANNEL_CALLS else CHANNEL_DEFAULT)
+      Notification.Builder(
+        context,
+        when {
+          urgent -> CHANNEL_CALLS
+          data["kind"] == "seat_taken" -> CHANNEL_ROOMS
+          else -> CHANNEL_DEFAULT
+        },
+      )
     } else {
       @Suppress("DEPRECATION") Notification.Builder(context)
     }
@@ -239,6 +291,23 @@ object Push {
     context.getSystemService(NotificationManager::class.java)
       ?.notify((data["kind"] ?: "push").hashCode(), notification)
   }
+}
+
+/**
+ * Hands a push to Dart when the app is open and listening. False when it is not
+ * (so the caller falls back to the system notification).
+ */
+private fun forwardToDart(message: RemoteMessage): Boolean {
+  if (!Push.canForward()) return false
+  val data = message.data
+  val payload = mapOf(
+    "kind" to (data["kind"] ?: ""),
+    "title" to (message.notification?.title ?: data["title"] ?: ""),
+    "body" to (message.notification?.body ?: data["body"] ?: ""),
+    "route" to data[Push.EXTRA_ROUTE],
+  )
+  Handler(Looper.getMainLooper()).post { Push.deliverForeground(payload) }
+  return true
 }
 
 /** Receives the token refreshes and any message FCM does not display itself. */

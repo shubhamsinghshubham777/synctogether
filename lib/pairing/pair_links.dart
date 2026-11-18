@@ -30,11 +30,25 @@ class OpenOurRoom extends PushTarget {
   const OpenOurRoom();
 }
 
+/// Open a room by its path (`/lobby/room/<id>`): someone sat down in a room you
+/// host. The room's own state decides what shows, so a push that arrives late
+/// (a room that ended, one that emptied) lands somewhere sensible.
+class OpenRoom extends PushTarget {
+  const OpenRoom(this.roomId);
+  final String roomId;
+}
+
 /// Go to a lobby path.
 class OpenPath extends PushTarget {
   const OpenPath(this.path);
   final String path;
 }
+
+final _roomPath = RegExp(r'^/lobby/room/([0-9a-fA-F-]{36})$');
+
+/// The room id in a `/lobby/room/<uuid>` path. Only a well-formed id counts, so
+/// a stray or old route never becomes a room lookup.
+String? _roomIdOf(String route) => _roomPath.firstMatch(route)?.group(1);
 
 /// What `synctogether://push?route=…` means, or null when it names nothing we
 /// know (an old notification after a rename must not strand the person on a
@@ -46,9 +60,13 @@ PushTarget? pushTargetFromLink(Uri uri) {
 
 /// The same mapping from the raw `route` a push payload carries (Apple and
 /// Android deliver the payload to Dart directly, with no URL in between).
-PushTarget? pushTargetForRoute(String? route) => switch (route) {
-  'our-room' => const OpenOurRoom(),
-  'date-night' => const OpenPath('/lobby/pair/nights'),
-  'lobby' => const OpenPath('/lobby'),
-  _ => null,
-};
+PushTarget? pushTargetForRoute(String? route) {
+  final roomId = route == null ? null : _roomIdOf(route);
+  if (roomId != null) return OpenRoom(roomId);
+  return switch (route) {
+    'our-room' => const OpenOurRoom(),
+    'date-night' => const OpenPath('/lobby/pair/nights'),
+    'lobby' => const OpenPath('/lobby'),
+    _ => null,
+  };
+}

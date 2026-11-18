@@ -41,6 +41,9 @@ import 'package:synctogether/player/local_video_chooser.dart';
 import 'package:synctogether/player/media_file_types.dart';
 import 'package:synctogether/player/photo_exports.dart';
 import 'package:synctogether/rooms/our_room_media.dart';
+import 'package:synctogether/rooms/pending_actions.dart';
+import 'package:synctogether/pairing/pre_show_check.dart';
+import 'package:synctogether/pairing/pre_show_check_logic.dart' show FilmCheck, FilmKind;
 import 'package:synctogether/rooms/widgets/shared_copy_expired_banner.dart';
 import 'package:synctogether/rooms/widgets/streaming_fallback_banner.dart';
 import 'package:synctogether/player/photo_picker.dart';
@@ -454,6 +457,10 @@ class _RoomScreenState extends State<RoomScreen>
   String? _recentId;
   RecentVideo? _lastRecent;
   StreamSubscription<bool>? _thumbWait;
+
+  /// The owner's heartbeat: tells the server the host is in the room, so a guest
+  /// sitting down while the host is away rings them (see `room_host_ping`).
+  Timer? _hostPing;
   bool _localReadyPromptDismissed = false;
   Duration? _bufferPosition;
   StreamSubscription<List<lk.MediaDevice>>? _deviceChangeSub;
@@ -1111,6 +1118,9 @@ class _RoomScreenState extends State<RoomScreen>
   }
 
   Future<void> _init() async {
+    // Walking back in (Undo, its ticket, an invite) makes a pending leave moot;
+    // left alone it would drop the membership a few seconds into this session.
+    PendingActions.instance.cancelLeave(widget.roomId);
     // The Player is app-wide and outlives this screen, so it still holds
     // whatever the previous room opened. Unload before anything subscribes to
     // its streams. Done on entry, not in dispose(): swapping /room/A for
@@ -1198,6 +1208,7 @@ class _RoomScreenState extends State<RoomScreen>
       return;
     }
 
+    _startHostPing(room, profile.id);
     trace(
       'entered room',
       category: 'room',
@@ -1580,6 +1591,7 @@ class _RoomScreenState extends State<RoomScreen>
     for (final s in _subscriptions) {
       s.cancel();
     }
+    _hostPing?.cancel();
     _countdownTimer?.cancel();
     _videoTrialTimer?.cancel();
     _videoTrialNoteTimer?.cancel();
@@ -4660,7 +4672,24 @@ class _RoomScreenState extends State<RoomScreen>
     return _evictionReason != 'kicked' && _evictionReason != 'deleted';
   }
 
+  /// Only the owner's presence is "the host being there", and only while the app
+  /// is in front: a phone put down with the room open stops pinging once it is
+  /// suspended, and 90 s later counts as away.
+  void _startHostPing(Room room, String userId) {
+    if (room.createdBy != userId || room.pairId != null) return;
+    void ping() {
+      final state = WidgetsBinding.instance.lifecycleState;
+      if (state != null && state != AppLifecycleState.resumed) return;
+      unawaited(RoomService.instance.pingHost(widget.roomId));
+    }
+
+    ping();
+    _hostPing?.cancel();
+    _hostPing = Timer.periodic(const Duration(seconds: 45), (_) => ping());
+  }
+
   Future<void> _leaveRoom() async {
+    _hostPing?.cancel();
     trace('leaving the room', category: 'room', data: {'room_id': widget.roomId});
     _setImmersive(false);
     _trackWatchSessionEnded();
@@ -4671,14 +4700,24 @@ class _RoomScreenState extends State<RoomScreen>
     unawaited(_persistPosition());
     _thumbWait?.cancel();
     unawaited(_localVideo?.release());
-    try {
-      await RoomService.instance.leaveRoom(widget.roomId);
-    } catch (e, s) {
-      // Leave for the lobby regardless - trapping someone in a room they asked
-      // to leave is worse. But the membership is now stranded: it holds a slot
-      // against the 8-member cap and stays eligible for host succession.
-      reportNonFatal(e, s, during: 'leaving room ${widget.roomId}');
-    }
+    // The picture and sound stop now; the server call waits out a 5 second Undo
+    // window (board 95). It lives in PendingActions, not here: this State is
+    // about to be disposed, and the lobby it lands on shows the banner. If the
+    // call fails the membership stays (which holds a slot against the member cap
+    // and stays eligible for host succession), and the lobby says so.
+    final name = _room?.name ?? 'the room';
+    RoomService.instance.noteRoomExited();
+    PendingActions.instance.start(
+      PendingAction(
+        kind: .leaveRoom,
+        title: 'You left $name',
+        subtitle: 'Your seat is held for a moment.',
+        roomId: widget.roomId,
+        roomName: name,
+        failureTitle: "Couldn't finish leaving $name",
+        commit: () => RoomService.instance.leaveRoom(widget.roomId),
+      ),
+    );
     // Concurrent, not chained - the lobby route doesn't need the channel gone
     // or playback stopped first, and chaining them is what made this freeze.
     // Safe here (unlike dispose): this path always lands on the lobby, never
@@ -4847,6 +4886,7 @@ class _RoomScreenState extends State<RoomScreen>
       onLeave: _leaveRoom,
       onEndRoom: _endRoomForEveryone,
       onExtendRoom: _extendRoom,
+      onRoomCheck: () => unawaited(showRoomCheck(context, film: _roomFilm)),
       onReportConcern: _showReportDialog,
       onReportBug: () => BugReport.open(context, source: 'more'),
       onTransportLockChanged: _setTransportLock,
@@ -4869,6 +4909,14 @@ class _RoomScreenState extends State<RoomScreen>
       onUnblockMember: (member) => unawaited(_unblockMember(member)),
       playbackActions: _menuPlaybackActions(),
     );
+  }
+
+  /// What the room is watching, for the host's room check.
+  FilmCheck _roomFilm() {
+    if (!_canonicalMedia.isSet) return const FilmCheck(FilmKind.none);
+    return _mode == .youtube
+        ? const FilmCheck(FilmKind.youtubeInRoom)
+        : FilmCheck(FilmKind.local, name: _canonicalMedia.name);
   }
 
   Future<void> _setTransportLock(bool locked) async {

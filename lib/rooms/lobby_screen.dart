@@ -34,6 +34,8 @@ import 'package:synctogether/profile/widgets/warning_dialog.dart';
 import 'package:synctogether/rooms/local_media_store.dart';
 import 'package:synctogether/rooms/media_sharing_service.dart';
 import 'package:synctogether/rooms/invite_clipboard.dart';
+import 'package:synctogether/rooms/jump_back_in.dart';
+import 'package:synctogether/rooms/pending_actions.dart';
 import 'package:synctogether/rooms/room_models.dart';
 import 'package:synctogether/rewards/rewards_logic.dart';
 import 'package:synctogether/rewards/rewards_service.dart';
@@ -41,8 +43,10 @@ import 'package:synctogether/rewards/widgets/streak_chip.dart';
 import 'package:synctogether/rooms/room_service.dart';
 import 'package:synctogether/rooms/widgets/ended_room_dialog.dart';
 import 'package:synctogether/rooms/widgets/extend_room_dialog.dart';
+import 'package:synctogether/rooms/widgets/jump_back_in_strip.dart';
 import 'package:synctogether/rooms/widgets/lobby_header.dart';
 import 'package:synctogether/rooms/widgets/my_rooms_section.dart';
+import 'package:synctogether/rooms/widgets/pending_actions_banner.dart';
 import 'package:synctogether/ui/panel_switcher.dart';
 import 'package:synctogether/ui/banners.dart';
 import 'package:synctogether/ui/booth.dart';
@@ -142,7 +146,12 @@ class _LobbyScreenState extends State<LobbyScreen> with AppWindowListener, Resto
   _PhonePanel get _phonePanel => _panel.value;
   set _phonePanel(_PhonePanel panel) => _panel.value = panel;
   String? _busyRoomId;
-  bool _clearingEndedRooms = false;
+
+  /// Jump back in (board 92): the room being rejoined, and how many tries in a
+  /// row have failed, which decides how much help the banner offers.
+  String? _jumpingRoomId;
+  int _jumpFailures = 0;
+  final _ticketsKey = GlobalKey();
   Timer? _myRoomsPollTimer;
   bool _fullscreen = false;
 
@@ -344,6 +353,13 @@ class _LobbyScreenState extends State<LobbyScreen> with AppWindowListener, Resto
       PairService.instance.pendingPairCode = null;
       trace('consuming a parked pair invite', category: 'deeplink');
       context.go('/lobby/pair/accept/$pairCode');
+      return;
+    }
+    final roomId = RoomService.instance.pendingRoomId;
+    if (roomId != null && mounted) {
+      RoomService.instance.pendingRoomId = null;
+      trace('opening a room parked by a push', category: 'deeplink', data: {'room_id': roomId});
+      context.go(roomPath(roomId));
       return;
     }
     final code = RoomService.instance.pendingJoinCode;
@@ -786,25 +802,33 @@ class _LobbyScreenState extends State<LobbyScreen> with AppWindowListener, Resto
     }
   }
 
+  /// Deleting your own ticket happens at once and offers Undo (board 95): it
+  /// affects only you. A live room with other people in it affects them, so that
+  /// one keeps its confirm.
   Future<void> _deleteMyRoom(MyRoom entry) async {
-    final confirmed = await showGlassDialog<bool>(
-      context: context,
-      width: 420,
-      builder: (_) => DeleteRoomDialog(roomName: entry.room.name, isLive: entry.isLive),
-    );
-    if (confirmed != true || !mounted) return;
-    setState(() => _busyRoomId = entry.room.id);
-    try {
-      await RoomService.instance.deleteRoom(entry.room.id);
-      await LocalMediaStore.instance.forget(entry.room.id);
-      if (mounted) _snack('Room deleted.', kind: .success);
-    } catch (e, s) {
-      final failure = RoomErrorCode.fromError(e);
-      if (failure == .unknown) reportNonFatal(e, s, during: 'deleting a room from the lobby');
-      if (mounted) _snack(failure.message);
-    } finally {
-      if (mounted) setState(() => _busyRoomId = null);
+    if (entry.isLive && entry.memberCount > 1) {
+      final confirmed = await showGlassDialog<bool>(
+        context: context,
+        width: 420,
+        builder: (_) => DeleteRoomDialog(roomName: entry.room.name, isLive: entry.isLive),
+      );
+      if (confirmed != true || !mounted) return;
     }
+    final id = entry.room.id;
+    PendingActions.instance.start(
+      PendingAction(
+        kind: .deleteRoom,
+        title: 'Deleted ${entry.room.name}',
+        roomId: id,
+        roomName: entry.room.name,
+        hiddenRoomIds: {id},
+        failureTitle: "Couldn't delete ${entry.room.name}",
+        commit: () async {
+          await RoomService.instance.deleteRoom(id);
+          await LocalMediaStore.instance.forget(id);
+        },
+      ),
+    );
   }
 
   Future<void> _showRoomLimitDialog() async {
@@ -838,51 +862,36 @@ class _LobbyScreenState extends State<LobbyScreen> with AppWindowListener, Resto
   }
 
   Future<void> _clearEndedRooms(List<MyRoom> endedRooms) async {
-    if (endedRooms.isEmpty || _clearingEndedRooms) return;
-    final hasPersistent = RoomService.instance.myRooms.any((r) => r.room.persistent);
-    final confirmed = await showGlassDialog<bool>(
-      context: context,
-      width: 420,
-      builder: (_) =>
-          ClearEndedRoomsDialog(count: endedRooms.length, hasPersistentRooms: hasPersistent),
-    );
-    if (confirmed != true || !mounted) return;
-
-    setState(() => _clearingEndedRooms = true);
-    var succeeded = 0;
-    var failed = 0;
-
-    try {
-      for (final entry in endedRooms) {
-        try {
-          await RoomService.instance.deleteRoom(entry.room.id);
-          await LocalMediaStore.instance.forget(entry.room.id);
-          succeeded++;
-        } catch (e, s) {
-          failed++;
-          final failure = RoomErrorCode.fromError(e);
-          if (failure == .unknown) {
-            reportNonFatal(e, s, during: 'clearing ended room ${entry.room.id}');
+    if (endedRooms.isEmpty) return;
+    final ids = {for (final e in endedRooms) e.room.id};
+    final n = endedRooms.length;
+    PendingActions.instance.start(
+      PendingAction(
+        kind: .clearEnded,
+        title: 'Cleared $n ended ${n == 1 ? 'room' : 'rooms'}',
+        hiddenRoomIds: ids,
+        failureTitle: "Couldn't clear ended rooms",
+        commit: () async {
+          Object? firstError;
+          StackTrace? firstStack;
+          for (final id in ids) {
+            try {
+              await RoomService.instance.deleteRoom(id);
+              await LocalMediaStore.instance.forget(id);
+            } catch (e, st) {
+              // One bad room must not strand the rest: finish the batch, then
+              // report. The rooms that failed come back on the next load.
+              firstError ??= e;
+              firstStack ??= st;
+            }
           }
-        }
-      }
-
-      if (mounted) {
-        if (failed == 0) {
-          _snack('Cleared $succeeded ended ${succeeded == 1 ? 'room' : 'rooms'}.', kind: .success);
-        } else if (succeeded > 0) {
-          _snack(
-            'Cleared $succeeded ended ${succeeded == 1 ? 'room' : 'rooms'} ($failed failed).',
-            kind: .info,
-          );
-        } else {
-          _snack('Could not clear ended rooms. Please try again.');
-        }
-      }
-    } finally {
-      if (mounted) setState(() => _clearingEndedRooms = false);
-      unawaited(_loadMyRooms());
-    }
+          if (firstError != null) {
+            unawaited(_loadMyRooms());
+            Error.throwWithStackTrace(firstError, firstStack!);
+          }
+        },
+      ),
+    );
   }
 
   Widget _myRoomsSection({bool compact = false}) {
@@ -890,7 +899,6 @@ class _LobbyScreenState extends State<LobbyScreen> with AppWindowListener, Resto
       rooms: RoomService.instance.myRooms,
       serverNow: RoomService.instance.serverNow,
       busyRoomId: _busyRoomId,
-      clearingEnded: _clearingEndedRooms,
       compact: compact,
       framed: false,
       onOpen: _openMyRoom,
@@ -961,29 +969,79 @@ class _LobbyScreenState extends State<LobbyScreen> with AppWindowListener, Resto
     return Focus(
       autofocus: true,
       child: Scaffold(
-        body: AmbientBackground(
-          child: ListenableBuilder(
-            listenable: Listenable.merge([
-              ProfileService.instance,
-              RoomService.instance,
-              EntitlementService.instance,
-              RewardsService.instance,
-            ]),
-            builder: (context, _) {
-              final fold = foldOf(context);
-              // A vertical fold (iPhone Duo book, a dual screen): what you
-              // can do on one half, what you have on the other (board 56).
-              if (!isDesktop && fold.axis == .vertical) return _book(fold);
-              return PTResponsive(
-                desktop: (_) => _desktop(),
-                portrait: (_) => _portrait(),
-                landscape: (_) => _landscape(),
-              );
-            },
+        body: Stack(
+          fit: .expand,
+          children: [
+            AmbientBackground(
+              child: ListenableBuilder(
+                listenable: Listenable.merge([
+                  ProfileService.instance,
+                  RoomService.instance,
+                  PendingActions.instance,
+                  EntitlementService.instance,
+                  RewardsService.instance,
+                ]),
+                builder: (context, _) {
+                  final fold = foldOf(context);
+                  // A vertical fold (iPhone Duo book, a dual screen): what you
+                  // can do on one half, what you have on the other (board 56).
+                  if (!isDesktop && fold.axis == .vertical) return _book(fold);
+                  return PTResponsive(
+                    desktop: (_) => _desktop(),
+                    portrait: (_) => _portrait(),
+                    landscape: (_) => _landscape(),
+                  );
+                },
+              ),
+            ),
+            // Undo for things that only affect you. Lives here, not in the room
+            // or the ticket list, because a leave starts in a room that is
+            // already gone by the time the banner shows.
+            _undoBanner(context),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Bottom-anchored in the pane that holds the tickets: across a hinge it would
+  /// have a word cut in half, so on a fold it keeps to the last pane.
+  Widget _undoBanner(BuildContext context) {
+    final size = MediaQuery.sizeOf(context);
+    final panes = panesOf(size, foldOf(context));
+    final pane = panes.last;
+    final inset = MediaQuery.paddingOf(context);
+    return Positioned(
+      // Notches and cutouts only matter on the edges of the screen itself, not
+      // on the side that faces the hinge.
+      left: pane.left + 16 + (pane.left <= 0 ? inset.left : 0),
+      right: size.width - pane.right + 16 + (pane.right >= size.width ? inset.right : 0),
+      bottom: size.height - pane.bottom + 16 + inset.bottom,
+      // Bounded above too, and scrollable from the bottom: with big text in a
+      // short window (landscape, keyboard up) it must not climb off the screen.
+      top: pane.top + inset.top + 8,
+      child: Align(
+        alignment: Alignment.bottomCenter,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 520),
+          // shrinkWrap: the viewport is exactly as tall as the banner, so the empty
+          // space around it stays tappable (a full-height one would eat touches).
+          child: ListView(
+            shrinkWrap: true,
+            reverse: true,
+            padding: EdgeInsets.zero,
+            children: [PendingActionsBanner(onUndo: _onUndone)],
           ),
         ),
       ),
     );
+  }
+
+  /// Undo of a delete just brings the ticket back; undoing a leave walks back in.
+  void _onUndone(PendingAction action) {
+    if (action.kind == .leaveRoom && action.roomId != null && mounted) {
+      context.go(roomPath(action.roomId!));
+    }
   }
 
   /// The lobby's one-row header: wordmark on the left, actions right-aligned.
@@ -1342,8 +1400,8 @@ class _LobbyScreenState extends State<LobbyScreen> with AppWindowListener, Resto
             spacing: 22,
             children: [
               _header(compact: true),
-              _doColumn(headlineSize: 40, compact: true),
-              _haveColumn(compact: true),
+              _doColumn(headlineSize: 40, compact: true, jumpBackIn: true),
+              KeyedSubtree(key: _ticketsKey, child: _haveColumn(compact: true)),
             ],
           ),
         ),
@@ -1398,7 +1456,7 @@ class _LobbyScreenState extends State<LobbyScreen> with AppWindowListener, Resto
   // ---------------------------------------------------------------------
   // The "do" column: eyebrow, headline, open a room, take a seat.
 
-  Widget _doColumn({required double headlineSize, bool compact = false}) {
+  Widget _doColumn({required double headlineSize, bool compact = false, bool jumpBackIn = false}) {
     final scaled = MediaQuery.textScalerOf(context).clamp(maxScaleFactor: 1.3);
     return Column(
       crossAxisAlignment: .stretch,
@@ -1417,6 +1475,9 @@ class _LobbyScreenState extends State<LobbyScreen> with AppWindowListener, Resto
             ),
           ),
         ),
+        // Phone portrait only: wherever the tickets sit beside the form, the
+        // room is already on screen.
+        if (jumpBackIn) _jumpBackInStrip(),
         SizedBox(height: compact ? 22 : 36),
         _intro(
           delay: const Duration(milliseconds: 90),
@@ -1629,6 +1690,85 @@ class _LobbyScreenState extends State<LobbyScreen> with AppWindowListener, Resto
     // Tidy up only our own invite; never wipe something the user copied since.
     if ((await Clipboard.getData(Clipboard.kTextPlain))?.text == text) {
       await Clipboard.setData(const ClipboardData(text: ''));
+    }
+  }
+
+  Widget _jumpBackInStrip() {
+    final rooms = RoomService.instance;
+    final pending = PendingActions.instance.current;
+    final leaving = {
+      if (pending != null && pending.kind == .leaveRoom && pending.roomId != null) pending.roomId!,
+    };
+    return JumpBackInStrip(
+      rooms: jumpBackInRooms(
+        rooms.myRooms,
+        insideRoomId: rooms.currentRoom?.id,
+        leavingRoomIds: leaving,
+      ),
+      allRooms: rooms.myRooms,
+      serverNow: rooms.serverNow,
+      joiningRoomId: _jumpingRoomId,
+      failures: _jumpFailures,
+      onDismissFailure: () => setState(() => _jumpFailures = 0),
+      stale: rooms.myRoomsFailed,
+      staleSince: rooms.myRoomsLoadedAt,
+      leavingRoomIds: leaving,
+      onJump: _jumpBackIn,
+      onViewTickets: _scrollToTickets,
+    );
+  }
+
+  void _scrollToTickets() {
+    final target = _ticketsKey.currentContext;
+    if (target == null) return;
+    unawaited(
+      Scrollable.ensureVisible(
+        target,
+        duration: PTMotion.functional(context, PTMotion.state),
+        curve: PTMotion.enter,
+      ),
+    );
+  }
+
+  /// One tap back into a live room. A member is simply walked in; someone whose
+  /// membership lapsed (the room lists them because they own it) joins first.
+  Future<void> _jumpBackIn(MyRoom entry) async {
+    if (_jumpingRoomId != null) return;
+    final live = jumpBackInRooms(RoomService.instance.myRooms).length;
+    // Only a person tapping it counts: the strip appearing is not a product event.
+    Analytics.instance.track('jump_back_in_tapped', {'live_count': live});
+    trace(
+      'jump back in',
+      category: 'room',
+      data: {'room_id': entry.room.id, 'live_count': live, 'member': entry.isMember},
+    );
+    setState(() => _jumpingRoomId = entry.room.id);
+    try {
+      if (entry.isMember) {
+        context.go(roomPath(entry.room.id));
+      } else {
+        final room = await RoomService.instance.joinRoom(entry.room.code);
+        if (mounted) context.go(roomPath(room.id));
+      }
+      if (mounted) _jumpFailures = 0;
+    } catch (e, s) {
+      final failure = RoomErrorCode.fromError(e);
+      if (failure == .unknown) reportNonFatal(e, s, during: 'jumping back into a live room');
+      trace('jump back in failed', category: 'room', data: {'code': failure.code});
+      if (failure == .notAuthenticated) {
+        await AuthService.instance.signOut();
+      } else if (mounted) {
+        setState(() => _jumpFailures++);
+        // Gone for good (ended, full, banned): the strip's own explanation and the
+        // snack beat a retry button that cannot succeed.
+        if (failure == .roomEnded || failure == .roomNotFound || failure == .roomBanned) {
+          _jumpFailures = 0;
+          _snack(failure.message);
+          unawaited(_loadMyRooms(refreshAccount: false));
+        }
+      }
+    } finally {
+      if (mounted) setState(() => _jumpingRoomId = null);
     }
   }
 

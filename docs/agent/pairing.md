@@ -77,6 +77,7 @@ Client: one `MethodChannel` (`app.synctogether/push`) answered by every runner, 
 - iOS/macOS: APNs directly, no SDK. A debug build's token is `sandbox`, a release build's `production`. The macOS `aps-environment` entitlement is **only in `Release-Store.entitlements`**: a restricted entitlement on a build without a provisioning profile makes AMFI kill the app at launch, so local debug builds simply have no push.
 - Android: FCM with **no `google-services` file**. Firebase options arrive as `--dart-define`s (`Env.firebaseOptions`, all four or none), are stored by `Push.configure`, and `App.onCreate` re-initialises Firebase from them so a message can start a cold process. Unset, the build reports `unsupported` and offers no switches.
 - Windows: WNS needs package identity, so only the packaged MSIX build has push. A toast is written with **protocol activation**, so a tap launches `synctogether://push?route=…` and the existing `app_links` handler does the rest - there is no native tap code. **`push_channel.cpp` was written without a Windows toolchain and has not been built or run**: build it, then test a real toast on a packaged, Store-associated install before relying on it (the same caveat `store_purchase.cpp` carried until it was exercised).
+- **A route is a room path too**: `pushTargetForRoute` maps `/lobby/room/<uuid>` (well-formed ids only) to `OpenRoom`, which `main.dart` follows by leaving the room the person is in (as an invite does) and going to the new one. Kinds: `call`, `date_night*`, `reunion`, `seat_taken` (see backend notes). `/lobby/notifications` is the same screen as `/lobby/pair/notifications`, linked from Profile, so someone who is not paired can still switch the rooms row.
 - Sign-out calls `PushService.forgetDevice()` *before* the session goes, because afterwards the server can no longer be told to stop pushing that account to this device.
 
 ## Testing seams
@@ -98,6 +99,8 @@ A QR code for the invite (a long-distance pair is rarely in the same room, and t
 - `date_nights.moved_from` is set by `reschedule_date_night` to the time the night moved from (a second move before an answer keeps the first), cleared by trigger when the new time is accepted, kept on a decline. The card shows a "NEW TIME / YOUR ANSWER" badge, "Moved from ..." under the title and a struck-through "A becomes B" line.
 - `nightStanding` gives an accepted night the same 30 minutes of grace the list does before it counts as `done`, so "Starting now" is still an accepted card. Cancelled and declined nights stay listed for 48 hours after `updated_at` (`recentlyEndedNights`), with "Plan another night" / "Suggest another time" on them.
 - The accepted card has two calendar actions: the system add-to-calendar, and "Share .ics" (always the file).
+
+**The Pre-show check** (`preShowCheckOffered`: an accepted night from 15 minutes before to 30 after, the same window as `isNightImminent`) is a button folded under the hub card's actions, opening `/lobby/pair/pre-show` on a phone and a dialog elsewhere. Film row from `FilmCheck.forNight` (nothing / link / file ready / arriving / stalled), live: an upload advancing, a night moved (banner) or cancelled (the sheet clears and releases the devices) updates it in place. Details and invariants: `ui-and-av.md`, boards 94 to 94e.
 
 ## Streak, history and the reunion switches (boards 63 and 64)
 

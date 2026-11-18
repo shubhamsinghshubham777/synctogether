@@ -36,6 +36,18 @@ class PushToken {
   final String environment;
 }
 
+/// A push that arrived while the app was open and that the app presents itself
+/// (as a banner) instead of leaving to the system.
+@immutable
+class ForegroundPush {
+  const ForegroundPush({required this.kind, required this.title, required this.body, this.route});
+
+  final String kind;
+  final String title;
+  final String body;
+  final String? route;
+}
+
 /// The native side of push, behind an interface so everything above it is
 /// testable with no device. One implementation talks to a method channel that
 /// every platform's runner answers (APNs on iOS and macOS, FCM on Android, WNS
@@ -61,6 +73,18 @@ abstract class PushBridge {
   Future<String?> launchRoute();
 
   Future<void> openSettings();
+
+  /// Pushes of the kinds the app shows itself while it is in front. The native
+  /// side suppresses the system banner for these and hands them here instead.
+  Stream<ForegroundPush> get foreground;
+
+  /// Whether the Android "Rooms" channel has been silenced in system settings
+  /// (always false elsewhere: only Android lets a person silence one kind).
+  Future<bool> roomsChannelSilenced();
+
+  /// Opens that channel's own page in system settings (Android; elsewhere the
+  /// app's notification page).
+  Future<void> openRoomsChannelSettings();
 }
 
 class ChannelPushBridge implements PushBridge {
@@ -71,6 +95,7 @@ class ChannelPushBridge implements PushBridge {
   static const _channel = MethodChannel('app.synctogether/push');
   final _tokens = StreamController<PushToken>.broadcast();
   final _taps = StreamController<String?>.broadcast();
+  final _foreground = StreamController<ForegroundPush>.broadcast();
 
   String get _platform => switch (defaultTargetPlatform) {
     TargetPlatform.iOS => 'ios',
@@ -93,6 +118,16 @@ class ChannelPushBridge implements PushBridge {
         );
       case 'tap':
         _taps.add((call.arguments as Map?)?['route'] as String?);
+      case 'foreground':
+        final m = (call.arguments as Map).cast<String, dynamic>();
+        _foreground.add(
+          ForegroundPush(
+            kind: m['kind'] as String? ?? '',
+            title: m['title'] as String? ?? '',
+            body: m['body'] as String? ?? '',
+            route: m['route'] as String?,
+          ),
+        );
     }
   }
 
@@ -143,6 +178,22 @@ class ChannelPushBridge implements PushBridge {
 
   @override
   Future<void> openSettings() => _call<void>('openSettings');
+
+  @override
+  Stream<ForegroundPush> get foreground => _foreground.stream;
+
+  @override
+  Future<bool> roomsChannelSilenced() async => await _call<bool>('roomsChannelSilenced') ?? false;
+
+  @override
+  Future<void> openRoomsChannelSettings() async {
+    try {
+      await _channel.invokeMethod<void>('openRoomsChannelSettings');
+    } on MissingPluginException {
+      // Only Android has per-channel pages; elsewhere the app's own is the nearest.
+      await openSettings();
+    }
+  }
 }
 
 /// Registers a device with the server. Injected so tests need no Supabase.
@@ -189,6 +240,17 @@ class PushService extends ChangeNotifier {
   StreamSubscription<PushToken>? _tokenSub;
   StreamSubscription<String?>? _tapSub;
   final _taps = StreamController<PushTarget?>.broadcast();
+  StreamSubscription<ForegroundPush>? _foregroundSub;
+  final _foreground = StreamController<ForegroundPush>.broadcast();
+
+  /// Pushes the app shows itself while it is open (someone took a seat), so the
+  /// system banner and ours never both appear.
+  Stream<ForegroundPush> get foreground => _foreground.stream;
+
+  bool _roomsSilenced = false;
+
+  /// The Android "Rooms" channel is set to silent in system settings.
+  bool get roomsSilenced => _roomsSilenced;
 
   /// What a tapped notification means. `null` is a tap on something we no longer
   /// recognise, which still opens the app to the lobby.
@@ -213,6 +275,8 @@ class PushService extends ChangeNotifier {
       _permission = await _b.permission();
       _tapSub = _b.taps.listen((route) => _taps.add(pushTargetForRoute(route)));
       _tokenSub = _b.tokenChanges.listen((t) => unawaited(_send(t)));
+      _foregroundSub = _b.foreground.listen(_foreground.add);
+      _roomsSilenced = await _b.roomsChannelSilenced();
       _watchFocus();
       notifyListeners();
       if (enabled) await _registerCurrent();
@@ -244,6 +308,11 @@ class PushService extends ChangeNotifier {
   Future<void> refreshPermission() async {
     if (!_started) return;
     try {
+      final silenced = await _b.roomsChannelSilenced();
+      if (silenced != _roomsSilenced) {
+        _roomsSilenced = silenced;
+        notifyListeners();
+      }
       final latest = await _b.permission();
       if (latest == _permission) return;
       final before = _permission;
@@ -288,6 +357,23 @@ class PushService extends ChangeNotifier {
 
   Future<void> openSettings() => _b.openSettings();
 
+  Future<void> openRoomsChannelSettings() => _b.openRoomsChannelSettings();
+
+  /// A device that is allowed but never produced a token (no Google services, a
+  /// flaky connection at first launch). The settings screen offers a retry.
+  bool get registrationFailed => enabled && _registeredToken == null && _started;
+
+  /// Asks for a fresh token and registers it. Returns whether one is on file now.
+  Future<bool> retryRegistration() async {
+    try {
+      await _registerCurrent();
+    } catch (e, s) {
+      reportNonFatal(e, s, during: 'retrying push registration');
+    }
+    notifyListeners();
+    return _registeredToken != null;
+  }
+
   Future<void> _registerCurrent() async {
     final token = await _b.token();
     if (token != null) await _send(token);
@@ -320,7 +406,9 @@ class PushService extends ChangeNotifier {
   void dispose() {
     _tokenSub?.cancel();
     _tapSub?.cancel();
+    _foregroundSub?.cancel();
     _taps.close();
+    _foreground.close();
     final focus = _focus;
     if (focus != null) {
       try {

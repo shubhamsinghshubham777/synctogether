@@ -3,6 +3,7 @@ import FlutterMacOS
 import AVFoundation
 import CoreAudio
 import UserNotifications
+import Network
 
 class MainFlutterWindow: NSWindow {
   /// The Flutter header (`CinemaMarqueeBar`, 52 logical px) the traffic lights
@@ -67,6 +68,7 @@ class MainFlutterWindow: NSWindow {
     SystemFontsChannel.register(with: flutterViewController.engine.binaryMessenger)
     MicLevelChannel.register(with: flutterViewController.engine.binaryMessenger)
     PushChannel.register(with: flutterViewController.engine.binaryMessenger)
+    PermissionsChannel.register(with: flutterViewController.engine.binaryMessenger)
     BugReportMenuChannel.register(with: flutterViewController.engine.binaryMessenger)
     ProfileMenuChannel.register(with: flutterViewController.engine.binaryMessenger)
 
@@ -263,6 +265,84 @@ enum MicLevelChannel {
 /// Registration needs the `aps-environment` entitlement, which only a
 /// provisioned (store) build carries. A local debug build has none, so
 /// `registerForRemoteNotifications` fails quietly and the app runs without push.
+/// Camera and microphone permission, read and asked for on purpose (the pre-show
+/// check). Dart side: lib/av/system_permissions.dart. Same contract as iOS; the
+/// settings links go to the matching Privacy & Security pane.
+enum PermissionsChannel {
+  static func register(with messenger: FlutterBinaryMessenger) {
+    let channel = FlutterMethodChannel(name: "app.synctogether/permissions", binaryMessenger: messenger)
+    channel.setMethodCallHandler { call, result in
+      let kind = (call.arguments as? [String: Any])?["kind"] as? String
+      switch call.method {
+      case "status":
+        result(status(kind))
+      case "request":
+        guard let type = mediaType(kind) else { return result("unknown") }
+        AVCaptureDevice.requestAccess(for: type) { _ in
+          DispatchQueue.main.async { result(status(kind)) }
+        }
+      case "openAppSettings":
+        let pane = kind == "camera" ? "Privacy_Camera" : "Privacy_Microphone"
+        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?\(pane)") {
+          NSWorkspace.shared.open(url)
+        }
+        result(nil)
+      case "networkInfo":
+        networkInfo { result($0) }
+      case "openNetworkSettings":
+        if let url = URL(string: "x-apple.systempreferences:com.apple.Network-Settings.extension") {
+          NSWorkspace.shared.open(url)
+        }
+        result(true)
+      default:
+        result(FlutterMethodNotImplemented)
+      }
+    }
+  }
+
+  /// One reading of the connection: whether there is one at all, whether it is
+  /// Wi-Fi or something metered (cellular, a hotspot), and Low Data Mode.
+  private static func networkInfo(_ done: @escaping ([String: Any]) -> Void) {
+    let monitor = NWPathMonitor()
+    var finished = false
+    monitor.pathUpdateHandler = { path in
+      guard !finished else { return }
+      finished = true
+      monitor.cancel()
+      let transport: String
+      if path.status != .satisfied {
+        transport = "none"
+      } else if path.usesInterfaceType(.wifi) || path.usesInterfaceType(.wiredEthernet) {
+        transport = path.isExpensive ? "cellular" : "wifi"
+      } else if path.usesInterfaceType(.cellular) {
+        transport = "cellular"
+      } else {
+        transport = "other"
+      }
+      DispatchQueue.main.async { done(["transport": transport, "saver": path.isConstrained]) }
+    }
+    monitor.start(queue: DispatchQueue(label: "app.synctogether.netinfo"))
+  }
+
+  private static func mediaType(_ kind: String?) -> AVMediaType? {
+    switch kind {
+    case "camera": return .video
+    case "mic": return .audio
+    default: return nil
+    }
+  }
+
+  private static func status(_ kind: String?) -> String {
+    guard let type = mediaType(kind) else { return "unknown" }
+    switch AVCaptureDevice.authorizationStatus(for: type) {
+    case .authorized: return "granted"
+    case .denied: return "blocked"
+    case .restricted: return "restricted"
+    default: return "notDetermined"
+    }
+  }
+}
+
 enum PushChannel {
   private static var channel: FlutterMethodChannel?
   private static var lastToken: String?
@@ -329,6 +409,25 @@ enum PushChannel {
     let token = data.map { String(format: "%02x", $0) }.joined()
     lastToken = token
     channel?.invokeMethod("token", arguments: ["token": token, "environment": environment])
+  }
+
+  /// Hands a seat-taken push to Dart while the app is open. False when Dart is
+  /// not listening (so the system banner shows instead).
+  static func presentInApp(_ notification: UNNotification) -> Bool {
+    let content = notification.request.content
+    guard
+      dartReady, let channel = channel,
+      (content.userInfo["kind"] as? String) == "seat_taken"
+    else { return false }
+    channel.invokeMethod(
+      "foreground",
+      arguments: [
+        "kind": "seat_taken",
+        "title": content.title,
+        "body": content.body,
+        "route": content.userInfo["route"] as Any,
+      ])
+    return true
   }
 
   static func tapped(route: String?) {

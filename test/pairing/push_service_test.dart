@@ -49,6 +49,19 @@ class FakeBridge implements PushBridge {
 
   @override
   Future<void> openSettings() async {}
+
+  final foregroundController = StreamController<ForegroundPush>.broadcast();
+  bool silenced = false;
+  int channelSettingsOpened = 0;
+
+  @override
+  Stream<ForegroundPush> get foreground => foregroundController.stream;
+
+  @override
+  Future<bool> roomsChannelSilenced() async => silenced;
+
+  @override
+  Future<void> openRoomsChannelSettings() async => channelSettingsOpened++;
 }
 
 void main() {
@@ -244,6 +257,53 @@ void main() {
 
       expect(service.enabled, isTrue);
       expect(registered.single.token, 'tok-1');
+    });
+  });
+
+  group('rooms: foreground and the silenced channel', () {
+    test('a push the app shows itself reaches listeners, and only once', () async {
+      await service.start();
+      final seen = <ForegroundPush>[];
+      service.foreground.listen(seen.add);
+      bridge.foregroundController.add(
+        const ForegroundPush(
+          kind: 'seat_taken',
+          title: 'Priya took a seat',
+          body: 'Friday Horror Club has someone waiting. Tap to join them.',
+          route: '/lobby/room/4a90e947-e18a-4348-b74e-d96c354d5bf1',
+        ),
+      );
+      await Future<void>.delayed(Duration.zero);
+      expect(seen, hasLength(1));
+      expect(seen.single.title, 'Priya took a seat');
+    });
+
+    test('a silenced Rooms channel is read on start and again on return', () async {
+      bridge.silenced = true;
+      await service.start();
+      expect(service.roomsSilenced, isTrue);
+      bridge.silenced = false;
+      bridge.initial = PushPermission.granted; // any change makes refresh act
+      await service.refreshPermission();
+      expect(service.roomsSilenced, isFalse, reason: 'fixed in system settings, then back');
+    });
+
+    test('the channel page is offered, not changed from here', () async {
+      await service.start();
+      await service.openRoomsChannelSettings();
+      expect(bridge.channelSettingsOpened, 1);
+    });
+
+    test('allowed but no token on file is a registration that failed', () async {
+      bridge
+        ..initial = PushPermission.granted
+        ..current = null;
+      await service.start();
+      expect(service.registrationFailed, isTrue);
+      bridge.current = const PushToken(platform: 'android', token: 'fresh');
+      expect(await service.retryRegistration(), isTrue);
+      expect(service.registrationFailed, isFalse);
+      expect(registered.single.token, 'fresh');
     });
   });
 }

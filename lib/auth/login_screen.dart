@@ -19,6 +19,7 @@ import 'package:synctogether/auth/turnstile_dialog.dart';
 import 'package:synctogether/diagnostics.dart';
 import 'package:synctogether/env.dart';
 import 'package:synctogether/platform.dart';
+import 'package:synctogether/rooms/room_service.dart';
 import 'package:synctogether/ui/banners.dart';
 import 'package:synctogether/ui/booth.dart';
 import 'package:synctogether/ui/buttons.dart';
@@ -1086,15 +1087,22 @@ class _Marquee extends StatelessWidget {
           delay: const Duration(milliseconds: 120),
           child: ConstrainedBox(
             constraints: BoxConstraints(maxWidth: headlineSize >= 100 ? 520 : 420),
-            child: Text(
-              brief
-                  ? 'Bring a file or a YouTube link, and everyone presses play at the same moment.'
-                  : 'Movie night with your people, wherever they are. Bring a file or a '
-                        'YouTube link, and everyone presses play at the same moment.',
-              style: PTText.body.copyWith(
-                fontSize: headlineSize >= 100 ? 19 : 16,
-                height: 1.5,
-                color: PTColors.white(0.7),
+            // A tapped "someone took a seat" push that found nobody signed in
+            // parks its room; it can land while this screen is already up.
+            child: ListenableBuilder(
+              listenable: RoomService.instance,
+              builder: (context, _) => Text(
+                RoomService.instance.pendingRoomId != null
+                    ? "Sign in and we'll take you straight to your room."
+                    : brief
+                    ? 'Bring a file or a YouTube link, and everyone presses play at the same moment.'
+                    : 'Movie night with your people, wherever they are. Bring a file or a '
+                          'YouTube link, and everyone presses play at the same moment.',
+                style: PTText.body.copyWith(
+                  fontSize: headlineSize >= 100 ? 19 : 16,
+                  height: 1.5,
+                  color: PTColors.white(0.7),
+                ),
               ),
             ),
           ),

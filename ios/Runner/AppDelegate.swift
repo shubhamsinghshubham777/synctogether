@@ -6,6 +6,7 @@ import UniformTypeIdentifiers
 import UserNotifications
 import EventKit
 import EventKitUI
+import Network
 
 @main
 @objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
@@ -47,6 +48,12 @@ import EventKitUI
     willPresent notification: UNNotification,
     withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
   ) {
+    // Someone taking a seat is shown by the app itself, as a banner with Join,
+    // so the system banner would be a second copy of the same news.
+    if PushChannel.presentInApp(notification) {
+      completionHandler([])
+      return
+    }
     completionHandler([.banner, .list, .sound])
   }
 
@@ -75,6 +82,9 @@ import EventKitUI
     }
     if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "DisplayRegionsChannel") {
       DisplayRegionsChannel.register(with: registrar.messenger())
+    }
+    if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "PermissionsChannel") {
+      PermissionsChannel.register(with: registrar.messenger())
     }
     if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "PushChannel") {
       PushChannel.register(with: registrar.messenger())
@@ -555,6 +565,85 @@ final class RegionProbeView: UIView {
 /// A development-signed build's token only works on Apple's sandbox gateway and a
 /// distribution-signed one's only on production, so the signing decides which one
 /// the server is told to use (see `environment`).
+/// Camera and microphone permission, read and asked for on purpose (the pre-show
+/// check). Dart side: lib/av/system_permissions.dart.
+///
+/// `status` only reads; `request` is the one call that shows the system dialog.
+/// iOS asks once: after a refusal the dialog never returns, so the answer is
+/// `blocked` and only Settings can change it. `restricted` is Screen Time or a
+/// managed device - a setting nobody in the app can change.
+enum PermissionsChannel {
+  static func register(with messenger: FlutterBinaryMessenger) {
+    let channel = FlutterMethodChannel(name: "app.synctogether/permissions", binaryMessenger: messenger)
+    channel.setMethodCallHandler { call, result in
+      let kind = (call.arguments as? [String: Any])?["kind"] as? String
+      switch call.method {
+      case "status":
+        result(status(kind))
+      case "request":
+        guard let type = mediaType(kind) else { return result("unknown") }
+        AVCaptureDevice.requestAccess(for: type) { _ in
+          DispatchQueue.main.async { result(status(kind)) }
+        }
+      case "openAppSettings":
+        if let url = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(url) }
+        result(nil)
+      case "networkInfo":
+        networkInfo { result($0) }
+      case "openNetworkSettings":
+        // iOS has no public link to the Wi-Fi page; the app's own page holds its
+        // Cellular Data and Low Data Mode switches, which is what usually matters.
+        if let url = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(url) }
+        result(true)
+      default:
+        result(FlutterMethodNotImplemented)
+      }
+    }
+  }
+
+  /// One reading of the connection: whether there is one at all, whether it is
+  /// Wi-Fi or something metered (cellular, a hotspot), and Low Data Mode.
+  private static func networkInfo(_ done: @escaping ([String: Any]) -> Void) {
+    let monitor = NWPathMonitor()
+    var finished = false
+    monitor.pathUpdateHandler = { path in
+      guard !finished else { return }
+      finished = true
+      monitor.cancel()
+      let transport: String
+      if path.status != .satisfied {
+        transport = "none"
+      } else if path.usesInterfaceType(.wifi) || path.usesInterfaceType(.wiredEthernet) {
+        transport = path.isExpensive ? "cellular" : "wifi"
+      } else if path.usesInterfaceType(.cellular) {
+        transport = "cellular"
+      } else {
+        transport = "other"
+      }
+      DispatchQueue.main.async { done(["transport": transport, "saver": path.isConstrained]) }
+    }
+    monitor.start(queue: DispatchQueue(label: "app.synctogether.netinfo"))
+  }
+
+  private static func mediaType(_ kind: String?) -> AVMediaType? {
+    switch kind {
+    case "camera": return .video
+    case "mic": return .audio
+    default: return nil
+    }
+  }
+
+  private static func status(_ kind: String?) -> String {
+    guard let type = mediaType(kind) else { return "unknown" }
+    switch AVCaptureDevice.authorizationStatus(for: type) {
+    case .authorized: return "granted"
+    case .denied: return "blocked"
+    case .restricted: return "restricted"
+    default: return "notDetermined"
+    }
+  }
+}
+
 enum PushChannel {
   private static var channel: FlutterMethodChannel?
   private static var lastToken: String?
@@ -654,6 +743,25 @@ enum PushChannel {
     let token = data.map { String(format: "%02x", $0) }.joined()
     lastToken = token
     channel?.invokeMethod("token", arguments: ["token": token, "environment": environment])
+  }
+
+  /// Hands a seat-taken push to Dart while the app is open. False when Dart is
+  /// not listening (so the system banner shows instead).
+  static func presentInApp(_ notification: UNNotification) -> Bool {
+    let content = notification.request.content
+    guard
+      dartReady, let channel = channel,
+      (content.userInfo["kind"] as? String) == "seat_taken"
+    else { return false }
+    channel.invokeMethod(
+      "foreground",
+      arguments: [
+        "kind": "seat_taken",
+        "title": content.title,
+        "body": content.body,
+        "route": content.userInfo["route"] as Any,
+      ])
+    return true
   }
 
   static func tapped(route: String?) {

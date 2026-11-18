@@ -16,6 +16,10 @@ import 'package:synctogether/pairing/pair_logic.dart';
 import 'package:synctogether/pairing/pair_models.dart';
 import 'package:synctogether/pairing/pair_service.dart';
 import 'package:synctogether/pairing/push_service.dart';
+import 'package:synctogether/av/system_permissions.dart';
+import 'package:synctogether/pairing/pre_show_check.dart';
+import 'package:synctogether/pairing/pre_show_check_logic.dart';
+
 import 'package:synctogether/pairing/streak_screen.dart';
 import 'package:synctogether/pairing/year_recap_screen.dart';
 import 'package:synctogether/platform.dart';
@@ -23,12 +27,14 @@ import 'package:synctogether/rewards/rewards_service.dart';
 import 'package:synctogether/ui/pt_theme.dart';
 
 import '../support/fake_pair_service.dart';
+import '../support/fake_pre_show_probes.dart';
 import '../support/screen_matrix.dart';
 import 'layout_support.dart';
 
 class _Bridge implements PushBridge {
-  _Bridge(this.state);
+  _Bridge(this.state, {this.silenced = false});
   PushPermission state;
+  final bool silenced;
 
   @override
   Future<void> configure(Map<String, String>? firebase) async {}
@@ -46,6 +52,12 @@ class _Bridge implements PushBridge {
   Future<String?> launchRoute() async => null;
   @override
   Future<void> openSettings() async {}
+  @override
+  Stream<ForegroundPush> get foreground => const Stream.empty();
+  @override
+  Future<bool> roomsChannelSilenced() async => silenced;
+  @override
+  Future<void> openRoomsChannelSettings() async {}
 }
 
 DateNight _night(String id, DateNightStatus status, Duration from, {String by = 'sam'}) =>
@@ -504,15 +516,19 @@ void main() {
     await finishCase(tester);
   });
 
-  for (final (name, state) in [
-    ('granted', PushPermission.granted),
-    ('denied', PushPermission.denied),
-    ('unsupported', PushPermission.unsupported),
+  for (final (name, state, silenced, paired) in [
+    ('granted', PushPermission.granted, false, true),
+    ('denied', PushPermission.denied, false, true),
+    ('unsupported', PushPermission.unsupported, false, true),
+    // Board 93b: the Android "Rooms" channel silenced, and someone with no pair.
+    ('silenced', PushPermission.granted, true, true),
+    ('unpaired', PushPermission.granted, false, false),
+    ('unpaired-denied', PushPermission.denied, false, false),
   ]) {
     screenMatrix('pair/notifications-$name', (tester, c, s) async {
-      PairService.instance = FakePairService(pair: samePairInfo());
+      PairService.instance = FakePairService(pair: paired ? samePairInfo() : null);
       PushService.instance = PushService(
-        bridge: _Bridge(state),
+        bridge: _Bridge(state, silenced: silenced),
         register: (_) async {},
         unregister: (_) async {},
       );
@@ -530,6 +546,81 @@ void main() {
         expect(find.text('Quiet hours'), findsOneWidget);
       }
       if (state == PushPermission.denied) expect(find.text('Open settings'), findsOneWidget);
+      if (state != PushPermission.unsupported) {
+        expect(find.text('When someone takes a seat'), findsOneWidget);
+        expect(
+          find.textContaining('Calls from'),
+          paired ? findsOneWidget : findsNothing,
+          reason: 'an unpaired person has no person to be called by',
+        );
+      }
+      if (silenced) expect(find.text('Open channel settings'), findsOneWidget);
+      await finishCase(tester);
+    });
+  }
+
+  // Board 94: the pre-show check at every size and text scale, in the states that
+  // stack the most text under a row.
+  DateNight soonNight({
+    DateNightStatus status = DateNightStatus.accepted,
+    String attach = 'none',
+    String upload = 'none',
+  }) => DateNight(
+    id: 'tonight',
+    title: 'Spirited Away',
+    startsAt: DateTime.now().toUtc().add(const Duration(minutes: 12)),
+    proposedBy: 'sam',
+    status: status,
+    attachKind: attach,
+    fileName: attach == 'file' ? 'Spirited Away.mkv' : null,
+    fileSize: attach == 'file' ? 1000 : null,
+    uploadState: upload,
+    uploadBytes: upload == 'uploading' ? 840 : 0,
+  );
+
+  for (final (name, probes, night) in <(String, FakeProbes Function(), DateNight Function())>[
+    (
+      'all-good',
+      () => FakeProbes(camera: PermissionState.granted, mic: PermissionState.granted),
+      () => soonNight(attach: 'file', upload: 'ready'),
+    ),
+    (
+      'everything-wrong',
+      () => FakeProbes(
+        camera: PermissionState.blocked,
+        mic: PermissionState.blocked,
+        latency: const LatencyReading.ms(1200),
+      ),
+      () => soonNight(attach: 'file', upload: 'uploading'),
+    ),
+    (
+      'offline',
+      () => FakeProbes(
+        camera: PermissionState.restricted,
+        mic: PermissionState.granted,
+        latency: const LatencyReading.failed(),
+        network: const NetworkInfo(transport: NetworkTransport.none),
+      ),
+      () => soonNight(),
+    ),
+    ('nothing-on', () => FakeProbes(), () => soonNight(status: DateNightStatus.cancelled)),
+  ]) {
+    screenMatrix('pair/pre-show-$name', (tester, c, s) async {
+      PairService.instance = FakePairService(pair: samePairInfo(), nights: [night()]);
+      await pumpAtSize(
+        tester,
+        PreShowCheckPanel(onDone: () {}, onLeaveForPage: (_) {}, probes: probes()),
+        c,
+        textScale: s,
+        singlePane: true,
+      );
+      await tester.pump(const Duration(milliseconds: 100));
+      await tester.pump(const Duration(milliseconds: 800));
+      expect(
+        find.textContaining('Take our seats'),
+        name == 'offline' || name == 'nothing-on' ? findsNothing : findsOneWidget,
+      );
+      if (name == 'nothing-on') expect(find.text('Nothing to check'), findsOneWidget);
       await finishCase(tester);
     });
   }

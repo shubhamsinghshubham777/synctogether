@@ -345,6 +345,7 @@ class PushPrefs {
     this.dateNights = true,
     this.reunion = true,
     this.quietHours = true,
+    this.seatTaken = true,
   });
 
   factory PushPrefs.fromJson(Map<String, dynamic> json) => PushPrefs(
@@ -352,6 +353,7 @@ class PushPrefs {
     dateNights: json['date_nights'] as bool? ?? true,
     reunion: json['reunion'] as bool? ?? true,
     quietHours: json['quiet_hours'] as bool? ?? true,
+    seatTaken: json['seat_taken'] as bool? ?? true,
   );
 
   final bool calls;
@@ -359,30 +361,16 @@ class PushPrefs {
   final bool reunion;
   final bool quietHours;
 
+  /// Someone sat down in a room you host while you were away from it.
+  final bool seatTaken;
+
   PushPrefs withKey(String key, bool value) => switch (key) {
-    'calls' => PushPrefs(
-      calls: value,
-      dateNights: dateNights,
-      reunion: reunion,
-      quietHours: quietHours,
-    ),
-    'date_nights' => PushPrefs(
-      calls: calls,
-      dateNights: value,
-      reunion: reunion,
-      quietHours: quietHours,
-    ),
-    'reunion' => PushPrefs(
-      calls: calls,
-      dateNights: dateNights,
-      reunion: value,
-      quietHours: quietHours,
-    ),
-    'quiet_hours' => PushPrefs(
-      calls: calls,
-      dateNights: dateNights,
-      reunion: reunion,
-      quietHours: value,
+    'calls' || 'date_nights' || 'reunion' || 'quiet_hours' || 'seat_taken' => PushPrefs(
+      calls: key == 'calls' ? value : calls,
+      dateNights: key == 'date_nights' ? value : dateNights,
+      reunion: key == 'reunion' ? value : reunion,
+      quietHours: key == 'quiet_hours' ? value : quietHours,
+      seatTaken: key == 'seat_taken' ? value : seatTaken,
     ),
     _ => this,
   };

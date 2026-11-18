@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:synctogether/analytics.dart';
+import 'package:synctogether/diagnostics.dart';
 import 'package:synctogether/av/video_trial.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -29,6 +30,19 @@ class RoomService extends ChangeNotifier {
 
   /// Deep-link join code parked until the user is signed in.
   String? pendingJoinCode;
+
+  /// A tapped "someone took a seat" push that arrived signed out: the room to
+  /// open once the person is in. Unlike a stale "Sam is calling", this one is
+  /// still worth resuming - the room is where they were headed. The room's own
+  /// state decides what shows if it has ended since.
+  String? get pendingRoomId => _pendingRoomId;
+  String? _pendingRoomId;
+  set pendingRoomId(String? id) {
+    if (id == _pendingRoomId) return;
+    _pendingRoomId = id;
+    // The login line reads it, and a push can land while that screen is up.
+    notifyListeners();
+  }
 
   Future<void> syncServerTime() async {
     final before = DateTime.now();
@@ -127,12 +141,48 @@ class RoomService extends ChangeNotifier {
     }
   }
 
+  /// The host's heartbeat (see `room_host_ping`). Best effort: a missed ping only
+  /// means a guest might ring the host a little early.
+  Future<void> pingHost(String roomId) async {
+    try {
+      await _client.rpc('room_host_ping', params: {'p_room_id': roomId});
+    } catch (e) {
+      // Not worth a report: the next ping is 45 s away and nothing depends on one.
+      trace('host ping failed', category: 'room', data: {'error': e.runtimeType.toString()});
+    }
+  }
+
   Future<void> endRoom(String roomId) async {
     await _client.rpc('end_room', params: {'p_room_id': roomId});
   }
 
   List<MyRoom> _myRooms = const [];
-  List<MyRoom> get myRooms => _myRooms;
+
+  /// Rooms taken out of the list for an Undo window (see `PendingActions`).
+  /// Filtered here, not in each screen, so a poll that lands mid-window cannot
+  /// bring a "deleted" ticket back for a moment.
+  final Set<String> _hiddenRoomIds = {};
+  List<MyRoom> get myRooms => _hiddenRoomIds.isEmpty
+      ? _myRooms
+      : _myRooms.where((r) => !_hiddenRoomIds.contains(r.room.id)).toList();
+
+  void hideRooms(Set<String> ids) {
+    if (ids.isEmpty) return;
+    _hiddenRoomIds.addAll(ids);
+    notifyListeners();
+  }
+
+  void unhideRooms(Set<String> ids) {
+    final had = ids.any(_hiddenRoomIds.contains);
+    _hiddenRoomIds.removeAll(ids);
+    if (had) notifyListeners();
+  }
+
+  /// When the list last loaded, and whether the latest attempt failed.
+  DateTime? _myRoomsLoadedAt;
+  DateTime? get myRoomsLoadedAt => _myRoomsLoadedAt;
+  bool _myRoomsFailed = false;
+  bool get myRoomsFailed => _myRoomsFailed;
 
   bool _loadingMyRooms = false;
   bool get loadingMyRooms => _loadingMyRooms;
@@ -155,7 +205,14 @@ class RoomService extends ChangeNotifier {
           .map<MyRoom>((r) => MyRoom.fromJson((r as Map).cast<String, dynamic>()))
           .toList();
       _myRooms = list;
+      _myRoomsLoadedAt = DateTime.now();
+      _myRoomsFailed = false;
       return list;
+    } catch (_) {
+      // Remembered so the lobby can say its list may be out of date instead of
+      // offering a "Jump back in" that would fail on tap.
+      _myRoomsFailed = true;
+      rethrow;
     } finally {
       _loadingMyRooms = false;
       notifyListeners();
@@ -318,6 +375,7 @@ class RoomService extends ChangeNotifier {
     // the login would otherwise lose it.
     _currentRoom = null;
     _myRooms = const [];
+    _hiddenRoomIds.clear();
     notifyListeners();
   }
 

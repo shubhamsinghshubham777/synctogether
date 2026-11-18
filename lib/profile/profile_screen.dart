@@ -497,6 +497,7 @@ class _ProfileScreenState extends State<ProfileScreen> with AppWindowListener {
                         _accountSection(profile),
                         _mediaQuotaSection(),
                         _audioVideoSection(),
+                        _notificationsSection(),
                       ];
                       final right = <Widget>[
                         if (!guest) _boardsSection(),
@@ -1212,6 +1213,7 @@ class _ProfileScreenState extends State<ProfileScreen> with AppWindowListener {
       if (!guest) _boardsSection(),
       _mediaQuotaSection(),
       _audioVideoSection(),
+      _notificationsSection(),
       _blockedSection(),
       _privacySection(),
       _helpSection(),
@@ -1554,6 +1556,31 @@ class _ProfileScreenState extends State<ProfileScreen> with AppWindowListener {
             height: 38,
             expand: false,
             onPressed: () => showAvSettingsDialog(context),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Where notifications are chosen, for everyone. The page used to be reachable
+  /// only from the pair screens, which left a host who is not paired with no way
+  /// to turn off (or on) "someone took a seat".
+  Widget _notificationsSection() {
+    return _Section(
+      card: _cards,
+      kicker: 'Notifications',
+      children: [
+        _settingRow(
+          title: 'Notifications',
+          subtitle: 'When someone sits down in your room, and your person',
+          minRowWidth: 380,
+          trailing: PTButton(
+            label: 'Choose',
+            variant: .secondary,
+            icon: BoothIcons.arrowForward,
+            height: 38,
+            expand: false,
+            onPressed: () => openPage(context, '/lobby/notifications'),
           ),
         ),
       ],

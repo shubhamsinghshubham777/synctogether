@@ -3,6 +3,7 @@ import 'package:synctogether/ui/booth_icons.g.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:synctogether/auth/auth_service.dart';
 import 'package:synctogether/auth/login_screen.dart';
+import 'package:synctogether/rooms/room_service.dart';
 import 'package:synctogether/ui/buttons.dart';
 
 import 'package:synctogether/ui/responsive.dart';
@@ -42,6 +43,31 @@ void main() {
       // Verify returned to providers view
       expect(find.byType(GoogleButton), findsOneWidget);
       expect(find.text('Continue with email'), findsOneWidget);
+    });
+
+    testWidgets('a room parked by a tapped push says where sign-in leads', (tester) async {
+      RoomService.instance.pendingRoomId = 'room-1';
+      addTearDown(() => RoomService.instance.pendingRoomId = null);
+      await tester.pumpWidget(
+        MaterialApp(builder: buildResponsiveWrapper, home: const LoginScreen()),
+      );
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(find.text("Sign in and we'll take you straight to your room."), findsOneWidget);
+    });
+
+    testWidgets('a push that lands while the login screen is up changes its line', (tester) async {
+      addTearDown(() => RoomService.instance.pendingRoomId = null);
+      await tester.pumpWidget(
+        MaterialApp(builder: buildResponsiveWrapper, home: const LoginScreen()),
+      );
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(find.text("Sign in and we'll take you straight to your room."), findsNothing);
+      RoomService.instance.pendingRoomId = 'room-2';
+      await tester.pump();
+      expect(find.text("Sign in and we'll take you straight to your room."), findsOneWidget);
+      RoomService.instance.pendingRoomId = null;
+      await tester.pump();
+      expect(find.text("Sign in and we'll take you straight to your room."), findsNothing);
     });
 
     testWidgets('password starts hidden and the eye reveals it', (tester) async {

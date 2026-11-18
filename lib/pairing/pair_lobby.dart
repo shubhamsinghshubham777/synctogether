@@ -13,6 +13,7 @@ import '../ui/buttons.dart';
 import '../ui/pt_motion.dart';
 import '../ui/pt_theme.dart';
 import 'pair_logic.dart';
+import 'pre_show_check.dart';
 import 'pair_models.dart';
 import 'pair_screen.dart';
 import 'pair_service.dart';
@@ -505,6 +506,17 @@ class _OurRoomCardState extends State<OurRoomCard> {
                     key: const ValueKey('actions-offline'),
                     child: PTButton(label: 'Open Our Room', onPressed: () => openOurRoom(context)),
                   ),
+          ),
+          // From fifteen minutes before an accepted night: the check, folded in
+          // under the actions and out again when the window closes.
+          PTRevealKeep(
+            visible: preShowCheckOffered(now, night),
+            child: PTButton(
+              label: 'Pre-show check',
+              variant: .secondary,
+              icon: BoothIcons.check,
+              onPressed: () => showPreShowCheck(context),
+            ),
           ),
         ],
       ),

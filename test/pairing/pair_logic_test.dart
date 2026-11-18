@@ -314,10 +314,16 @@ void main() {
 
     test('push prefs: server defaults, and one key changes only itself', () {
       final p = PushPrefs.fromJson(const {});
-      expect([p.calls, p.dateNights, p.reunion, p.quietHours], [true, true, true, true]);
+      expect(
+        [p.calls, p.dateNights, p.reunion, p.quietHours, p.seatTaken],
+        [true, true, true, true, true],
+      );
       final q = p.withKey('reunion', false);
       expect(q.reunion, isFalse);
-      expect([q.calls, q.dateNights, q.quietHours], [true, true, true]);
+      expect([q.calls, q.dateNights, q.quietHours, q.seatTaken], [true, true, true, true]);
+      final r = p.withKey('seat_taken', false);
+      expect(r.seatTaken, isFalse);
+      expect([r.calls, r.dateNights, r.reunion, r.quietHours], [true, true, true, true]);
       expect(p.withKey('nonsense', true), same(p));
     });
 

@@ -6,6 +6,7 @@ import 'package:synctogether/ui/inputs.dart';
 import 'package:synctogether/mock/mock_dependencies.dart';
 import 'package:synctogether/rewards/rewards_service.dart';
 import 'package:synctogether/rooms/lobby_screen.dart';
+import 'package:synctogether/rooms/pending_actions.dart';
 import 'package:synctogether/rooms/room_models.dart';
 import 'package:synctogether/rooms/room_service.dart';
 import 'package:synctogether/ui/bar_item.dart';
@@ -122,6 +123,35 @@ void main() {
       await tap(find.widgetWithText(PTButton, 'Enter a code'));
       expect(find.byType(PTCodeInput), findsOneWidget, reason: 'cannot collapse');
     }
+    await finishCase(tester);
+  });
+
+  // Board 95: the Undo banner rides over the lobby at every size and text scale
+  // without overflowing, even with a name that cannot fit on one line.
+  screenMatrix('lobby/undo-banner', (tester, c, s) async {
+    RoomService.instance = _FullRoomService();
+    PendingActions.instance = PendingActions();
+    addTearDown(PendingActions.instance.resetForTest);
+    await pumpAtSize(
+      tester,
+      const LobbyScreen(),
+      c,
+      textScale: s,
+      singlePane: true,
+      twoPaneBook: true,
+    );
+    await tester.pump(const Duration(milliseconds: 1500));
+    PendingActions.instance.start(
+      PendingAction(
+        kind: .leaveRoom,
+        title: 'You left An extraordinarily long room name that will not fit on one line at all',
+        subtitle: 'Your seat is held for a moment.',
+        commit: () async {},
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 600));
+    expect(find.text('Undo'), findsOneWidget);
     await finishCase(tester);
   });
 

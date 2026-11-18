@@ -107,6 +107,7 @@ PTPopoverHandle showRoomOverflowMenu({
   required VoidCallback onLeave,
   required VoidCallback onEndRoom,
   VoidCallback? onExtendRoom,
+  VoidCallback? onRoomCheck,
   VoidCallback? onReportConcern,
   VoidCallback? onReportBug,
   required ValueChanged<bool> onTransportLockChanged,
@@ -148,6 +149,7 @@ PTPopoverHandle showRoomOverflowMenu({
                       onLeave: onLeave,
                       onEndRoom: onEndRoom,
                       onExtendRoom: onExtendRoom,
+                      onRoomCheck: onRoomCheck,
                       onReportConcern: onReportConcern,
                       onReportBug: onReportBug,
                       onTransportLockChanged: onTransportLockChanged,
@@ -177,6 +179,7 @@ class _OverflowMenuPanel extends StatefulWidget {
     required this.onLeave,
     required this.onEndRoom,
     this.onExtendRoom,
+    this.onRoomCheck,
     this.onReportConcern,
     this.onReportBug,
     this.onReportMember,
@@ -194,6 +197,7 @@ class _OverflowMenuPanel extends StatefulWidget {
   final VoidCallback onLeave;
   final VoidCallback onEndRoom;
   final VoidCallback? onExtendRoom;
+  final VoidCallback? onRoomCheck;
   final VoidCallback? onReportConcern;
 
   /// "Report a bug" - the way in when fullscreen has hidden the header button.
@@ -332,6 +336,14 @@ class _OverflowMenuPanelState extends State<_OverflowMenuPanel> {
                       iconColor: PTColors.white(0.7),
                       label: 'Extend room',
                       onTap: () => _dismiss(widget.onExtendRoom!),
+                    ),
+                  // Our Room has the hub's pre-show check; any other host gets one here.
+                  if (data.selfIsHost && !data.ourRoom && widget.onRoomCheck != null)
+                    _ActionRow(
+                      icon: BoothIcons.check,
+                      iconColor: PTColors.white(0.7),
+                      label: 'Room check',
+                      onTap: () => _dismiss(widget.onRoomCheck!),
                     ),
                   if (data.selfIsHost && !data.ourRoom)
                     _ActionRow(

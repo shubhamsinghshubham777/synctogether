@@ -14,6 +14,7 @@ import 'pairing/date_night_screen.dart';
 import 'pairing/history_screen.dart';
 import 'pairing/streak_screen.dart';
 import 'pairing/notification_settings_screen.dart';
+import 'pairing/pre_show_check.dart';
 import 'pairing/pair_accept_screen.dart';
 import 'pairing/pair_screen.dart';
 import 'pairing/pair_service.dart';
@@ -157,6 +158,10 @@ GoRouter buildRouter([Player? player]) {
                 pageBuilder: (context, state) => _detail(state, const PlanNightScreen()),
               ),
               GoRoute(
+                path: 'pre-show',
+                pageBuilder: (context, state) => _detail(state, const PreShowCheckScreen()),
+              ),
+              GoRoute(
                 path: 'streak',
                 pageBuilder: (context, state) => _detail(state, const StreakScreen()),
               ),
@@ -177,6 +182,12 @@ GoRouter buildRouter([Player? player]) {
           GoRoute(
             path: 'leaderboard',
             pageBuilder: (context, state) => _detail(state, const LeaderboardScreen()),
+          ),
+          // The same page as /lobby/pair/notifications, for people who are not
+          // paired: it is where "someone took a seat" is switched.
+          GoRoute(
+            path: 'notifications',
+            pageBuilder: (context, state) => _detail(state, const NotificationSettingsScreen()),
           ),
           GoRoute(
             path: 'subscribe',

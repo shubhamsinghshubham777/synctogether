@@ -42,6 +42,8 @@ class MainActivity : FlutterActivity() {
     MediaAccess.register(flutterEngine.dartExecutor.binaryMessenger, applicationContext)
     // "From Photos": the system photo picker, no permission.
     photoPicker.register(flutterEngine.dartExecutor.binaryMessenger)
+    // Camera and microphone permission, for the pre-show check.
+    Permissions.register(flutterEngine.dartExecutor.binaryMessenger, this)
     // Push over FCM; also reads the notification tap that launched the app.
     Push.register(flutterEngine.dartExecutor.binaryMessenger, this)
     // "Add to Calendar": the calendar app's own insert screen. No permission, and
@@ -148,6 +150,7 @@ class MainActivity : FlutterActivity() {
   ) {
     super.onRequestPermissionsResult(requestCode, permissions, grantResults)
     if (Push.onPermissionResult(this, requestCode)) return
+    if (Permissions.onPermissionResult(this, requestCode)) return
     if (requestCode == NOTIFICATION_REQUEST) notificationRequestInFlight = false
     if (requestCode != MIC_REQUEST) return
     val pending = pendingStart ?: return

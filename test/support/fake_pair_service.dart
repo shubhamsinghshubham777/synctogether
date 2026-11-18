@@ -55,6 +55,13 @@ class FakePairService extends PairService {
   /// Every write, as `name` or `name:argument`, in order.
   final calls = <String>[];
 
+  /// Replaces the nights as if the server had changed them (the other person
+  /// moved or cancelled one), and tells whoever is listening.
+  void setNights(List<DateNight> nights) {
+    _fakeNights = nights;
+    notifyListeners();
+  }
+
   @override
   bool get isSignedInAccount => account;
 

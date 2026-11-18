@@ -175,6 +175,12 @@ export function fcmConfigFromEnv(env: (k: string) => string | undefined): FcmCon
   }
 }
 
+/** Android channels: calls break through, rooms is "someone sat down", the rest are updates. */
+export function androidChannel(row: PushRow): "calls" | "rooms" | "default" {
+  if (isUrgent(row)) return "calls";
+  return row.kind === "seat_taken" ? "rooms" : "default";
+}
+
 export function fcmMessage(row: PushRow, token: string, now = Date.now()): Record<string, unknown> {
   const data: Record<string, string> = { kind: row.kind };
   for (const [k, v] of Object.entries(row.data)) data[k] = String(v);
@@ -187,7 +193,7 @@ export function fcmMessage(row: PushRow, token: string, now = Date.now()): Recor
         priority: isUrgent(row) || row.kind === "date_night_reminder" ? "HIGH" : "NORMAL",
         ttl: `${secondsUntil(row.expires_at, 86400, now)}s`,
         collapse_key: row.kind.slice(0, 64),
-        notification: { channel_id: isUrgent(row) ? "calls" : "default", tag: row.kind },
+        notification: { channel_id: androidChannel(row), tag: row.kind },
       },
     },
   };

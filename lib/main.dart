@@ -37,6 +37,7 @@ import 'package:synctogether/rewards/unlock_log.dart';
 import 'package:synctogether/rewards/widgets/unlock_toast.dart';
 import 'package:synctogether/rooms/room_models.dart';
 import 'package:synctogether/rooms/room_service.dart';
+import 'package:synctogether/rooms/widgets/seat_taken_host.dart';
 import 'package:synctogether/tls.dart';
 import 'package:synctogether/ui/banners.dart';
 import 'package:synctogether/ui/pt_theme.dart';
@@ -325,10 +326,18 @@ class _MainAppState extends State<MainApp> with WidgetsBindingObserver {
   }
 
   /// Where a tapped notification goes. Signed out, it waits at the login screen:
-  /// the router redirect already sends them there, and the target is dropped
-  /// rather than parked - a stale "Sam is calling" is not worth resuming.
+  /// the router redirect already sends them there. A room target is parked (like
+  /// an invite code) and opened right after sign-in; every other target is
+  /// dropped rather than parked - a stale "Sam is calling" is not worth resuming.
   Future<void> _followPushTarget(PushTarget? target) async {
-    if (!AuthService.instance.isSignedIn) return;
+    if (!AuthService.instance.isSignedIn) {
+      if (target is OpenRoom) {
+        trace('room push parked until sign-in', category: 'deeplink');
+        RoomService.instance.pendingRoomId = target.roomId;
+        router.go('/login');
+      }
+      return;
+    }
     switch (target) {
       case OpenOurRoom():
         try {
@@ -341,6 +350,8 @@ class _MainAppState extends State<MainApp> with WidgetsBindingObserver {
             kind: .error,
           );
         }
+      case OpenRoom(:final roomId):
+        await _goToRoom(roomId);
       case OpenPath(:final path):
         // The lobby goes underneath, so Back from the page lands there.
         router.go('/lobby');
@@ -348,6 +359,24 @@ class _MainAppState extends State<MainApp> with WidgetsBindingObserver {
       case null:
         router.go('/lobby');
     }
+  }
+
+  /// Into [roomId], leaving whichever room this is in. Rooms sit on top of the
+  /// lobby, so Back from the room lands there. The old membership is left
+  /// first (as for an invite): swapping the page alone would strand it against
+  /// that room's member cap and its host election.
+  Future<void> _goToRoom(String roomId) async {
+    final currentId = roomIdOfPath(router.routerDelegate.currentConfiguration.uri.path);
+    if (currentId == roomId) return;
+    if (currentId != null && currentId.isNotEmpty) {
+      try {
+        await RoomService.instance.leaveRoom(currentId);
+      } catch (e, s) {
+        reportNonFatal(e, s, during: 'leaving room $currentId to go to $roomId');
+      }
+    }
+    trace('going to a room from a notification', category: 'room', data: {'room_id': roomId});
+    router.go(roomPath(roomId));
   }
 
   final _scaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
@@ -433,11 +462,15 @@ class _MainAppState extends State<MainApp> with WidgetsBindingObserver {
                       stream: _unlocks,
                       onShown: _onBadgeShown,
                       child: TapToDismissKeyboard(
-                        child: DiscoveryHost(
+                        child: SeatTakenHost(
                           router: router,
-                          child: OnboardingCoachHost(
+                          onJoin: _goToRoom,
+                          child: DiscoveryHost(
                             router: router,
-                            child: child ?? const SizedBox.shrink(),
+                            child: OnboardingCoachHost(
+                              router: router,
+                              child: child ?? const SizedBox.shrink(),
+                            ),
                           ),
                         ),
                       ),

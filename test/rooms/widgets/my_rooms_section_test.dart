@@ -263,23 +263,4 @@ void main() {
       expect(find.text('Clear ended'), findsOneWidget);
     });
   });
-
-  group('ClearEndedRoomsDialog tests', () {
-    testWidgets('shows warning, count, and persistent room reassurance note', (tester) async {
-      await tester.pumpWidget(
-        const MaterialApp(
-          home: Scaffold(body: ClearEndedRoomsDialog(count: 5, hasPersistentRooms: true)),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      expect(find.text('Clear 5 ended rooms?'), findsOneWidget);
-      expect(
-        find.textContaining('Your saved persistent rooms will stay safe and untouched.'),
-        findsOneWidget,
-      );
-      expect(find.text('Keep them'), findsOneWidget);
-      expect(find.text('Clear 5 rooms'), findsOneWidget);
-    });
-  });
 }

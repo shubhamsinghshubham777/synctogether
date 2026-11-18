@@ -41,6 +41,11 @@ class AppDelegate: FlutterAppDelegate, UNUserNotificationCenterDelegate {
     willPresent notification: UNNotification,
     withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
   ) {
+    // Someone taking a seat is shown by the app itself, as a banner with Join.
+    if PushChannel.presentInApp(notification) {
+      completionHandler([])
+      return
+    }
     completionHandler([.banner, .list, .sound])
   }
 

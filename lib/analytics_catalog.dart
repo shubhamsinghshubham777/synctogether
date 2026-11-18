@@ -136,6 +136,13 @@ const kAnalyticsEvents = <AnalyticsEventDoc>[
     properties: ['room ID', 'duration'],
   ),
   AnalyticsEventDoc(
+    event: 'jump_back_in_tapped',
+    group: .rooms,
+    what: 'You tapped "Jump back in" on the lobby strip for a live room you had stepped out of.',
+    why: 'Tells us whether the strip saves the scroll to Your tickets, or is noise.',
+    properties: ['how many live rooms were offered'],
+  ),
+  AnalyticsEventDoc(
     event: 'room_deleted',
     group: .rooms,
     what: 'You deleted a room.',

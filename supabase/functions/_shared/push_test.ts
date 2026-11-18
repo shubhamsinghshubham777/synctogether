@@ -124,6 +124,9 @@ Deno.test("FCM: calls use the high-priority channel, with a short ttl", () => {
   const wl = fcmMessage(row({ kind: "reunion" }), "tok", NOW).message as Record<string, any>;
   assertEquals(wl.android.notification.channel_id, "default");
   assertEquals(wl.android.priority, "NORMAL");
+  const seat = fcmMessage(row({ kind: "seat_taken", data: { route: "/lobby/room/r1" } }), "tok", NOW).message as Record<string, any>;
+  assertEquals(seat.android.notification.channel_id, "rooms", "a seat taken has its own channel, so it can be silenced alone");
+  assertEquals(seat.data.kind, "seat_taken");
 });
 
 Deno.test("FCM: exchanges a service-account JWT, then sends; UNREGISTERED drops the token", async () => {

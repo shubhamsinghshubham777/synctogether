@@ -35,6 +35,16 @@ void main() {
       expect((target('synctogether://push?route=lobby') as OpenPath).path, '/lobby');
     });
 
+    test('a room path opens that room, and only a well-formed one', () {
+      const id = '4a90e947-e18a-4348-b74e-d96c354d5bf1';
+      final target = pushTargetForRoute('/lobby/room/$id');
+      expect(target, isA<OpenRoom>());
+      expect((target! as OpenRoom).roomId, id);
+      expect(pushTargetForRoute('/lobby/room/'), isNull);
+      expect(pushTargetForRoute('/lobby/room/not-an-id'), isNull);
+      expect(pushTargetForRoute('/lobby/room/$id/../../x'), isNull);
+    });
+
     test('an unknown route, a missing one or another scheme is not a target', () {
       expect(target('synctogether://push?route=elsewhere'), isNull);
       expect(target('synctogether://push'), isNull);

@@ -188,6 +188,13 @@ class RealFeedbackService with WidgetsBindingObserver implements FeedbackService
     String? sentryEventId,
   }) async {
     final eventId = sentryEventId ?? await _sendToSentry(r, screenshot, logs);
+    // No session (login screen, a lapsed sign-in): the RPC is authenticated-only
+    // and would come back 42501, so keep the report for flushQueue rather than
+    // fire a call that cannot succeed and report its refusal as a bug.
+    if (!api.signedIn) {
+      trace('bug report queued, no session', category: 'feedback');
+      return Queued(r.id);
+    }
     try {
       final code = await api.submit(
         category: r.category,

@@ -2779,8 +2779,13 @@ class _RoomScreenState extends State<RoomScreen>
         trace('superseded upload ended', category: 'media', data: {'error': '$e'});
         return;
       }
-      reportNonFatal(e, s, during: 'uploading shared media for room ${widget.roomId}');
-      DiscoveryTriggers.instance.notify(NudgeReason.uploadFailed);
+      final error = MediaSharingException.fromError(e);
+      if (error.isExpectedRefusal) {
+        trace('upload refused', category: 'media', data: {'code': error.code, 'bytes': fileSize});
+      } else {
+        reportNonFatal(e, s, during: 'uploading shared media for room ${widget.roomId}');
+        DiscoveryTriggers.instance.notify(NudgeReason.uploadFailed);
+      }
       // A resume that fails (the multipart was aborted when the session ended,
       // or the parts expired) must not be retried forever: the next attempt
       // starts a fresh upload.
@@ -2791,7 +2796,6 @@ class _RoomScreenState extends State<RoomScreen>
       _sync?.setMediaUploadState('failed');
       _sync?.broadcastSharingToggled(enabled: false, fileName: name, uploadState: 'failed');
       setState(() {});
-      final error = MediaSharingException.fromError(e);
       _snack(error.message);
       if (error.code == 'quota_exceeded' && mounted) {
         showMediaQuotaDialog(

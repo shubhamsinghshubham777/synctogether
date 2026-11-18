@@ -155,16 +155,11 @@ class AuthService {
     required bool hasSession,
   }) {
     if (!awaitingCallback) return AuthStreamOutcome.ignore;
-    if (_isMissingVerifier(error)) {
+    if (isMissingPkceVerifier(error)) {
       return hasSession ? AuthStreamOutcome.duplicateCallback : AuthStreamOutcome.staleCallback;
     }
     return AuthStreamOutcome.failure;
   }
-
-  static bool _isMissingVerifier(Object error) =>
-      error is AuthException &&
-      (error.message.contains('Code verifier could not be found') ||
-          error.message.contains('code challenge does not match'));
 
   /// Never the raw exception - this lands in a snack bar. The detail that
   /// actually identifies the cause has already gone to Sentry.

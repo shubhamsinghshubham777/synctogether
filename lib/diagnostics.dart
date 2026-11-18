@@ -70,6 +70,18 @@ bool isMalformedAuthCallback(Object error) =>
     RegExp(r'^No (access_token|expires_in|refresh_token|token_type) detected\.$')
         .hasMatch(error.message);
 
+/// Whether [error] is gotrue saying the PKCE verifier for an OAuth callback is
+/// gone: the callback of a sign-in this install no longer remembers (app quit
+/// mid-flow, link replayed) or a second delivery of one that already signed in.
+///
+/// supabase_flutter's deep-link handler also rethrows it as an unhandled async
+/// error, beside the copy that arrives on the auth stream, so the stream
+/// classifier alone cannot keep it out of Sentry.
+bool isMissingPkceVerifier(Object error) =>
+    error is AuthException &&
+    (error.message.contains('Code verifier could not be found') ||
+        error.message.contains('code challenge does not match'));
+
 /// The HTTP status behind a [PostgrestException] that came from a gateway
 /// rather than from Postgres, or null for a real database answer.
 ///

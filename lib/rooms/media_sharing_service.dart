@@ -82,7 +82,9 @@ class MediaSharingException implements Exception {
       );
     }
 
-    if (code.contains('concurrent_upload_active')) {
+    // The RPC raises `active_upload_in_progress`; `concurrent_upload_active` is
+    // the older jsonb answer. Both mean the same thing.
+    if (code.contains('active_upload_in_progress') || code.contains('concurrent_upload_active')) {
       return const MediaSharingException(
         code: 'concurrent_upload_active',
         message: 'Another upload is already in progress on your account. Please wait for it to finish or cancel it.',
@@ -100,6 +102,13 @@ class MediaSharingException implements Exception {
       return const MediaSharingException(
         code: 'unsupported_tier',
         message: 'Media sharing is not available on your current plan.',
+      );
+    }
+
+    if (code.contains('upload_cooldown_active')) {
+      return const MediaSharingException(
+        code: 'upload_cooldown_active',
+        message: 'Uploads are cooling down for a few minutes. Try again shortly.',
       );
     }
 
@@ -121,6 +130,18 @@ class MediaSharingException implements Exception {
           : "The upload didn't go through. Give it another try.",
     );
   }
+
+  /// A refusal the server gave on purpose (a limit, a cooldown, a plan) rather
+  /// than a failure: the user is told, and nothing is worth reporting.
+  bool get isExpectedRefusal => const {
+    'quota_exceeded',
+    'concurrent_upload_active',
+    'active_upload_in_progress',
+    'upload_cooldown_active',
+    'file_too_large',
+    'unsupported_tier',
+    'cancelled',
+  }.contains(code);
 
   @override
   String toString() => message;

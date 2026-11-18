@@ -91,6 +91,10 @@ Future<void> main() async {
           trace('dropped malformed auth callback', category: 'auth', data: {'error': '$error'});
           return null;
         }
+        if (error != null && isMissingPkceVerifier(error)) {
+          trace('dropped stale OAuth callback', category: 'auth', data: {'error': '$error'});
+          return null;
+        }
       } catch (_) {
         // Fall through: report it.
       }

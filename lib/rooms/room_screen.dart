@@ -48,6 +48,8 @@ import 'package:synctogether/rooms/open_failure.dart';
 import 'package:synctogether/rooms/widgets/shared_copy_expired_banner.dart';
 import 'package:synctogether/rooms/widgets/streaming_fallback_banner.dart';
 import 'package:synctogether/player/photo_picker.dart';
+import 'package:synctogether/player/pip.dart';
+import 'package:synctogether/rooms/widgets/pip_off_dialog.dart';
 import 'package:synctogether/player/recent_format.dart';
 import 'package:synctogether/player/recent_videos.dart';
 import 'package:synctogether/player/mode_selection_dialog.dart';
@@ -229,6 +231,14 @@ class _RoomScreenState extends State<RoomScreen>
   void Function()? _unregisterFeedbackProbes;
   LiveKitService? _av;
   final _backgroundCall = BackgroundCall();
+
+  // Picture-in-picture (board 96). Android only for now: elsewhere the support
+  // check answers "not supported" and none of this does anything.
+  final _pip = PictureInPicture.instance;
+  PipSupport _pipSupport = PipSupport.none;
+  bool _inPip = false;
+  StreamSubscription<PipAction>? _pipActionSub;
+  Timer? _pipCloseTimer;
 
   /// The room's video trial (free rooms only). The end is the room row's
   /// `video_trial_ends_at`, adopted from the row and the broadcast alike.
@@ -998,6 +1008,7 @@ class _RoomScreenState extends State<RoomScreen>
       );
     }
     RecentVideos.instance.addListener(_onRecentsChanged);
+    _initPip();
     unawaited(_onRecentsChanged());
     if (widget.dependencies.videoView == null) {
       _controller = VideoController(_player);
@@ -1520,7 +1531,150 @@ class _RoomScreenState extends State<RoomScreen>
   }
 
   /// Holds the phone's screen awake only while the picture is playing.
+  void _initPip() {
+    if (!_pip.platformSupported) return;
+    _pip.inPip.addListener(_onPipMode);
+    _pipActionSub = _pip.actions.listen(_onPipAction);
+    unawaited(_refreshPipSupport());
+  }
+
+  /// Read again whenever it could have changed: on entering the room and on
+  /// coming back from the small window or from Settings.
+  Future<void> _refreshPipSupport() async {
+    final s = await _pip.support();
+    if (!mounted) return;
+    setState(() => _pipSupport = s);
+    _syncPip();
+  }
+
+  bool get _hasFilm => _mode == .youtube
+      ? _youtubeController != null
+      : _player.state.duration > Duration.zero || _canonicalMedia.isSet;
+
+  /// Arms leaving the app to shrink the room, and tells the small window its
+  /// shape and whether its key says play or pause. Cheap: the service only
+  /// crosses to native when one of those changed.
+  void _syncPip() {
+    if (!mounted || !_pip.platformSupported) return;
+    final w = _player.state.width ?? 0;
+    final h = _player.state.height ?? 0;
+    unawaited(
+      _pip.configure(
+        armed: pipArmed(support: _pipSupport, hasFilm: _hasFilm, inRoom: !_ended),
+        w: _mode == .local && w > 0 && h > 0 ? w : 16,
+        h: _mode == .local && w > 0 && h > 0 ? h : 9,
+        playing: _playing,
+      ),
+    );
+  }
+
+  void _onPipMode() {
+    final now = _pip.inPip.value;
+    if (!mounted || now == _inPip) return;
+    setState(() => _inPip = now);
+    // Voice stays on, the camera pauses; coming back restores what was asked.
+    _av?.suspendCamera(now);
+    if (!now) {
+      _pipCloseTimer?.cancel();
+      unawaited(_refreshPipSupport());
+    }
+  }
+
+  /// The PiP key. Nothing playing yet: say so, there would be an empty window.
+  /// Switched off in Settings: explain once and go to the page. Otherwise go in.
+  Future<void> _onPipKey() async {
+    if (!_hasFilm) {
+      _snack('Start the film first - picture-in-picture shows a film.', kind: .info);
+      return;
+    }
+    final s = await _pip.support();
+    if (!mounted) return;
+    _pipSupport = s;
+    if (!s.supported) return;
+    if (!s.enabled) {
+      trace('picture-in-picture is off in settings', category: 'ui');
+      final open = await showGlassDialog<bool>(
+        context: context,
+        width: 400,
+        builder: (_) => const PipOffDialog(),
+      );
+      if (open == true) await _pip.openSettings();
+      return;
+    }
+    final ok = await _pip.enter();
+    if (!ok && mounted) {
+      _snack("Couldn't open the small window just now.", kind: .info);
+    }
+  }
+
+  void _onPipAction(PipAction a) {
+    if (!mounted) return;
+    switch (a) {
+      case PipAction.playPause:
+        _playPause();
+      case PipAction.back:
+        _skip(const Duration(seconds: -10));
+    }
+  }
+
+  /// The room went away while in the small window: it says so in two words and
+  /// closes itself, never lingering as a dead picture.
+  void _pipEvicted() {
+    if (!_inPip) return;
+    setState(() {});
+    _pipCloseTimer?.cancel();
+    _pipCloseTimer = Timer(const Duration(seconds: 4), () => unawaited(_pip.close()));
+  }
+
+  Widget _pipView() {
+    final notice = pipNotice(connected: _connected, playing: _playing, evicted: _evictionReason);
+    return PopScope(
+      canPop: false,
+      child: Scaffold(
+        backgroundColor: PTColors.black(1),
+        body: Stack(
+          fit: .expand,
+          children: [
+            if (_evictionReason == null) _video(),
+            if (notice != null)
+              Positioned.fill(
+                child: ColoredBox(
+                  color: PTColors.black(_evictionReason == null ? 0.55 : 1),
+                  child: Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(8),
+                      child: Column(
+                        mainAxisSize: .min,
+                        children: [
+                          Text(
+                            notice.title,
+                            textAlign: .center,
+                            style: PTText.body.copyWith(
+                              fontSize: 14,
+                              fontWeight: .w600,
+                              color: PTColors.fg,
+                            ),
+                          ),
+                          if (notice.subtitle != null)
+                            Text(
+                              notice.subtitle!,
+                              textAlign: .center,
+                              style: PTText.body.copyWith(fontSize: 11, color: PTColors.fgDim),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
   void _syncScreenAwake() {
+    _syncPip();
     unawaited(
       setScreenAwake(shouldHoldScreenAwake(mobile: isMobile, inRoom: mounted, playing: _playing)),
     );
@@ -1595,6 +1749,13 @@ class _RoomScreenState extends State<RoomScreen>
     if (isDesktop) AppWindow.instance.removeListener(this);
     for (final s in _subscriptions) {
       s.cancel();
+    }
+    _pipCloseTimer?.cancel();
+    _pipActionSub?.cancel();
+    if (_pip.platformSupported) {
+      _pip.inPip.removeListener(_onPipMode);
+      // Leaving the room must not leave the app armed to shrink the lobby.
+      unawaited(_pip.configure(armed: false, w: 16, h: 9, playing: false));
     }
     _hostPing?.cancel();
     _countdownTimer?.cancel();
@@ -4552,6 +4713,7 @@ class _RoomScreenState extends State<RoomScreen>
     unawaited(_persistPosition());
     _ended = true;
     _evictionReason = reason;
+    _pipEvicted();
     _trackWatchSessionEnded();
     RoomService.instance.noteRoomExited();
     trace(
@@ -5535,6 +5697,7 @@ class _RoomScreenState extends State<RoomScreen>
         // More), which already goes immersive. Landscape is that state, so it
         // offers nothing (and keeps the More list short enough for its slot);
         // tablets are big enough as they are.
+        onPip: _pipSupport.supported ? _onPipKey : null,
         onFullscreenToggle: isDesktop
             ? _toggleFullscreen
             : compact && layoutOf(context) == PTLayout.portrait
@@ -5544,6 +5707,7 @@ class _RoomScreenState extends State<RoomScreen>
 
   @override
   Widget build(BuildContext context) {
+    if (_inPip) return _pipView();
     _scheduleImmersiveSync(context);
     // The room sits on top of the lobby, so a system back gesture would pop
     // straight out of it - and a bare pop skips leave_room, stranding the

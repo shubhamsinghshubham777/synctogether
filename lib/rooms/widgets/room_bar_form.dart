@@ -24,6 +24,7 @@ enum BarControl {
   audio,
   subtitles,
   hide,
+  pip,
   volume,
   fullscreen,
 }
@@ -75,6 +76,7 @@ enum RoomBarForm {
 
   static const _afterSource = {
     BarControl.hide,
+    BarControl.pip,
     BarControl.source,
     BarControl.openFile,
     BarControl.audio,
@@ -197,7 +199,8 @@ double naturalWidth(RoomBarForm form, RoomBarCaps caps, TextScaler scaler) {
           ? _kKey + (form == RoomBarForm.t0 ? 90 + _kGap : 0)
           : 0.0;
       final full = shown(BarControl.fullscreen) ? _kKey : 0.0;
-      final parts = [subs, vol, full].where((w) => w > 0).toList();
+      final pipKey = shown(BarControl.pip) ? _kKey : 0.0;
+      final parts = [subs, vol, pipKey, full].where((w) => w > 0).toList();
       right = parts.fold(0.0, (a, b) => a + b) + _kGap * math.max(0, parts.length - 1);
     } else {
       right = _group(
@@ -207,6 +210,7 @@ double naturalWidth(RoomBarForm form, RoomBarCaps caps, TextScaler scaler) {
           BarControl.audio,
           BarControl.subtitles,
           BarControl.hide,
+          BarControl.pip,
           BarControl.fullscreen,
         ].where(shown).length,
         _kKey,

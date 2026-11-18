@@ -174,6 +174,20 @@ class LiveKitService extends ChangeNotifier {
   bool get micEnabled => _desiredMicEnabled;
   bool get camEnabled => _desiredCamEnabled;
 
+  /// The camera is held off while the room is in the small picture-in-picture
+  /// window (nobody should broadcast from a pocket). It never changes what the
+  /// person asked for: [camEnabled] still says "on", and the camera comes back
+  /// to exactly that when the window closes.
+  bool get cameraSuspended => _cameraSuspended;
+  bool _cameraSuspended = false;
+
+  void suspendCamera(bool suspended) {
+    if (_cameraSuspended == suspended) return;
+    _cameraSuspended = suspended;
+    trace('camera ${suspended ? 'suspended' : 'resumed'} for picture-in-picture', category: 'av');
+    unawaited(_syncTracks());
+  }
+
   lk.LocalParticipant? get localParticipant => _room?.localParticipant;
   List<lk.RemoteParticipant> get remoteParticipants =>
       _room?.remoteParticipants.values.toList() ?? const [];
@@ -588,11 +602,12 @@ class LiveKitService extends ChangeNotifier {
           _trackSyncFailed('mic', e, s, room);
         }
       }
-      if (canPublishCamera && _desiredCamEnabled != local.isCameraEnabled()) {
+      final wantCam = _desiredCamEnabled && !_cameraSuspended;
+      if (canPublishCamera && wantCam != local.isCameraEnabled()) {
         try {
           await local.setCameraEnabled(
-            _desiredCamEnabled,
-            cameraCaptureOptions: _desiredCamEnabled ? _cameraCapture : null,
+            wantCam,
+            cameraCaptureOptions: wantCam ? _cameraCapture : null,
           );
         } catch (e, s) {
           _trackSyncFailed('cam', e, s, room);

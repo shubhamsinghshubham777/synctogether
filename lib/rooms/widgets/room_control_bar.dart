@@ -41,6 +41,7 @@ class RoomControlBarActions {
     this.onReact,
     this.onHideControls,
     this.onFullscreenToggle,
+    this.onPip,
   });
 
   final VoidCallback onPlayPause;
@@ -74,6 +75,10 @@ class RoomControlBarActions {
   final VoidCallback? onReact;
   final VoidCallback? onHideControls;
   final VoidCallback? onFullscreenToggle;
+
+  /// Shrinks the room into the system picture-in-picture window. Null where
+  /// the device does not offer it: the key is hidden, not disabled (board 96).
+  final VoidCallback? onPip;
 }
 
 /// The locked camera key teaches rather than labels: video is the host's
@@ -172,6 +177,7 @@ class RoomControlBar extends StatefulWidget {
         if (tablet) ...[
           if (a.onSubtitles != null) BarControl.subtitles,
           BarControl.volume,
+          if (a.onPip != null) BarControl.pip,
           if (a.onFullscreenToggle != null) BarControl.fullscreen,
         ] else ...[
           if (a.onSwitchSource != null) BarControl.source,
@@ -179,6 +185,7 @@ class RoomControlBar extends StatefulWidget {
           if (a.onAudioTracks != null) BarControl.audio,
           if (a.onSubtitles != null) BarControl.subtitles,
           if (a.onHideControls != null) BarControl.hide,
+          if (a.onPip != null) BarControl.pip,
           if (a.onFullscreenToggle != null) BarControl.fullscreen,
         ],
       },
@@ -1058,6 +1065,16 @@ class _RoomControlBarState extends State<RoomControlBar> with SingleTickerProvid
         );
       }
     }
+    if (a.onPip != null) {
+      add(
+        .pip,
+        label: 'Picture in picture',
+        icon: BoothIcons.pip,
+        value: 'Keeps playing',
+        onTap: a.onPip,
+        inline: key(icon: BoothIcons.pip, tooltip: 'Picture in picture', onPressed: a.onPip),
+      );
+    }
     // Fullscreen is the far key of whichever ladder carries it.
     if (a.onFullscreenToggle != null) {
       add(
@@ -1168,13 +1185,19 @@ class _RoomControlBarState extends State<RoomControlBar> with SingleTickerProvid
     final Widget content;
     if (form.twoRows) {
       final right = caps.tablet
-          ? shown(const [BarControl.subtitles, BarControl.volume, BarControl.fullscreen])
+          ? shown(const [
+              BarControl.subtitles,
+              BarControl.volume,
+              BarControl.pip,
+              BarControl.fullscreen,
+            ])
           : shown(const [
               BarControl.source,
               BarControl.openFile,
               BarControl.audio,
               BarControl.subtitles,
               BarControl.hide,
+              BarControl.pip,
               BarControl.fullscreen,
             ]);
       content = Column(

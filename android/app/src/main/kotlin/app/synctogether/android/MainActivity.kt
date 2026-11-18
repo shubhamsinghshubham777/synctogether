@@ -20,6 +20,7 @@ class MainActivity : FlutterActivity() {
   private var pendingStart: MethodChannel.Result? = null
   private var notificationRequestInFlight = false
   private val photoPicker = PhotoPicker(this)
+  private val pip = Pip(this)
 
   override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
     super.configureFlutterEngine(flutterEngine)
@@ -38,6 +39,8 @@ class MainActivity : FlutterActivity() {
           else -> result.notImplemented()
         }
       }
+    // Picture-in-picture for the room (board 96).
+    pip.register(flutterEngine.dartExecutor.binaryMessenger)
     // Calls taking the mic and headsets coming and going, for the pre-show check.
     AudioEvents.register(flutterEngine.dartExecutor.binaryMessenger, applicationContext)
     // Persistable SAF grants, stat and ranged reads for content:// picks.
@@ -98,6 +101,19 @@ class MainActivity : FlutterActivity() {
           else -> result.notImplemented()
         }
       }
+  }
+
+  override fun onUserLeaveHint() {
+    super.onUserLeaveHint()
+    pip.onUserLeaveHint()
+  }
+
+  override fun onPictureInPictureModeChanged(
+    isInPictureInPictureMode: Boolean,
+    newConfig: android.content.res.Configuration,
+  ) {
+    super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
+    pip.onModeChanged(isInPictureInPictureMode)
   }
 
   private fun startCallService(mic: Boolean, cam: Boolean, title: String) {

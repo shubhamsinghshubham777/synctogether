@@ -23,7 +23,7 @@
     "Free accounts: 4-hour rooms with voice chat for up to 8 people",
     "Optional Patron: 24-hour sessions, video facecams and 16 people per room"
   ],
-  "ReleaseNotes": "• FIRST NIGHT: A quick welcome sets your name, who you are watching with, and shows where everything is.\n• REPORT A BUG: Send a bug report in one tap and follow it through to the fix.\n• FIXES: A Mac launch crash is fixed, and sign-in and text fields behave more reliably.",
+  "ReleaseNotes": "• PRE-SHOW CHECK: See what's off with your camera, mic, sound, connection or film before it starts.\n• UNDO: Leave a room or delete a ticket at once, with a few seconds to take it back.\n• SEAT TAKEN: Get a nudge when someone joins your room while you're away.\n• FIXES: One bug button per screen, friendlier sign-in errors and a faster start.",
   "Images": [
     {
       "FileName": "1_lobby.png",

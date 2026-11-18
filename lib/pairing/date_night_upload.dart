@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
+import '../av/system_permissions.dart';
 import '../diagnostics.dart';
 import '../player/local_video.dart';
 import '../profile/profile_service.dart';
@@ -9,7 +10,15 @@ import '../rooms/media_sharing_service.dart';
 import 'pair_models.dart';
 import 'pair_service.dart';
 
-enum UploadPhase { uploading, stopped, finished }
+enum UploadPhase {
+  uploading,
+  stopped,
+
+  /// Held because the connection is mobile data and the person has not allowed
+  /// it. Not a failure: it carries on by itself when Wi-Fi is back.
+  waiting,
+  finished,
+}
 
 /// One date night's upload while this app is the one doing it. What the planner
 /// sees live (the percentage, the time left); the partner sees the night's own
@@ -33,6 +42,9 @@ class DateNightUpload extends ChangeNotifier {
   UploadPhase phase = UploadPhase.uploading;
   DateTime? _lastReport;
 
+  /// The person chose to spend mobile data on this upload.
+  bool mobileDataOk = false;
+
   double get fraction => total > 0 ? (bytes / total).clamp(0.0, 1.0) : 0.0;
 
   void _changed() => notifyListeners();
@@ -52,8 +64,11 @@ class DateNightUploader extends ChangeNotifier {
     MediaSharingService? media,
     PairService Function()? pair,
     this.reportEvery = const Duration(seconds: 4),
+    this.networkEvery = const Duration(seconds: 5),
+    Future<NetworkTransport> Function()? transport,
   }) : _mediaOverride = media,
-       _pairOverride = pair;
+       _pairOverride = pair,
+       _transport = transport ?? _systemTransport;
 
   static DateNightUploader instance = DateNightUploader();
 
@@ -63,6 +78,16 @@ class DateNightUploader extends ChangeNotifier {
   /// How often progress is sent to the night. A missed report only leaves the
   /// partner's percentage a little behind; the upload itself never waits on it.
   final Duration reportEvery;
+
+  /// How often the connection is looked at while an upload is running.
+  final Duration networkEvery;
+  final Future<NetworkTransport> Function() _transport;
+
+  static Future<NetworkTransport> _systemTransport() async =>
+      (await SystemPermissions.instance.networkInfo()).transport;
+
+  Timer? _watch;
+  bool _checking = false;
 
   MediaSharingService? _lazyMedia;
   MediaSharingService get _media => _mediaOverride ?? (_lazyMedia ??= MediaSharingService());
@@ -111,6 +136,17 @@ class DateNightUploader extends ChangeNotifier {
     upload._changed();
     notifyListeners();
     _run(upload, resume: upload.session);
+    _watchIfNeeded();
+  }
+
+  /// Spend mobile data on [nightId]'s upload: the person said so, so it carries on
+  /// now and stays allowed for this upload.
+  void useMobileData(String nightId) {
+    final u = _active[nightId];
+    if (u == null) return;
+    u.mobileDataOk = true;
+    trace('upload allowed on mobile data', category: 'media', data: {'night_id': nightId});
+    if (u.phase == UploadPhase.waiting) _carryOn(u);
   }
 
   /// Stop uploading for [nightId] and let go of the file.
@@ -122,6 +158,7 @@ class DateNightUploader extends ChangeNotifier {
     upload._changed();
     unawaited(upload.video.release());
     notifyListeners();
+    _watchIfNeeded();
   }
 
   Future<DateNight> _launch({
@@ -158,6 +195,7 @@ class DateNightUploader extends ChangeNotifier {
               unawaited(_pair.reportUploadProgress(u.nightId, u.bytes, stopped: true));
             }
             notifyListeners();
+            _watchIfNeeded();
             if (!created.isCompleted) created.complete(night);
           } catch (e) {
             // Refused (or the night could not be made): give the slot back.
@@ -228,6 +266,64 @@ class DateNightUploader extends ChangeNotifier {
         );
   }
 
+  // ------------------------------------------------------- mobile data hold
+
+  /// Looks at the connection while any upload is running (and only then).
+  void _watchIfNeeded() {
+    final running = _active.values.any(
+      (u) => u.phase == UploadPhase.uploading || u.phase == UploadPhase.waiting,
+    );
+    if (!running) {
+      _watch?.cancel();
+      _watch = null;
+      return;
+    }
+    if (_watch != null) return;
+    _watch = Timer.periodic(networkEvery, (_) => unawaited(_checkNetwork()));
+    unawaited(_checkNetwork());
+  }
+
+  Future<void> _checkNetwork() async {
+    if (_checking) return;
+    _checking = true;
+    try {
+      final t = await _transport();
+      final onMobile = t == NetworkTransport.cellular;
+      for (final u in _active.values.toList()) {
+        if (u.phase == UploadPhase.uploading && onMobile && !u.mobileDataOk) {
+          _hold(u);
+        } else if (u.phase == UploadPhase.waiting && !onMobile) {
+          _carryOn(u);
+        }
+      }
+    } catch (_) {
+      // No reading is not a verdict: leave every upload as it is.
+    } finally {
+      _checking = false;
+    }
+  }
+
+  void _hold(DateNightUpload u) {
+    u.token.cancel();
+    u.phase = UploadPhase.waiting;
+    u._changed();
+    notifyListeners();
+    trace(
+      'upload held for Wi-Fi',
+      category: 'media',
+      data: {'night_id': u.nightId, 'bytes': u.bytes, 'total': u.total},
+    );
+  }
+
+  void _carryOn(DateNightUpload u) {
+    u.token = CancellationToken();
+    u.phase = UploadPhase.uploading;
+    u._changed();
+    notifyListeners();
+    trace('upload carries on', category: 'media', data: {'night_id': u.nightId, 'bytes': u.bytes});
+    _run(u, resume: u.session);
+  }
+
   void _onProgress(DateNightUpload u, UploadProgress p) {
     u
       ..bytes = p.bytesUploaded
@@ -253,6 +349,7 @@ class DateNightUploader extends ChangeNotifier {
     );
     unawaited(_pair.reportUploadProgress(u.nightId, u.bytes, stopped: true));
     reportNonFatal(e, s, during: 'uploading a date night file');
+    _watchIfNeeded();
   }
 
   Future<void> _finished(DateNightUpload u) async {
@@ -261,6 +358,7 @@ class DateNightUploader extends ChangeNotifier {
     u._changed();
     _active.remove(u.nightId);
     notifyListeners();
+    _watchIfNeeded();
     trace('date night upload finished', category: 'media', data: {'night_id': u.nightId});
     unawaited(u.video.release());
     // The allowance moved when the upload completed, and the night is Ready.

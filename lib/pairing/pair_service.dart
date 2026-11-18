@@ -629,6 +629,28 @@ class PairService extends ChangeNotifier {
     }
   }
 
+  /// One gentle push to the other half before a date night (board 94e K). Sent
+  /// only from a tap, and the server keeps it to one per night every ten
+  /// minutes, so [NudgeResult.throttled] is a normal answer, not an error.
+  Future<NudgeResult> nudgePartner(String nightId) async {
+    try {
+      final row = await _client.rpc('nudge_partner', params: {'p_night_id': nightId});
+      final map = row as Map;
+      final result = (map['sent'] as bool? ?? false)
+          ? NudgeResult.sent
+          : switch (map['reason']) {
+              'throttled' => NudgeResult.throttled,
+              _ => NudgeResult.notNow,
+            };
+      trace('partner nudged', category: 'room', data: {'result': result.name});
+      if (result == NudgeResult.sent) Analytics.instance.track('partner_nudged');
+      return result;
+    } catch (e, s) {
+      _reportUnexpected(e, s, 'nudging the partner');
+      rethrow;
+    }
+  }
+
   /// Logs a sitting spent together. Silent: a lost sitting is not worth a
   /// snackbar over a film, and both partners may report the same one.
   Future<void> logSession({

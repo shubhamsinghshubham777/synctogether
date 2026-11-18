@@ -25,6 +25,11 @@ Future<double?> measureLinkBps({
   Duration window = const Duration(seconds: 4),
   int maxBytesPerConnection = 8 * 1024 * 1024,
   int Function()? alsoBytes,
+
+  /// A link fast enough to finish every sample in under a second is a reading
+  /// too (the span is floored at 50 ms so the rate stays finite). Stall
+  /// diagnosis keeps the default and treats a span under a second as no reading.
+  bool allowShort = false,
   HttpClient Function()? clientFactory,
 }) async {
   if (totalBytes <= 0) return null;
@@ -74,8 +79,11 @@ Future<double?> measureLinkBps({
   final first = firstByte;
   final last = lastByte;
   if (first == null || last == null) return null;
-  final secs = last.difference(first).inMilliseconds / 1000;
-  if (secs < 1) return null;
+  var secs = last.difference(first).inMilliseconds / 1000;
+  if (secs < 1) {
+    if (!allowShort) return null;
+    secs = math.max(secs, 0.05);
+  }
   final extra = (alsoBytes?.call() ?? 0) - alsoStart;
   final bps = (received + math.max(0, extra)) * 8 / secs;
   trace(

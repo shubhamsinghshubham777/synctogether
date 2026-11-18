@@ -550,8 +550,15 @@ class MediaSharingService {
     }
   }
 
-  Future<DownloadUrlResult> fetchDownloadUrl({required String roomId}) async {
-    final data = await _edgeCaller('download-url', {'roomId': roomId});
+  Future<DownloadUrlResult> fetchDownloadUrl({required String roomId}) async =>
+      _downloadResult(await _edgeCaller('download-url', {'roomId': roomId}));
+
+  /// The same, for a date night's staged film (pair members only): lets the
+  /// pre-show check measure the connection against the real file.
+  Future<DownloadUrlResult> fetchNightDownloadUrl({required String nightId}) async =>
+      _downloadResult(await _edgeCaller('night-download-url', {'nightId': nightId}));
+
+  DownloadUrlResult _downloadResult(Map<String, dynamic> data) {
     return DownloadUrlResult(
       streamUrl: Uri.parse(data['streamUrl'] as String),
       fileName: data['fileName'] as String? ?? 'video.mp4',

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:synctogether/av/system_permissions.dart';
 import 'package:synctogether/mock/mock_dependencies.dart';
 import 'package:synctogether/pairing/date_night_upload.dart';
 import 'package:synctogether/pairing/pair_models.dart';
@@ -102,14 +103,22 @@ void main() {
   late _FakeMedia media;
   late FakePairService pair;
 
-  DateNightUploader uploader({Duration every = const Duration(hours: 1)}) =>
-      DateNightUploader(media: media, pair: () => pair, reportEvery: every);
+  var transport = NetworkTransport.wifi;
+
+  DateNightUploader uploader({Duration every = const Duration(hours: 1)}) => DateNightUploader(
+    media: media,
+    pair: () => pair,
+    reportEvery: every,
+    networkEvery: const Duration(milliseconds: 10),
+    transport: () async => transport,
+  );
 
   setUp(() {
     installMockDependencies();
     media = _FakeMedia();
     pair = FakePairService(pair: samePairInfo(patron: true));
     PairService.instance = pair;
+    transport = NetworkTransport.wifi;
   });
 
   Future<void> settle() => Future<void>.delayed(Duration.zero);
@@ -258,5 +267,86 @@ void main() {
     await up.chooseAgain(night: night, video: _video());
     expect(pair.calls, contains('attachStagedFile:${night.id}:slot-1'));
     expect(up.forNight(night.id)!.phase, UploadPhase.uploading, reason: 'a live upload again');
+  });
+
+  group('mobile data', () {
+    Future<void> tick() => Future<void>.delayed(const Duration(milliseconds: 40));
+
+    Future<(DateNightUploader, String)> running() async {
+      final up = uploader();
+      final night = await up.start(
+        video: _video(),
+        title: 'Film',
+        startsAt: DateTime.now().add(const Duration(days: 2)),
+      );
+      return (up, night.id);
+    }
+
+    test('on Wi-Fi it just uploads', () async {
+      final (up, id) = await running();
+      await tick();
+      expect(up.forNight(id)!.phase, UploadPhase.uploading);
+      expect(media.token!.isCancelled, isFalse);
+      await up.cancel(id);
+    });
+
+    test('mobile data holds it, keeps the slot and tells nobody it failed', () async {
+      final (up, id) = await running();
+      media.emit(380);
+      transport = NetworkTransport.cellular;
+      await tick();
+      final live = up.forNight(id)!;
+      expect(live.phase, UploadPhase.waiting);
+      expect(media.token!.isCancelled, isTrue, reason: 'the bytes stop');
+      expect(media.aborts, isEmpty, reason: 'the slot stays for the resume');
+      expect(
+        pair.calls.where((c) => c.endsWith(':true')),
+        isEmpty,
+        reason: 'a hold is not a failure, so the partner is not told it stalled',
+      );
+      await up.cancel(id);
+    });
+
+    test('Wi-Fi back carries on from the same slot by itself', () async {
+      final (up, id) = await running();
+      transport = NetworkTransport.cellular;
+      await tick();
+      expect(up.forNight(id)!.phase, UploadPhase.waiting);
+      transport = NetworkTransport.wifi;
+      await tick();
+      expect(up.forNight(id)!.phase, UploadPhase.uploading);
+      expect(media.calls.last, 'resume');
+      expect(media.resumes.last?.stagedId, 'slot-1');
+      await up.cancel(id);
+    });
+
+    test('allowing mobile data carries on at once and stays allowed', () async {
+      final (up, id) = await running();
+      transport = NetworkTransport.cellular;
+      await tick();
+      up.useMobileData(id);
+      expect(up.forNight(id)!.phase, UploadPhase.uploading);
+      expect(media.calls.last, 'resume');
+      await tick();
+      expect(up.forNight(id)!.phase, UploadPhase.uploading, reason: 'not held again');
+      await up.cancel(id);
+    });
+
+    test('an unreadable connection leaves the upload alone', () async {
+      final up = DateNightUploader(
+        media: media,
+        pair: () => pair,
+        networkEvery: const Duration(milliseconds: 10),
+        transport: () async => throw StateError('no channel'),
+      );
+      final night = await up.start(
+        video: _video(),
+        title: 'Film',
+        startsAt: DateTime.now().add(const Duration(days: 2)),
+      );
+      await tick();
+      expect(up.forNight(night.id)!.phase, UploadPhase.uploading);
+      await up.cancel(night.id);
+    });
   });
 }

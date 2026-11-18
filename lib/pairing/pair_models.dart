@@ -200,6 +200,7 @@ class DateNight {
     this.youtubeUrl,
     this.fileName,
     this.fileSize,
+    this.fileDurationMs,
     this.uploadState = 'none',
     this.uploadBytes = 0,
     this.movedFrom,
@@ -216,6 +217,7 @@ class DateNight {
     youtubeUrl: json['youtube_url'] as String?,
     fileName: json['file_name'] as String?,
     fileSize: (json['file_size'] as num?)?.toInt(),
+    fileDurationMs: (json['file_duration_ms'] as num?)?.toInt(),
     uploadState: json['upload_state'] as String? ?? 'none',
     uploadBytes: (json['upload_bytes'] as num?)?.toInt() ?? 0,
     movedFrom: _time(json['moved_from']),
@@ -240,6 +242,9 @@ class DateNight {
   /// the planner's app last reported it.
   final String? fileName;
   final int? fileSize;
+
+  /// The film's length, when the uploader's device could read it.
+  final int? fileDurationMs;
   final String uploadState;
   final int uploadBytes;
 
@@ -258,6 +263,15 @@ class DateNight {
   /// Whether something is attached that will be in the room: a link, or a file
   /// that has finished.
   bool get attachmentReady => hasLink || fileReady;
+
+  /// What the film asks of a connection to stream at full quality, in bits per
+  /// second (`size * 8 / length`), or null when either is unknown.
+  double? get fileBitrateBps {
+    final size = fileSize;
+    final ms = fileDurationMs;
+    if (size == null || size <= 0 || ms == null || ms <= 0) return null;
+    return size * 8 / (ms / 1000);
+  }
 
   /// 0 to 1: how much of the file has arrived. A finished upload is 1.
   double get uploadFraction {
@@ -434,3 +448,7 @@ enum PairErrorCode {
     return unknown;
   }
 }
+
+/// What the server said to a nudge (a reminder push to the other half of a pair).
+/// Only [sent] sends anything; the other two are ordinary answers, not errors.
+enum NudgeResult { sent, throttled, notNow }

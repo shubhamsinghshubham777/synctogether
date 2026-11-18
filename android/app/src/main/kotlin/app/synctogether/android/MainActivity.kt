@@ -38,6 +38,8 @@ class MainActivity : FlutterActivity() {
           else -> result.notImplemented()
         }
       }
+    // Calls taking the mic and headsets coming and going, for the pre-show check.
+    AudioEvents.register(flutterEngine.dartExecutor.binaryMessenger, applicationContext)
     // Persistable SAF grants, stat and ranged reads for content:// picks.
     MediaAccess.register(flutterEngine.dartExecutor.binaryMessenger, applicationContext)
     // "From Photos": the system photo picker, no permission.

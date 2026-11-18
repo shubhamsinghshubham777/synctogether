@@ -14,6 +14,8 @@ class FakeProbes implements PreShowProbes {
     this.network = const NetworkInfo(transport: NetworkTransport.wifi),
     this.chime = ChimeResult.played,
     this.micFails = false,
+    this.filmBps,
+    this.cameraList = const [],
   });
 
   PermissionState camera;
@@ -27,6 +29,15 @@ class FakeProbes implements PreShowProbes {
   NetworkInfo network;
   ChimeResult chime;
   bool micFails;
+
+  /// What the film throughput probe reads, in bits per second (null: no reading).
+  double? filmBps;
+
+  /// The cameras this fake device has (empty: just the one, unnamed).
+  List<CameraChoice> cameraList;
+  String? _camId;
+  final changed = StreamController<void>.broadcast();
+  final audio = StreamController<AudioEvent>.broadcast();
 
   final calls = <String>[];
   final levels = StreamController<List<double>>.broadcast();
@@ -65,11 +76,42 @@ class FakeProbes implements PreShowProbes {
   @override
   Future<CameraOpen> openCamera() async {
     calls.add('camera-open');
+    _camId = cameraList.isEmpty ? null : cameraList.first.id;
     return cameraOpens;
   }
 
   @override
-  Future<void> closeCamera() async => calls.add('camera-close');
+  Future<void> closeCamera() async {
+    _camId = null;
+    calls.add('camera-close');
+  }
+
+  @override
+  Future<List<CameraChoice>> cameras() async => cameraList;
+
+  @override
+  String? get cameraId => _camId;
+
+  @override
+  Future<CameraOpen> useCamera(String id) async {
+    calls.add('camera-use:$id');
+    _camId = id;
+    return cameraOpens;
+  }
+
+  @override
+  Stream<void> get camerasChanged => changed.stream;
+
+  @override
+  Stream<AudioEvent> get audioEvents => audio.stream;
+
+  @override
+  Future<void> chooseOutput({required bool builtIn, String? name}) async =>
+      calls.add('output:${builtIn ? 'builtin' : 'keep:$name'}');
+
+  @override
+  Future<void> chooseInput({required bool builtIn, String? name}) async =>
+      calls.add('input:${builtIn ? 'builtin' : 'keep:$name'}');
 
   @override
   Stream<void> get cameraEnded => ended.stream;
@@ -91,5 +133,11 @@ class FakeProbes implements PreShowProbes {
   Future<LatencyReading> measureLatency() async {
     calls.add('measure');
     return latency;
+  }
+
+  @override
+  Future<double?> measureNightThroughput(String nightId) async {
+    calls.add('film-probe');
+    return filmBps;
   }
 }

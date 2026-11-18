@@ -67,6 +67,7 @@ class MainFlutterWindow: NSWindow {
     RegisterGeneratedPlugins(registry: flutterViewController)
     SystemFontsChannel.register(with: flutterViewController.engine.binaryMessenger)
     MicLevelChannel.register(with: flutterViewController.engine.binaryMessenger)
+    AudioEventsChannel.register(with: flutterViewController.engine.binaryMessenger)
     PushChannel.register(with: flutterViewController.engine.binaryMessenger)
     PermissionsChannel.register(with: flutterViewController.engine.binaryMessenger)
     BugReportMenuChannel.register(with: flutterViewController.engine.binaryMessenger)
@@ -148,6 +149,216 @@ enum SystemFontsChannel {
       }
       return faces.isEmpty ? nil : ["family": family, "faces": faces]
     }
+  }
+}
+
+/// Tells the pre-show check when the Mac's default input changes (a headset or
+/// a USB mic plugged in or out). Same contract as the iOS runner's
+/// `app.synctogether/audio_events`: `start`, `stop`, `useBuiltIn`; events go
+/// back as `event` calls. A Mac has no call interruption to report.
+enum AudioEventsChannel {
+  private static var channel: FlutterMethodChannel?
+  private static var listening = false
+  private static var address = AudioObjectPropertyAddress(
+    mSelector: kAudioHardwarePropertyDefaultInputDevice,
+    mScope: kAudioObjectPropertyScopeGlobal,
+    mElement: kAudioObjectPropertyElementMain)
+  private static let listener: AudioObjectPropertyListenerBlock = { _, _ in
+    DispatchQueue.main.async { sendInput() }
+  }
+
+  static func register(with messenger: FlutterBinaryMessenger) {
+    let channel = FlutterMethodChannel(name: "app.synctogether/audio_events", binaryMessenger: messenger)
+    self.channel = channel
+    channel.setMethodCallHandler { call, result in
+      switch call.method {
+      case "start":
+        if !listening {
+          AudioObjectAddPropertyListenerBlock(
+            AudioObjectID(kAudioObjectSystemObject), &address, DispatchQueue.main, listener)
+          listening = true
+        }
+        result(nil)
+      case "stop":
+        if listening {
+          AudioObjectRemovePropertyListenerBlock(
+            AudioObjectID(kAudioObjectSystemObject), &address, DispatchQueue.main, listener)
+          listening = false
+        }
+        result(nil)
+      case "useBuiltIn":
+        if let id = builtInInput(), let name = name(of: id) {
+          result(["ok": true, "name": name])
+        } else {
+          result(["ok": false])
+        }
+      case "audioState":
+        result(audioState())
+      case "useBuiltInOutput":
+        if let id = builtInOutput(), setDefaultOutput(id), let name = name(of: id) {
+          result(["ok": true, "name": name])
+        } else {
+          result(["ok": false])
+        }
+      default:
+        result(FlutterMethodNotImplemented)
+      }
+    }
+  }
+
+  // MARK: - Sound output
+
+  private static func defaultOutput() -> AudioObjectID? {
+    var id = AudioObjectID(0)
+    var size = UInt32(MemoryLayout<AudioObjectID>.size)
+    var addr = AudioObjectPropertyAddress(
+      mSelector: kAudioHardwarePropertyDefaultOutputDevice, mScope: kAudioObjectPropertyScopeGlobal,
+      mElement: kAudioObjectPropertyElementMain)
+    guard
+      AudioObjectGetPropertyData(AudioObjectID(kAudioObjectSystemObject), &addr, 0, nil, &size, &id)
+        == noErr, id != 0
+    else { return nil }
+    return id
+  }
+
+  private static func hasOutput(_ id: AudioObjectID) -> Bool {
+    var addr = AudioObjectPropertyAddress(
+      mSelector: kAudioDevicePropertyStreams, mScope: kAudioObjectPropertyScopeOutput,
+      mElement: kAudioObjectPropertyElementMain)
+    var size = UInt32(0)
+    return AudioObjectGetPropertyDataSize(id, &addr, 0, nil, &size) == noErr && size > 0
+  }
+
+  private static func builtInOutput() -> AudioObjectID? {
+    var addr = AudioObjectPropertyAddress(
+      mSelector: kAudioHardwarePropertyDevices, mScope: kAudioObjectPropertyScopeGlobal,
+      mElement: kAudioObjectPropertyElementMain)
+    var size = UInt32(0)
+    guard
+      AudioObjectGetPropertyDataSize(AudioObjectID(kAudioObjectSystemObject), &addr, 0, nil, &size)
+        == noErr
+    else { return nil }
+    var ids = [AudioObjectID](repeating: 0, count: Int(size) / MemoryLayout<AudioObjectID>.size)
+    guard
+      AudioObjectGetPropertyData(
+        AudioObjectID(kAudioObjectSystemObject), &addr, 0, nil, &size, &ids) == noErr
+    else { return nil }
+    return ids.first { hasOutput($0) && transportType(of: $0) == kAudioDeviceTransportTypeBuiltIn }
+  }
+
+  private static func setDefaultOutput(_ id: AudioObjectID) -> Bool {
+    var target = id
+    var addr = AudioObjectPropertyAddress(
+      mSelector: kAudioHardwarePropertyDefaultOutputDevice, mScope: kAudioObjectPropertyScopeGlobal,
+      mElement: kAudioObjectPropertyElementMain)
+    return AudioObjectSetPropertyData(
+      AudioObjectID(kAudioObjectSystemObject), &addr, 0, nil,
+      UInt32(MemoryLayout<AudioObjectID>.size), &target) == noErr
+  }
+
+  /// Output volume 0..1 (muted counts as 0), or nil where the device has no volume.
+  private static func volume(of id: AudioObjectID) -> Double? {
+    var muteAddr = AudioObjectPropertyAddress(
+      mSelector: kAudioDevicePropertyMute, mScope: kAudioObjectPropertyScopeOutput,
+      mElement: kAudioObjectPropertyElementMain)
+    var muted = UInt32(0)
+    var msize = UInt32(MemoryLayout<UInt32>.size)
+    if AudioObjectGetPropertyData(id, &muteAddr, 0, nil, &msize, &muted) == noErr, muted != 0 {
+      return 0
+    }
+    for element in [kAudioObjectPropertyElementMain, 1, 2] {
+      var addr = AudioObjectPropertyAddress(
+        mSelector: kAudioDevicePropertyVolumeScalar, mScope: kAudioObjectPropertyScopeOutput,
+        mElement: AudioObjectPropertyElement(element))
+      var v = Float32(0)
+      var size = UInt32(MemoryLayout<Float32>.size)
+      if AudioObjectGetPropertyData(id, &addr, 0, nil, &size, &v) == noErr { return Double(v) }
+    }
+    return nil
+  }
+
+  private static func audioState() -> [String: Any] {
+    guard let id = defaultOutput() else { return [:] }
+    let transport = transportType(of: id)
+    let kind: String
+    switch transport {
+    case kAudioDeviceTransportTypeBuiltIn: kind = "builtIn"
+    case kAudioDeviceTransportTypeBluetooth, kAudioDeviceTransportTypeBluetoothLE: kind = "bluetooth"
+    case kAudioDeviceTransportTypeAirPlay: kind = "airplay"
+    default: kind = "other"
+    }
+    var state: [String: Any] = ["kind": kind, "canBuiltIn": builtInOutput() != nil]
+    if let n = name(of: id) { state["name"] = n }
+    if let v = volume(of: id) { state["volume"] = v }
+    return state
+  }
+
+  private static func sendInput() {
+    var id = AudioObjectID(0)
+    var size = UInt32(MemoryLayout<AudioObjectID>.size)
+    var addr = address
+    guard
+      AudioObjectGetPropertyData(AudioObjectID(kAudioObjectSystemObject), &addr, 0, nil, &size, &id)
+        == noErr, id != 0, let label = name(of: id)
+    else { return }
+    let transport = transportType(of: id)
+    let bluetooth =
+      transport == kAudioDeviceTransportTypeBluetooth
+      || transport == kAudioDeviceTransportTypeBluetoothLE
+    channel?.invokeMethod(
+      "event",
+      arguments: [
+        "type": "input", "name": label,
+        "builtIn": transport == kAudioDeviceTransportTypeBuiltIn, "bluetooth": bluetooth,
+        "canBuiltIn": builtInInput() != nil,
+      ])
+  }
+
+  private static func name(of id: AudioObjectID) -> String? {
+    var addr = AudioObjectPropertyAddress(
+      mSelector: kAudioObjectPropertyName, mScope: kAudioObjectPropertyScopeGlobal,
+      mElement: kAudioObjectPropertyElementMain)
+    var name: CFString = "" as CFString
+    var size = UInt32(MemoryLayout<CFString>.size)
+    let status = withUnsafeMutablePointer(to: &name) {
+      AudioObjectGetPropertyData(id, &addr, 0, nil, &size, $0)
+    }
+    return status == noErr ? name as String : nil
+  }
+
+  private static func transportType(of id: AudioObjectID) -> UInt32 {
+    var addr = AudioObjectPropertyAddress(
+      mSelector: kAudioDevicePropertyTransportType, mScope: kAudioObjectPropertyScopeGlobal,
+      mElement: kAudioObjectPropertyElementMain)
+    var type = UInt32(0)
+    var size = UInt32(MemoryLayout<UInt32>.size)
+    AudioObjectGetPropertyData(id, &addr, 0, nil, &size, &type)
+    return type
+  }
+
+  private static func hasInput(_ id: AudioObjectID) -> Bool {
+    var addr = AudioObjectPropertyAddress(
+      mSelector: kAudioDevicePropertyStreams, mScope: kAudioObjectPropertyScopeInput,
+      mElement: kAudioObjectPropertyElementMain)
+    var size = UInt32(0)
+    return AudioObjectGetPropertyDataSize(id, &addr, 0, nil, &size) == noErr && size > 0
+  }
+
+  private static func builtInInput() -> AudioObjectID? {
+    var addr = AudioObjectPropertyAddress(
+      mSelector: kAudioHardwarePropertyDevices, mScope: kAudioObjectPropertyScopeGlobal,
+      mElement: kAudioObjectPropertyElementMain)
+    var size = UInt32(0)
+    guard
+      AudioObjectGetPropertyDataSize(AudioObjectID(kAudioObjectSystemObject), &addr, 0, nil, &size)
+        == noErr
+    else { return nil }
+    var ids = [AudioObjectID](repeating: 0, count: Int(size) / MemoryLayout<AudioObjectID>.size)
+    guard
+      AudioObjectGetPropertyData(
+        AudioObjectID(kAudioObjectSystemObject), &addr, 0, nil, &size, &ids) == noErr
+    else { return nil }
+    return ids.first { hasInput($0) && transportType(of: $0) == kAudioDeviceTransportTypeBuiltIn }
   }
 }
 

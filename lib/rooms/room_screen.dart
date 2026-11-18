@@ -43,7 +43,8 @@ import 'package:synctogether/player/photo_exports.dart';
 import 'package:synctogether/rooms/our_room_media.dart';
 import 'package:synctogether/rooms/pending_actions.dart';
 import 'package:synctogether/pairing/pre_show_check.dart';
-import 'package:synctogether/pairing/pre_show_check_logic.dart' show FilmCheck, FilmKind;
+import 'package:synctogether/pairing/pre_show_check_logic.dart' show FilmCheck, FilmKind, baseName;
+import 'package:synctogether/rooms/open_failure.dart';
 import 'package:synctogether/rooms/widgets/shared_copy_expired_banner.dart';
 import 'package:synctogether/rooms/widgets/streaming_fallback_banner.dart';
 import 'package:synctogether/player/photo_picker.dart';
@@ -55,6 +56,7 @@ import 'package:synctogether/player/track_label.dart';
 import 'package:synctogether/player/video_surface.dart';
 import 'package:synctogether/player/youtube/pt_youtube_controller.dart';
 import 'package:synctogether/player/youtube/pt_youtube_embed.dart';
+import 'package:synctogether/player/youtube/youtube_block.dart';
 import 'package:synctogether/player/youtube/youtube_links.dart';
 import 'package:synctogether/player/youtube_url_dialog.dart';
 import 'package:synctogether/profile/entitlement_service.dart';
@@ -422,6 +424,9 @@ class _RoomScreenState extends State<RoomScreen>
   bool _localLoadStalled = false;
 
   int? _ytErrorShownFor;
+
+  /// Set when YouTube refused this video; the Room check's film row reads it.
+  YouTubeBlock? _ytBlock;
 
   // Media Sharing state
   final _mediaSharingService = MediaSharingService();
@@ -2049,6 +2054,7 @@ class _RoomScreenState extends State<RoomScreen>
       _pendingYtSeek = null;
       _pendingYtPlay = null;
       _ytErrorShownFor = null;
+      _ytBlock = null;
 
       if (existing == null) {
         _youtubeController = PTYouTubeController(videoId)
@@ -2083,6 +2089,7 @@ class _RoomScreenState extends State<RoomScreen>
       _pendingYtSeek = null;
       _pendingYtPlay = null;
       _ytErrorShownFor = null;
+      _ytBlock = null;
       _youtubeController?.dispose();
       _youtubeController = null;
       _playing = _player.state.playing;
@@ -2152,10 +2159,15 @@ class _RoomScreenState extends State<RoomScreen>
     if (errorCode != null && errorCode != _ytErrorShownFor) {
       _ytErrorShownFor = errorCode;
       _snack(_ytErrorMessage(errorCode));
+      _ytBlock = classifyYouTubeBlock(errorCode);
       // 100 (removed/private) and 101/150 (embedding disabled by the owner)
       // are answers about the video, already explained in the snack.
       if (const {100, 101, 150}.contains(errorCode)) {
-        trace('youtube video unavailable', category: 'youtube', data: {'code': errorCode});
+        trace(
+          'youtube video unavailable',
+          category: 'youtube',
+          data: {'code': errorCode, 'kind': _ytBlock?.name},
+        );
         return;
       }
       reportNonFatal(
@@ -2801,6 +2813,7 @@ class _RoomScreenState extends State<RoomScreen>
     _localLoadWatchdog?.cancel();
     _localLoadStalled = false;
     _openFailedFor = null;
+    _storedCopyName = null;
     _isStreamingRemoteSharedMedia = false;
     _bufferPosition = null;
     unawaited(_stream?.reset());
@@ -2819,7 +2832,9 @@ class _RoomScreenState extends State<RoomScreen>
       reportNonFatal(e, s, during: 'opening a local video file');
       unawaited(video.release());
       if (!mounted) return false;
-      trace('local file would not open', category: 'media', data: {'file': name});
+      final kind = classifyOpenFailure('$e');
+      trace('local file would not open', category: 'media', data: {'kind': kind.name});
+      _openFailure = kind;
       setState(() => _openFailedFor = name);
       _snack("We couldn't open that file. Try another copy, or a different file.");
       _updateReadiness();
@@ -3025,6 +3040,15 @@ class _RoomScreenState extends State<RoomScreen>
       );
     }
 
+    if (entry != null && !storedFileUsable) {
+      _storedCopyName = baseName(entry.name);
+      trace(
+        'the remembered copy of the room film is gone',
+        category: 'media',
+        data: {'room_id': widget.roomId, 'file': _storedCopyName, 'shared_ready': _sharedCopyReady},
+      );
+    }
+
     // Auto-stream shared media if room has ready shared media and local disk copy not found
     if ((_sync?.mediaUploadState == 'ready' ||
             _room?.mediaUploadState == 'ready' ||
@@ -3209,14 +3233,16 @@ class _RoomScreenState extends State<RoomScreen>
     // container) is a property of the file, like the codec case above.
     if (error.contains('Failed to recognize file format')) {
       trace('unrecognised file format', category: 'media');
-      if (_localFileName != null && _duration == Duration.zero) _surfaceLocalLoadFailure();
+      if (_localFileName != null && _duration == Duration.zero) _surfaceLocalLoadFailure(.format);
       return;
     }
     // The OS refused read access (moved to a protected folder, sandbox
     // bookmark gone, drive unmounted): a property of the machine, not a bug.
     if (error.contains('Operation not permitted') || error.contains('Permission denied')) {
       trace('local file not readable', category: 'media');
-      if (_localFileName != null && _duration == Duration.zero) _surfaceLocalLoadFailure();
+      if (_localFileName != null && _duration == Duration.zero) {
+        _surfaceLocalLoadFailure(.unreadable);
+      }
       return;
     }
     reportNonFatal(
@@ -3261,10 +3287,12 @@ class _RoomScreenState extends State<RoomScreen>
     });
   }
 
-  void _surfaceLocalLoadFailure() {
+  void _surfaceLocalLoadFailure([OpenFailure kind = .stalled]) {
     if (_localLoadStalled) return;
     _localLoadStalled = true;
     _localLoadWatchdog?.cancel();
+    _openFailure = kind;
+    trace('local file could not be opened', category: 'media', data: {'kind': kind.name});
     setState(() => _openFailedFor = _localFileName);
     _snack("We couldn't open that file. Try another copy, or a different file.");
   }
@@ -3853,6 +3881,10 @@ class _RoomScreenState extends State<RoomScreen>
   /// is a dead end, so while it is the room's file the overlay's primary action
   /// is to choose a different video instead.
   String? _openFailedFor;
+
+  /// What the failure was, for the Room check's words. Only read while
+  /// [_openFailedFor] is set.
+  OpenFailure _openFailure = .stalled;
 
   bool get _selfFileFailed =>
       _openFailedFor != null && _openFailedFor == _canonicalMedia.name && _mode == .local;
@@ -4886,7 +4918,17 @@ class _RoomScreenState extends State<RoomScreen>
       onLeave: _leaveRoom,
       onEndRoom: _endRoomForEveryone,
       onExtendRoom: _extendRoom,
-      onRoomCheck: () => unawaited(showRoomCheck(context, film: _roomFilm)),
+      onRoomCheck: () => unawaited(
+        showRoomCheck(
+          context,
+          film: _roomFilm,
+          onFilmAction: (action) async {
+            if (action == 'find-file') await _pickVideo();
+            if (action == 'use-shared') await _useSharedCopy();
+            if (action == 'pick-youtube') await _promptYouTubeLink();
+          },
+        ),
+      ),
       onReportConcern: _showReportDialog,
       onReportBug: () => BugReport.open(context, source: 'more'),
       onTransportLockChanged: _setTransportLock,
@@ -4911,9 +4953,67 @@ class _RoomScreenState extends State<RoomScreen>
     );
   }
 
+  /// The host uploaded a copy that this device could stream instead.
+  bool get _sharedCopyReady =>
+      _sync?.mediaUploadState == 'ready' ||
+      _room?.mediaUploadState == 'ready' ||
+      _uploadState == 'ready';
+
+  /// The name of this device's remembered copy of the room's film when that file
+  /// is gone (moved, deleted, a drive unplugged); null otherwise. Name only.
+  String? _storedCopyName;
+
+  /// The room check's "Use the shared copy": drop the local file and stream the
+  /// host's upload, which is the same bytes everyone else has.
+  Future<void> _useSharedCopy() async {
+    final name = _canonicalMedia.name;
+    if (name == null || !_sharedCopyReady || _ended) return;
+    trace('switching to the shared copy', category: 'media', data: {'file': baseName(name)});
+    final old = _localVideo;
+    _localVideo = null;
+    _openFailedFor = null;
+    _storedCopyName = null;
+    _mismatchDismissed = false;
+    await _startStreamingSharedMedia(name);
+    unawaited(old?.release());
+  }
+
   /// What the room is watching, for the host's room check.
   FilmCheck _roomFilm() {
     if (!_canonicalMedia.isSet) return const FilmCheck(FilmKind.none);
+    final shared = _sharedCopyReady;
+    if (_selfFileFailed) {
+      return FilmCheck(
+        FilmKind.cantOpen,
+        name: _canonicalMedia.name,
+        sharedCopy: shared && !_isStreamingRemoteSharedMedia,
+        openFailure: _openFailure,
+      );
+    }
+    if (_mode == .local && _storedCopyName != null && _localFileName != _canonicalMedia.name) {
+      return FilmCheck(FilmKind.copyMissing, name: _storedCopyName, sharedCopy: shared);
+    }
+    final roomFile = _roomFile;
+    if (_mode == .local &&
+        roomFile != null &&
+        !_isStreamingRemoteSharedMedia &&
+        _localFileName == roomFile.name &&
+        _duration != Duration.zero &&
+        roomFile.duration != Duration.zero &&
+        (_duration - roomFile.duration).abs() > const Duration(seconds: 2)) {
+      final host = _members.where((m) => m.isHost).firstOrNull;
+      return FilmCheck(
+        FilmKind.differentCut,
+        name: roomFile.name,
+        sharedCopy: shared,
+        yours: _duration,
+        theirs: roomFile.duration,
+        theirLabel: (_sync?.isHost ?? false) ? null : host?.displayName.split(' ').first,
+      );
+    }
+    if (_mode == .youtube && _ytBlock != null) {
+      return FilmCheck(FilmKind.videoBlocked, youtubeBlock: _ytBlock);
+    }
     return _mode == .youtube
         ? const FilmCheck(FilmKind.youtubeInRoom)
         : FilmCheck(FilmKind.local, name: _canonicalMedia.name);

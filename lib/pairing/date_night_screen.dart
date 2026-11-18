@@ -656,8 +656,11 @@ class _NightCard extends StatelessWidget {
       standing == NightStanding.declined ||
       standing == NightStanding.done;
 
-  ({String text, Color color}) _badgeFor(FileView file) {
+  ({String text, Color color}) _badgeFor(FileView file, DateNightUpload? live) {
     if (standing == NightStanding.accepted && night.hasFile) {
+      if (live?.phase == UploadPhase.waiting) {
+        return (text: 'WAITING FOR WI-FI ${file.percent}%', color: PTColors.warning);
+      }
       return switch (file.stage) {
         FileStage.ready => (text: 'READY', color: PTColors.online),
         FileStage.stopped => (text: 'UPLOAD STOPPED', color: PTColors.danger),
@@ -705,7 +708,7 @@ class _NightCard extends StatelessWidget {
       liveFraction: live != null && live.total > 0 ? live.fraction : null,
       liveStopped: live?.phase == UploadPhase.stopped ? true : null,
     );
-    final badge = _badgeFor(file);
+    final badge = _badgeFor(file, live);
     final started = !now.isBefore(night.startsAt);
     final ink = _over ? PTColors.fgMute : PTColors.canvas;
     final moved = night.movedFrom == null
@@ -860,6 +863,10 @@ class _NightCard extends StatelessWidget {
         PTRevealKeep(
           visible: !_over && mine && file.stage == FileStage.stopped,
           child: _StoppedActions(night: night, live: live),
+        ),
+        PTRevealKeep(
+          visible: !_over && mine && live?.phase == UploadPhase.waiting,
+          child: _WaitingActions(night: night),
         ),
       ],
     );
@@ -1122,6 +1129,34 @@ class _FileLine extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// The upload is held because this device is on mobile data. It carries on by
+/// itself with Wi-Fi; this is the way to spend data now.
+class _WaitingActions extends StatelessWidget {
+  const _WaitingActions({required this.night});
+
+  final DateNight night;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: .start,
+      spacing: 10,
+      children: [
+        Text(
+          "You're on mobile data, so the upload is paused. It carries on when Wi-Fi is back.",
+          style: PTText.body.copyWith(fontSize: 14, color: PTColors.fgDim, height: 1.4),
+        ),
+        PTButton(
+          label: 'Use mobile data',
+          variant: .secondary,
+          height: 44,
+          onPressed: () => DateNightUploader.instance.useMobileData(night.id),
+        ),
+      ],
     );
   }
 }

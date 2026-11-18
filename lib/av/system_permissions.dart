@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../diagnostics.dart';
+import 'windows_privacy.dart';
 
 /// What the pre-show check can ask the system about.
 enum PermissionKind {
@@ -93,7 +94,11 @@ class ChannelSystemPermissions implements SystemPermissions {
   @override
   Future<PermissionState> status(PermissionKind kind) async {
     try {
-      return _parse(await _call<String>('status', {'kind': kind.wire}));
+      final native = await _call<String>('status', {'kind': kind.wire});
+      // Windows has no native permissions channel: its privacy switches are
+      // read from the registry instead.
+      if (native == null && !kIsWeb && Platform.isWindows) return await windowsPrivacyStatus(kind);
+      return _parse(native);
     } catch (e, s) {
       reportNonFatal(e, s, during: 'reading the ${kind.wire} permission');
       return PermissionState.unknown;

@@ -425,6 +425,12 @@ const kAnalyticsEvents = <AnalyticsEventDoc>[
     why: 'Shows whether calling is how a date night actually starts.',
   ),
   AnalyticsEventDoc(
+    event: 'partner_nudged',
+    group: .pair,
+    what: 'You sent your person a reminder from the Pre-show check.',
+    why: 'Whether the check helps two people arrive together, or only the person running it.',
+  ),
+  AnalyticsEventDoc(
     event: 'date_night_planned',
     group: .pair,
     what: 'You planned a date night.',

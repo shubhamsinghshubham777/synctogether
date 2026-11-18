@@ -12,6 +12,7 @@ import {
 } from "npm:@aws-sdk/client-s3";
 import { getSignedUrl } from "npm:@aws-sdk/s3-request-presigner";
 import { buildEdgeUrl, resolveEdgeConfig } from "../_shared/media_edge.ts";
+import { isObjectMissing } from "../_shared/r2_errors.ts";
 
 const s3 = new S3Client({
   region: "auto",
@@ -140,6 +141,8 @@ Deno.serve(async (req) => {
         return await handleAbort(user.id, body);
       case "download-url":
         return await handleDownloadUrl(user.id, body);
+      case "night-download-url":
+        return await handleNightDownloadUrl(user.id, body);
       case "staged-initiate":
         return await handleStagedInitiate(user.id, body);
       case "staged-part-urls":
@@ -725,24 +728,35 @@ async function handleDownloadUrl(userId: string, body: Record<string, unknown>):
   if (room.media_upload_state !== "ready" || !room.media_r2_key) {
     return json({ error: "media_not_ready" }, 400);
   }
+  return await signedStream({
+    r2Key: room.media_r2_key,
+    fileName: room.media_name || "video.mp4",
+    fileSize: room.media_file_size,
+    ttlSeconds: Math.min(
+      Math.max(3600, Math.max(0, Math.floor((new Date(room.expires_at).getTime() - Date.now()) / 1000)) + 7200),
+      86400,
+    ),
+  });
+}
 
-  const now = Date.now();
-  const roomExpires = new Date(room.expires_at).getTime();
-  const remainingSeconds = Math.max(0, Math.floor((roomExpires - now) / 1000));
-  const ttlSeconds = Math.min(Math.max(3600, remainingSeconds + 7200), 86400);
-
-  const fileName = room.media_name || "video.mp4";
-
+/** A signed stream URL for a staged object: edge delivery when configured, else presigned S3. */
+async function signedStream(o: {
+  r2Key: string;
+  fileName: string;
+  fileSize: number | null;
+  ttlSeconds: number;
+}): Promise<Response> {
+  const { r2Key, fileName, fileSize, ttlSeconds } = o;
   // Optional edge delivery (deploy/media-edge): same TTL, same response shape. Any
   // problem reading the flag falls through to the presigned S3 URL below.
   const edge = await edgeConfig();
   if (edge) {
-    const streamUrl = await buildEdgeUrl(edge, room.media_r2_key, ttlSeconds);
+    const streamUrl = await buildEdgeUrl(edge, r2Key, ttlSeconds);
     // chunkBytes / maxParallel are optional hints; older clients ignore them.
     return json({
       streamUrl,
       fileName,
-      fileSize: room.media_file_size,
+      fileSize,
       expiresIn: ttlSeconds,
       chunkBytes: edge.chunkBytes,
       maxParallel: edge.maxParallel,
@@ -755,7 +769,7 @@ async function handleDownloadUrl(userId: string, body: Record<string, unknown>):
 
   const command = new GetObjectCommand({
     Bucket: bucketName,
-    Key: room.media_r2_key,
+    Key: r2Key,
     ResponseContentDisposition: contentDisposition,
   });
 
@@ -764,8 +778,45 @@ async function handleDownloadUrl(userId: string, body: Record<string, unknown>):
   return json({
     streamUrl,
     fileName,
-    fileSize: room.media_file_size,
+    fileSize,
     expiresIn: ttlSeconds,
+  });
+}
+
+/**
+ * The same stream URL for a date night's staged film, for the pre-show check's
+ * throughput probe. Pair members only, and only while the night still holds a
+ * finished file (the room endpoint above refuses once a room has ended).
+ */
+async function handleNightDownloadUrl(userId: string, body: Record<string, unknown>): Promise<Response> {
+  const nightId = (body.nightId || body.night_id) as string;
+  if (!nightId) return json({ error: "invalid_arguments" }, 400);
+
+  // Not a member and no such night look the same on purpose.
+  const { data: rows, error } = await supabaseAdmin.rpc("night_stream_source", {
+    p_user_id: userId,
+    p_night_id: nightId,
+  });
+  if (error) return json({ error: "internal_error" }, 500);
+  const night = Array.isArray(rows) ? rows[0] : rows;
+  if (!night) return json({ error: "not_a_member" }, 403);
+
+  if (night.upload_state !== "ready" || !night.media_r2_key) {
+    return json({ error: "media_not_ready" }, 400);
+  }
+  // The row says ready, but the object may be gone (storage expiry, a manual
+  // delete). Say so plainly; any other head failure says nothing about the file.
+  try {
+    await s3.send(new HeadObjectCommand({ Bucket: bucketName, Key: night.media_r2_key }));
+  } catch (err) {
+    if (isObjectMissing(err)) return json({ error: "media_gone" }, 410);
+  }
+  // A probe lasts seconds; an hour is generous and keeps a leaked URL short-lived.
+  return await signedStream({
+    r2Key: night.media_r2_key,
+    fileName: night.file_name || "video.mp4",
+    fileSize: night.file_size,
+    ttlSeconds: 3600,
   });
 }
 

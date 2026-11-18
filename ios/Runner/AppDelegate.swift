@@ -79,6 +79,7 @@ import Network
     }
     if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "MicLevelChannel") {
       MicLevelChannel.register(with: registrar.messenger())
+      AudioEventsChannel.register(with: registrar.messenger())
     }
     if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "DisplayRegionsChannel") {
       DisplayRegionsChannel.register(with: registrar.messenger())
@@ -281,6 +282,115 @@ enum MicLevelChannel {
     }
     self.engine = engine
     return true
+  }
+}
+
+/// Tells the pre-show check when a call or Siri takes the microphone and when
+/// the input changes (a headset in or out). Dart side: lib/pairing/
+/// pre_show_probes.dart (channel `app.synctogether/audio_events`). `start` and
+/// `stop` bound the listening to the time the sheet is open; events go back as
+/// `event` calls: `interrupted`, `resumed`, `input` (+ name, builtIn, bluetooth).
+enum AudioEventsChannel {
+  private static var channel: FlutterMethodChannel?
+  private static var observers: [NSObjectProtocol] = []
+
+  static func register(with messenger: FlutterBinaryMessenger) {
+    let channel = FlutterMethodChannel(name: "app.synctogether/audio_events", binaryMessenger: messenger)
+    self.channel = channel
+    channel.setMethodCallHandler { call, result in
+      switch call.method {
+      case "start":
+        listen()
+        result(nil)
+      case "stop":
+        unlisten()
+        result(nil)
+      case "useBuiltIn":
+        result(useBuiltIn())
+      case "audioState":
+        result(audioState())
+      case "useBuiltInOutput":
+        result(useBuiltInOutput())
+      default:
+        result(FlutterMethodNotImplemented)
+      }
+    }
+  }
+
+  /// The system volume and where the sound goes, for the Sound row.
+  private static func audioState() -> [String: Any] {
+    let session = AVAudioSession.sharedInstance()
+    var state: [String: Any] = ["volume": Double(session.outputVolume), "canBuiltIn": true]
+    if let port = session.currentRoute.outputs.first {
+      state["name"] = port.portName
+      switch port.portType {
+      case .builtInSpeaker, .builtInReceiver: state["kind"] = "builtIn"
+      case .bluetoothA2DP, .bluetoothLE, .bluetoothHFP: state["kind"] = "bluetooth"
+      case .airPlay: state["kind"] = "airplay"
+      case .headphones: state["kind"] = "wired"
+      default: state["kind"] = "other"
+      }
+    }
+    return state
+  }
+
+  /// Send the sound to the phone's own speaker. Only a session that is already
+  /// playAndRecord lets an app override its route; otherwise it stays as it is.
+  private static func useBuiltInOutput() -> [String: Any] {
+    do {
+      try AVAudioSession.sharedInstance().overrideOutputAudioPort(.speaker)
+      return ["ok": true, "name": "iPhone Speaker"]
+    } catch {
+      return ["ok": false]
+    }
+  }
+
+  private static func send(_ payload: [String: Any]) {
+    DispatchQueue.main.async { channel?.invokeMethod("event", arguments: payload) }
+  }
+
+  private static func listen() {
+    unlisten()
+    let center = NotificationCenter.default
+    let session = AVAudioSession.sharedInstance()
+    observers.append(
+      center.addObserver(forName: AVAudioSession.interruptionNotification, object: session, queue: .main) {
+        note in
+        let raw = note.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt
+        switch raw.flatMap(AVAudioSession.InterruptionType.init(rawValue:)) {
+        case .began: send(["type": "interrupted"])
+        case .ended: send(["type": "resumed"])
+        default: break
+        }
+      })
+    observers.append(
+      center.addObserver(forName: AVAudioSession.routeChangeNotification, object: session, queue: .main) { _ in
+        guard let port = session.currentRoute.inputs.first else { return }
+        let bluetooth = [.bluetoothHFP, .bluetoothLE, .bluetoothA2DP].contains(port.portType)
+        send([
+          "type": "input", "name": port.portName,
+          "builtIn": port.portType == .builtInMic, "bluetooth": bluetooth,
+        ])
+      })
+  }
+
+  private static func unlisten() {
+    for o in observers { NotificationCenter.default.removeObserver(o) }
+    observers = []
+  }
+
+  /// Route the session back to the phone's own microphone. Returns its name.
+  private static func useBuiltIn() -> [String: Any] {
+    let session = AVAudioSession.sharedInstance()
+    guard let mic = session.availableInputs?.first(where: { $0.portType == .builtInMic }) else {
+      return ["ok": false]
+    }
+    do {
+      try session.setPreferredInput(mic)
+      return ["ok": true, "name": mic.portName]
+    } catch {
+      return ["ok": false]
+    }
   }
 }
 

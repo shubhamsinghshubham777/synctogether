@@ -337,8 +337,9 @@ class _OverflowMenuPanelState extends State<_OverflowMenuPanel> {
                       label: 'Extend room',
                       onTap: () => _dismiss(widget.onExtendRoom!),
                     ),
-                  // Our Room has the hub's pre-show check; any other host gets one here.
-                  if (data.selfIsHost && !data.ourRoom && widget.onRoomCheck != null)
+                  // Everyone in a room can check their own copy of the film here: the
+                  // hub's pre-show check is about the night, this one is about the room.
+                  if (widget.onRoomCheck != null)
                     _ActionRow(
                       icon: BoothIcons.check,
                       iconColor: PTColors.white(0.7),

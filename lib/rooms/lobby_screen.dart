@@ -712,7 +712,11 @@ class _LobbyScreenState extends State<LobbyScreen> with AppWindowListener, Resto
   Future<void> _loadMyRooms({bool refreshAccount = true}) async {
     try {
       final rooms = await RoomService.instance.loadMyRooms();
-      await LocalMediaStore.instance.prune(keepRoomIds: {for (final r in rooms) r.room.id});
+      // Our Room is never a ticket (list_my_rooms leaves pair rooms out), so it is
+      // kept by name: otherwise its remembered file was forgotten on every visit.
+      await LocalMediaStore.instance.prune(
+        keepRoomIds: {for (final r in rooms) r.room.id, ?PairService.instance.pair?.roomId},
+      );
       if (refreshAccount && AuthService.instance.isSignedIn) {
         unawaited(ProfileService.instance.load());
         unawaited(EntitlementService.instance.refresh());

@@ -1,6 +1,7 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart' show ValueListenable;
+import 'package:flutter/foundation.dart'
+    show ValueListenable, defaultTargetPlatform, TargetPlatform;
 import 'package:livekit_client/livekit_client.dart' as lk;
 import 'package:material_ui/material_ui.dart';
 
@@ -17,6 +18,7 @@ import '../ui/pt_theme.dart';
 import '../ui/responsive.dart';
 import '../ui/reveal.dart';
 import 'date_night_plan.dart' show showPlanNight;
+import 'date_night_upload.dart';
 import 'pair_logic.dart';
 import 'pair_models.dart';
 import 'pair_page.dart';
@@ -56,13 +58,18 @@ Future<void> showPreShowCheck(BuildContext context) async {
 
 /// A host's own room, from the room menu: film, sound and connection. The room's
 /// own bar owns the camera and microphone, so there are no rows for them here.
-Future<void> showRoomCheck(BuildContext context, {required FilmCheck Function() film}) {
+Future<void> showRoomCheck(
+  BuildContext context, {
+  required FilmCheck Function() film,
+  Future<void> Function(String action)? onFilmAction,
+}) {
   return showGlassDialog<void>(
     context: context,
     width: 460,
     sheetOnCompact: true,
     builder: (ctx) => PreShowCheckPanel(
       roomFilm: film,
+      onFilmAction: onFilmAction,
       onDone: () => Navigator.of(ctx).pop(),
       onLeaveForPage: (_) => Navigator.of(ctx).pop(),
       inDialog: true,
@@ -91,6 +98,7 @@ class PreShowCheckPanel extends StatefulWidget {
     required this.onDone,
     required this.onLeaveForPage,
     this.roomFilm,
+    this.onFilmAction,
     this.inDialog = false,
     this.probes,
   });
@@ -102,6 +110,10 @@ class PreShowCheckPanel extends StatefulWidget {
 
   /// Set for a host's own room: its film, and no camera or microphone rows.
   final FilmCheck Function()? roomFilm;
+
+  /// A film fix that happens in the room (`find-file`, `use-shared`): the sheet
+  /// closes first, then the room acts.
+  final Future<void> Function(String action)? onFilmAction;
   final bool inDialog;
 
   /// For tests.
@@ -109,6 +121,18 @@ class PreShowCheckPanel extends StatefulWidget {
 
   @override
   State<PreShowCheckPanel> createState() => _PreShowCheckPanelState();
+}
+
+/// What "Use this ..." calls the device the sheet is open on.
+String _thisDevice() {
+  final view = WidgetsBinding.instance.platformDispatcher.views.firstOrNull;
+  final tablet = view != null && view.physicalSize.shortestSide / view.devicePixelRatio >= 600;
+  return switch (defaultTargetPlatform) {
+    TargetPlatform.iOS => tablet ? 'this iPad' : 'this iPhone',
+    TargetPlatform.android => tablet ? 'this tablet' : 'this phone',
+    TargetPlatform.macOS => 'this Mac',
+    _ => 'this computer',
+  };
 }
 
 class _PreShowCheckPanelState extends State<PreShowCheckPanel> with WidgetsBindingObserver {
@@ -145,15 +169,44 @@ class _PreShowCheckPanelState extends State<PreShowCheckPanel> with WidgetsBindi
       probes: _probes,
       includeAv: !_room,
       partner: partner ?? 'your person',
+      thisDevice: _thisDevice(),
+      partnerOnline: () => _room || PairService.instance.partnerOnline,
+      nudge: _room
+          ? null
+          : () async {
+              final id = _nightId;
+              if (id == null) return NudgeResult.notNow;
+              return PairService.instance.nudgePartner(id);
+            },
+      measureFilm: _room
+          ? null
+          : () async {
+              final id = _nightId;
+              if (id == null) return null;
+              return _probes.measureNightThroughput(id);
+            },
       film: () {
         if (_room) return widget.roomFilm!();
         final n = _night;
         if (n == null) return const FilmCheck(FilmKind.none);
         final me = ProfileService.instance.profile?.id;
-        return FilmCheck.forNight(n, DateTime.now().toUtc(), mine: n.proposedBy == me);
+        return FilmCheck.forNight(
+          n,
+          DateTime.now().toUtc(),
+          mine: n.proposedBy == me,
+          waitingForWifi: DateNightUploader.instance.forNight(n.id)?.phase == UploadPhase.waiting,
+        );
       },
+      useMobileData: _room
+          ? null
+          : () {
+              final id = _nightId;
+              if (id != null) DateNightUploader.instance.useMobileData(id);
+            },
     );
     WidgetsBinding.instance.addObserver(this);
+    PairService.instance.addListener(_c.refresh);
+    DateNightUploader.instance.addListener(_c.refresh);
     unawaited(_c.start());
     // The countdown in the header: a minute is as fine as it needs to be.
     _tick = Timer.periodic(const Duration(seconds: 20), (_) {
@@ -176,6 +229,8 @@ class _PreShowCheckPanelState extends State<PreShowCheckPanel> with WidgetsBindi
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    PairService.instance.removeListener(_c.refresh);
+    DateNightUploader.instance.removeListener(_c.refresh);
     _tick?.cancel();
     _c.dispose();
     super.dispose();
@@ -184,6 +239,13 @@ class _PreShowCheckPanelState extends State<PreShowCheckPanel> with WidgetsBindi
   Future<void> _act(CheckRowView row, FixAction action) async {
     if (action.id == 'nights') {
       widget.onLeaveForPage('/lobby/pair/nights');
+      return;
+    }
+    if (row.id == CheckId.film &&
+        const {'find-file', 'use-shared', 'keep-mine', 'pick-youtube'}.contains(action.id)) {
+      await _c.act(row.id, action.id);
+      widget.onDone();
+      if (action.id != 'keep-mine') await widget.onFilmAction?.call(action.id);
       return;
     }
     await _c.act(row.id, action.id);

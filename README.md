@@ -26,7 +26,7 @@
 
 ---
 
-SyncTogether plays the same video at the same moment for everyone in the room, on iPhone, iPad (and iPhone Duo, where the layout adapts to the inner display and the fold), Mac and Windows. Create a **room**, share a 6-character room code (or a `synctogether://join/<code>` invite link), and keep everyone's playback in lockstep - play, pause, and seeks broadcast in real-time, accompanied by synchronized chat, animated emoji reactions, and live voice & video facecams. Two signed-in accounts can also **pair** for a free, persistent private room (Our Room) with date nights across time zones, a weekly streak and shared history - see [`docs/agent/pairing.md`](docs/agent/pairing.md).
+SyncTogether plays the same video at the same moment for everyone in the room, on iPhone, iPad (and iPhone Duo, where the layout adapts to the inner display and the fold), Mac and Windows. Create a **room**, share a 6-character room code (or a `synctogether://join/<code>` invite link), and keep everyone's playback in lockstep - play, pause, and seeks broadcast in real-time, accompanied by synchronized chat, animated emoji reactions, and live voice & video facecams. Two signed-in accounts can also **pair** for a free, persistent private room (Our Room) with date nights across time zones, a weekly streak and shared history.
 
 ## Preview
 

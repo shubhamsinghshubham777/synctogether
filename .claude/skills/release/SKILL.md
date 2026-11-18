@@ -24,6 +24,28 @@ full `publish_stores.yaml` run succeeds. After a leg-only re-dispatch (see
 "Re-running after a failure") no tag or release is made, so create both by hand
 then, with `gh api` for the tag and `gh release create --verify-tag` for the notes.
 
+**A hand-made release body must be Markdown, never the raw store text.** The
+store `whatsNew` uses `• TITLE: text` lines, and a literal `•` is not a Markdown
+list, so the website's `/changelog` renders it as one run-on paragraph (this is
+what happened to v1.17.0). Convert exactly as the workflow does: a
+`## What's Changed` heading, then one `- **TITLE**: text` line per bullet.
+```bash
+python3 - metadata/version/X.Y.Z/en-US.json > /tmp/notes.md <<'PY'
+import json, sys
+nl = chr(10); out = []
+for line in json.load(open(sys.argv[1], encoding="utf-8"))["whatsNew"].split(nl):
+    line = line.strip().lstrip(chr(8226)).strip()
+    if not line: continue
+    title, sep, rest = line.partition(": ")
+    out.append("- **" + title.strip() + "**" + (": " + rest.strip() if sep else ""))
+print("## What's Changed" + nl + nl.join(out))
+PY
+gh release create vX.Y.Z --verify-tag --title vX.Y.Z --notes-file /tmp/notes.md
+```
+Check the result with `gh release view vX.Y.Z --json body -q .body` (every line
+starts with `- **`) before moving on. To repair an existing release, pass the
+same file to `gh release edit vX.Y.Z --notes-file`.
+
 The tag is created with `gh api POST /git/refs`, **not `git push`**. A pushed ref
 is rejected with "refusing to allow a GitHub App to create or update workflow ...
 without `workflows` permission" whenever the history being pushed touches a

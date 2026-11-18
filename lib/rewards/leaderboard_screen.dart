@@ -16,6 +16,7 @@ import 'package:synctogether/window/app_window.dart';
 import '../analytics.dart';
 import '../analytics_consent.dart';
 import '../auth/auth_service.dart';
+import '../diagnostics.dart';
 import '../platform.dart';
 import '../ui/banners.dart';
 import '../ui/booth.dart';
@@ -550,6 +551,27 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> with AppWindowLis
     );
   }
 
+  /// Guest upgrade from the streak note. Awaited here because nothing above this
+  /// button catches: a failed browser launch used to escape as an unhandled
+  /// error and the button looked dead.
+  Future<void> _linkGoogle() async {
+    try {
+      await AuthService.instance.linkGoogleIdentity();
+    } on BrowserUnavailableException {
+      trace('oauth browser unavailable', category: 'auth', data: {'during': 'leaderboard upgrade'});
+      if (mounted) {
+        showPTSnack(
+          context,
+          "Couldn't open a browser on this device. Try signing in with email instead.",
+          kind: .error,
+        );
+      }
+    } catch (e, s) {
+      reportNonFatal(e, s, during: 'linking a Google identity from the leaderboard');
+      if (mounted) showPTSnack(context, "Couldn't start Google sign-in. Try again.", kind: .error);
+    }
+  }
+
   /// Consent is asked here, in context, the first time somebody opens the board -
   /// not buried in settings, and never assumed. The copy states exactly what
   /// becomes public, because a leaderboard is a change to a product that
@@ -570,7 +592,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> with AppWindowLis
               'surface': 'leaderboard',
               'action': 'sign_in',
             });
-            unawaited(AuthService.instance.linkGoogleIdentity());
+            unawaited(_linkGoogle());
           },
         ),
       );

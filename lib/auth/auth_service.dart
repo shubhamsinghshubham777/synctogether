@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart' show PlatformException;
 import 'package:synctogether/auth/webview_runtime.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
@@ -361,6 +362,12 @@ class AuthService {
       if (!await launch()) {
         throw const BrowserUnavailableException();
       }
+    } on PlatformException catch (e) {
+      // Android reports "no browser installed or enabled" as a throw rather
+      // than a false return.
+      _endOAuthWindow();
+      if (e.code == 'ACTIVITY_NOT_FOUND') throw const BrowserUnavailableException();
+      rethrow;
     } catch (_) {
       _endOAuthWindow();
       rethrow;

@@ -80,6 +80,12 @@ GoRouter buildRouter([Player? player]) {
   late final GoRouter router;
   router = GoRouter(
     initialLocation: kDemoRoom ? '/lobby/room/demo-room-1' : '/lobby',
+    // With `restorationScopeId` on MaterialApp.router this brings back the
+    // whole page stack after Android process death or iOS state restoration.
+    // The restored location still runs through `redirect`, and RoomScreen
+    // re-checks the room and the membership itself, so a stale room route
+    // lands on the ended dialog or the lobby, never a dead room.
+    restorationScopeId: 'router',
     refreshListenable: _AuthRefresh(),
     errorBuilder: notFoundBuilder,
     redirect: (context, state) {
@@ -225,6 +231,9 @@ CustomTransitionPage<void> _page(
 ) {
   return CustomTransitionPage<void>(
     key: state.pageKey,
+    // Gives the page a restoration bucket, so the screen under it can
+    // restore its own state after the OS kills the app.
+    restorationId: state.pageKey.value,
     child: child,
     transitionDuration: PTMotion.page,
     reverseTransitionDuration: PTMotion.page,
@@ -289,8 +298,16 @@ Page<void> _mobileOr(
 ) {
   if (kIsWeb) return desktop(state, child);
   return switch (defaultTargetPlatform) {
-    TargetPlatform.iOS => CupertinoPage<void>(key: state.pageKey, child: child),
-    TargetPlatform.android => MaterialPage<void>(key: state.pageKey, child: child),
+    TargetPlatform.iOS => CupertinoPage<void>(
+      key: state.pageKey,
+      restorationId: state.pageKey.value,
+      child: child,
+    ),
+    TargetPlatform.android => MaterialPage<void>(
+      key: state.pageKey,
+      restorationId: state.pageKey.value,
+      child: child,
+    ),
     _ => desktop(state, child),
   };
 }

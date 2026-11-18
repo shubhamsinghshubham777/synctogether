@@ -172,7 +172,13 @@ class EntitlementService extends ChangeNotifier {
   String get tier => _limits?.tier ?? kFreeTier;
   bool get isPremium => _limits?.isPremium ?? false;
 
-  Future<TierLimits?> load() async {
+  Future<TierLimits?>? _loadInFlight;
+
+  /// Concurrent callers share one fetch: the startup warm-up behind the splash
+  /// and the lobby both ask for it during launch.
+  Future<TierLimits?> load() => _loadInFlight ??= _load().whenComplete(() => _loadInFlight = null);
+
+  Future<TierLimits?> _load() async {
     try {
       final user = _client.auth.currentUser;
       if (user == null) {

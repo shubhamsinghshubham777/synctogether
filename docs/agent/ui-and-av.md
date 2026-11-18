@@ -106,6 +106,18 @@ Facecams are enabled with a single member present: publishing into an empty room
 
 Availability is `LiveKitService.isAvailableFor(room.avLevel)`, **not** `isConfigured` - a room whose tier grants `av_level: none` reuses the unset-`LIVEKIT_URL` path exactly (no service, no token fetch, no UI), so there is one hiding mechanism rather than two. `voice` keeps the mic and drops the camera toggle (`RoomControlBar.camAvailable`); `video` publishes capped at 360p/24fps, since a rail of up to 16 tiles is a thumbnail grid and the bandwidth belongs to what everyone came to watch.
 
+## State restoration (Android process death, iOS state restoration)
+
+When the OS kills the backgrounded app for memory, the next launch brings the user back where they were. A user who swipes the app away, or an app update, starts fresh - that is the OS's contract, not ours.
+
+- **Wiring.** `restorationScopeId: 'app'` on `MaterialApp.router`, `restorationScopeId: 'router'` on the `GoRouter`, and every page in `app_router.dart` carries `restorationId: state.pageKey.value` (that is what gives a screen's `RestorationMixin` a bucket). iOS also needs `restorationIdentifier="FlutterRoot"` on the view controller in `ios/Runner/Base.lproj/Main.storyboard`; the scene delegate saves restoration data only for a view controller that has one. Android's `FlutterActivity` saves it by default. Desktop is deliberately out: macOS and Windows do not kill apps for memory, and Flutter does not wire restoration there.
+- **What comes back:** the route stack (pushed pages too) via go_router, the lobby's open-room form (name, duration, phone panel - not the join code), the room's chat draft. The restored location still runs through `redirect`, so a session that expired while the app was gone lands on `/login` and a ban on `/banned`.
+- **The splash is skipped on a restore** (`RestorableBool` in `PTSplash`): coming back should feel like never leaving.
+- **The room re-derives everything from the server.** `RoomScreen._init` already rebuilds from the room id alone: room ended or expired -> the ended dialog; membership gone (removed while away) -> "You're not in this room anymore." and the lobby; a transient network error -> two retries (1 s, 2 s) before "Couldn't load the room", because the radio is often still waking up on a restore. `_restoredIntoRoom` (from a restorable `entered` flag) suppresses first-entry prompts such as `?dialog=media`, which would otherwise pop the source chooser over a film the host already picked.
+- **Never restored, on purpose:** camera and mic (AV always comes back off - only the chosen device is remembered), playback position (sync is authoritative), open dialogs (they are imperative routes, and a stale dialog is worse than none).
+- **Keep restorable state small.** Android caps the saved-state Bundle (~500 KB-1 MB, TransactionTooLargeException past it): restore text fields and flags, never lists or media. The chat draft is bounded by `kChatMaxCodepoints`.
+- **Testing.** `tester.restartAndRestore()` in widget tests (see `test/ui/splash_screen_test.dart`); on a device, Android's developer option "Don't keep activities" or `adb shell am kill app.synctogether.android` while backgrounded; on iOS, background the app, then stop it from Xcode (a swipe-away discards restoration data).
+
 ## Analytics (`lib/analytics.dart`)
 
 Product analytics to PostHog Cloud, so activation/retention/engagement and premium demand can be read off PostHog's built-in funnels rather than hand-built SQL. Configured-or-no-op like `lib/diagnostics.dart`: without `POSTHOG_API_KEY` there is no timer, no socket and no queue.

@@ -137,7 +137,14 @@ class RoomService extends ChangeNotifier {
   bool _loadingMyRooms = false;
   bool get loadingMyRooms => _loadingMyRooms;
 
-  Future<List<MyRoom>> loadMyRooms() async {
+  Future<List<MyRoom>>? _myRoomsInFlight;
+
+  /// Concurrent callers share one fetch: the startup warm-up behind the splash
+  /// and the lobby both ask for it during launch.
+  Future<List<MyRoom>> loadMyRooms() =>
+      _myRoomsInFlight ??= _loadMyRooms().whenComplete(() => _myRoomsInFlight = null);
+
+  Future<List<MyRoom>> _loadMyRooms() async {
     if (!_loadingMyRooms) {
       _loadingMyRooms = true;
       notifyListeners();

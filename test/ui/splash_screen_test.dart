@@ -21,14 +21,14 @@ void main() {
 
       // The clock starts on the first frame, with no audio gate in front of it.
       await tester.pump(const Duration(milliseconds: 16));
-      await tester.pump(const Duration(milliseconds: 500));
+      await tester.pump(const Duration(milliseconds: 1100));
       expect(find.text('App Content'), findsNothing);
 
-      // _prewarm is 950 ms of 1800: the child is mounted before the fade starts.
-      await tester.pump(const Duration(milliseconds: 500));
+      // _kPrewarm is 1210 ms of 2400: the child is mounted before the fade starts.
+      await tester.pump(const Duration(milliseconds: 200));
       expect(find.text('App Content'), findsOneWidget);
 
-      await tester.pump(const Duration(milliseconds: 1000));
+      await tester.pump(const Duration(milliseconds: 1200));
       expect(find.text('App Content'), findsOneWidget);
       expect(tester.hasRunningAnimations, isFalse);
     });
@@ -52,6 +52,35 @@ void main() {
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump(const Duration(seconds: 2));
       expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('a restored launch skips straight to the app', (tester) async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          restorationScopeId: 'app',
+          home: PTSplash(child: Text('App Content', textDirection: TextDirection.ltr)),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 16));
+      await tester.pump(const Duration(seconds: 3));
+      expect(find.text('App Content'), findsOneWidget);
+
+      // The OS killed the app in the background and is restoring it.
+      await tester.restartAndRestore();
+      expect(find.text('App Content'), findsOneWidget);
+      expect(tester.hasRunningAnimations, isFalse);
+    });
+
+    testWidgets('a fresh launch with no restoration data still plays it', (tester) async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          restorationScopeId: 'app',
+          home: PTSplash(child: Text('App Content', textDirection: TextDirection.ltr)),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 16));
+      expect(find.text('App Content'), findsNothing);
+      await tester.pump(const Duration(seconds: 3));
     });
 
     test('the splash source uses no audio', () {

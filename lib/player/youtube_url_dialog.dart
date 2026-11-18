@@ -70,7 +70,9 @@ class _YouTubeUrlDialogState extends State<YouTubeUrlDialog> {
         // to type their password into a container we control.
         const DialogNote(
           icon: BoothIcons.info,
-          child: Text('Plays signed out, so YouTube may show ads even if you pay for Premium.'),
+          child: Text(
+            'Plays signed out, so YouTube may show ads even if you pay for YouTube Premium.',
+          ),
         ),
         PTButtonBar(
           buttons: [

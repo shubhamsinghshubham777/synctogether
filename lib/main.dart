@@ -28,7 +28,9 @@ import 'package:synctogether/pairing/push_service.dart';
 import 'package:synctogether/platform.dart';
 import 'package:synctogether/player/photo_picker.dart' show sweepPhotoExports;
 import 'package:synctogether/profile/apple_iap_service.dart';
+import 'package:synctogether/profile/entitlement_service.dart';
 import 'package:synctogether/profile/microsoft_iap_service.dart';
+import 'package:synctogether/profile/profile_service.dart';
 import 'package:synctogether/rewards/rewards_models.dart';
 import 'package:synctogether/rewards/rewards_service.dart';
 import 'package:synctogether/rewards/unlock_log.dart';
@@ -158,7 +160,25 @@ Future<void> _bootstrap() async {
   AppleIapService.instance.start();
   MicrosoftIapService.instance.start();
   installFriendlyErrorWidget();
+  _warmUpBehindSplash();
   runApp(const MainApp());
+}
+
+/// Starts the lobby's network loads at the splash's first frame instead of
+/// when the lobby mounts at the splash's pre-warm beat, so the ~2.4 s
+/// animation is spent fetching rather than waiting. Each service shares an
+/// in-flight load, so the lobby's own calls join these instead of repeating
+/// them, and the lobby still owns error handling: `ignore` only stops this
+/// copy of a failure from surfacing as unhandled.
+void _warmUpBehindSplash() {
+  final signedIn = AuthService.instance.isSignedIn;
+  trace('startup warm-up', category: 'room', data: {'signed_in': signedIn});
+  if (!signedIn) return;
+  ProfileService.instance.load().ignore();
+  EntitlementService.instance.load().ignore();
+  RoomService.instance.loadMyRooms().ignore();
+  RewardsService.instance.load().ignore();
+  PairService.instance.load().ignore();
 }
 
 class MainApp extends StatefulWidget {
@@ -380,6 +400,10 @@ class _MainAppState extends State<MainApp> with WidgetsBindingObserver {
     return MaterialApp.router(
       title: 'SyncTogether',
       debugShowCheckedModeBanner: false,
+      // Turns on state restoration: when Android or iOS kills the app in the
+      // background, the route stack and restorable screen state come back on
+      // relaunch (docs/agent/ui-and-av.md, State restoration).
+      restorationScopeId: 'app',
       scaffoldMessengerKey: _scaffoldMessengerKey,
       theme: buildPTTheme(),
       themeMode: ThemeMode.dark,

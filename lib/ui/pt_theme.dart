@@ -73,7 +73,6 @@ abstract final class PTColors {
   static const toastSurface = Color(0xFF27221F);
   static const tileTop = Color(0xFF27221F);
   static const tileBottom = Color(0xFF1C1917);
-  static const splashGlow = Color(0xFF1C1917);
 
   // Scrims and shadows.
   static const ink = Color(0xFF000000); // video letterbox

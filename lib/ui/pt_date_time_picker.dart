@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 import 'booth_icons.g.dart';
 import 'buttons.dart';
 import 'glass.dart';
+import 'haptics.dart';
 import 'pt_date_time_logic.dart';
 import 'pt_motion.dart';
 import 'reveal.dart';
@@ -879,7 +880,7 @@ class _WheelState extends State<_Wheel> {
     if (i == _shown) return;
     setState(() => _shown = i);
     if (defaultTargetPlatform == .iOS || defaultTargetPlatform == .android) {
-      HapticFeedback.selectionClick();
+      PTHaptics.selection();
     }
     widget.onChanged(i);
   }

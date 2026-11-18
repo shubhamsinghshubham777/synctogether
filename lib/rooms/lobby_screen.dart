@@ -123,16 +123,24 @@ class LobbyScreen extends StatefulWidget {
 /// client from `expires_at`, so this only catches state another device changed.
 const kMyRoomsPollInterval = Duration(seconds: 60);
 
-class _LobbyScreenState extends State<LobbyScreen> with AppWindowListener {
-  final _nameController = TextEditingController();
+class _LobbyScreenState extends State<LobbyScreen> with AppWindowListener, RestorationMixin {
+  // The open-room form survives the OS killing the app in the background
+  // (Android process death, iOS state restoration). The join code is left
+  // out: six characters are quicker to retype than to trust stale.
+  final _name = RestorableTextEditingController();
+  TextEditingController get _nameController => _name.value;
   final _codeKey = GlobalKey<PTCodeInputState>();
-  int _durationMinutes = 150;
+  final _duration = RestorableInt(150);
+  int get _durationMinutes => _duration.value;
+  set _durationMinutes(int minutes) => _duration.value = minutes;
   String _code = '';
   bool _creating = false;
   bool _joining = false;
   int _codeShake = 0;
   // Phones always show one form: opening a room is the default, and the two buttons only switch.
-  _PhonePanel _phonePanel = _PhonePanel.open;
+  final _panel = RestorableEnum<_PhonePanel>(_PhonePanel.open, values: _PhonePanel.values);
+  _PhonePanel get _phonePanel => _panel.value;
+  set _phonePanel(_PhonePanel panel) => _panel.value = panel;
   String? _busyRoomId;
   bool _clearingEndedRooms = false;
   Timer? _myRoomsPollTimer;
@@ -153,6 +161,16 @@ class _LobbyScreenState extends State<LobbyScreen> with AppWindowListener {
   /// re-performance of the same arrival.
   static bool _introPlayed = false;
   late final bool _playIntro = !_introPlayed;
+
+  @override
+  String get restorationId => 'lobby';
+
+  @override
+  void restoreState(RestorationBucket? oldBucket, bool initialRestore) {
+    registerForRestoration(_name, 'name');
+    registerForRestoration(_duration, 'duration');
+    registerForRestoration(_panel, 'phone_panel');
+  }
 
   @override
   void initState() {
@@ -238,7 +256,9 @@ class _LobbyScreenState extends State<LobbyScreen> with AppWindowListener {
     _myRoomsPollTimer?.cancel();
     RoomService.instance.removeListener(_onRoomServiceChanged);
     ProfileService.instance.removeListener(_onProfileChanged);
-    _nameController.dispose();
+    _name.dispose();
+    _duration.dispose();
+    _panel.dispose();
     unawaited(_stagedVideo?.release());
     if (isDesktop) AppWindow.instance.removeListener(this);
     super.dispose();

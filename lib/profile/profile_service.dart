@@ -54,7 +54,13 @@ class ProfileService extends ChangeNotifier {
     }
   }
 
-  Future<Profile?> load() async {
+  Future<Profile?>? _loadInFlight;
+
+  /// Concurrent callers share one fetch: the startup warm-up behind the splash
+  /// and the lobby both ask for it during launch.
+  Future<Profile?> load() => _loadInFlight ??= _load().whenComplete(() => _loadInFlight = null);
+
+  Future<Profile?> _load() async {
     final uid = _client.auth.currentUser?.id;
     if (uid == null) {
       _teardownModeration();

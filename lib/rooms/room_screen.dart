@@ -35,6 +35,7 @@ import 'package:synctogether/diagnostics.dart';
 import 'package:synctogether/pairing/pair_logic.dart';
 import 'package:synctogether/pairing/pair_service.dart';
 import 'package:synctogether/platform.dart';
+import 'package:synctogether/ui/haptics.dart';
 import 'package:synctogether/player/local_video.dart';
 import 'package:synctogether/player/local_video_chooser.dart';
 import 'package:synctogether/player/media_file_types.dart';
@@ -159,7 +160,8 @@ String _orEmailSupport() {
   return email == null ? '' : ', or email $email';
 }
 
-class _RoomScreenState extends State<RoomScreen> with AppWindowListener, TickerProviderStateMixin {
+class _RoomScreenState extends State<RoomScreen>
+    with AppWindowListener, TickerProviderStateMixin, RestorationMixin {
   Player? _ownedPlayer;
   Player get _player => widget.player ?? _ownedPlayer!;
 
@@ -172,8 +174,28 @@ class _RoomScreenState extends State<RoomScreen> with AppWindowListener, TickerP
   /// *not* hoisted under a GlobalKey like the video: its composer owns an
   /// OverlayPortal (the emoji popover), and reparenting that subtree between
   /// layouts trips `_attachTarget == this` / `_elements.contains(element)`.
-  /// Remounting is cheap; losing a half-typed message is not.
-  final _chatDraft = TextEditingController();
+  /// Remounting is cheap; losing a half-typed message is not. Restorable, so
+  /// the draft also survives the OS killing the app in the background.
+  final _chatDraftText = RestorableTextEditingController();
+  TextEditingController get _chatDraft => _chatDraftText.value;
+
+  @override
+  String get restorationId => 'room';
+
+  @override
+  void restoreState(RestorationBucket? oldBucket, bool initialRestore) {
+    registerForRestoration(_chatDraftText, 'chat_draft');
+    registerForRestoration(_entered, 'entered');
+    if (initialRestore && _entered.value) _restoredIntoRoom = true;
+  }
+
+  /// Set once this room has been entered. Restorable, so a later launch can
+  /// tell "the OS killed the app while it was in this room" from a first
+  /// entry - and skip first-entry prompts such as `?dialog=media`.
+  final _entered = RestorableBool(false);
+
+  /// True when this screen came back through state restoration.
+  bool _restoredIntoRoom = false;
 
   /// Whether the phone roster strip is folded; owned here so it outlives the
   /// chat panel, which remounts when the layout class changes.
@@ -1106,14 +1128,32 @@ class _RoomScreenState extends State<RoomScreen> with AppWindowListener, TickerP
     // only a missing/expired room gets the "House lights up." treatment.
     Room? room;
     var loadFailed = false;
-    try {
-      room = await RoomService.instance.fetchRoom(widget.roomId);
-      await RoomService.instance.syncServerTime();
-    } catch (e, s) {
-      loadFailed = true;
-      // The user gets a deliberately vague "check your connection"; the log is
-      // the only place the actual cause (RLS, expiry, network) survives.
-      reportNonFatal(e, s, during: 'loading room ${widget.roomId}');
+    // A brief network blip gets two quick retries before the room gives up.
+    // It matters most on a restore after the OS killed the app: the radio
+    // is often still waking up, and bouncing to the lobby would throw away
+    // exactly the place restoration just brought the user back to.
+    for (var attempt = 1; ; attempt++) {
+      try {
+        room = await RoomService.instance.fetchRoom(widget.roomId);
+        await RoomService.instance.syncServerTime();
+        break;
+      } catch (e, s) {
+        if (attempt < 3 && isTransientNetworkError(e)) {
+          trace(
+            'room load retry',
+            category: 'room',
+            data: {'room_id': widget.roomId, 'attempt': attempt, 'restored': _restoredIntoRoom},
+          );
+          await Future<void>.delayed(Duration(seconds: attempt));
+          if (!mounted) return;
+          continue;
+        }
+        loadFailed = true;
+        // The user gets a deliberately vague "check your connection"; the log is
+        // the only place the actual cause (RLS, expiry, network) survives.
+        reportNonFatal(e, s, during: 'loading room ${widget.roomId}');
+        break;
+      }
     }
     if (!mounted) return;
     if (loadFailed) {
@@ -1143,16 +1183,32 @@ class _RoomScreenState extends State<RoomScreen> with AppWindowListener, TickerP
     }
     final selfMembership = _members.where((m) => m.userId == profile.id).firstOrNull;
     if (selfMembership == null) {
-      // RLS would have hidden the room if we weren't a member; defensive.
-      if (mounted) context.go('/lobby');
+      // RLS would have hidden the room if we weren't a member; defensive. Also
+      // the case of a restore after the user was removed while the app was
+      // gone, so say so rather than silently dropping them in the lobby.
+      trace(
+        'not a member on entry',
+        category: 'room',
+        data: {'room_id': widget.roomId, 'restored': _restoredIntoRoom},
+      );
+      if (mounted) {
+        _snack("You're not in this room anymore.");
+        context.go('/lobby');
+      }
       return;
     }
 
     trace(
       'entered room',
       category: 'room',
-      data: {'room_id': widget.roomId, 'role': selfMembership.role, 'members': _members.length},
+      data: {
+        'room_id': widget.roomId,
+        'role': selfMembership.role,
+        'members': _members.length,
+        'restored': _restoredIntoRoom,
+      },
     );
+    _entered.value = true;
 
     unawaited(_refreshMemberTiers());
 
@@ -1237,6 +1293,9 @@ class _RoomScreenState extends State<RoomScreen> with AppWindowListener, TickerP
       }),
       sync.gateStream.listen((state) {
         if (_ended || !mounted) return;
+        // The last person got ready and the film is starting for everyone:
+        // the one shared moment worth feeling (never the first state seen).
+        if (_gateState == GateState.closed && state == GateState.open) PTHaptics.moment();
         setState(() => _gateState = state);
         _syncGateReveal();
       }),
@@ -1347,6 +1406,7 @@ class _RoomScreenState extends State<RoomScreen> with AppWindowListener, TickerP
     );
 
     unawaited(_resumeFromCanonicalMedia());
+    unawaited(_resumeInterruptedUpload(room));
 
     final isHost = sync.isHost;
     final hasMedia =
@@ -1354,8 +1414,15 @@ class _RoomScreenState extends State<RoomScreen> with AppWindowListener, TickerP
 
     // `?dialog=media` is the screenshot hook, so it opens the chooser even
     // over the demo room's pre-set film.
-    final forceChooser = widget.initialDialogOpen == 'media';
-    if ((forceChooser || (isHost && !hasMedia)) && !_hasPromptedInitialSource) {
+    // Never on a restore: by then the host has usually picked a film, and the
+    // chooser popping over it would undo the point of coming back.
+    final forceChooser = widget.initialDialogOpen == 'media' && !_restoredIntoRoom;
+    // A restored host already saw (and usually closed) the first-source prompt
+    // before the OS killed the app; the room's own "Pick something" card is
+    // enough. Only the dialog is skipped: the idle timer below must still run,
+    // since it is what swaps "Setting up the room" for that card.
+    final promptHost = isHost && !hasMedia && !_restoredIntoRoom;
+    if ((forceChooser || promptHost) && !_hasPromptedInitialSource) {
       _hasPromptedInitialSource = true;
       // Host in an empty room: prompt immediately rather than making the user
       // stare at "Setting up the room…" for the 4.5s late-joiner sync window.
@@ -1375,7 +1442,7 @@ class _RoomScreenState extends State<RoomScreen> with AppWindowListener, TickerP
         // Members are never auto-prompted for a source - the readiness overlay
         // tells them the host is still choosing.
         if (!(_sync?.isHost ?? false)) return;
-        if (_hasPromptedInitialSource) return;
+        if (_hasPromptedInitialSource || _restoredIntoRoom) return;
         final hasMediaNow =
             _player.state.duration != Duration.zero || _youtubeUrl != null || _canonicalMedia.isSet;
         if (!hasMediaNow && !_isModeSelectionDialogOpen && !_isYouTubeUrlDialogOpen) {
@@ -1504,7 +1571,8 @@ class _RoomScreenState extends State<RoomScreen> with AppWindowListener, TickerP
   void dispose() {
     _unregisterFeedbackProbes?.call();
     _subtitleStyle?.dispose();
-    _chatDraft.dispose();
+    _chatDraftText.dispose();
+    _entered.dispose();
     _rosterFold.dispose();
     ModerationService.instance.removeListener(_onBlocksChanged);
     if (_immersive) unawaited(_applySystemUi(immersive: false));
@@ -2361,7 +2429,64 @@ class _RoomScreenState extends State<RoomScreen> with AppWindowListener, TickerP
     }
   }
 
-  Future<void> _startMediaSharingUpload(UploadSource source, String name) async {
+  /// A host's upload that the app was killed (or crashed) in the middle of:
+  /// the room still says "uploading" or "failed" and this device kept the
+  /// multipart session, so carry on from the last part that landed instead of
+  /// sending gigabytes again. Prefers the room's remembered reference (it keeps
+  /// the iOS bookmark) over the bare path the session stored.
+  Future<void> _resumeInterruptedUpload(Room room) async {
+    if (!(_sync?.isHost ?? false) || _isUploadingSharedMedia) return;
+    final state = room.mediaUploadState;
+    if (state != 'uploading' && state != 'failed') return;
+    final session = await LocalMediaStore.instance.loadUploadSession(widget.roomId);
+    if (session == null || !mounted) return;
+    final entry = await LocalMediaStore.instance.lookup(widget.roomId);
+    final VideoReference ref =
+        entry?.reference ??
+        (session.filePath.startsWith('content://')
+            ? ContentUriReference(session.filePath)
+            : PathReference(session.filePath));
+    final name = entry?.name ?? p.basename(session.filePath);
+    final r = await LocalVideoAccess.instance.reopen(ref, name: name, sizeBytes: session.fileSize);
+    final video = r.video;
+    if (!mounted || video == null || !r.isReady) {
+      unawaited(video?.release());
+      // The file moved or its access lapsed: the host picks it again from the
+      // room's failed-upload retry, which starts a fresh upload.
+      trace(
+        'interrupted upload cannot resume',
+        category: 'media',
+        data: {'room_id': widget.roomId, 'status': r.status.name},
+      );
+      return;
+    }
+    trace(
+      'resuming an interrupted upload',
+      category: 'media',
+      data: {
+        'room_id': widget.roomId,
+        'parts_done': session.completedParts.length,
+        'parts_total': session.totalParts,
+        'restored': _restoredIntoRoom,
+      },
+    );
+    _snack('Picking up your upload where it left off.', kind: .info);
+    try {
+      await _startMediaSharingUpload(video.uploadSource(), video.name, resume: true);
+    } finally {
+      unawaited(video.release());
+    }
+  }
+
+  /// [resume] picks up the multipart upload this room saved before the app
+  /// was killed: only the missing parts are sent. The quota checks are skipped
+  /// then, because part of the file may already count against this week's
+  /// allowance; the server still enforces every limit.
+  Future<void> _startMediaSharingUpload(
+    UploadSource source,
+    String name, {
+    bool resume = false,
+  }) async {
     // The same file twice (a re-pick with a remembered choice, a double Retry)
     // would only abort the upload already in flight.
     if (_isUploadingSharedMedia && _uploadingRef == source.reference) {
@@ -2379,7 +2504,7 @@ class _RoomScreenState extends State<RoomScreen> with AppWindowListener, TickerP
     }
     final limits = EntitlementService.instance.limitsOrFallback;
     final maxFileBytes = limits.mediaSharingMaxSizeBytes;
-    if (fileSize > maxFileBytes) {
+    if (!resume && fileSize > maxFileBytes) {
       final fileStr = Profile.formatBytes(fileSize);
       final maxStr = Profile.formatBytes(maxFileBytes);
       _snack('This video ($fileStr) exceeds the maximum single file limit ($maxStr).');
@@ -2398,7 +2523,7 @@ class _RoomScreenState extends State<RoomScreen> with AppWindowListener, TickerP
     }
 
     final profile = ProfileService.instance.profile;
-    if (limits.hasWeeklyQuota && profile != null) {
+    if (!resume && limits.hasWeeklyQuota && profile != null) {
       final weeklyLimit = limits.mediaSharingWeeklyBytes;
       final remaining = profile.remainingWeeklyBytes(weeklyLimit);
       if (remaining >= 0 && fileSize > remaining) {
@@ -2438,7 +2563,7 @@ class _RoomScreenState extends State<RoomScreen> with AppWindowListener, TickerP
     setState(() {});
 
     try {
-      await _mediaSharingService.uploadFile(
+      await (resume ? _mediaSharingService.resumeUpload : _mediaSharingService.uploadFile)(
         roomId: widget.roomId,
         source: source,
         onProgress: (p) {
@@ -2471,6 +2596,10 @@ class _RoomScreenState extends State<RoomScreen> with AppWindowListener, TickerP
       }
       reportNonFatal(e, s, during: 'uploading shared media for room ${widget.roomId}');
       DiscoveryTriggers.instance.notify(NudgeReason.uploadFailed);
+      // A resume that fails (the multipart was aborted when the session ended,
+      // or the parts expired) must not be retried forever: the next attempt
+      // starts a fresh upload.
+      if (resume) unawaited(LocalMediaStore.instance.clearUploadSession(widget.roomId));
       if (!mounted) return;
       _isUploadingSharedMedia = false;
       _uploadState = 'failed';
@@ -3777,6 +3906,7 @@ class _RoomScreenState extends State<RoomScreen> with AppWindowListener, TickerP
 
   void _playPause() {
     if (_blockTransport()) return;
+    PTHaptics.tap();
     _showControls();
     if (_sync?.userId case final selfId?) {
       _tally(selfId, ProfileService.instance.profile?.displayName ?? 'You').transportActions++;
@@ -4124,6 +4254,7 @@ class _RoomScreenState extends State<RoomScreen> with AppWindowListener, TickerP
   }
 
   void _sendReaction(PTReaction reaction) {
+    PTHaptics.selection();
     _sync?.sendReaction(reaction.emoji);
     _reactionsSent++;
   }
@@ -4619,6 +4750,7 @@ class _RoomScreenState extends State<RoomScreen> with AppWindowListener, TickerP
     final room = _room;
     if (room == null) return;
     Clipboard.setData(ClipboardData(text: room.code));
+    PTHaptics.tap();
     _snack('Room code copied.', kind: .success);
   }
 
@@ -4626,6 +4758,7 @@ class _RoomScreenState extends State<RoomScreen> with AppWindowListener, TickerP
     final room = _room;
     if (room == null) return;
     Clipboard.setData(ClipboardData(text: room.inviteLink));
+    PTHaptics.tap();
     Analytics.instance.track('invite_copied', {'room_id': widget.roomId});
     _snack('Invite link copied. Send it to your people.', kind: .success);
   }

@@ -129,7 +129,13 @@ class PairService extends ChangeNotifier {
 
   /// Loads the pair and, when paired, the shared lists. Safe to call often: it
   /// is what a realtime nudge, a resume and a sign-in all run.
-  Future<void> load() async {
+  Future<void>? _loadInFlight;
+
+  /// Concurrent callers share one fetch: the startup warm-up behind the splash
+  /// and the lobby both ask for it during launch.
+  Future<void> load() => _loadInFlight ??= _load().whenComplete(() => _loadInFlight = null);
+
+  Future<void> _load() async {
     final client = _clientOrNull;
     if (client == null) return;
     if (!isSignedInAccount) {

@@ -251,7 +251,7 @@ Microsoft Store listing in Partner Center for Windows.
 
    Mobile is a first-class store: iOS is handled exactly like the Mac.
    - **Build numbers are the commit count (`git rev-list --count HEAD`), the
-     same on the Mac, iOS and Play**, so App Store Connect shows `1.18.0 (493)`
+     same on the Mac, iOS and Play**, so App Store Connect shows `1.18.0 (496)`
      on both Apple platforms, never `1.18.0 (1.18.0)`. Each workflow works it
      out itself after a full-history checkout, so a leg re-dispatched alone
      still matches the others, and the number only ever goes up. pubspec stays a
@@ -361,8 +361,8 @@ Microsoft Store listing in Partner Center for Windows.
    - Release targeted **all three stores** and **all pass** -> close the bugs:
 
      ```bash
-     node scripts/bugs.ts close-from-commits --version X.Y.Z            # the plan: read it
-     node scripts/bugs.ts close-from-commits --version X.Y.Z --confirm  # apply
+     node scripts/bugs.ts close-from-commits --version=X.Y.Z            # the plan: read it
+     node scripts/bugs.ts close-from-commits --version=X.Y.Z --confirm  # apply
      ```
 
      It marks every ticket named by a `Fixes-Bug: BUG-XXXX` trailer in the

@@ -46,14 +46,21 @@ jobs:
     timeout-minutes: 60
     outputs:
       app_version: ${{ steps.version.outputs.APP_VERSION }}
-    env:
-      # Build number is not in pubspec (it carries a bare version), and App Store
-      # Connect refuses a second upload with the same CFBundleVersion for one
-      # version - the run number is monotonic per workflow, which is all it needs.
-      BUILD_NUMBER: ${{ github.run_number }}
     steps:
       - name: Checkout Repo
         uses: actions/checkout@v6
+        with:
+          # Full history (no blobs) so the build number below can count commits.
+          fetch-depth: 0
+          filter: blob:none
+
+      - name: Build number
+        # One build number per commit: `git rev-list --count HEAD`. Every Apple and
+        # Play leg built from the same commit gets the same number, whether it ran
+        # from the publish_stores.yaml fan-out or was re-dispatched alone (a called
+        # workflow inherits the caller's run_number, so run_number could not do
+        # that), and it only ever rises. pubspec keeps a bare X.Y.Z.
+        run: echo "BUILD_NUMBER=$(git rev-list --count HEAD)" >> "$GITHUB_ENV"
 
       - name: Get Flutter
         uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
@@ -207,11 +214,21 @@ jobs:
         run: |
           set -euo pipefail
           echo "UPLOAD_STARTED_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_ENV"
-          xcrun altool --upload-app \
+          # The build number is the commit's, so a re-run of the same commit is
+          # refused as a duplicate. That build is the one we want: reuse it and let
+          # the submit step pick it up (UPLOAD_STARTED_AT back to epoch).
+          if ! xcrun altool --upload-app \
             --type ios \
             --file "SyncTogether-${{ steps.version.outputs.APP_VERSION }}-${BUILD_NUMBER}-iOS.ipa" \
             --apiKey "${{ secrets.APP_STORE_CONNECT_KEY_ID }}" \
-            --apiIssuer "${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}"
+            --apiIssuer "${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}" 2>&1 | tee /tmp/altool.log; then
+            if grep -q "ENTITY_ERROR.ATTRIBUTE.INVALID.DUPLICATE" /tmp/altool.log; then
+              echo "::warning::Build ${BUILD_NUMBER} is already in App Store Connect; reusing it."
+              echo "UPLOAD_STARTED_AT=1970-01-01T00:00:00Z" >> "$GITHUB_ENV"
+            else
+              exit 1
+            fi
+          fi
           echo "Uploaded build ${{ steps.version.outputs.APP_VERSION }} (${BUILD_NUMBER}); it appears in TestFlight once processing finishes."
 
       - name: Attach build and submit for App Review

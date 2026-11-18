@@ -49,13 +49,21 @@ jobs:
       id-token: write
     outputs:
       app_version: ${{ steps.version.outputs.APP_VERSION }}
-    env:
-      # Play refuses a versionCode it has already seen, and pubspec carries a bare
-      # version, so the run number (monotonic per workflow) is the build number.
-      BUILD_NUMBER: ${{ github.run_number }}
     steps:
       - name: Checkout Repo
         uses: actions/checkout@v6
+        with:
+          # Full history (no blobs) so the build number below can count commits.
+          fetch-depth: 0
+          filter: blob:none
+
+      - name: Build number
+        # One build number per commit: `git rev-list --count HEAD`. Every Apple and
+        # Play leg built from the same commit gets the same number, whether it ran
+        # from the publish_stores.yaml fan-out or was re-dispatched alone (a called
+        # workflow inherits the caller's run_number, so run_number could not do
+        # that), and it only ever rises. pubspec keeps a bare X.Y.Z.
+        run: echo "BUILD_NUMBER=$(git rev-list --count HEAD)" >> "$GITHUB_ENV"
 
       - name: Set up Java
         uses: actions/setup-java@v4

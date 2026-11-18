@@ -49,6 +49,18 @@ jobs:
     steps:
       - name: Checkout Repo
         uses: actions/checkout@v6
+        with:
+          # Full history (no blobs) so the build number below can count commits.
+          fetch-depth: 0
+          filter: blob:none
+
+      - name: Build number
+        # One build number per commit: `git rev-list --count HEAD`. Every Apple and
+        # Play leg built from the same commit gets the same number, whether it ran
+        # from the publish_stores.yaml fan-out or was re-dispatched alone (a called
+        # workflow inherits the caller's run_number, so run_number could not do
+        # that), and it only ever rises. pubspec keeps a bare X.Y.Z.
+        run: echo "BUILD_NUMBER=$(git rev-list --count HEAD)" >> "$GITHUB_ENV"
 
       - name: Get Flutter
         uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
@@ -169,6 +181,7 @@ jobs:
           echo "CODE_SIGNING_REQUIRED = NO" >> macos/Runner/Configs/AppInfo.xcconfig
           flutter config --enable-macos-desktop
           flutter build macos --release \
+            --build-number="$BUILD_NUMBER" \
             --dart-define=STORE_BUILD=true \
             --dart-define=SUPABASE_URL="$SUPABASE_URL" \
             --dart-define=SUPABASE_PUBLISHABLE_KEY="$SUPABASE_PUBLISHABLE_KEY" \
@@ -260,7 +273,7 @@ jobs:
             echo "ASC_API_KEY_AVAILABLE=true" >> "$GITHUB_ENV"
 
             echo "==> Uploading $PKG_NAME to App Store Connect..."
-            # CFBundleVersion is the bare pubspec version, so a re-run for a version
+            # CFBundleVersion is the commit's build number, so a re-run of the same commit
             # that already uploaded is refused as a duplicate. That build is the one
             # we want: carry on to the submit step and let it pick up the existing
             # build (UPLOAD_STARTED_AT back to epoch so `--since` does not hide it).

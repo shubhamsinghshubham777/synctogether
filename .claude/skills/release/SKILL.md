@@ -249,10 +249,16 @@ Microsoft Store listing in Partner Center for Windows.
    gh workflow run publish_ios_app_store.yaml --ref main
    ```
 
-   Mobile is a first-class store: iOS is handled exactly like the Mac. Two things differ from the desktop stores:
-   - **Build numbers come from `github.run_number`**, not pubspec (which stays a
-     bare `X.Y.Z`). Never add a `+build` suffix to get a new iOS build; re-run
-     the workflow instead.
+   Mobile is a first-class store: iOS is handled exactly like the Mac.
+   - **Build numbers are the commit count (`git rev-list --count HEAD`), the
+     same on the Mac, iOS and Play**, so App Store Connect shows `1.18.0 (493)`
+     on both Apple platforms, never `1.18.0 (1.18.0)`. Each workflow works it
+     out itself after a full-history checkout, so a leg re-dispatched alone
+     still matches the others, and the number only ever goes up. pubspec stays a
+     bare `X.Y.Z`: never add a `+build` suffix. Re-running the *same* commit gives
+     the same number, and the Mac and iOS uploads then reuse the build already in
+     App Store Connect; a genuinely new build needs a new commit. The Microsoft
+     Store cannot carry one: it requires MSIX versions of the form `X.Y.Z.0`.
    - **The iOS App Store version must match pubspec.** App Store Connect keeps a
      separate version record per platform. If the iOS one is still on the
      previous number, create or rename it
